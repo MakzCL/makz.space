@@ -14,11 +14,28 @@
     }
 
     *{box-sizing:border-box;margin:0;padding:0}
+    html{
+      min-height:100%;
+      background:#03050b;
+      color-scheme:dark;
+    }
+
     body{
       min-height:100vh;
       color:var(--text);
       font-family:Inter, ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
       overflow-x:hidden;
+      background:#03050b url("https://i.ibb.co/Z6DsR6gs/hq-makz-space.jpg") center center / cover fixed no-repeat;
+      isolation:isolate;
+    }
+
+    body::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(180deg, rgba(3,5,11,.08), rgba(3,5,11,.20) 56%, rgba(3,5,11,.34) 100%);
     }
 
     a{color:inherit;text-decoration:none}
@@ -44,6 +61,32 @@
       padding:10px;
       border-radius:999px;
       justify-self:center;
+    }
+
+    .icon-nav a{
+      width:48px;
+      height:48px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      opacity:.76;
+    }
+
+    .icon-nav a:hover,
+    .icon-nav a.active{
+      opacity:1;
+      background:rgba(255,255,255,.12);
+    }
+
+    .icon-nav svg{
+      width:21px;
+      height:21px;
+      fill:none;
+      stroke:#fff;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      display:block;
     }
 
     main{
@@ -202,8 +245,8 @@
       .join-btn{width:100%}
     }
   </style>
-  <link rel="stylesheet" href="site-polish.css">
-  <script src="site-polish.js" defer></script>
+  <link rel="stylesheet" href="site-polish.css?v=20260704-2">
+  <script src="site-polish.js?v=20260704-2" defer></script>
 </head>
 
 <body>
