@@ -1101,12 +1101,54 @@ body::after{
   }
 }
 
+/* Homepage mobile header lock: keep the menu stable like the other pages */
+@media (max-width:760px){
+  body.home-page header,
+  body.home-page.site-header-hidden header{
+    position:fixed !important;
+    top:calc(12px + var(--safe-top)) !important;
+    left:14px !important;
+    right:14px !important;
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    gap:10px !important;
+    padding:0 !important;
+    transform:none !important;
+    opacity:1 !important;
+  }
+
+  body.home-page header .brand.logo-link{
+    width:210px !important;
+    max-width:72vw !important;
+    transform:none !important;
+  }
+
+  body.home-page header .dock{
+    width:max-content !important;
+    max-width:100% !important;
+    gap:4px !important;
+    padding:7px !important;
+    min-height:52px !important;
+    overflow-x:auto !important;
+    scrollbar-width:none !important;
+    transform:none !important;
+  }
+
+  body.home-page header .dock a{
+    width:38px !important;
+    height:38px !important;
+    flex:0 0 auto !important;
+  }
+}
+
 </style>
-<link rel="stylesheet" href="site-polish.css?v=20260704-2">
-<script src="site-polish.js?v=20260704-2" defer></script>
+<link rel="stylesheet" href="site-polish.css?v=20260704-4">
+<script src="site-polish.js?v=20260704-4" defer></script>
 </head>
 
-<body>
+<body class="home-page">
   <div class="noise" aria-hidden="true"></div>
   
 
