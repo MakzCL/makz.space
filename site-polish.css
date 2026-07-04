@@ -78,6 +78,16 @@ header{
   will-change:transform, opacity;
 }
 
+header::before,
+header::after{
+  content:none !important;
+  display:none !important;
+  background:none !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+
 body.site-header-hidden header{
   transform:translateY(calc(-130% - 28px)) !important;
   opacity:0 !important;
@@ -352,6 +362,24 @@ body.site-has-header main{
   footer nav{
     justify-content:center !important;
     gap:18px !important;
+  }
+
+  body.home-page header,
+  body.home-page.site-header-hidden header{
+    transform:none !important;
+    opacity:1 !important;
+  }
+
+  body.home-page header > a,
+  body.home-page header .brand.logo-link{
+    transform:none !important;
+  }
+
+  body.home-page header .icon-nav,
+  body.home-page header .dock{
+    max-width:100% !important;
+    width:max-content !important;
+    transform:none !important;
   }
 }
 
