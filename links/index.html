@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>makz.space - Links</title>
+  <link rel="icon" type="image/png" href="../makz.space.favicon.png">
+
+  <style>
+    :root{
+      --text:#fff;
+      --muted:rgba(255,255,255,.58);
+      --spring:cubic-bezier(.22,1,.36,1);
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+
+    body{
+      min-height:100vh;
+      color:var(--text);
+      font-family:Inter, ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      overflow-x:hidden;
+    }
+
+    a{color:inherit;text-decoration:none}
+
+    main{
+      width:min(1120px, calc(100% - 96px));
+      min-height:100vh;
+      margin:0 auto;
+      padding:154px 0 96px;
+      display:grid;
+      align-items:center;
+    }
+
+    .links-shell{
+      display:grid;
+      grid-template-columns:minmax(0,.95fr) minmax(340px,.72fr);
+      gap:44px;
+      align-items:center;
+    }
+
+    .kicker{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      margin-bottom:18px;
+      color:rgba(255,255,255,.66);
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .kicker::before{
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 0 15px rgba(255,255,255,.8);
+    }
+
+    h1{
+      max-width:760px;
+      font-size:clamp(68px,9vw,128px);
+      line-height:.88;
+      letter-spacing:-.07em;
+      filter:drop-shadow(0 22px 50px rgba(0,0,0,.42));
+    }
+
+    .intro{
+      max-width:620px;
+      margin-top:28px;
+      color:var(--muted);
+      line-height:1.72;
+      font-size:clamp(17px,1.5vw,20px);
+    }
+
+    .social-panel{
+      border-radius:34px;
+      padding:24px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .social-link{
+      min-height:72px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+      display:grid;
+      grid-template-columns:48px minmax(0,1fr) 28px;
+      align-items:center;
+      gap:16px;
+      padding:0 18px;
+      transition:transform .55s var(--spring), background .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .social-link:hover{
+      transform:translateY(-3px);
+      border-color:rgba(255,255,255,.24);
+      background:rgba(255,255,255,.13);
+      box-shadow:0 28px 70px rgba(0,0,0,.42), 0 0 42px rgba(255,255,255,.12);
+    }
+
+    .social-icon{
+      width:48px;
+      height:48px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      color:#03050b;
+      box-shadow:0 0 32px rgba(255,255,255,.14);
+    }
+
+    .social-icon svg{
+      width:23px;
+      height:23px;
+      fill:currentColor;
+    }
+
+    .social-copy{
+      min-width:0;
+    }
+
+    .social-copy strong{
+      display:block;
+      font-size:18px;
+      letter-spacing:-.015em;
+      margin-bottom:4px;
+    }
+
+    .social-copy span{
+      display:block;
+      color:var(--muted);
+      font-size:13px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .arrow{
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      color:rgba(255,255,255,.78);
+    }
+
+    .arrow svg{
+      width:20px;
+      height:20px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    .liquid{
+      border:1px solid rgba(255,255,255,.13);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.16), rgba(255,255,255,.055) 44%, rgba(255,255,255,.035)),
+        rgba(8,10,18,.44);
+      backdrop-filter:blur(24px) saturate(170%);
+      -webkit-backdrop-filter:blur(24px) saturate(170%);
+      box-shadow:
+        0 22px 70px rgba(0,0,0,.38),
+        inset 0 1px 0 rgba(255,255,255,.35),
+        inset 0 -1px 0 rgba(255,255,255,.08);
+    }
+
+    @media (max-width:900px){
+      main{width:calc(100% - 40px)}
+      .links-shell{grid-template-columns:1fr}
+    }
+
+    @media (max-width:760px){
+      main{width:calc(100% - 24px);padding-top:168px;padding-bottom:52px}
+      h1{font-size:62px;line-height:.94;letter-spacing:0}
+      .intro{font-size:15px;line-height:1.62}
+      .social-panel{border-radius:26px;padding:16px}
+      .social-link{
+        min-height:66px;
+        grid-template-columns:42px minmax(0,1fr) 24px;
+        gap:13px;
+        padding:0 14px;
+        border-radius:18px;
+      }
+      .social-icon{width:42px;height:42px}
+      .social-copy strong{font-size:16px}
+    }
+
+    @media (max-width:420px){
+      h1{font-size:48px}
+      .kicker{font-size:11px}
+    }
+  </style>
+  <link rel="stylesheet" href="../site-polish.css">
+  <script src="../site-polish.js" defer></script>
+</head>
+
+<body>
+  <header>
+    <a href="../index.html" aria-label="makz.space home">
+      <img src="https://i.ibb.co/spcZ7Pfw/makz-space-logo.png" class="logo" alt="makz.space logo">
+    </a>
+
+    <nav class="icon-nav liquid" aria-label="Main navigation">
+      <a href="../index.html" title="Home" aria-label="Home">
+        <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z"/></svg>
+      </a>
+      <a href="../projects/index.html" title="Projects" aria-label="Projects">
+        <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v4h-7V4zM4 13h4v7H4v-7zm6 3h10v4H10v-4z"/></svg>
+      </a>
+      <a href="../livestream.html" title="Livestream" aria-label="Livestream">
+        <svg viewBox="0 0 24 24"><path d="M3 5h18v12H3V5zm7 3v6l5-3-5-3z"/></svg>
+      </a>
+      <a href="../gaming/index.html" title="Gaming" aria-label="Gaming">
+        <svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 014 4v3a3 3 0 01-3 3h-2l-2-3H9l-2 3H5a3 3 0 01-3-3v-3a4 4 0 014-4zm1 3v2h2v2h2v-2h2v-2h-2V9H9v2H7zm8 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3-1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+      </a>
+      <a href="../support.html" title="Support" aria-label="Support">
+        <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 00-8 8v5a3 3 0 003 3h2v-6H6v-2a6 6 0 1112 0v2h-3v6h2a3 3 0 003-3v-5a8 8 0 00-8-8z"/></svg>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="links-shell" aria-label="Makz social links">
+      <div class="links-copy">
+        <div class="kicker">Official socials</div>
+        <h1>Find me online.</h1>
+        <p class="intro">Streams, clips, bike bits, updates, and whatever else makes it out of the workshop.</p>
+      </div>
+
+      <div class="social-panel liquid">
+        <a class="social-link" href="https://www.twitch.tv/motomakz" target="_blank" rel="noopener noreferrer">
+          <span class="social-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 2L2 7v13h5v2h2l2-2h3l6-6V2H4zm14 11l-3 3h-3l-2 2v-2H6V4h12v9zM10 7H8v4h2V7zm5 0h-2v4h2V7z"/></svg>
+          </span>
+          <span class="social-copy">
+            <strong>Twitch</strong>
+            <span>twitch.tv/motomakz</span>
+          </span>
+          <span class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          </span>
+        </a>
+
+        <a class="social-link" href="https://www.tiktok.com/@moto.makz" target="_blank" rel="noopener noreferrer">
+          <span class="social-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M16 3c.5 2.8 2.2 4.5 5 5v3a8.5 8.5 0 01-3-.6V16a5 5 0 11-5-5h.4v3a2 2 0 10 1.6 2V3h1z"/></svg>
+          </span>
+          <span class="social-copy">
+            <strong>TikTok</strong>
+            <span>tiktok.com/@moto.makz</span>
+          </span>
+          <span class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          </span>
+        </a>
+
+        <a class="social-link" href="https://www.instagram.com/moto.makz/" target="_blank" rel="noopener noreferrer">
+          <span class="social-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 015 5v10a5 5 0 01-5 5H7a5 5 0 01-5-5V7a5 5 0 015-5zm0 2a3 3 0 00-3 3v10a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H7zm5 3.5A4.5 4.5 0 1112 16.5 4.5 4.5 0 0112 7.5zm0 2A2.5 2.5 0 1012 14.5 2.5 2.5 0 0012 9.5zM18 6.4a1.1 1.1 0 11-1.1 1.1A1.1 1.1 0 0118 6.4z"/></svg>
+          </span>
+          <span class="social-copy">
+            <strong>Instagram</strong>
+            <span>instagram.com/moto.makz</span>
+          </span>
+          <span class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 makz.space</p>
+    <div>
+      <a href="https://www.twitch.tv/motomakz" target="_blank" rel="noopener noreferrer">TWITCH</a>
+      <a href="https://www.tiktok.com/@moto.makz" target="_blank" rel="noopener noreferrer">TIKTOK</a>
+      <a href="https://www.instagram.com/moto.makz/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+    </div>
+  </footer>
+</body>
+</html>

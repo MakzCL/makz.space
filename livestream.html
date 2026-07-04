@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>makz.space - Livestream</title>
+  <link rel="icon" type="image/png" href="makz.space.favicon.png" />
+
+  <style>
+    :root{
+      --bg:#03050b;
+      --text:#fff;
+      --muted:rgba(255,255,255,.58);
+      --muted-2:rgba(255,255,255,.38);
+      --line:rgba(255,255,255,.13);
+      --green:#16f25c;
+      --live:#ff4d63;
+      --spring:cubic-bezier(.22,1,.36,1);
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
+      --safe-right:env(safe-area-inset-right,0px);
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{background:var(--bg)}
+    body{
+      min-height:100vh;
+      color:var(--text);
+      font-family:Inter, ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      overflow-x:hidden;
+      background:transparent;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:-4%;
+      z-index:-3;
+      pointer-events:none;
+      background:url("https://i.ibb.co/Z6DsR6gs/hq-makz-space.jpg") center center / cover no-repeat;
+      filter:saturate(1.04) contrast(1.04) brightness(.96);
+      transform:scale(1.04) translate3d(calc(var(--parallax-x,0px) * -0.35), calc(var(--parallax-y,0px) * -0.35), 0);
+      transition:transform .22s linear;
+    }
+
+    body::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:-2;
+      pointer-events:none;
+      background:linear-gradient(180deg, rgba(3,5,11,.10), rgba(3,5,11,.24) 55%, rgba(3,5,11,.42) 100%);
+    }
+
+    a{color:inherit;text-decoration:none}
+    button,input{font:inherit;color:inherit}
+
+    .noise{
+      position:fixed;
+      inset:0;
+      z-index:-3;
+      pointer-events:none;
+      opacity:.18;
+      mix-blend-mode:soft-light;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
+    }
+
+    .liquid{
+      position:relative;
+      border:1px solid rgba(255,255,255,.13);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.16), rgba(255,255,255,.055) 44%, rgba(255,255,255,.035)),
+        rgba(8,10,18,.44);
+      backdrop-filter:blur(24px) saturate(170%);
+      -webkit-backdrop-filter:blur(24px) saturate(170%);
+      box-shadow:
+        0 22px 70px rgba(0,0,0,.38),
+        inset 0 1px 0 rgba(255,255,255,.35),
+        inset 0 -1px 0 rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .liquid::after{
+      content:"";
+      position:absolute;
+      inset:1px;
+      border-radius:inherit;
+      pointer-events:none;
+      border:1px solid rgba(255,255,255,.08);
+      mask-image:linear-gradient(135deg, black, transparent 52%);
+      -webkit-mask-image:linear-gradient(135deg, black, transparent 52%);
+    }
+
+    header{
+      position:fixed;
+      top:calc(28px + var(--safe-top));
+      left:calc(64px + var(--safe-left));
+      right:calc(64px + var(--safe-right));
+      z-index:50;
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      align-items:start;
+      pointer-events:none;
+    }
+
+    .logo-link{
+      pointer-events:auto;
+      width:min(260px,30vw);
+      line-height:0;
+      filter:drop-shadow(0 12px 30px rgba(0,0,0,.5));
+      transition:transform .55s var(--spring), filter .35s ease;
+    }
+
+    .logo-link:hover{transform:translateY(-2px) scale(1.025);filter:drop-shadow(0 0 22px rgba(255,255,255,.18))}
+    .logo{display:block;width:100%;height:auto}
+
+    .icon-nav{
+      pointer-events:auto;
+      display:flex;
+      gap:10px;
+      padding:10px;
+      border-radius:999px;
+      justify-self:center;
+    }
+
+    .icon-nav a{
+      width:48px;
+      height:48px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      opacity:.76;
+      transition:transform .55s var(--spring), opacity .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+
+    .icon-nav svg{width:21px;height:21px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .icon-nav a:hover,
+    .icon-nav a.active{
+      opacity:1;
+      background:rgba(255,255,255,.12);
+      box-shadow:0 0 34px rgba(255,255,255,.24), inset 0 1px 0 rgba(255,255,255,.28);
+    }
+
+    main{
+      width:min(1760px, calc(100% - 72px));
+      margin:0 auto;
+      padding:142px 0 92px;
+    }
+
+    .watch-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) clamp(330px,24vw,420px);
+      grid-template-areas:
+        "video chat"
+        "card chat"
+        "tabs .";
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .watch-column{
+      min-width:0;
+      display:contents;
+    }
+
+    .videoWrap{
+      grid-area:video;
+      position:relative;
+      width:100%;
+      aspect-ratio:16 / 9;
+      border-radius:26px;
+      background:#000;
+      border:1px solid rgba(255,255,255,.12);
+      overflow:hidden;
+      box-shadow:0 28px 90px rgba(0,0,0,.55);
+    }
+
+    .stageFrame,
+    video{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      background:#000;
+    }
+
+    video{object-fit:cover}
+
+    .videoShade{
+      position:absolute;
+      inset:auto 0 0;
+      height:34%;
+      z-index:4;
+      pointer-events:none;
+      background:linear-gradient(180deg, transparent, rgba(0,0,0,.74));
+      opacity:0;
+      transition:opacity .22s ease;
+    }
+
+    .videoWrap:hover .videoShade,
+    .videoWrap:focus-within .videoShade,
+    body.cinema .videoShade{opacity:1}
+
+    .viewerBadge{
+      position:absolute;
+      top:14px;
+      left:14px;
+      z-index:7;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      color:#fff;
+      font-size:12px;
+      font-weight:850;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      background:rgba(0,0,0,.54);
+      border:1px solid rgba(255,255,255,.16);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+
+    .viewerDot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.35);
+    }
+
+    body.live .viewerDot{
+      background:var(--live);
+      box-shadow:0 0 14px rgba(255,77,99,.78);
+    }
+
+    .controlsOverlay{
+      position:absolute;
+      z-index:8;
+      bottom:14px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      opacity:0;
+      transform:translateY(8px);
+      pointer-events:none;
+      transition:opacity .22s ease, transform .22s ease;
+    }
+
+    .controlsLeft{left:14px}
+    .controlsRight{right:14px}
+
+    .videoWrap:hover .controlsOverlay,
+    .videoWrap:focus-within .controlsOverlay,
+    body.chat-hidden .controlsOverlay,
+    body.cinema .controlsOverlay{
+      opacity:1;
+      transform:translateY(0);
+      pointer-events:auto;
+    }
+
+    .iconBtn{
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.10);
+      backdrop-filter:blur(18px) saturate(160%);
+      -webkit-backdrop-filter:blur(18px) saturate(160%);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      padding:0;
+      transition:transform .45s var(--spring), background .2s ease, box-shadow .2s ease;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .iconBtn:hover,
+    .iconBtn[aria-pressed="true"]{
+      background:rgba(255,255,255,.18);
+      box-shadow:0 0 34px rgba(255,255,255,.20), inset 0 1px 0 rgba(255,255,255,.28);
+      transform:translateY(-2px);
+    }
+
+    .iconBtn svg{
+      width:21px;
+      height:21px;
+      fill:#fff;
+      pointer-events:none;
+    }
+
+    #chatCloseBtn svg{
+      fill:none;
+      stroke:#fff;
+      stroke-width:2.2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    .volWrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .volSlider{
+      width:132px;
+      height:44px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.10);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+      display:flex;
+      align-items:center;
+      padding:0 13px;
+    }
+
+    input[type="range"]{
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      height:4px;
+      border-radius:999px;
+      outline:none;
+      background:rgba(255,255,255,.25);
+    }
+
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      appearance:none;
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      border:0;
+      background:#fff;
+      box-shadow:0 0 12px rgba(255,255,255,.32);
+      cursor:pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb{
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      border:0;
+      background:#fff;
+      box-shadow:0 0 12px rgba(255,255,255,.32);
+      cursor:pointer;
+    }
+
+    .channel-card{
+      grid-area:card;
+      border-radius:30px;
+      padding:22px;
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      gap:18px;
+      align-items:center;
+    }
+
+    .avatar{
+      width:62px;
+      height:62px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      color:#03050b;
+      font-size:24px;
+      font-weight:950;
+      letter-spacing:-.06em;
+      background:#fff;
+      box-shadow:0 0 32px rgba(255,255,255,.18);
+    }
+
+    .channel-copy{min-width:0}
+    .channel-copy h1{
+      font-size:clamp(20px,2.1vw,32px);
+      line-height:1.08;
+      letter-spacing:-.025em;
+      margin-bottom:8px;
+      max-width:920px;
+      text-wrap:balance;
+    }
+
+    .channel-meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.4;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      min-height:26px;
+      padding:0 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.10);
+      color:rgba(255,255,255,.76);
+      font-size:12px;
+      font-weight:760;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      transition:background .2s ease, color .2s ease, border-color .2s ease, transform .35s var(--spring);
+    }
+
+    .tag:hover{
+      background:#fff;
+      border-color:#fff;
+      color:#03050b;
+      transform:translateY(-1px);
+    }
+
+    .channel-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .actionBtn{
+      min-height:44px;
+      padding:0 17px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.105);
+      backdrop-filter:blur(20px) saturate(170%);
+      -webkit-backdrop-filter:blur(20px) saturate(170%);
+      box-shadow:0 18px 48px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.28);
+      color:#fff;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      font-size:13px;
+      font-weight:820;
+      cursor:pointer;
+      transition:transform .55s var(--spring), background .25s ease, box-shadow .25s ease;
+    }
+
+    .actionBtn:hover{
+      background:rgba(255,255,255,.18);
+      transform:translateY(-2px);
+      box-shadow:0 28px 70px rgba(0,0,0,.42), 0 0 42px rgba(255,255,255,.16), inset 0 1px 0 rgba(255,255,255,.38);
+    }
+
+    .actionBtn svg{
+      width:18px;
+      height:18px;
+      fill:none;
+      stroke:#fff;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    .actionBtn.primary{
+      background:#fff;
+      color:#03050b;
+      border-color:#fff;
+    }
+
+    .actionBtn.primary svg{stroke:#03050b}
+
+    .stream-tabs{
+      grid-area:tabs;
+      display:flex;
+      gap:10px;
+      overflow-x:auto;
+      scrollbar-width:none;
+      padding:0 2px;
+    }
+
+    .stream-tabs::-webkit-scrollbar{display:none}
+
+    .tab{
+      min-height:42px;
+      padding:0 16px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(255,255,255,.07);
+      display:inline-flex;
+      align-items:center;
+      color:rgba(255,255,255,.72);
+      font-size:13px;
+      font-weight:780;
+      white-space:nowrap;
+      transition:background .2s ease, color .2s ease, border-color .2s ease, transform .35s var(--spring);
+    }
+
+    .tab:hover{
+      color:#fff;
+      background:rgba(255,255,255,.13);
+      transform:translateY(-1px);
+    }
+
+    .tab.active{
+      color:#03050b;
+      background:#fff;
+      border-color:#fff;
+    }
+
+    .chatWrap{
+      grid-area:chat;
+      position:relative;
+      top:auto;
+      height:auto;
+      min-height:0;
+      border-radius:30px;
+      display:flex;
+      flex-direction:column;
+      align-self:stretch;
+    }
+
+    .chatHeader{
+      flex:0 0 auto;
+      min-height:64px;
+      padding:0 16px 0 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+
+    .chatHeaderActions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .chatStatusIcon{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.09);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+    }
+
+    .chatStatusIcon svg{
+      width:18px;
+      height:18px;
+      fill:none;
+      stroke:#fff;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:.86;
+    }
+
+    .chatHeader strong{
+      font-size:14px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+
+    .chatHeader small{
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .chatFrame{
+      flex:1 1 auto;
+      width:100%;
+      min-height:0;
+      border:0;
+      display:block;
+      background:#05070d;
+    }
+
+    body.chat-hidden .watch-layout{
+      grid-template-columns:minmax(0,1fr);
+    }
+
+    body.chat-hidden .chatWrap{display:none}
+
+    body.cinema{
+      overflow:hidden;
+      background:#000;
+    }
+
+    body.cinema header,
+    body.cinema footer,
+    body.cinema .channel-card,
+    body.cinema .stream-tabs{
+      display:none !important;
+    }
+
+    body.cinema main,
+    body.site-has-header.cinema main{
+      position:fixed !important;
+      inset:0 !important;
+      z-index:90 !important;
+      width:100vw !important;
+      max-width:none !important;
+      height:100dvh !important;
+      min-height:100dvh !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
+    }
+
+    body.cinema .watch-layout{
+      grid-template-areas:none !important;
+      height:100dvh !important;
+      grid-template-columns:minmax(0,1fr) clamp(320px,24vw,420px) !important;
+      gap:0 !important;
+      align-items:stretch !important;
+      overflow:hidden !important;
+    }
+
+    body.cinema.chat-hidden .watch-layout{
+      grid-template-columns:minmax(0,1fr) !important;
+    }
+
+    body.cinema .watch-column{
+      grid-area:auto !important;
+      height:100% !important;
+      min-height:0 !important;
+      min-width:0 !important;
+      display:grid !important;
+      grid-template-rows:minmax(0,1fr) !important;
+      gap:0 !important;
+      overflow:hidden !important;
+    }
+
+    body.cinema .videoWrap{
+      height:100% !important;
+      min-height:0 !important;
+      min-width:0 !important;
+      width:100% !important;
+      aspect-ratio:auto !important;
+      border:0 !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      display:block !important;
+    }
+
+    body.cinema .stageFrame{
+      position:absolute !important;
+      inset:0 !important;
+      width:100% !important;
+      height:100% !important;
+      margin:0 !important;
+    }
+
+    body.cinema .stageFrame video{
+      position:absolute !important;
+      inset:0 !important;
+      object-fit:contain !important;
+    }
+
+    body.cinema .viewerBadge{
+      top:18px;
+      left:18px;
+    }
+
+    body.cinema .controlsOverlay{
+      bottom:20px;
+    }
+
+    body.cinema .controlsLeft{left:20px}
+    body.cinema .controlsRight{right:20px}
+
+    .videoWrap:fullscreen{
+      width:100vw;
+      height:100vh;
+      aspect-ratio:auto;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+    }
+
+    .videoWrap:fullscreen .stageFrame{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+    }
+
+    .videoWrap:fullscreen video{
+      object-fit:contain;
+    }
+
+    .videoWrap:fullscreen .controlsOverlay{
+      opacity:1;
+      transform:translateY(0);
+      pointer-events:auto;
+    }
+
+    body.cinema .chatWrap{
+      grid-area:auto !important;
+      position:relative !important;
+      top:auto !important;
+      height:100% !important;
+      min-height:0 !important;
+      min-width:0 !important;
+      border-radius:0 !important;
+      border-left:1px solid rgba(255,255,255,.12) !important;
+    }
+
+    footer{
+      position:fixed;
+      left:calc(22px + var(--safe-left));
+      bottom:calc(16px + var(--safe-bottom));
+      z-index:40;
+      color:rgba(255,255,255,.38);
+      font-size:12px;
+      pointer-events:none;
+    }
+
+    @media (max-width:1180px){
+      header{left:24px;right:24px;grid-template-columns:1fr auto}
+      main{width:min(100% - 36px,1000px);padding-top:130px}
+      .watch-layout{
+        grid-template-columns:1fr;
+        grid-template-areas:none;
+      }
+      .watch-column{
+        grid-area:auto;
+        display:flex;
+        flex-direction:column;
+        gap:18px;
+      }
+      .videoWrap,
+      .channel-card,
+      .stream-tabs,
+      .chatWrap{
+        grid-area:auto;
+      }
+      .chatWrap{position:relative;top:auto;height:520px;min-height:0;align-self:stretch}
+      body.cinema .watch-layout{
+        grid-template-areas:none !important;
+        grid-template-columns:1fr !important;
+        grid-template-rows:minmax(0,1fr) minmax(220px,36dvh) !important;
+        height:100dvh !important;
+      }
+
+      body.cinema.chat-hidden .watch-layout{
+        grid-template-rows:minmax(0,1fr) !important;
+      }
+    }
+
+    @media (max-width:760px){
+      header{top:14px;left:14px;right:14px;display:flex;align-items:flex-start;justify-content:space-between}
+      .logo-link{width:210px;max-width:72vw}
+      .icon-nav{gap:4px;padding:7px;max-width:calc(100vw - 28px);overflow-x:auto}
+      .icon-nav a{width:38px;height:38px;flex:0 0 auto}
+      .icon-nav svg{width:18px;height:18px}
+      main{width:calc(100% - 28px);padding-top:118px;padding-bottom:46px}
+      .videoWrap{border-radius:20px}
+      .channel-card{grid-template-columns:1fr;border-radius:24px}
+      .avatar{display:none}
+      .channel-actions{justify-content:flex-start}
+      .chatWrap{height:min(58dvh,520px);min-height:360px;border-radius:24px}
+      .controlsOverlay{opacity:1;transform:none;pointer-events:auto}
+      body.cinema main,
+      body.site-has-header.cinema main{width:100vw !important;height:100dvh !important;padding:0 !important}
+      body.cinema .watch-layout{
+        grid-template-rows:minmax(0,42dvh) minmax(0,1fr) !important;
+      }
+      body.cinema.chat-hidden .watch-layout{
+        grid-template-rows:minmax(0,1fr) !important;
+      }
+      body.cinema .chatWrap{
+        height:100% !important;
+        min-height:0 !important;
+        border-radius:0 !important;
+      }
+      body.cinema .viewerBadge{
+        top:10px;
+        left:10px;
+        min-height:30px;
+        padding:0 10px;
+        font-size:11px;
+      }
+      body.cinema .controlsOverlay{bottom:10px}
+      body.cinema .controlsLeft{left:10px}
+      body.cinema .controlsRight{right:10px}
+      .volSlider{display:none}
+      footer{position:relative;left:auto;bottom:auto;text-align:center;margin:10px auto 20px}
+    }
+
+    @media (max-width:420px){
+      .actionBtn{width:100%;justify-content:center}
+      .channel-actions{width:100%}
+      .iconBtn{width:38px;height:38px}
+      .controlsLeft,.controlsRight{gap:7px}
+      .chatHeader{min-height:58px}
+      .channel-copy h1{font-size:22px}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation:none!important;transition:none!important}
+    }
+  </style>
+  <link rel="stylesheet" href="site-polish.css">
+  <script src="site-polish.js" defer></script>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <header>
+    <a class="logo-link" href="index.html" aria-label="makz.space home">
+      <img src="https://i.ibb.co/spcZ7Pfw/makz-space-logo.png" class="logo" alt="makz.space logo">
+    </a>
+
+    <nav class="icon-nav liquid" aria-label="Main navigation">
+      <a href="index.html" title="Home" aria-label="Home">
+        <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z"/></svg>
+      </a>
+      <a href="projects/index.html" title="Projects" aria-label="Projects">
+        <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v4h-7V4zM4 13h4v7H4v-7zm6 3h10v4H10v-4z"/></svg>
+      </a>
+      <a href="livestream.html" title="Livestream" aria-label="Livestream" class="active">
+        <svg viewBox="0 0 24 24"><path d="M3 5h18v12H3V5zm7 3v6l5-3-5-3z"/></svg>
+      </a>
+      <a href="gaming/index.html" title="Gaming" aria-label="Gaming">
+        <svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 014 4v3a3 3 0 01-3 3h-2l-2-3H9l-2 3H5a3 3 0 01-3-3v-3a4 4 0 014-4zm1 3v2h2v2h2v-2h2v-2h-2V9H9v2H7zm8 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3-1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+      </a>
+      <a href="support.html" title="Support" aria-label="Support">
+        <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 00-8 8v5a3 3 0 003 3h2v-6H6v-2a6 6 0 1112 0v2h-3v6h2a3 3 0 003-3v-5a8 8 0 00-8-8z"/></svg>
+      </a>
+    </nav>
+
+  </header>
+
+  <main>
+    <section class="watch-layout" aria-label="Livestream">
+      <div class="watch-column">
+        <div class="videoWrap" id="videoWrap" aria-label="Livestream video">
+          <div class="stageFrame" id="stageFrame">
+            <video id="liveVideo" autoplay muted playsinline></video>
+          </div>
+          <div class="videoShade" aria-hidden="true"></div>
+
+          <div class="viewerBadge" aria-live="polite">
+            <span class="viewerDot"></span>
+            <span id="liveText">Offline</span>
+            <span>&middot;</span>
+            <span id="viewerCount">0 viewers</span>
+          </div>
+
+          <div class="controlsOverlay controlsLeft" aria-label="Playback controls">
+            <button class="iconBtn" id="playBtn" type="button" aria-label="Play or pause" title="Play/Pause">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+            </button>
+
+            <div class="volWrap" aria-label="Volume controls">
+              <button class="iconBtn" id="volBtn" type="button" aria-label="Mute toggle" title="Mute/Unmute">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"></path></svg>
+              </button>
+              <div class="volSlider" title="Volume">
+                <input id="volRange" type="range" min="0" max="1" step="0.01" value="0.00" aria-label="Volume slider">
+              </div>
+            </div>
+          </div>
+
+          <div class="controlsOverlay controlsRight" aria-label="Player controls">
+            <button class="iconBtn" id="chatBtn" type="button" aria-label="Toggle chat" title="Toggle chat" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H7.6L4 18.2V4zm2 2v8.1l1.7-1.1H18V6H6z"/></svg>
+            </button>
+            <button class="iconBtn" id="cinemaBtn" type="button" aria-label="Theater mode" title="Theater mode" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5zm4 2l6 3-6 3V9z"/></svg>
+            </button>
+            <button class="iconBtn" id="fsBtn" type="button" aria-label="Fullscreen" title="Fullscreen" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm12 5v-5h-2v3h-3v2h5zM7 7h3V5H5v5h2V7zm10 0v3h2V5h-5v2h3z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <section class="channel-card liquid" aria-label="Channel information">
+          <div class="avatar" aria-hidden="true">M</div>
+          <div class="channel-copy">
+            <h1>MAKZ.SPACE | NO ADS | PREMIUM STREAM 💵 ON A BUDGET 💵</h1>
+            <div class="channel-meta">
+              <span>Design, gaming, IRL and build sessions</span>
+              <a class="tag" href="index.html">Makz Space</a>
+              <a class="tag" href="gaming/index.html">Gaming</a>
+              <a class="tag" href="links/index.html">Links</a>
+            </div>
+          </div>
+          <div class="channel-actions">
+            <a class="actionBtn primary" href="https://makz.space/links" aria-label="Follow makzcl">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Follow
+            </a>
+            <button class="actionBtn" id="shareBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7h16v-7M12 16V4m0 0l-5 5m5-5l5 5"/></svg>
+              Share
+            </button>
+          </div>
+        </section>
+
+        <nav class="stream-tabs" aria-label="Stream sections">
+          <a class="tab active" href="livestream.html">Livestream</a>
+          <a class="tab" href="links/index.html">Links</a>
+          <a class="tab" href="gaming/index.html">Gaming</a>
+          <a class="tab" href="projects/index.html">Projects</a>
+        </nav>
+
+      </div>
+
+      <aside class="chatWrap liquid" id="chatWrap" aria-label="Livestream chat">
+        <div class="chatHeader">
+          <div>
+            <strong>Stream Chat</strong><br>
+            <small>makz.space live</small>
+          </div>
+          <div class="chatHeaderActions">
+            <span class="chatStatusIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z"/></svg>
+            </span>
+            <button class="iconBtn" id="chatCloseBtn" type="button" aria-label="Hide chat" title="Hide chat">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <iframe
+          class="chatFrame"
+          src="https://stream.makz.space/embed/chat/readwrite"
+          title="Makz Chat"
+          loading="lazy"
+          referrerpolicy="origin"
+        ></iframe>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+  <p>&copy; 2026 makz.space</p>
+  <div>
+    <a href="https://www.twitch.tv/motomakz" target="_blank" rel="noopener noreferrer">TWITCH</a>
+    <a href="https://www.tiktok.com/@moto.makz" target="_blank" rel="noopener noreferrer">TIKTOK</a>
+    <a href="https://www.instagram.com/moto.makz/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+  </div>
+</footer>
+
+  <script>
+    const OWNCAST_BASE = "https://stream.makz.space";
+    const HLS_URL = `${OWNCAST_BASE}/hls/stream.m3u8`;
+    const STATUS_URL = `${OWNCAST_BASE}/api/status`;
+
+    const root = document.documentElement;
+    const videoWrap = document.getElementById("videoWrap");
+    const video = document.getElementById("liveVideo");
+    const cinemaBtn = document.getElementById("cinemaBtn");
+    const fsBtn = document.getElementById("fsBtn");
+    const chatBtn = document.getElementById("chatBtn");
+    const chatCloseBtn = document.getElementById("chatCloseBtn");
+    const playBtn = document.getElementById("playBtn");
+    const volBtn = document.getElementById("volBtn");
+    const volRange = document.getElementById("volRange");
+    const shareBtn = document.getElementById("shareBtn");
+    const viewerCountEl = document.getElementById("viewerCount");
+    const liveTextEl = document.getElementById("liveText");
+    let currentViewPreset = "normal";
+    let viewActionId = 0;
+
+    const ICON_PLAY = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>`;
+    const ICON_PAUSE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"></path></svg>`;
+    const ICON_VOL = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"></path></svg>`;
+    const ICON_MUTE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3zm13.59 2l2.7 2.7-1.29 1.29L15.3 13.3l-2.7 2.7-1.29-1.29 2.7-2.7-2.7-2.7 1.29-1.29 2.7 2.7 2.7-2.7 1.29 1.29-2.7 2.7z"></path></svg>`;
+
+    document.addEventListener("pointermove", (e) => {
+      const nx = (e.clientX / window.innerWidth - .5);
+      const ny = (e.clientY / window.innerHeight - .5);
+      root.style.setProperty("--parallax-x", `${nx * 28}px`);
+      root.style.setProperty("--parallax-y", `${ny * 28}px`);
+    }, {passive:true});
+
+    function initHLS() {
+      if (!video) return;
+
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = HLS_URL;
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+      script.onload = () => {
+        if (window.Hls && window.Hls.isSupported()) {
+          const hls = new Hls({ lowLatencyMode: true });
+          hls.loadSource(HLS_URL);
+          hls.attachMedia(video);
+        }
+      };
+      document.head.appendChild(script);
+    }
+
+    function setStatus(isLive, viewers) {
+      const count = Number(viewers || 0);
+      const viewerLabel = `${count} ${count === 1 ? "viewer" : "viewers"}`;
+
+      document.body.classList.toggle("live", isLive);
+      liveTextEl.textContent = isLive ? "Live" : "Offline";
+      viewerCountEl.textContent = viewerLabel;
+    }
+
+    async function updateStatus() {
+      try {
+        const res = await fetch(STATUS_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("status not ok");
+        const data = await res.json();
+
+        const isLive = !!(data.online ?? data.isOnline ?? data.live ?? data.streamOnline);
+        const viewers = Number(
+          data.viewerCount ??
+          data.viewers ??
+          data.currentViewers ??
+          data.sessionCount ??
+          data.viewer_count ??
+          0
+        ) || 0;
+        setStatus(isLive, viewers);
+      } catch {
+        setStatus(false, 0);
+      }
+    }
+
+    function setCinema(on) {
+      document.body.classList.toggle("cinema", on);
+      cinemaBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+
+    function isCinema() {
+      return document.body.classList.contains("cinema");
+    }
+
+    function setChatHidden(hidden) {
+      document.body.classList.toggle("chat-hidden", hidden);
+      chatBtn.setAttribute("aria-pressed", hidden ? "true" : "false");
+    }
+
+    function isChatHidden() {
+      return document.body.classList.contains("chat-hidden");
+    }
+
+    function setViewPreset(preset) {
+      currentViewPreset = preset;
+      document.body.classList.remove("site-header-hidden");
+      setCinema(preset === "theater");
+      setChatHidden(preset === "chat-hidden" || preset === "fullscreen");
+      fsBtn.setAttribute("aria-pressed", preset === "fullscreen" ? "true" : "false");
+
+      if (preset === "theater" || preset === "fullscreen") {
+        window.scrollTo(0, 0);
+      }
+    }
+
+    async function exitNativeFullscreen() {
+      if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch {}
+      }
+    }
+
+    async function applyViewPreset(preset) {
+      const actionId = ++viewActionId;
+
+      if (preset !== "fullscreen") {
+        await exitNativeFullscreen();
+        if (actionId !== viewActionId) return;
+        setViewPreset(preset);
+        return;
+      }
+
+      setViewPreset("fullscreen");
+      try {
+        await videoWrap.requestFullscreen();
+      } catch {
+        setViewPreset("normal");
+      }
+    }
+
+    async function toggleCinemaMode() {
+      await applyViewPreset(currentViewPreset === "theater" ? "normal" : "theater");
+    }
+
+    async function toggleChatMode() {
+      await applyViewPreset(isChatHidden() ? "normal" : "chat-hidden");
+    }
+
+    async function enterFullscreen() {
+      await applyViewPreset("fullscreen");
+    }
+
+    async function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        return enterFullscreen();
+      }
+      return applyViewPreset("normal");
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      const isFullscreen = !!document.fullscreenElement;
+      document.body.classList.toggle("video-fullscreen", isFullscreen);
+      fsBtn.setAttribute("aria-pressed", isFullscreen ? "true" : "false");
+
+      if (!isFullscreen && currentViewPreset === "fullscreen") {
+        setViewPreset("normal");
+      }
+    });
+
+    function syncPlayIcon() {
+      playBtn.innerHTML = video.paused ? ICON_PLAY : ICON_PAUSE;
+    }
+
+    async function togglePlay() {
+      try {
+        if (video.paused) {
+          await video.play();
+        } else {
+          video.pause();
+        }
+      } catch {}
+      syncPlayIcon();
+    }
+
+    function syncVolumeUI() {
+      volBtn.innerHTML = (video.muted || video.volume === 0) ? ICON_MUTE : ICON_VOL;
+      volRange.value = (video.muted || video.volume === 0) ? "0" : String(video.volume);
+    }
+
+    function toggleMute() {
+      video.muted = !video.muted;
+      if (!video.muted && Number(volRange.value) === 0) {
+        video.volume = 0.35;
+        volRange.value = "0.35";
+      }
+      syncVolumeUI();
+    }
+
+    function setVolume(value) {
+      const vol = Math.max(0, Math.min(1, Number(value)));
+      video.volume = vol;
+      video.muted = vol === 0;
+      syncVolumeUI();
+    }
+
+    playBtn.addEventListener("click", togglePlay);
+    volBtn.addEventListener("click", toggleMute);
+    volRange.addEventListener("input", (e) => setVolume(e.target.value));
+    video.addEventListener("play", syncPlayIcon);
+    video.addEventListener("pause", syncPlayIcon);
+    video.addEventListener("volumechange", syncVolumeUI);
+    chatBtn.addEventListener("click", toggleChatMode);
+    chatCloseBtn.addEventListener("click", () => applyViewPreset("chat-hidden"));
+    fsBtn.addEventListener("click", toggleFullscreen);
+    cinemaBtn.addEventListener("click", toggleCinemaMode);
+
+    window.addEventListener("keydown", async (e) => {
+      if (e.key === "Escape" && isCinema()) await applyViewPreset("normal");
+      if (e.key.toLowerCase() === "t") await toggleCinemaMode();
+      if (e.key.toLowerCase() === "c") await toggleChatMode();
+    });
+
+    shareBtn.addEventListener("click", async () => {
+      const url = window.location.href;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: document.title, url });
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          shareBtn.textContent = "Copied";
+          setTimeout(() => {
+            shareBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7h16v-7M12 16V4m0 0l-5 5m5-5l5 5"/></svg>Share`;
+          }, 1400);
+        }
+      } catch {}
+    });
+
+    try {
+      localStorage.removeItem("makz_cinema");
+      localStorage.removeItem("makz_chat_hidden");
+    } catch {}
+
+    setViewPreset("normal");
+
+    initHLS();
+    updateStatus();
+    setInterval(updateStatus, 15000);
+
+    video.muted = true;
+    video.volume = 0.35;
+    syncPlayIcon();
+    syncVolumeUI();
+  </script>
+</body>
+</html>

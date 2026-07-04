@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VIS6041 BCU - Land of Plenty Resit</title>
+<link rel="icon" type="image/png" href="../../makz.space.favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+  --border:rgba(255,255,255,0.12);
+  --panel:rgba(255,255,255,0.055);
+  --text-soft:rgba(255,255,255,0.76);
+  --green:#8dffb0;
+  --red:#ff8d8d;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+
+body{
+  min-height:100vh;
+  color:#fff;
+  padding-bottom:80px;
+  overflow-x:hidden;
+}
+
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:url("https://i.ibb.co/jkhTKtLk/MAKZ-SPACE-BG.png") center/cover no-repeat;
+  filter:blur(1.5px);
+  transform:scale(1.05);
+  z-index:-2;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.68);
+  z-index:-1;
+}
+
+/* HEADER / MENU */
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:24px 48px;
+  gap:24px;
+}
+
+.logo{
+  max-width:260px;
+  display:block;
+}
+
+.icon-nav{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:24px;
+  padding:12px 20px;
+  border-radius:999px;
+  background:rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.10);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  box-shadow:
+    0 8px 30px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  flex-wrap:nowrap;
+}
+
+.icon-nav a{
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  text-decoration:none;
+  opacity:0.82;
+  transition:transform .2s ease, filter .2s ease, opacity .2s ease;
+  background:none;
+  padding:0;
+  border:none;
+}
+
+.icon-nav svg{
+  width:20px;
+  height:20px;
+  fill:#fff;
+  display:block;
+}
+
+.icon-nav a:hover{
+  transform:translateY(-1px) scale(1.08);
+  opacity:1;
+  filter:
+    drop-shadow(0 0 8px rgba(255,255,255,0.28))
+    drop-shadow(0 0 18px rgba(255,255,255,0.18));
+}
+
+.icon-nav a.active{
+  opacity:1;
+  filter:
+    drop-shadow(0 0 10px rgba(255,255,255,0.34))
+    drop-shadow(0 0 22px rgba(255,255,255,0.22));
+}
+
+/* PAGE */
+main{
+  max-width:1180px;
+  margin:70px auto 0;
+  padding:0 24px;
+}
+
+.hero{
+  text-align:center;
+  margin-bottom:48px;
+}
+
+.eyebrow{
+  font-size:13px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,0.52);
+  margin-bottom:14px;
+}
+
+h1{
+  font-size:clamp(42px,7vw,82px);
+  line-height:0.95;
+  letter-spacing:-0.05em;
+  margin-bottom:18px;
+}
+
+.hero p{
+  max-width:760px;
+  margin:0 auto;
+  color:var(--text-soft);
+  font-size:18px;
+  line-height:1.7;
+}
+
+.status-row{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:28px;
+}
+
+.status{
+  font-size:13px;
+  padding:8px 13px;
+  border-radius:999px;
+  border:1px solid rgba(141,255,176,0.45);
+  background:rgba(80,255,130,0.14);
+  color:var(--green);
+  box-shadow:0 0 18px rgba(80,255,130,0.16);
+}
+
+.chip{
+  font-size:13px;
+  padding:8px 13px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.85);
+}
+
+.section{
+  margin-bottom:34px;
+}
+
+.section-title{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:16px;
+}
+
+.section-title h2{
+  font-size:32px;
+  letter-spacing:-0.04em;
+}
+
+.section-title p{
+  color:var(--text-soft);
+  max-width:540px;
+  line-height:1.6;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+
+.grid.two{
+  grid-template-columns:repeat(2,1fr);
+}
+
+.card{
+  border:1px solid var(--border);
+  background:var(--panel);
+  border-radius:24px;
+  padding:24px;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 18px 50px rgba(0,0,0,0.22);
+}
+
+.card h3{
+  font-size:22px;
+  margin-bottom:12px;
+  letter-spacing:-0.03em;
+}
+
+.card p,
+.card li{
+  color:var(--text-soft);
+  line-height:1.65;
+  font-size:15px;
+}
+
+.card ul{
+  padding-left:18px;
+  margin-top:10px;
+}
+
+.big-card{
+  grid-column:span 2;
+}
+
+.quote{
+  font-size:34px;
+  line-height:1.15;
+  letter-spacing:-0.04em;
+  color:#fff;
+}
+
+.badge{
+  display:inline-block;
+  margin-bottom:12px;
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.16);
+  color:rgba(255,255,255,0.82);
+}
+
+.palette{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:12px;
+  margin-top:14px;
+}
+
+.swatch{
+  height:90px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.16);
+}
+
+.s1{background:#111827;}
+.s2{background:#8dffb0;}
+.s3{background:#d7c4a3;}
+.s4{background:#ffb58a;}
+.s5{background:#b4a8ff;}
+
+.mockup{
+  min-height:220px;
+  border-radius:22px;
+  border:1px solid var(--border);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(141,255,176,0.18), transparent 35%),
+    linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:20px;
+  font-size:28px;
+  font-weight:800;
+  letter-spacing:-0.05em;
+}
+
+.process-list{
+  display:grid;
+  gap:12px;
+}
+
+.process-item{
+  padding:16px;
+  border-radius:18px;
+  background:rgba(255,255,255,0.045);
+  border:1px solid rgba(255,255,255,0.10);
+}
+
+footer{
+  position:fixed;
+  left:16px;
+  bottom:12px;
+  font-size:13px;
+  color:rgba(255,255,255,0.55);
+  z-index:50;
+  pointer-events:none;
+  user-select:none;
+}
+
+@media(max-width:900px){
+  .grid,
+  .grid.two{
+    grid-template-columns:1fr;
+  }
+
+  .big-card{
+    grid-column:auto;
+  }
+
+  .section-title{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
+
+@media(max-width:768px){
+  header{
+    padding:18px;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .logo{
+    max-width:220px;
+  }
+
+  .icon-nav{
+    width:auto;
+    max-width:100%;
+    gap:18px;
+    padding:10px 16px;
+  }
+
+  main{
+    margin-top:56px;
+  }
+
+  .palette{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+<link rel="stylesheet" href="../../site-polish.css">
+<script src="../../site-polish.js" defer></script>
+</head>
+
+<body>
+
+<header>
+  <a href="../../index.html" aria-label="makz.space home">
+    <img src="https://i.ibb.co/spcZ7Pfw/makz-space-logo.png" class="logo" alt="makz.space logo">
+  </a>
+
+  <nav class="icon-nav" aria-label="Main navigation">
+    <a href="../../index.html" title="Home" aria-label="Home">
+      <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z"/></svg>
+    </a>
+
+    <a href="../index.html" title="Projects" aria-label="Projects" class="active">
+      <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v4h-7V4zM4 13h4v7H4v-7zm6 3h10v4H10v-4z"/></svg>
+    </a>
+
+    <a href="../../livestream.html" title="Livestream" aria-label="Livestream">
+      <svg viewBox="0 0 24 24"><path d="M3 5h18v12H3V5zm7 3v6l5-3-5-3z"/></svg>
+    </a>
+
+    <a href="../../gaming/index.html" title="Gaming" aria-label="Gaming">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 014 4v3a3 3 0 01-3 3h-2l-2-3H9l-2 3H5a3 3 0 01-3-3v-3a4 4 0 014-4zm1 3v2h2v2h2v-2h2v-2h-2V9H9v2H7zm8 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3-1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+    </a>
+
+    <a href="../../support.html" title="Support" aria-label="Support">
+      <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 00-8 8v5a3 3 0 003 3h2v-6H6v-2a6 6 0 1112 0v2h-3v6h2a3 3 0 003-3v-5a8 8 0 00-8-8z"/></svg>
+    </a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div class="eyebrow">VIS6041 BCU Resit Module</div>
+    <h1>Land Of Plenty<br>Brand Project</h1>
+    <p>
+      A complete resit response for the Land of Plenty brief: creating a leisure and lifestyle brand that considers environmental and ethical issues while still bringing joy to people.
+    </p>
+
+    <div class="status-row">
+      <span class="status">Active Project</span>
+      <span class="chip">Brand Strategy</span>
+      <span class="chip">Brand Identity</span>
+      <span class="chip">Brand Delivery</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">
+      <h2>Project Overview</h2>
+      <p>The brief asks for a brand in the world of leisure and lifestyle that is considerate towards the planet, but still emotionally appealing and joyful.</p>
+    </div>
+
+    <div class="grid two">
+      <div class="card big-card">
+        <span class="badge">Brand Concept</span>
+        <h3>RITUAL</h3>
+        <p>
+          RITUAL is a slow-living lifestyle brand that transforms everyday routines into meaningful, sustainable experiences. It reframes simple habits like drinking, resting, gathering and gifting as slower, more intentional rituals that benefit both people and the planet.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="badge">Big Idea</span>
+        <p class="quote">Make more of less.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">
+      <h2>Stage 1 — Brand Strategy</h2>
+      <p>Defining the business idea, audience, purpose, mission, values and name.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Elevator Pitch</h3>
+        <p>
+          RITUAL helps people turn everyday routines into sustainable moments of joy. Through thoughtful products, refill systems and calm storytelling, the brand makes lower-impact living feel beautiful rather than restrictive.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Target Audience</h3>
+        <p>
+          Design-aware adults aged 20–35 who are interested in wellness, sustainability, lifestyle culture and calming digital experiences.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Purpose & Mission</h3>
+        <p>
+          Purpose: reconnect people with everyday life through mindful rituals.
+          <br><br>
+          Mission: make sustainable habits feel joyful, premium and emotionally rewarding.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Brand Values</h3>
+        <ul>
+          <li>Intentional living</li>
+          <li>Sustainability</li>
+          <li>Emotional wellbeing</li>
+          <li>Community and connection</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Audience Likes</h3>
+        <ul>
+          <li>Minimal design</li>
+          <li>Wellbeing routines</li>
+          <li>Premium packaging</li>
+          <li>Brands with meaning</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Audience Dislikes</h3>
+        <ul>
+          <li>Wasteful products</li>
+          <li>Overly loud branding</li>
+          <li>Guilt-based sustainability</li>
+          <li>Cheap-looking eco clichés</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">
+      <h2>Stage 2 — Brand Identity</h2>
+      <p>Creating a clear visual system with logo direction, colour, typography, secondary marks and tone of voice.</p>
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Logo Direction</h3>
+        <div class="mockup">RITUAL</div>
+        <p>
+          The wordmark uses a clean, premium and spacious style. The aim is to avoid typical eco-brand clichés and instead create a calm lifestyle identity.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Colour Palette</h3>
+        <p>
+          The palette combines a dark premium base with soft, joyful accents.
+        </p>
+        <div class="palette">
+          <div class="swatch s1"></div>
+          <div class="swatch s2"></div>
+          <div class="swatch s3"></div>
+          <div class="swatch s4"></div>
+          <div class="swatch s5"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Tone of Voice</h3>
+        <p>
+          Calm, warm, intentional and encouraging. The brand avoids guilt-led language and instead invites the audience into a slower, more joyful way of living.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Secondary Mark</h3>
+        <p>
+          A ritual symbol system is used instead of a mascot. Symbols represent rest, drink, gather and create, allowing the identity to work across packaging, digital content and campaigns.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">
+      <h2>Stage 3 — Brand Delivery</h2>
+      <p>Showing how the brand works in the real world through three relevant touchpoints.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>01 — Refillable Packaging</h3>
+        <p>
+          Reusable packaging for lifestyle products such as herbal blends, bath salts or candles. This supports the sustainability message through reduced waste and repeated use.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>02 — Launch Campaign</h3>
+        <p>
+          Campaign theme: “Slow Down. Feel More.” The campaign communicates the brand’s belief that joy can come from calm, intentional living instead of overconsumption.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>03 — Website / App</h3>
+        <p>
+          A digital experience that helps users build rituals, track refills and explore sustainable lifestyle habits through a soft, dark and premium interface.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">
+      <h2>RVJ Process Mapping</h2>
+      <p>This section shows how the resit work can be organised into a 40+ slide reflective visual journal.</p>
+    </div>
+
+    <div class="card">
+      <div class="process-list">
+        <div class="process-item"><strong>Slides 1–5:</strong> Brief, challenge, initial thoughts and concept direction.</div>
+        <div class="process-item"><strong>Slides 6–12:</strong> Sector research, audience research, strategy and naming.</div>
+        <div class="process-item"><strong>Slides 13–22:</strong> Brand purpose, values, positioning, tone of voice and big idea.</div>
+        <div class="process-item"><strong>Slides 23–32:</strong> Logo development, colour palette, typography and identity system.</div>
+        <div class="process-item"><strong>Slides 33–40+:</strong> Packaging, campaign, digital application, rationale and final reflection.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>&copy; 2026 makz.space</p>
+  <div>
+    <a href="https://www.twitch.tv/motomakz" target="_blank" rel="noopener noreferrer">TWITCH</a>
+    <a href="https://www.tiktok.com/@moto.makz" target="_blank" rel="noopener noreferrer">TIKTOK</a>
+    <a href="https://www.instagram.com/moto.makz/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+  </div>
+</footer>
+
+</body>
+</html>

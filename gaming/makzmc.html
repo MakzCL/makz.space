@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>makz.space - MakzMC</title>
+  <link rel="icon" type="image/png" href="../makz.space.favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root{
+      --border: rgba(255,255,255,0.12);
+      --panel: rgba(255,255,255,0.05);
+      --text-soft: rgba(255,255,255,0.78);
+      --text-faint: rgba(255,255,255,0.58);
+      --glow: 0 0 18px rgba(255,255,255,0.14);
+    }
+
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+
+    html{
+      scroll-behavior:smooth;
+    }
+
+    body{
+      min-height:100vh;
+      color:#fff;
+      padding-bottom:80px;
+    }
+
+    body::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      background:url("https://i.ibb.co/yL111TC/makzmc-webbg.png") center/cover no-repeat;
+      filter:blur(2px);
+      transform:scale(1.05);
+      z-index:-2;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      background:
+        linear-gradient(to bottom, rgba(0,0,0,0.34), rgba(0,0,0,0.76)),
+        rgba(0,0,0,0.45);
+      z-index:-1;
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:24px 48px;
+      gap:24px;
+    }
+
+    .logo{
+      max-width:260px;
+      display:block;
+    }
+
+    .icon-nav{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:24px;
+      padding:12px 20px;
+      border-radius:999px;
+      background:rgba(0,0,0,0.35);
+      border:1px solid rgba(255,255,255,0.10);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+      box-shadow:
+        0 8px 30px rgba(0,0,0,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .icon-nav a{
+      width:24px;
+      height:24px;
+      display:grid;
+      place-items:center;
+      text-decoration:none;
+      opacity:0.82;
+      transition:transform .2s ease, filter .2s ease, opacity .2s ease;
+    }
+
+    .icon-nav svg{
+      width:20px;
+      height:20px;
+      fill:#fff;
+      display:block;
+    }
+
+    .icon-nav a:hover{
+      transform:translateY(-1px) scale(1.08);
+      opacity:1;
+      filter:
+        drop-shadow(0 0 8px rgba(255,255,255,0.28))
+        drop-shadow(0 0 18px rgba(255,255,255,0.18));
+    }
+
+    .icon-nav a.active{
+      opacity:1;
+      filter:
+        drop-shadow(0 0 10px rgba(255,255,255,0.34))
+        drop-shadow(0 0 22px rgba(255,255,255,0.22));
+    }
+
+    main{
+      max-width:1280px;
+      margin:24px auto 0;
+      padding:0 48px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px);
+      gap:24px;
+      align-items:stretch;
+      margin-bottom:24px;
+    }
+
+    .hero-panel,
+    .side-panel,
+    .section-panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+      box-shadow:0 18px 50px rgba(0,0,0,0.35);
+      border-radius:26px;
+      overflow:hidden;
+    }
+
+    .hero-panel{
+      position:relative;
+      min-height:500px;
+      display:flex;
+      align-items:flex-end;
+      background:
+        linear-gradient(to top, rgba(0,0,0,0.80), rgba(0,0,0,0.18)),
+        url("https://i.ibb.co/GvbnqpRh/makzmc-webbg2.png") center/cover no-repeat;
+    }
+
+    .hero-content{
+      width:100%;
+      padding:34px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      font-size:13px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color:rgba(255,255,255,0.62);
+      margin-bottom:16px;
+    }
+
+    .live-dot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:#9ca3af;
+      box-shadow:0 0 12px rgba(156,163,175,0.45);
+      transition:background .25s ease, box-shadow .25s ease;
+    }
+
+    .live-dot.online{
+      background:#22c55e;
+      box-shadow:0 0 12px rgba(34,197,94,0.65);
+    }
+
+    .live-dot.offline{
+      background:#ef4444;
+      box-shadow:0 0 12px rgba(239,68,68,0.55);
+    }
+
+    h1{
+      font-size:64px;
+      line-height:0.98;
+      margin-bottom:16px;
+      max-width:700px;
+      text-shadow:0 4px 18px rgba(0,0,0,0.35);
+    }
+
+    .hero-text{
+      font-size:18px;
+      line-height:1.7;
+      color:var(--text-soft);
+      max-width:760px;
+      margin-bottom:26px;
+    }
+
+    .hero-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+    }
+
+    .glass-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:150px;
+      padding:13px 18px;
+      border-radius:14px;
+      text-decoration:none;
+      color:#fff;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.07);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    }
+
+    .glass-btn:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,255,255,0.22);
+      background:rgba(255,255,255,0.1);
+      box-shadow:
+        0 0 16px rgba(255,255,255,0.13),
+        0 12px 24px rgba(0,0,0,0.2);
+    }
+
+    .glass-btn.primary{
+      background:rgba(255,255,255,0.12);
+      box-shadow:var(--glow);
+    }
+
+    .side-panel{
+      padding:22px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .side-top{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .server-icon{
+      width:72px;
+      height:72px;
+      border-radius:16px;
+      object-fit:cover;
+      border:1px solid rgba(255,255,255,0.14);
+      box-shadow:
+        0 8px 20px rgba(0,0,0,0.4),
+        0 0 12px rgba(255,255,255,0.08);
+      flex:0 0 auto;
+    }
+
+    .side-title{
+      font-size:24px;
+      font-weight:700;
+      line-height:1.1;
+      margin-bottom:6px;
+    }
+
+    .side-sub{
+      font-size:14px;
+      color:var(--text-faint);
+    }
+
+    .ip-box{
+      padding:16px 18px;
+      border-radius:18px;
+      background:rgba(0,0,0,0.22);
+      border:1px solid rgba(255,255,255,0.10);
+    }
+
+    .ip-label{
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      color:rgba(255,255,255,0.48);
+      margin-bottom:7px;
+    }
+
+    .ip-value{
+      font-size:20px;
+      font-weight:700;
+      word-break:break-word;
+    }
+
+    .copy-btn{
+      margin-top:12px;
+      width:100%;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.06);
+      color:#fff;
+      cursor:pointer;
+      transition:transform .2s ease, background .2s ease, border-color .2s ease;
+    }
+
+    .copy-btn:hover{
+      transform:translateY(-1px);
+      background:rgba(255,255,255,0.09);
+      border-color:rgba(255,255,255,0.20);
+    }
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+
+    .stat{
+      padding:16px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .stat-label{
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:rgba(255,255,255,0.48);
+      margin-bottom:8px;
+    }
+
+    .stat-value{
+      font-size:18px;
+      font-weight:700;
+      line-height:1.25;
+      transition:color .25s ease, text-shadow .25s ease;
+    }
+
+    .stat-value.status-online{
+      color:#86efac;
+      text-shadow:0 0 12px rgba(34,197,94,0.28);
+    }
+
+    .stat-value.status-offline{
+      color:#fca5a5;
+      text-shadow:0 0 12px rgba(239,68,68,0.22);
+    }
+
+    .map-panel{
+      margin-bottom:24px;
+      padding:24px;
+    }
+
+    .section-title{
+      font-size:28px;
+      margin-bottom:16px;
+    }
+
+    .section-text{
+      color:var(--text-soft);
+      line-height:1.7;
+      font-size:16px;
+    }
+
+    .map-section{
+      margin-top:18px;
+      border-radius:24px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.04);
+      box-shadow:0 18px 50px rgba(0,0,0,0.35);
+    }
+
+    .dynmap-frame{
+      width:100%;
+      height:680px;
+      border:0;
+      display:block;
+      filter:contrast(1.05) brightness(0.95);
+      background:#111;
+    }
+
+    .page-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:24px;
+    }
+
+    .section-panel{
+      padding:24px;
+    }
+
+    .feature-list{
+      display:grid;
+      gap:14px;
+      list-style:none;
+    }
+
+    .feature-item{
+      padding:16px 18px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .feature-item strong{
+      display:block;
+      font-size:16px;
+      margin-bottom:5px;
+    }
+
+    .feature-item span{
+      color:var(--text-soft);
+      line-height:1.65;
+      font-size:15px;
+    }
+
+    .world-grid{
+      display:grid;
+      gap:14px;
+    }
+
+    .world-card{
+      padding:16px 18px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .world-name{
+      font-size:17px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+
+    .world-desc{
+      color:var(--text-soft);
+      line-height:1.65;
+      font-size:15px;
+    }
+
+    .links-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:14px;
+    }
+
+    .link-card{
+      display:block;
+      text-decoration:none;
+      color:#fff;
+      padding:18px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.08);
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+
+    .link-card:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,255,255,0.16);
+      box-shadow:0 10px 24px rgba(0,0,0,0.24), 0 0 18px rgba(255,255,255,0.08);
+    }
+
+    .link-card-title{
+      font-size:16px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+
+    .link-card-text{
+      font-size:14px;
+      color:var(--text-soft);
+      line-height:1.6;
+    }
+
+    footer{
+      position:fixed;
+      left:16px;
+      bottom:12px;
+      font-size:13px;
+      color:rgba(255,255,255,0.55);
+      pointer-events:none;
+      user-select:none;
+    }
+
+    @media (max-width:1100px){
+      .hero,
+      .page-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:768px){
+      header{
+        flex-direction:column;
+        align-items:center;
+        padding:18px;
+      }
+
+      .logo{
+        max-width:220px;
+      }
+
+      .icon-nav{
+        gap:18px;
+        padding:10px 16px;
+      }
+
+      main{
+        padding:0 24px;
+      }
+
+      .hero-panel{
+        min-height:400px;
+      }
+
+      .hero-content,
+      .section-panel,
+      .side-panel,
+      .map-panel{
+        padding:20px;
+      }
+
+      h1{
+        font-size:42px;
+      }
+
+      .hero-text{
+        font-size:16px;
+      }
+
+      .links-grid,
+      .stat-grid{
+        grid-template-columns:1fr;
+      }
+
+      .dynmap-frame{
+        height:520px;
+      }
+    }
+  
+/* ===== Shared makzmc nav + footer ===== */
+header{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  padding:24px 48px !important;
+  gap:24px !important;
+}
+.logo{
+  max-width:260px !important;
+  display:block !important;
+}
+
+.icon-nav{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:24px !important;
+  padding:12px 20px !important;
+  border-radius:999px !important;
+  background:rgba(0,0,0,0.35) !important;
+  border:1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter:blur(10px) !important;
+  -webkit-backdrop-filter:blur(10px) !important;
+  box-shadow:
+    0 8px 30px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.04) !important;
+  flex-wrap:nowrap !important;
+}
+
+.icon-nav a{
+  width:24px !important;
+  height:24px !important;
+  display:grid !important;
+  place-items:center !important;
+  text-decoration:none !important;
+  opacity:0.82 !important;
+  transition:transform .2s ease, filter .2s ease, opacity .2s ease !important;
+  background:none !important;
+  padding:0 !important;
+  white-space:normal !important;
+  box-shadow:none !important;
+  border:none !important;
+}
+
+.icon-nav svg{
+  width:20px !important;
+  height:20px !important;
+  fill:#fff !important;
+  display:block !important;
+}
+
+.icon-nav a:hover{
+  transform:translateY(-1px) scale(1.08) !important;
+  opacity:1 !important;
+  filter:
+    drop-shadow(0 0 8px rgba(255,255,255,0.28))
+    drop-shadow(0 0 18px rgba(255,255,255,0.18)) !important;
+}
+
+.icon-nav a.active{
+  opacity:1 !important;
+  filter:
+    drop-shadow(0 0 10px rgba(255,255,255,0.34))
+    drop-shadow(0 0 22px rgba(255,255,255,0.22)) !important;
+}
+
+footer{
+  position:fixed !important;
+  left:16px !important;
+  bottom:12px !important;
+  padding:0 !important;
+  margin:0 !important;
+  text-align:left !important;
+  font-size:13px !important;
+  color:rgba(255,255,255,0.55) !important;
+  z-index:50 !important;
+  pointer-events:none !important;
+  user-select:none !important;
+}
+
+@media (max-width:768px){
+  header{
+    padding:18px !important;
+    flex-direction:column !important;
+    align-items:center !important;
+  }
+  .logo{
+    max-width:220px !important;
+  }
+  .icon-nav{
+    width:auto !important;
+    max-width:100% !important;
+    gap:18px !important;
+    padding:10px 16px !important;
+    justify-content:center !important;
+  }
+}
+
+</style>
+<link rel="stylesheet" href="../site-polish.css">
+<script src="../site-polish.js" defer></script>
+</head>
+
+<body id="top">
+  <header>
+  <a href="../index.html" aria-label="makz.space home">
+    <img src="https://i.ibb.co/spcZ7Pfw/makz-space-logo.png" class="logo" alt="makz.space logo">
+  </a>
+
+  <nav class="icon-nav" aria-label="Main navigation">
+    <a href="../index.html" title="Home" aria-label="Home">
+      <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z"/></svg>
+    </a>
+
+    <a href="../projects/index.html" title="Projects" aria-label="Projects">
+      <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v4h-7V4zM4 13h4v7H4v-7zm6 3h10v4H10v-4z"/></svg>
+    </a>
+
+    <a href="../livestream.html" title="Livestream" aria-label="Livestream">
+      <svg viewBox="0 0 24 24"><path d="M3 5h18v12H3V5zm7 3v6l5-3-5-3z"/></svg>
+    </a>
+
+    <a href="index.html" title="Gaming" aria-label="Gaming" class="active">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 014 4v3a3 3 0 01-3 3h-2l-2-3H9l-2 3H5a3 3 0 01-3-3v-3a4 4 0 014-4zm1 3v2h2v2h2v-2h2v-2h-2V9H9v2H7zm8 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3-1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+    </a>
+
+    <a href="../support.html" title="Support" aria-label="Support">
+      <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 00-8 8v5a3 3 0 003 3h2v-6H6v-2a6 6 0 1112 0v2h-3v6h2a3 3 0 003-3v-5a8 8 0 00-8-8z"/></svg>
+    </a>
+  </nav>
+</header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-panel">
+        <div class="hero-content">
+          <div class="eyebrow">
+            <span class="live-dot" id="liveDot"></span>
+            MakzMC Network
+          </div>
+
+          <h1>Welcome to MakzMC</h1>
+
+          <p class="hero-text">
+            My Minecraft network built around custom worlds, community play, live maps,
+            and polished server experiences. This page is the main hub for server info, featured worlds,
+            and quick access to the parts of the network I’m expanding.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#live-map" class="glass-btn primary">View Live Map</a>
+            <a href="index.html" class="glass-btn">Back to Gaming</a>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="side-top">
+          <img
+            src="https://i.ibb.co/zTNwdLsw/pfp.png"
+            alt="MakzMC icon"
+            class="server-icon"
+          >
+          <div>
+            <div class="side-title">MakzMC [Unbound]</div>
+            <div class="side-sub">Minecraft network hub</div>
+          </div>
+        </div>
+
+        <div class="ip-box">
+          <div class="ip-label">Server IP</div>
+          <div class="ip-value" id="serverIp">play.makz.space</div>
+          <button class="copy-btn" id="copyIpBtn" type="button">Copy IP</button>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat-label">Status</div>
+            <div class="stat-value" id="serverStatus">Checking...</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Players</div>
+            <div class="stat-value" id="playerCount">-- / --</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Version</div>
+            <div class="stat-value" id="serverVersion">Loading...</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Focus</div>
+            <div class="stat-value">Modded Survival</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Maps</div>
+            <div class="stat-value">YUNG | Terralith</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Modpack</div>
+            <div class="stat-value">
+              <a href="https://modsfire.com/54uN4r1VHFnNBeK" target="_blank" class="glass-btn" style="margin-top:6px; padding:8px 12px; font-size:14px;">Download</a>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+    </section>
+
+    <section class="section-panel map-panel" id="live-map">
+      <h2 class="section-title">MakzMC [Unbound] - Live Map</h2>
+
+      <div class="map-section">
+        <iframe
+          src="https://map.makz.space/index.html#"
+          class="dynmap-frame"
+          loading="lazy"
+          title="MakzMC Dynmap">
+        </iframe>
+      </div>
+    </section>
+
+    <section class="page-grid">
+      <div class="section-panel">
+        <h2 class="section-title">About the server</h2>
+        <p class="section-text">
+          MakzMC is designed as a growing network rather than just a single world. The goal is to make each
+          server feel distinct, with its own vibe, map, and gameplay focus, while still feeling connected under
+          the same MakzMC identity.
+        </p>
+      </div>
+
+      <div class="section-panel">
+        <h2 class="section-title">Featured experiences</h2>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <strong>Custom server spaces</strong>
+            <span>Different worlds and modes with their own identity, maps, and progression style.</span>
+          </li>
+          <li class="feature-item">
+            <strong>Live web integration</strong>
+            <span>Dynamic map links, status pages, and web-based previews connected to the server network.</span>
+          </li>
+          <li class="feature-item">
+            <strong>Community-first design</strong>
+            <span>Built to feel polished, readable, and welcoming whether someone is joining once or staying long-term.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section-panel">
+        <h2 class="section-title">Worlds & servers</h2>
+        <div class="world-grid">
+          <div class="world-card">
+            <div class="world-name">MakzMC [Unbound]</div>
+            <div class="world-desc">Expanded gameplay with extra features while keeping the base Minecraft identity.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-panel">
+        <h2 class="section-title">Quick links</h2>
+        <div class="links-grid">
+          <a href="https://map.makz.space" target="_blank" rel="noopener noreferrer" class="link-card">
+            <div class="link-card-title">Open Full Map</div>
+            <div class="link-card-text">Launch the live map in its own full page view.</div>
+          </a>
+
+          <a href="#top" class="link-card">
+            <div class="link-card-title">Server Status</div>
+            <div class="link-card-text">Jump back to the top and view the live status panel.</div>
+          </a>
+
+          <a href="https://discord.gg/HWUrCtQar8" target="_blank" rel="noopener noreferrer" class="link-card">
+            <div class="link-card-title">Discord</div>
+            <div class="link-card-text">Join the MakzMC community on Discord.</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+  <p>&copy; 2026 makz.space</p>
+  <div>
+    <a href="https://www.twitch.tv/motomakz" target="_blank" rel="noopener noreferrer">TWITCH</a>
+    <a href="https://www.tiktok.com/@moto.makz" target="_blank" rel="noopener noreferrer">TIKTOK</a>
+    <a href="https://www.instagram.com/moto.makz/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+  </div>
+</footer>
+
+  <script>
+    const copyBtn = document.getElementById("copyIpBtn");
+    const serverIp = document.getElementById("serverIp");
+    const serverStatus = document.getElementById("serverStatus");
+    const playerCount = document.getElementById("playerCount");
+    const serverVersion = document.getElementById("serverVersion");
+    const liveDot = document.getElementById("liveDot");
+
+    const STATUS_API = "https://api.mcsrvstat.us/3/play.makz.space:25567";
+
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(serverIp.textContent.trim());
+        copyBtn.textContent = "Copied";
+        setTimeout(() => {
+          copyBtn.textContent = "Copy IP";
+        }, 1400);
+      } catch {
+        copyBtn.textContent = "Copy failed";
+        setTimeout(() => {
+          copyBtn.textContent = "Copy IP";
+        }, 1400);
+      }
+    });
+
+    function setOnlineState(isOnline) {
+      serverStatus.classList.remove("status-online", "status-offline");
+      liveDot.classList.remove("online", "offline");
+
+      if (isOnline) {
+        serverStatus.textContent = "Online";
+        serverStatus.classList.add("status-online");
+        liveDot.classList.add("online");
+      } else {
+        serverStatus.textContent = "Offline";
+        serverStatus.classList.add("status-offline");
+        liveDot.classList.add("offline");
+      }
+    }
+
+    async function updateServerStatus() {
+      try {
+        const response = await fetch(STATUS_API, { cache: "no-store" });
+        if (!response.ok) throw new Error("Status request failed");
+
+        const data = await response.json();
+        const isOnline = Boolean(data.online);
+
+        setOnlineState(isOnline);
+
+        const onlinePlayers = data.players?.online ?? 0;
+        const maxPlayers = data.players?.max ?? 0;
+        playerCount.textContent = `${onlinePlayers} / ${maxPlayers || "?"}`;
+
+        serverVersion.textContent = data.version || "Unknown";
+      } catch (error) {
+        setOnlineState(false);
+        playerCount.textContent = "-- / --";
+        serverVersion.textContent = "Unavailable";
+        console.error("Failed to fetch server status:", error);
+      }
+    }
+
+    updateServerStatus();
+    setInterval(updateServerStatus, 120000);
+  </script>
+</body>
+</html>
