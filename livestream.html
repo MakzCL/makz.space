@@ -317,6 +317,7 @@
       display:flex;
       align-items:center;
       padding:0 13px;
+      touch-action:none;
     }
 
     input[type="range"]{
@@ -327,6 +328,8 @@
       border-radius:999px;
       outline:none;
       background:rgba(255,255,255,.25);
+      cursor:pointer;
+      touch-action:none;
     }
 
     input[type="range"]::-webkit-slider-thumb{
@@ -803,8 +806,8 @@
       *,*::before,*::after{animation:none!important;transition:none!important}
     }
   </style>
-  <link rel="stylesheet" href="site-polish.css?v=20260704-2">
-  <script src="site-polish.js?v=20260704-2" defer></script>
+  <link rel="stylesheet" href="site-polish.css?v=20260704-5">
+  <script src="site-polish.js?v=20260704-5" defer></script>
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -860,7 +863,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"></path></svg>
               </button>
               <div class="volSlider" title="Volume">
-                <input id="volRange" type="range" min="0" max="1" step="0.01" value="0.00" aria-label="Volume slider">
+                <input id="volRange" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Volume slider">
               </div>
             </div>
           </div>
@@ -1117,7 +1120,8 @@
       playBtn.innerHTML = video.paused ? ICON_PLAY : ICON_PAUSE;
     }
 
-    async function togglePlay() {
+    async function togglePlay(event) {
+      event?.stopPropagation();
       try {
         if (video.paused) {
           await video.play();
@@ -1128,30 +1132,81 @@
       syncPlayIcon();
     }
 
-    function syncVolumeUI() {
-      volBtn.innerHTML = (video.muted || video.volume === 0) ? ICON_MUTE : ICON_VOL;
-      volRange.value = (video.muted || video.volume === 0) ? "0" : String(video.volume);
+    let lastAudibleVolume = 0.35;
+    let isVolumeScrubbing = false;
+
+    function clampVolume(value) {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return 0;
+      return Math.max(0, Math.min(1, parsed));
     }
 
-    function toggleMute() {
-      video.muted = !video.muted;
-      if (!video.muted && Number(volRange.value) === 0) {
-        video.volume = 0.35;
-        volRange.value = "0.35";
+    function syncVolumeUI() {
+      const volume = clampVolume(video.volume);
+      const muted = video.muted || volume === 0;
+
+      volBtn.innerHTML = muted ? ICON_MUTE : ICON_VOL;
+      volBtn.setAttribute("aria-pressed", muted ? "true" : "false");
+
+      if (!muted && volume > 0) {
+        lastAudibleVolume = volume;
       }
+
+      if (!isVolumeScrubbing) {
+        volRange.value = String(muted ? lastAudibleVolume : volume);
+      }
+    }
+
+    function toggleMute(event) {
+      event?.stopPropagation();
+      const shouldMute = !(video.muted || video.volume === 0);
+
+      if (shouldMute) {
+        if (video.volume > 0) lastAudibleVolume = video.volume;
+        video.muted = true;
+      } else {
+        const restoredVolume = lastAudibleVolume || 0.35;
+        video.volume = restoredVolume;
+        video.muted = false;
+      }
+
       syncVolumeUI();
     }
 
     function setVolume(value) {
-      const vol = Math.max(0, Math.min(1, Number(value)));
+      const vol = clampVolume(value);
       video.volume = vol;
       video.muted = vol === 0;
+
+      if (vol > 0) {
+        lastAudibleVolume = vol;
+      }
+
+      syncVolumeUI();
+    }
+
+    function beginVolumeScrub(event) {
+      event?.stopPropagation();
+      isVolumeScrubbing = true;
+    }
+
+    function endVolumeScrub(event) {
+      event?.stopPropagation();
+      isVolumeScrubbing = false;
       syncVolumeUI();
     }
 
     playBtn.addEventListener("click", togglePlay);
     volBtn.addEventListener("click", toggleMute);
-    volRange.addEventListener("input", (e) => setVolume(e.target.value));
+    volRange.addEventListener("pointerdown", beginVolumeScrub);
+    volRange.addEventListener("pointerup", endVolumeScrub);
+    volRange.addEventListener("pointercancel", endVolumeScrub);
+    volRange.addEventListener("click", (e) => e.stopPropagation());
+    volRange.addEventListener("input", (e) => {
+      e.stopPropagation();
+      setVolume(e.target.value);
+    });
+    volRange.addEventListener("change", endVolumeScrub);
     video.addEventListener("play", syncPlayIcon);
     video.addEventListener("pause", syncPlayIcon);
     video.addEventListener("volumechange", syncVolumeUI);
