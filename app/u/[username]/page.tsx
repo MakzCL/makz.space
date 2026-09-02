@@ -62,7 +62,7 @@ export default async function ProfilePage({
 
   const supabase = await serverClient();
 
-  const [savedResult, activityResult, prefsResult] = await Promise.all([
+  const [savedResult, activityResult, activityPublic] = await Promise.all([
     isOwner && supabase
       ? supabase
           .from("saved_items")
@@ -78,20 +78,18 @@ export default async function ProfilePage({
           .order("created_at", { ascending: false })
           .limit(10)
       : Promise.resolve({ data: [] as ActivityEntry[] }),
-    supabase
-      ? supabase
-          .from("preferences")
-          .select("show_activity")
-          .eq("user_id", profile.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+    // `preferences` is private, so a visitor cannot read the owner's
+    // show_activity flag directly. The definer function answers the one
+    // question they are allowed to ask about it.
+    isOwner || !supabase
+      ? Promise.resolve({ data: null })
+      : supabase.rpc("activity_is_public", { account: profile.id }),
   ]);
 
   // Saved records are private: only the owner's own page lists them.
   const saved = (savedResult.data as SavedItem[] | null) ?? [];
   const activity = (activityResult.data as ActivityEntry[] | null) ?? [];
-  const showActivity =
-    isOwner || (prefsResult.data as { show_activity?: boolean } | null)?.show_activity !== false;
+  const showActivity = isOwner || activityPublic.data === true;
 
   return (
     <ProfileView

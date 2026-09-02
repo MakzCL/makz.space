@@ -6,6 +6,10 @@
 --   or paste into the SQL editor.
 -- =========================================================================
 
+-- Both live in the `extensions` schema, per Supabase convention. Every use
+-- below is schema-qualified rather than relying on the search_path, so the
+-- migration applies identically through the CLI, the SQL editor and a plain
+-- psql session.
 create extension if not exists "citext" with schema extensions;
 create extension if not exists "pgcrypto" with schema extensions;
 
@@ -33,7 +37,7 @@ exception when duplicate_object then null; end $$;
 -- ---- PROFILES -----------------------------------------------------------
 create table if not exists public.profiles (
   id                 uuid primary key references auth.users (id) on delete cascade,
-  username           citext not null unique
+  username           extensions.citext not null unique
                        check (username ~ '^[a-z0-9](?:[a-z0-9_-]{1,22}[a-z0-9])$'),
   display_name       text check (char_length(display_name) <= 60),
   avatar_url         text check (avatar_url is null or avatar_url ~* '^https://'),
@@ -197,6 +201,35 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- =========================================================================
+-- VISIBILITY HELPER
+--
+-- Answers "may anyone read this account's activity?" without exposing the
+-- preferences row the answer is derived from. Definer, so it can see past
+-- row level security; stable and boolean-valued, so it cannot be used to
+-- read anything else.
+-- =========================================================================
+
+create or replace function public.activity_is_public(account uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    join public.preferences q on q.user_id = p.id
+    where p.id = account
+      and p.profile_visibility = 'public'
+      and q.show_activity
+  );
+$$;
+
+revoke all on function public.activity_is_public(uuid) from public;
+grant execute on function public.activity_is_public(uuid) to anon, authenticated;
+
+-- =========================================================================
 -- ROW LEVEL SECURITY
 -- =========================================================================
 
@@ -268,19 +301,17 @@ create policy "an account may unsave its own items"
 -- ACTIVITY ---------------------------------------------------------------
 -- Readable by the owner, and by anyone when the owner's profile is public
 -- and they have not switched activity off.
+--
+-- That second condition depends on `preferences`, which is private — so a
+-- policy that reads it inline would evaluate to false for every reader but
+-- the owner, silently hiding all public activity. It is answered instead by
+-- a definer function that returns nothing but a boolean about one account.
 drop policy if exists "activity follows profile visibility" on public.activity;
 create policy "activity follows profile visibility"
   on public.activity for select
   using (
     user_id = (select auth.uid())
-    or exists (
-      select 1
-      from public.profiles p
-      join public.preferences q on q.user_id = p.id
-      where p.id = activity.user_id
-        and p.profile_visibility = 'public'
-        and q.show_activity
-    )
+    or public.activity_is_public(activity.user_id)
   );
 
 drop policy if exists "an account may log its own activity" on public.activity;
@@ -295,18 +326,21 @@ create policy "an account may log its own activity"
 
 -- Availability check for the sign-up and settings forms. Runs as definer so
 -- it can see private profiles without leaking anything but a boolean.
-create or replace function public.username_available(candidate citext)
+create or replace function public.username_available(candidate extensions.citext)
 returns boolean
 language sql
 security definer
-set search_path = public
+-- `extensions` must be on the path or the citext `=` operator is not found
+-- and the comparison silently degrades to a case-sensitive text match, which
+-- would report a taken handle as available.
+set search_path = public, extensions
 stable
 as $$
   select not exists (select 1 from public.profiles where username = candidate);
 $$;
 
-revoke all on function public.username_available(citext) from public;
-grant execute on function public.username_available(citext) to anon, authenticated;
+revoke all on function public.username_available(extensions.citext) from public;
+grant execute on function public.username_available(extensions.citext) to anon, authenticated;
 
 -- Cheap presence write used by the shell.
 create or replace function public.touch_last_seen()

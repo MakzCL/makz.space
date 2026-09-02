@@ -122,6 +122,16 @@ Also created:
   cannot be used to enumerate accounts.
 - `touch_last_seen()` — cheap presence write.
 
+### Testing the schema
+
+The permission model is exercised against a real PostgreSQL rather than
+trusted by eye — see `supabase/tests/`. Two bugs were caught that way and are
+fixed in the migration: an activity policy that read the private
+`preferences` table (so nobody could ever see another account's public
+activity), and a `username_available()` search path that excluded
+`extensions`, silently degrading the `citext` comparison to a case-sensitive
+text match.
+
 ### Supabase Auth settings
 
 In the dashboard, under **Authentication → URL Configuration**:
@@ -214,6 +224,12 @@ the pin.
   focus returned on close, and a visible signal-coloured focus ring that is
   never removed.
 - No information depends on animation alone.
+
+Designed states exist for everything that can go wrong, not only for the happy
+path: 404, a route error, a failed environment boot, a dropped network, an
+unreachable broadcast, an unreachable game server, an image that never
+arrives, an empty gallery filter, an empty saved list, and an account layer
+that has not been configured.
 
 ---
 

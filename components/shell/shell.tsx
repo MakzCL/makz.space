@@ -5,6 +5,7 @@ import { readStreamStatus } from "@/lib/status";
 
 import { AmbientGrid } from "./ambient-grid";
 import { CommandPaletteProvider } from "./command-palette";
+import { Connection } from "./connection";
 import { Cursor } from "./cursor";
 import { Deck } from "./deck";
 import { Dock } from "./dock";
@@ -45,6 +46,7 @@ export async function Shell({ children }: { children: ReactNode }) {
             <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden">
               <AmbientGrid />
               <Ledger />
+              <Connection />
               <div className="relative flex min-h-0 flex-1">
                 <Rail />
                 <div className="relative min-w-0 flex-1">{<Stage>{children}</Stage>}</div>
