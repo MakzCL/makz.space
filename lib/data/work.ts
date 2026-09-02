@@ -370,6 +370,7 @@ export const WORK: WorkRecord[] = [
     discipline: ["Interface", "Systems", "Automation"],
     year: "2026",
     status: "active",
+    focus: true,
     client: "Personal",
     role: "Interface design, automation, integration",
     summary:

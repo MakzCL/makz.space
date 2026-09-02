@@ -7,10 +7,10 @@ import { SITE } from "@/lib/site";
 import { motionPreset } from "@/motion/system";
 import { useClock } from "@/hooks/use-clock";
 import { useLiveStatus } from "@/components/shell/live-status";
-import { Rolling } from "@/components/ui/rolling";
 import { SplitText } from "@/components/ui/split-text";
+import { Plate } from "@/components/media/plate";
 import { elapsed } from "@/lib/utils";
-import type { WorkRecord } from "@/types";
+import type { FrameRecord, GameRecord, MinecraftStatus, WorkRecord } from "@/types";
 
 import { Wordmark } from "./wordmark";
 
@@ -25,12 +25,16 @@ import { Wordmark } from "./wordmark";
  */
 export function Standby({
   current,
-  recordCount,
-  frameCount,
+  latest,
+  server,
+  serverStatus,
+  counts,
 }: {
   current: WorkRecord;
-  recordCount: number;
-  frameCount: number;
+  latest: FrameRecord;
+  server: GameRecord;
+  serverStatus: MinecraftStatus;
+  counts: { records: number; frames: number; servers: number };
 }) {
   const { status } = useLiveStatus();
   const { time } = useClock();
@@ -58,6 +62,9 @@ export function Standby({
           transition={{ ...motionPreset.interface, delay: 0.2 }}
           className="t-micro text-[var(--color-paper-20)]"
         >
+          <span className="hidden sm:inline">
+            {counts.records} records — {counts.frames} frames — {counts.servers} servers —{" "}
+          </span>
           2026
         </motion.span>
       </div>
@@ -131,8 +138,10 @@ export function Standby({
         </motion.div>
       </div>
 
-      {/* Readouts. Three ruled cells, no borders around them — only between. */}
-      <div className="grid grid-cols-1 border-t border-[var(--color-line)] sm:grid-cols-3">
+      {/* Readouts. Four ruled cells, no borders around them — only between.
+          Each one is live: what is being worked on, whether the broadcast is
+          up, whether the server is up, and the most recent frame. */}
+      <div className="grid grid-cols-1 border-t border-[var(--color-line)] sm:grid-cols-2 xl:grid-cols-4">
         <Readout
           index="A"
           label="Current record"
@@ -144,7 +153,7 @@ export function Standby({
         <Readout
           index="B"
           label="Broadcast"
-          delay={0.78}
+          delay={0.76}
           href="/live"
           value={status.online ? "LIVE NOW" : "OFF AIR"}
           accent={status.online}
@@ -156,17 +165,28 @@ export function Standby({
         />
         <Readout
           index="C"
-          label="In the index"
-          delay={0.86}
-          href="/work"
-          value={
-            <span className="t-tabular">
-              <Rolling value={recordCount} /> records
-            </span>
+          label="Now running"
+          delay={0.82}
+          href={`/gaming#${server.slug}`}
+          value={server.title.split(" ")[0] ?? server.title}
+          accent={serverStatus.online}
+          note={
+            serverStatus.online && serverStatus.players
+              ? `${serverStatus.players.online} / ${serverStatus.players.max} online — ${server.facts[0]?.value ?? ""}`
+              : `Unreachable — ${server.facts[0]?.value ?? ""}`
           }
-          note={`${frameCount} frames — 2 servers — 1 broadcast`}
+        />
+        <Readout
+          index="D"
+          label="Latest frame"
+          delay={0.88}
+          href={`/frames?frame=${latest.slug}`}
+          value={latest.title}
+          note={`${latest.subject} — ${latest.medium}`}
+          plate={latest}
         />
       </div>
+
     </section>
   );
 }
@@ -179,6 +199,7 @@ function Readout({
   href,
   accent,
   delay,
+  plate,
 }: {
   index: string;
   label: string;
@@ -187,39 +208,54 @@ function Readout({
   href: string;
   accent?: boolean;
   delay: number;
+  /** One small image, where a cell earns it. */
+  plate?: FrameRecord;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...motionPreset.reveal, delay }}
-      className="border-b border-[var(--color-line)] sm:border-b-0 sm:border-r sm:last:border-r-0"
+      className="border-b border-[var(--color-line)] sm:[&:nth-child(odd)]:border-r xl:border-r xl:last:border-r-0"
     >
       <Link
         href={href}
         data-cursor="open"
-        className="group flex h-full flex-col gap-3 px-[var(--unit-gutter)] py-5 transition-colors duration-200 hover:bg-[var(--color-surface)] sm:px-6 lg:px-7"
+        className="group flex h-full items-start gap-4 px-[var(--unit-gutter)] py-5 transition-colors duration-200 hover:bg-[var(--color-surface)] sm:px-6"
       >
-        <span className="flex items-center gap-3">
-          <span className="t-micro text-[var(--color-paper-20)]">{index}</span>
-          <span className="t-micro text-[var(--color-paper-35)]">{label}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-3">
+          <span className="flex items-center gap-3">
+            <span className="t-micro text-[var(--color-paper-20)]">{index}</span>
+            <span className="t-micro text-[var(--color-paper-35)]">{label}</span>
+            <span
+              aria-hidden
+              className="ml-auto block h-px w-0 bg-[var(--color-signal)] transition-[width] duration-300 ease-out group-hover:w-8"
+            />
+          </span>
+
           <span
-            aria-hidden
-            className="ml-auto block h-px w-0 bg-[var(--color-signal)] transition-[width] duration-300 ease-out group-hover:w-8"
+            className={
+              accent
+                ? "text-[clamp(1.1rem,2.2vw,1.6rem)] font-bold leading-none tracking-[-0.035em] text-[var(--color-signal)]"
+                : "text-[clamp(1.1rem,2.2vw,1.6rem)] font-bold leading-none tracking-[-0.035em] text-[var(--color-paper)]"
+            }
+          >
+            {value}
+          </span>
+
+          <span className="t-micro leading-[1.7] text-[var(--color-paper-20)]">{note}</span>
+        </span>
+
+        {plate ? (
+          <Plate
+            src={plate.asset.src}
+            label={plate.index}
+            size="mt-0.5 h-12 w-12"
+            sizes="48px"
+            className="border border-[var(--color-line)]"
+            imgClassName="opacity-80 transition-opacity duration-300 group-hover:opacity-100"
           />
-        </span>
-
-        <span
-          className={
-            accent
-              ? "text-[clamp(1.15rem,2.4vw,1.75rem)] font-bold leading-none tracking-[-0.035em] text-[var(--color-signal)]"
-              : "text-[clamp(1.15rem,2.4vw,1.75rem)] font-bold leading-none tracking-[-0.035em] text-[var(--color-paper)]"
-          }
-        >
-          {value}
-        </span>
-
-        <span className="t-micro leading-[1.7] text-[var(--color-paper-20)]">{note}</span>
+        ) : null}
       </Link>
     </motion.div>
   );

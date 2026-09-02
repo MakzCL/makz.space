@@ -47,12 +47,15 @@ export function Ledger() {
         />
       </Link>
 
-      {/* Position. Swaps as a rolling pair on every route change. Below 400px
-          there is no room for it and the dock already marks the section, so it
-          gives way rather than clipping. */}
-      <span aria-hidden className="flex-1 min-[400px]:hidden" />
-      <div className="hidden min-w-0 flex-1 items-center gap-3 overflow-hidden px-3 min-[400px]:flex sm:px-4">
-        <span className="t-micro shrink-0 text-[var(--color-signal)]">
+      {/* Position. Swaps as a rolling pair on every route change.
+
+          It sheds parts as the viewport narrows rather than clipping: the
+          descriptor goes below 1280, the index below 640, and the whole
+          readout below 360 — where the dock is already marking the section, so
+          nothing is actually lost. */}
+      <span aria-hidden className="flex-1 min-[360px]:hidden" />
+      <div className="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden px-2.5 min-[360px]:flex sm:gap-3 sm:px-4">
+        <span className="t-micro hidden shrink-0 text-[var(--color-signal)] sm:inline">
           {section.index}
         </span>
         <span className="reveal-clip block h-3 shrink-0">

@@ -9,6 +9,7 @@ import { SplitText } from "@/components/ui/split-text";
 import { ActionLink } from "@/components/ui/action";
 import { SaveControl } from "@/features/saved/save-control";
 import { useStageScroll } from "@/components/shell/stage-scroll";
+import { ProcessSequence } from "./process-sequence";
 import { motionPreset, stagger } from "@/motion/system";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { cx } from "@/lib/utils";
@@ -251,40 +252,27 @@ export function RecordView({
         </section>
       ) : null}
 
-      {/* ---- TIMELINE + STACK + CREDITS ----------------------------------- */}
+      {/* ---- PROCESS -------------------------------------------------------
+           Full width: the sequence pins, so nothing may share its row. */}
+      <section
+        aria-label="Process"
+        className="border-b border-[var(--color-line)] px-[var(--unit-gutter)] py-10"
+      >
+        <div className="flex items-baseline justify-between gap-6">
+          <h2 className="t-micro text-[var(--color-paper-35)]">Process</h2>
+          <span className="t-micro t-tabular text-[var(--color-paper-20)]">
+            {String(record.timeline.length).padStart(2, "0")} phases
+          </span>
+        </div>
+        <ProcessSequence phases={record.timeline} />
+      </section>
+
+      {/* ---- STACK + CREDITS ------------------------------------------------ */}
       <div className="grid grid-cols-1 border-b border-[var(--color-line)] lg:grid-cols-2">
         <section
-          aria-label="Process"
+          aria-label="Technical"
           className="border-b border-[var(--color-line)] px-[var(--unit-gutter)] py-10 lg:border-b-0 lg:border-r"
         >
-          <h2 className="t-micro text-[var(--color-paper-35)]">Process</h2>
-          <ol role="list" className="mt-6">
-            {record.timeline.map((entry, i) => (
-              <motion.li
-                key={entry.phase}
-                initial={reduced ? false : { opacity: 0, x: -14 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: "-10% 0px" }}
-                transition={{ ...motionPreset.reveal, delay: i * stagger.item }}
-                className="group flex gap-5 border-t border-[var(--color-line)] py-4"
-              >
-                <span className="t-micro t-tabular mt-1 shrink-0 text-[var(--color-signal)]">
-                  {entry.phase}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[1.05rem] font-semibold tracking-[-0.02em] text-[var(--color-paper)]">
-                    {entry.label}
-                  </span>
-                  <span className="t-micro mt-1.5 block leading-[1.7] text-[var(--color-paper-35)]">
-                    {entry.detail}
-                  </span>
-                </span>
-              </motion.li>
-            ))}
-          </ol>
-        </section>
-
-        <section aria-label="Technical" className="px-[var(--unit-gutter)] py-10">
           <h2 className="t-micro text-[var(--color-paper-35)]">Built with</h2>
           <ul role="list" className="mt-6 flex flex-wrap gap-x-3 gap-y-2">
             {record.stack.map((item, i) => (
@@ -300,9 +288,11 @@ export function RecordView({
               </motion.li>
             ))}
           </ul>
+        </section>
 
-          <h2 className="t-micro mt-10 text-[var(--color-paper-35)]">Credits</h2>
-          <dl className="mt-5">
+        <section aria-label="Credits" className="px-[var(--unit-gutter)] py-10">
+          <h2 className="t-micro text-[var(--color-paper-35)]">Credits</h2>
+          <dl className="mt-6">
             {record.credits.map((credit) => (
               <div
                 key={credit.role}

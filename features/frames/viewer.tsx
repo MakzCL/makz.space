@@ -8,13 +8,11 @@ import { duration, ease, motionPreset, spring } from "@/motion/system";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useLockScroll } from "@/hooks/use-lock-scroll";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { Plate } from "@/components/media/plate";
 import { cx } from "@/lib/utils";
 import type { FrameRecord } from "@/types";
 
-/**
- * A filmstrip cell. If its image never arrives it falls back to the frame's
- * index rather than a browser broken-image glyph.
- */
+/** A filmstrip cell. */
 function Thumb({
   frame,
   active,
@@ -24,7 +22,6 @@ function Thumb({
   active: boolean;
   onSelect: () => void;
 }) {
-  const [broken, setBroken] = useState(false);
   return (
     <button
       type="button"
@@ -32,27 +29,13 @@ function Thumb({
       aria-label={frame.title}
       aria-current={active}
       className={cx(
-        "relative h-12 w-16 shrink-0 overflow-hidden border bg-[var(--color-surface)] transition-opacity duration-200",
+        "block shrink-0 border transition-opacity duration-200",
         active
           ? "border-[var(--color-signal)] opacity-100"
           : "border-transparent opacity-40 hover:opacity-80",
       )}
     >
-      {broken ? (
-        <span className="t-micro absolute inset-0 grid place-items-center text-[var(--color-paper-20)]">
-          {frame.index}
-        </span>
-      ) : (
-        <Image
-          src={frame.asset.src}
-          alt=""
-          fill
-          sizes="64px"
-          loading="lazy"
-          onError={() => setBroken(true)}
-          className="object-cover"
-        />
-      )}
+      <Plate src={frame.asset.src} label={frame.index} size="h-12 w-16" sizes="64px" />
     </button>
   );
 }

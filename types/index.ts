@@ -71,6 +71,8 @@ export interface WorkRecord {
   discipline: string[];
   year: string;
   status: "active" | "shipped" | "archived" | "ongoing";
+  /** The one record currently being worked on. Exactly one should carry it. */
+  focus?: boolean;
   client: string;
   role: string;
   summary: string;

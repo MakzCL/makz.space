@@ -20,7 +20,7 @@ run on Supabase with row level security.
 | --- | --- |
 | Framework | Next.js 16 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS v4 with a token layer in `styles/tokens.css` |
-| Motion | Motion (`motion/react`), five named behaviours in `motion/system.ts` |
+| Motion | Motion (`motion/react`) for everything; GSAP ScrollTrigger for the one pinned, scrubbed sequence |
 | Data | Supabase (PostgreSQL + Auth), cookie sessions via `@supabase/ssr` |
 | Video | HLS through `hls.js`, loaded only when the browser needs it |
 
@@ -188,6 +188,12 @@ Five behaviours, not five hundred values:
 
 Plus five springs (`snap`, `glide`, `heavy`, `magnetic`, `trail`) for anything
 a pointer or finger is driving directly.
+
+GSAP appears exactly once, in `features/work/process-sequence.tsx`: pinning a
+panel to a custom scroll container and scrubbing it frame-accurately is the
+job it does better than anything else here. Below tablet width and under
+reduced motion that section is a plain ordered list, and no content depends on
+the pin.
 
 ---
 
