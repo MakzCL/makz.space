@@ -40,7 +40,7 @@ export default function GlobalError({
             fontSize: "0.625rem",
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: "#e8502d",
+            color: "#fcba03",
           }}
         >
           Fault — environment

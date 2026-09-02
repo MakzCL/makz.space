@@ -211,7 +211,9 @@ the pin.
 
 - Every text tier is a measured solid value, not an opacity, and clears
   WCAG AA (4.5:1) against the lightest surface it is allowed to sit on — in
-  both materials. Control boundaries use a separate `--color-edge` token that
+  both materials. The accent holds its hue across materials but not its
+  value: amber reads 11.3:1 on ink and 1.4:1 on paper, so the day material
+  uses the same gold at the lightness a light ground needs (5.2:1). Control boundaries use a separate `--color-edge` token that
   clears 3:1, because a hairline that is only decorative is not enough when it
   is also the affordance.
 - `prefers-reduced-motion` is honoured at the CSS floor *and* read at runtime,
