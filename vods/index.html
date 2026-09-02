@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0b">
+  <meta name="description" content="The makz.space livestream replay archive.">
+  <title>VOD archive — makz.space</title>
+  <link rel="icon" type="image/png" href="../makz.space.favicon.png">
+  <link rel="stylesheet" href="../assets/app.css?v=20260902">
+  <script src="../assets/app.js?v=20260902" defer></script>
+</head>
+<body data-route="live" data-base="../" data-owncast="https://stream.makz.space">
+  <div data-site-chrome></div>
+  <main id="main">
+    <section class="page-hero" aria-labelledby="vod-title">
+      <div data-reveal>
+        <div class="eyebrow">Broadcast archive</div>
+        <h1 class="display" id="vod-title">PLAY IT<br>BACK.</h1>
+      </div>
+      <p class="page-hero__aside" data-reveal><span>Saved streams</span>Only saved replays are listed. The latest live status remains available in the broadcast room.</p>
+    </section>
+    <section aria-live="polite" aria-label="Saved stream replays">
+      <div class="vod-grid" data-vod-grid>
+        <div class="empty-zone" style="grid-column:1/-1"><h2>NO SAVED<br>REPLAYS.</h2><p>There are no VOD entries in the archive yet. When a stream is saved, it will appear here with its real title and date.</p></div>
+      </div>
+      <div class="button-row" data-reveal><a class="pressable" href="../livestream.html">Back to live</a><a class="pressable pressable--quiet" href="https://www.youtube.com/@makzcl/streams" target="_blank" rel="noopener noreferrer">YouTube streams</a></div>
+    </section>
+  </main>
+  <div data-site-footer></div>
+  <script>
+    (() => {
+      const grid = document.querySelector("[data-vod-grid]");
+      const safeText = (value) => String(value || "").replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]);
+      fetch("vods.json", { cache: "no-store" }).then((response) => {
+        if (!response.ok) throw new Error("Archive unavailable");
+        return response.json();
+      }).then((vods) => {
+        if (!Array.isArray(vods) || !vods.length) return;
+        grid.innerHTML = vods.map((vod) => {
+          const url = vod.embed || vod.video || vod.url;
+          const outer = url ? `<a class="vod-card" href="${safeText(url)}" target="_blank" rel="noopener noreferrer">` : '<article class="vod-card">';
+          const close = url ? '</a>' : '</article>';
+          return `${outer}<span>${safeText(vod.date || "Saved replay")}${vod.duration ? ` · ${safeText(vod.duration)}` : ""}</span><strong>${safeText(vod.title || "Untitled stream")}</strong><small>${safeText(vod.description || "Open replay")}</small>${close}`;
+        }).join("");
+      }).catch(() => {
+        const message = grid.querySelector(".empty-zone p");
+        if (message) message.textContent = "The VOD archive could not be reached right now. Please try again later.";
+      });
+    })();
+  </script>
+</body>
+</html>
+
