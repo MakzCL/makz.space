@@ -21,7 +21,7 @@ export default async function SettingsPage() {
   return (
     <>
       <SectionHead
-        index="—"
+        index="··"
         name="Settings"
         lede="Six panels. Appearance and motion apply the moment you touch them; everything else saves when you say so."
         readouts={[

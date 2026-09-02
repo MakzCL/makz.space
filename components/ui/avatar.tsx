@@ -46,7 +46,11 @@ export function Avatar({
         <>
           <span
             className="t-micro text-[var(--color-paper-70)]"
-            style={{ fontSize: Math.max(8, size * 0.28) }}
+            style={{
+              fontSize: Math.max(8, size * 0.28),
+              // The label tracking is far too loose for a two-glyph mark.
+              letterSpacing: "0.04em",
+            }}
           >
             {initialsOf(name)}
           </span>

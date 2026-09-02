@@ -102,7 +102,7 @@ export function Access({
   const errors = state && !state.ok ? (state.fieldErrors ?? {}) : {};
 
   return (
-    <div className="grid min-h-full grid-cols-1 lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-[calc(100dvh-var(--unit-ledger)-var(--unit-dock))] grid-cols-1 lg:min-h-[calc(100dvh-var(--unit-ledger)-var(--unit-deck))] lg:grid-cols-[1.1fr_1fr]">
       {/* ---- LEFT: the mode, as type ---------------------------------- */}
       <section className="relative flex flex-col justify-between border-b border-[var(--color-line)] px-[var(--unit-gutter)] py-8 lg:border-b-0 lg:border-r lg:py-12">
         <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export function Access({
               <motion.span
                 key={mode}
                 aria-hidden
-                className="t-mega block text-[var(--color-paper)]"
+                className="block text-[clamp(2.75rem,8.5vw,7.5rem)] font-extrabold leading-[0.82] tracking-[-0.045em] text-[var(--color-paper)]"
                 initial={reduced ? { opacity: 0 } : { y: "104%" }}
                 animate={reduced ? { opacity: 1 } : { y: "0%" }}
                 exit={
@@ -336,7 +336,7 @@ export function Access({
 function Stack({ children }: { children: React.ReactNode }) {
   const reduced = useReducedMotion();
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2.5">
       {Array.isArray(children)
         ? children.map((child, i) => (
             <motion.div

@@ -16,7 +16,7 @@ export default async function SavedPage() {
   return (
     <>
       <SectionHead
-        index="—"
+        index="··"
         name="Saved"
         lede="Records you kept. Stored on your account, not this browser, so they follow you between devices."
         readouts={[

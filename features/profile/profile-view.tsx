@@ -250,7 +250,7 @@ export function ProfileView({
                   transition={{ ...motionPreset.reveal, delay: i * stagger.item * 0.7 }}
                   className="flex items-baseline gap-4 border-t border-[var(--color-line)] py-3"
                 >
-                  <span className="t-micro w-24 shrink-0 text-[var(--color-paper-20)]">
+                  <span className="t-micro w-[7.5rem] shrink-0 leading-[1.5] text-[var(--color-paper-20)]">
                     {formatRelative(entry.created_at)}
                   </span>
                   <span className="t-micro leading-[1.7] text-[var(--color-paper-70)]">

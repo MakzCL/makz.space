@@ -29,11 +29,19 @@ export function formatDate(iso: string | null | undefined, style: "long" | "shor
   }).format(date);
 }
 
+/**
+ * Every relative time in this application describes something that already
+ * happened — an account joined, a record was kept, a probe last ran. A clock
+ * a few seconds out of step between the browser and the server would
+ * otherwise print "in 12 minutes" for a past event, so the future is clamped
+ * to now rather than reported.
+ */
 export function formatRelative(iso: string | null | undefined) {
   if (!iso) return "—";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "—";
-  const seconds = Math.round((then - Date.now()) / 1000);
+  const seconds = Math.min(0, Math.round((then - Date.now()) / 1000));
+  if (seconds > -30) return "just now";
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ["year", 31_536_000],
     ["month", 2_592_000],

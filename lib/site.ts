@@ -61,6 +61,43 @@ export const SECTIONS = [
 
 export type SectionHref = (typeof SECTIONS)[number]["href"];
 
+/**
+ * Routes outside the numbered index: the account layer. They are not in the
+ * rail — they belong to whoever is signed in, not to the site's structure —
+ * but the ledger and the route curtain still have to name them correctly,
+ * so they carry a marker instead of an index.
+ */
+export const ANNEX = [
+  {
+    index: "··",
+    href: "/account",
+    name: "ACCESS",
+    descriptor: "Enter the account layer.",
+    approach: "up",
+  },
+  {
+    index: "··",
+    href: "/settings",
+    name: "SETTINGS",
+    descriptor: "General, profile, appearance, privacy, security.",
+    approach: "up",
+  },
+  {
+    index: "··",
+    href: "/saved",
+    name: "SAVED",
+    descriptor: "Records you kept.",
+    approach: "up",
+  },
+  {
+    index: "··",
+    href: "/u",
+    name: "PROFILE",
+    descriptor: "An account record.",
+    approach: "up",
+  },
+] as const satisfies readonly SectionNode[];
+
 export const SITE = {
   name: "MAKZ",
   domain: "makz.space",
@@ -114,8 +151,10 @@ export const STREAM = {
 
 export function sectionForPath(pathname: string): SectionNode {
   if (pathname === "/") return SECTIONS[0];
-  const match = SECTIONS.find(
-    (section) => section.href !== "/" && pathname.startsWith(section.href),
+  const section = SECTIONS.find(
+    (node) => node.href !== "/" && pathname.startsWith(node.href),
   );
-  return match ?? SECTIONS[0];
+  if (section) return section;
+  const annex = ANNEX.find((node) => pathname.startsWith(node.href));
+  return annex ?? SECTIONS[0];
 }

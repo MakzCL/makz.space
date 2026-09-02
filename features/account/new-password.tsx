@@ -45,7 +45,7 @@ export function NewPassword({ email }: { email: string | null }) {
         </p>
       ) : null}
 
-      <form action={submit} noValidate className="mt-10 w-full max-w-[26rem]">
+      <form action={submit} noValidate className="mt-10 flex w-full max-w-[26rem] flex-col gap-2.5">
         {[
           <Field
             key="password"

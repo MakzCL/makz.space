@@ -255,7 +255,7 @@ function ProfilePanel({
       title="Profile"
       lede="Everything here is public on your profile page unless you make the profile private."
     >
-      <form action={submit} noValidate className="max-w-[34rem]">
+      <form action={submit} noValidate className="flex max-w-[34rem] flex-col gap-3">
         <Field
           index="01"
           label="Handle"
