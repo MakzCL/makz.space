@@ -1,0 +1,272 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/fonts.css";
+
+@layer base {
+  /* =========================================================================
+     BASE
+     ========================================================================= */
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+    background: var(--color-void);
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-base);
+    color: var(--color-paper);
+    font-family: var(--font-display);
+    font-size: var(--text-body);
+    line-height: 1.5;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01" 1, "cv01" 1;
+    overscroll-behavior-y: none;
+  }
+
+  /* The environment owns its own scroll container per route, so the document
+     never double-scrolls behind a sheet. */
+  body[data-locked="true"] {
+    overflow: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+    margin: 0;
+  }
+
+  ul[role="list"], ol[role="list"] {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  button {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  img, svg, video, canvas {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* ---- SELECTION ----------------------------------------------------------
+     Signal on ink, never the browser default blue. */
+  ::selection {
+    background: var(--color-signal);
+    color: var(--color-void);
+  }
+
+  /* ---- SCROLLBAR ----------------------------------------------------------
+     A hairline, not a chrome widget. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-paper-20) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-paper-12);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 0;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-paper-35);
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ---- FOCUS --------------------------------------------------------------
+     Never removed, never a default ring. A signal bracket that sits outside
+     the element so it reads on both materials. */
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+  [data-focus-inset]:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+@layer components {
+  /* =========================================================================
+     TYPE UTILITIES
+     ========================================================================= */
+
+  .t-mega {
+    font-size: var(--text-mega);
+    font-weight: 800;
+    line-height: 0.78;
+    letter-spacing: -0.045em;
+  }
+
+  .t-display {
+    font-size: var(--text-display);
+    font-weight: 700;
+    line-height: 0.86;
+    letter-spacing: -0.035em;
+  }
+
+  .t-title {
+    font-size: var(--text-title);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+  }
+
+  .t-lead {
+    font-size: var(--text-lead);
+    font-weight: 400;
+    line-height: 1.36;
+    letter-spacing: -0.014em;
+    color: var(--color-paper-70);
+  }
+
+  .t-body {
+    font-size: var(--text-body);
+    line-height: 1.62;
+    letter-spacing: -0.006em;
+    color: var(--color-paper-70);
+  }
+
+  .t-ui {
+    font-size: var(--text-ui);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.008em;
+  }
+
+  /* Technical metadata. Monospaced, uppercase, widely tracked, tiny. */
+  .t-meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .t-micro {
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  /* Numerals that never jitter while counting. */
+  .t-tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .t-balance { text-wrap: balance; }
+  .t-pretty { text-wrap: pretty; }
+
+  /* =========================================================================
+     STRUCTURE UTILITIES
+     ========================================================================= */
+
+  .rule-t { border-top: var(--line-hair) solid var(--color-line); }
+  .rule-b { border-bottom: var(--line-hair) solid var(--color-line); }
+  .rule-l { border-left: var(--line-hair) solid var(--color-line); }
+  .rule-r { border-right: var(--line-hair) solid var(--color-line); }
+
+  .gutter { padding-inline: var(--unit-gutter); }
+
+  /* A mask that reveals a line of type from below. Used everywhere text
+     enters; the clip is on a wrapper so the glyph itself is never scaled. */
+  .reveal-clip {
+    overflow: hidden;
+    /* Bleeds vertically so ascenders and descenders are never shaved, while
+       still masking the travel above and below the line. */
+    clip-path: inset(-14% 0 -14% 0);
+  }
+}
+
+/* =========================================================================
+   MOTION SAFETY
+   Every animation in the app also reads the token below at runtime, but
+   this is the hard floor: nothing moves if the OS says it should not.
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-motion="reduced"] * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* =========================================================================
+   CURSOR
+   The custom cursor replaces the native one only on precise pointers.
+   ========================================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-cursor="on"],
+  html[data-cursor="on"] * {
+    cursor: none !important;
+  }
+  html[data-cursor="on"] input,
+  html[data-cursor="on"] textarea,
+  html[data-cursor="on"] [contenteditable] {
+    cursor: text !important;
+  }
+}
+
+/* =========================================================================
+   PRINT — the index, legibly, on paper.
+   ========================================================================= */
+
+@media print {
+  [data-chrome] { display: none !important; }
+  body { background: #fff; color: #000; }
+}

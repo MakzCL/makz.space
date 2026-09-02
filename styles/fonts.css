@@ -1,0 +1,26 @@
+/* =========================================================================
+   TYPEFACE — CABINET GROTESK
+   Self-hosted from /public/fonts. Run `npm run fetch:fonts` once to
+   populate them (see README → Typeface). Until then the metric-matched
+   fallback below carries the layout with no shift in composition.
+   ========================================================================= */
+
+@font-face {
+  font-family: "Cabinet Grotesk";
+  src: url("/fonts/CabinetGrotesk-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Metric-matched fallback so the display type does not reflow when the
+   variable file arrives. Values derived from Cabinet Grotesk's vertical
+   metrics against the local grotesque stack. */
+@font-face {
+  font-family: "Cabinet Grotesk Fallback";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial");
+  ascent-override: 94%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 103%;
+}
