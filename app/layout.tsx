@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 
@@ -18,6 +21,15 @@ const mono = JetBrains_Mono({
   display: "swap",
   variable: "--font-jetbrains-mono",
 });
+
+/**
+ * Cabinet Grotesk is self-hosted and fetched once with `npm run fetch:fonts`
+ * (see README → Typeface). Resolved at module load so a deployment that has
+ * not fetched it yet does not preload a file that is not there — the
+ * metric-matched fallback carries the layout until it arrives.
+ */
+const DISPLAY_FONT = "/fonts/CabinetGrotesk-Variable.woff2";
+const displayFontPresent = existsSync(join(process.cwd(), "public", DISPLAY_FONT));
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -76,13 +88,15 @@ export default function RootLayout({
         {/* Material and motion are resolved before first paint so the
             environment never flashes the wrong one. */}
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOTSTRAP }} />
-        <link
-          rel="preload"
-          href="/fonts/CabinetGrotesk-Variable.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
+        {displayFontPresent ? (
+          <link
+            rel="preload"
+            href={DISPLAY_FONT}
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
+        ) : null}
       </head>
       <body>
         <Shell>{children}</Shell>
