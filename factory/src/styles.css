@@ -132,10 +132,11 @@ p { margin: 0; }
 
 /* ---------------------------------------------------------------- loaders */
 .loader { display: grid; justify-items: center; gap: 0.9rem; color: var(--muted); font-size: 0.88rem; }
-.startup { position: relative; z-index: 1; display: grid; place-items: center; align-content: center; }
-.startup .full-loader { min-height: 0; height: auto; }
-.startup-help { display: grid; justify-items: center; gap: 0.8rem; margin-top: 1.5rem; padding: 0 1.5rem; text-align: center; }
-.full-loader { position: relative; z-index: 1; min-height: 60vh; height: 100%; display: grid; place-items: center; }
+/* Every loading screen sits at the exact centre of the viewport, so swapping
+   one for the next (start-up → sign-in → syncing) never moves the logo. */
+.startup { position: relative; z-index: 1; }
+.full-loader { position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; }
+.startup-help { position: fixed; left: 0; right: 0; top: calc(50% + 4.5rem); z-index: 4; display: grid; justify-items: center; gap: 0.8rem; padding: 0 1.5rem; text-align: center; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .skel { border-radius: var(--r-l); background: linear-gradient(100deg, var(--surface) 30%, var(--surface-2) 50%, var(--surface) 70%); background-size: 300% 100%; animation: shimmer 1.4s ease-in-out infinite; }
@@ -922,7 +923,7 @@ p { margin: 0; }
   .top.hide { transform: none; }
   .top .brand { display: none; }
   .scroller { padding: var(--head-h) 2rem 3rem; }
-  .scroller > div, .scroller > .full-loader { max-width: 1180px; margin: 0 auto; }
+  .scroller > div { max-width: 1180px; margin: 0 auto; }
   .nav { left: 16px; top: 16px; bottom: 16px; right: auto; width: var(--rail); height: auto; max-width: none; margin: 0;
     display: flex; flex-direction: column; gap: 0.25rem; padding: 1.1rem 0.8rem; border-radius: 28px; box-shadow: var(--shadow); }
   .nav::before { content: "Factory"; display: flex; align-items: center; min-height: 34px; margin-bottom: 0.9rem; padding: 0 0.9rem 0 5.6rem; font-weight: 700; font-size: 1.3rem; line-height: 1; color: var(--text);
@@ -987,7 +988,7 @@ p { margin: 0; }
 :root.is-kimera { --k-accent: #7c5cff; --red: #7c5cff; --brand: #7c5cff; --brand-hi: #9b84ff; --k-ok: #3fcf8e; --k-warn: #f5c85c; --k-bad: #ff5d4f; --k-info: #8f9bff; }
 :root.is-kimera[data-theme="light"] { --k-accent: #6a48f0; --red: #6a48f0; --brand: #6a48f0; --k-ok: #14935a; --k-warn: #9a6400; --k-bad: #d42a25; --k-info: #3b4cca; }
 .kimera { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
-.kimera .fill, .kimera > .full-loader { flex: 1; overflow: auto; }
+.kimera .fill { flex: 1; overflow: auto; }
 .k-app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .k-top { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1.4rem; padding-top: calc(0.6rem + var(--safe-t)); background: var(--bg-2); border-bottom: 1px solid var(--line); position: relative; z-index: 5; }
 .k-brand { display: flex; align-items: center; gap: 0.6rem; color: var(--text); text-decoration: none; flex: none; }
