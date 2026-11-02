@@ -186,7 +186,7 @@ function Awards() {
 }
 
 function Settings({ onSignOut }: { onSignOut: () => void }) {
-  const { me, backend } = useStore();
+  const { me } = useStore();
   const prefs = usePrefs();
   return (
     <>
@@ -202,7 +202,7 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
         <div className="set"><span><b>{t("Reduce animations")}</b><small>{t("Open panels instantly")}</small></span><Toggle on={prefs.reduceMotion} onChange={(v) => setPrefs({ reduceMotion: v })} /></div>
         <div className="set"><span><b>{t("Vibration")}</b><small>{t("Short buzz on taps (Android)")}</small></span><Toggle on={prefs.haptics} onChange={(v) => setPrefs({ haptics: v })} /></div>
         <div className="set"><span><b>{t("Sounds")}</b><small>{t("Soft clicks on actions")}</small></span><Toggle on={prefs.sounds} onChange={(v) => setPrefs({ sounds: v })} /></div>
-        <div className="set"><span><b>{t("Update app")}</b><small>v{__APP_VERSION__} · {backend.mode === "demo" ? t("demo mode") : t("cloud sync")}</small></span>
+        <div className="set"><span><b>{t("Update app")}</b><small>v{__APP_VERSION__} · {t("cloud sync")}</small></span>
           <Btn small tone="soft" icon={<RefreshCw size={15} />} onClick={async () => {
             const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];
             await Promise.all(regs.map((r) => r.update()));

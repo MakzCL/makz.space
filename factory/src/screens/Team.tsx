@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Copy, Dices, Link2, Search, Share2, ShieldCheck, Trash2, UserCheck, X } from "lucide-react";
+import { Check, Copy, Link2, Search, Share2, ShieldCheck, Trash2, UserCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar } from "../components/Avatar";
 import { Scene } from "../components/Scene";
 import { useToast } from "../components/Toast";
 import { Badge, Btn, Chip, Field, RoundBtn, Section, Sheet, item, list } from "../components/ui";
 import { useActions, usePresence } from "../lib/actions";
+import { JOIN_PIN } from "../lib/backend";
 import { plural, t } from "../lib/i18n";
 import { can, ROLE_META, ROLE_ORDER } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
@@ -96,43 +97,35 @@ export function PendingMembers() {
 
 const EXPIRY = [{ h: 24, label: "24 hours" }, { h: 24 * 7, label: "7 days" }, { h: 24 * 30, label: "30 days" }];
 const USES: (number | null)[] = [1, 5, 20, null];
-const randomPin = () => String(crypto.getRandomValues(new Uint32Array(1))[0]! % 10000).padStart(4, "0");
 
 export function JoinLinksSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { db, me, person } = useStore();
   const a = useActions();
   const roles = can.linkRoles(me.role);
   const [role, setRole] = useState<Role>("operator");
-  const [pin, setPin] = useState(randomPin);
   const [hours, setHours] = useState(24 * 7);
-  const [uses, setUses] = useState<number | null>(5);
+  const [uses, setUses] = useState<number | null>(1);
   const [made, setMade] = useState<JoinLink | null>(null);
-  useEffect(() => { if (open) { setMade(null); setPin(randomPin()); } }, [open]);
+  useEffect(() => { if (open) setMade(null); }, [open]);
   const live = db.join_links.filter((l) => !l.revoked && new Date(l.expires_at) > new Date() && (l.max_uses === null || l.uses < l.max_uses))
     .sort((x, y) => y.created_at.localeCompare(x.created_at));
-  const pinOk = /^[0-9]{4,8}$/.test(pin);
 
   return (
     <Sheet open={open} onClose={onClose} tall title={made ? t("Share this link") : t("Invite new starters")}>
       {made ? <LinkCard link={made} onDone={() => setMade(null)} /> : (
         <div className="stack">
-          <p className="muted">{t("New starters open the link, type the PIN you set here, and create their account. No approval needed afterwards.")}</p>
+          <p className="muted">{t("Make one link per person. They open it, type the team PIN and create their account — no approval needed afterwards.")}</p>
           <Field label={t("They join as")}>
             <div className="chips">{roles.map((r) => <Chip key={r} on={role === r} onClick={() => setRole(r)}><ShieldCheck size={14} />{roleLabel(r)}</Chip>)}</div>
           </Field>
-          <Field label={t("PIN (4–8 digits)")} hint={t("Tell people the PIN in person — not in the same message as the link.")}>
-            <div className="row gap">
-              <input className="pin-input" inputMode="numeric" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
-              <Btn tone="soft" icon={<Dices size={18} />} onClick={() => setPin(randomPin())}>{t("Random")}</Btn>
-            </div>
-          </Field>
+          <div className="pin-show"><small>{t("Team PIN (same for every link)")}</small><b>{JOIN_PIN}</b><small>{t("Tell people the PIN in person — not in the same message as the link.")}</small></div>
           <Field label={t("Link works for")}>
             <div className="chips">{EXPIRY.map((e) => <Chip key={e.h} on={hours === e.h} onClick={() => setHours(e.h)}>{t(e.label)}</Chip>)}</div>
           </Field>
           <Field label={t("How many people can use it")}>
             <div className="chips">{USES.map((u) => <Chip key={String(u)} on={uses === u} onClick={() => setUses(u)}>{u === null ? t("No limit") : u}</Chip>)}</div>
           </Field>
-          <Btn tone="primary" wide disabled={!pinOk} icon={<Link2 size={18} />} onClick={async () => { const l = await a.createJoinLink(role, pin, hours, uses); if (l) setMade(l); }}>{t("Create link")}</Btn>
+          <Btn tone="primary" wide icon={<Link2 size={18} />} onClick={async () => { const l = await a.createJoinLink(role, JOIN_PIN, hours, uses); if (l) setMade(l); }}>{t("Create link")}</Btn>
 
           {live.length > 0 && (
             <Section title={t("Active links")}>

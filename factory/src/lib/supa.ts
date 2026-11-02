@@ -10,7 +10,6 @@ const TIME_COL: Partial<Record<TableName, string>> = {
 };
 
 export class SupabaseBackend implements Backend {
-  mode = "cloud" as const;
   sb: SupabaseClient;
 
   constructor(url: string, key: string) {

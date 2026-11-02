@@ -149,7 +149,7 @@ export const PL: Record<string, string> = {
   "Reduce animations": "Mniej animacji", "Open panels instantly": "Panele otwierają się od razu",
   "Vibration": "Wibracje", "Short buzz on taps (Android)": "Krótka wibracja przy dotyku (Android)",
   "Sounds": "Dźwięki", "Soft clicks on actions": "Ciche kliknięcia przy akcjach", "Update app": "Aktualizuj aplikację",
-  "demo mode": "tryb demo", "cloud sync": "synchronizacja w chmurze", "Reload": "Odśwież", "Sign out": "Wyloguj",
+  "cloud sync": "synchronizacja w chmurze", "Reload": "Odśwież", "Sign out": "Wyloguj",
   "Back": "Wstecz", "Close": "Zamknij", "Hold to confirm": "Przytrzymaj, by potwierdzić",
 
   // Login, join, pending
@@ -157,9 +157,9 @@ export const PL: Record<string, string> = {
   "Password": "Hasło", "Create account": "Załóż konto", "Forgot password?": "Nie pamiętasz hasła?", "Type your email first": "Najpierw wpisz e-mail",
   "Reset link sent": "Wysłano link do zmiany hasła", "Check your email to confirm your account": "Sprawdź e-mail, aby potwierdzić konto",
   "Got an invite link from work? Open it instead — it skips the approval wait.": "Masz link zaproszenia z pracy? Otwórz go — nie trzeba czekać na akceptację.",
-  "Try a role": "Wypróbuj rolę", "Demo mode. Open a second tab as someone else to test team jobs.": "Tryb demo. Otwórz drugą kartę jako inna osoba, aby przetestować pracę zespołową.",
-  "Demo invite link: add ?join=LINE2026 to the address, PIN 1234.": "Demo link zaproszenia: dodaj ?join=LINE2026 do adresu, PIN 1234.",
-  "Reset all demo data?": "Zresetować wszystkie dane demo?", "Reset demo data": "Resetuj dane demo",
+  
+  
+  
   "Could not sign in": "Nie udało się zalogować", "Use at least 8 characters for your password": "Hasło musi mieć co najmniej 8 znaków",
   "Opening invite…": "Otwieram zaproszenie…", "Back to sign in": "Wróć do logowania", "You're invited": "Masz zaproszenie",
   "{name} invited you to join as": "{name} zaprasza Cię jako", "You're invited to join as": "Zaproszenie do dołączenia jako",
@@ -171,7 +171,7 @@ export const PL: Record<string, string> = {
   "Your account was created without an invite link. A manager or the office needs to approve it — or enter an invite link and PIN below.":
     "Konto zostało założone bez linku zaproszenia. Musi je zatwierdzić kierownik lub biuro — albo wpisz poniżej link i PIN.",
   "Invite link or code": "Link lub kod zaproszenia", "Join with invite": "Dołącz z zaproszeniem",
-  "Ask your manager or the office for a new link.": "Poproś kierownika lub biuro o nowy link.",
+  "Ask the boss for a new link.": "Poproś szefa o nowy link.",
   "This invite link has expired.": "Ten link zaproszenia wygasł.", "This invite link was switched off.": "Ten link zaproszenia został wyłączony.",
   "This invite link has been used the maximum number of times.": "Ten link został już wykorzystany maksymalną liczbę razy.",
   "Too many wrong PINs — this link is locked.": "Zbyt wiele błędnych PIN-ów — link jest zablokowany.",
@@ -193,10 +193,12 @@ export const PL: Record<string, string> = {
   "Get well soon — your manager has been told": "Zdrowiej szybko — kierownik został poinformowany", "Request sent for approval": "Wniosek wysłany do akceptacji",
   "Approved": "Zatwierdzono", "Rejected": "Odrzucono", "Request cancelled": "Wniosek anulowany", "Posted to everyone": "Opublikowano dla wszystkich",
   "Saved": "Zapisano", "New photo saved": "Nowe zdjęcie zapisane", "Shift corrected": "Zmiana poprawiona",
-  "Invite link ready": "Link zaproszenia gotowy", "Link switched off": "Link wyłączony", "{name} can now use the app": "{name} może już korzystać z aplikacji",
+  "Invite link ready": "Link zaproszenia gotowy",
+  "Make one link per person. They open it, type the team PIN and create their account — no approval needed afterwards.": "Utwórz osobny link dla każdej osoby. Otwiera go, wpisuje PIN zespołu i zakłada konto — bez czekania na akceptację.",
+  "Team PIN (same for every link)": "PIN zespołu (ten sam dla każdego linku)", "Only the boss can create invite links": "Linki zaproszeń może tworzyć tylko szef", "Link switched off": "Link wyłączony", "{name} can now use the app": "{name} może już korzystać z aplikacji",
   "Account removed": "Konto usunięte", "New team invite — check Home": "Nowe zaproszenie do zespołu — zobacz Start",
   "Wrong PIN": "Zły PIN", "This invite link is no longer valid": "Ten link zaproszenia jest już nieważny",
-  "Demo mode: use a first name, e.g. karol@skalarki.demo — or pick a gateway below.": "Tryb demo: użyj imienia, np. karol@skalarki.demo — albo wybierz rolę poniżej.",
+  
   "Only the boss can change roles": "Tylko szef może zmieniać role",
   "Only boss, manager or office can create invite links": "Linki zaproszeń mogą tworzyć tylko szef, kierownik lub biuro",
   "Only the boss can invite boss, manager or office staff": "Tylko szef może zapraszać szefów, kierowników i biuro",

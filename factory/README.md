@@ -28,12 +28,13 @@ job and award tiles in the profile.
 **English / Polski** — slider in Profile → Settings and on the sign-in screen.
 All text lives in `src/lib/pl.ts` (English is the key); dates follow the language.
 
-## Invite links with PIN
+## Invite links (invite-only)
 
-Boss, Manager and Office create a link from **Team → Invite new starters**:
-choose the role (managers/office: Operator or Assistant; the boss: any), a
-4–8 digit PIN, how long it works and how many people can use it. They get a QR
-code and link to share; the PIN is passed on in person.
+Nobody gets in on their own. The **boss** makes invite links from
+**Team → Invite new starters**: pick the role, how long it works and how many
+people can use it (default: one person — make one unique link per person).
+Every link uses the same team **PIN `101010`**, which is passed on in person.
+The boss gets a QR code and link to share.
 
 New starters open the link, enter the PIN on a keypad, and create their
 account — they are active straight away with that role. Anyone who signs up
@@ -42,7 +43,13 @@ account — they are active straight away with that role. Anyone who signs up
 All of this is enforced in the database (`create_join_link`,
 `check_join_pin`, `redeem_join_link`, restrictive RLS for pending accounts).
 
-Demo: open `/?join=LINE2026`, PIN `1234`.
+**First boss:** run this in the Supabase SQL editor and open the link it prints:
+
+```sql
+insert into public.join_links (code, pin, role, expires_at, max_uses)
+values (upper(substr(md5(random()::text), 1, 8)), public.join_pin(), 'boss', now() + interval '7 days', 1)
+returning 'https://factory.makz.space/?join=' || code as link;
+```
 
 ## Team jobs — how the boss sees "2 people did this"
 
@@ -73,23 +80,23 @@ npm run dev          # http://localhost:5173
 npm run build        # → dist/
 ```
 
-### Demo mode vs cloud mode
+### Backend (Supabase)
 
-* **No env vars → demo mode.** A seeded factory lives in the browser. Pick any
-  gateway on the login screen. Open a second tab as someone else to try team
-  invites live.
-* **Cloud mode (real, multi-device, realtime):**
-  1. Create a free project at supabase.com.
-  2. SQL Editor → paste and run `supabase/schema.sql`.
-  3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see `.env.example`;
-     in GitHub add them as `FACTORY_SUPABASE_URL` / `FACTORY_SUPABASE_ANON_KEY` secrets).
-  4. The **first** account to sign up becomes **Boss**, everyone else starts as
-     Operator and the boss assigns roles on the Team screen.
+The app needs a Supabase project — there is no demo mode.
+
+1. SQL Editor → paste and run `supabase/schema.sql` (safe to re-run).
+2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build time (see
+   `.env.example`). On Cloudflare Pages they are project environment variables.
+3. Create the first boss link (above).
 
 Permissions are enforced in the database with row-level security, not just the
 UI. `supabase/tests/schema.test.sql` checks them against a real Postgres.
 
 ## Deploy to Cloudflare Pages (free `*.pages.dev` domain)
+
+**Live setup:** Pages project `skalarki-factory` is connected to this repo
+(root `factory`, `npm ci && npm run build`, output `dist`); every push to
+`main` deploys to https://factory.makz.space and https://skalarki-factory.pages.dev.
 
 **Option A — dashboard (no tokens):** Cloudflare → Workers & Pages → Create →
 Pages → Connect to Git → this repo. Root directory `factory`, build command

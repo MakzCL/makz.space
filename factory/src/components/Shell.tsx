@@ -28,14 +28,14 @@ export const tabLabel = (tab: Tab) => t(LABEL[tab]);
 export function Background() { return <div className="bg" aria-hidden />; }
 
 export function Header({ onProfile, scrolled }: { onProfile: () => void; scrolled: boolean }) {
-  const { me, backend } = useStore();
+  const { me } = useStore();
   return (
     <header className={`top ${scrolled ? "scrolled" : ""}`}>
       <div className="brand">
         <Logo size={22} />
         <div className="brand-txt">
           <b>Factory</b>
-          <small>{t(ROLE_META[me.role].label)}{backend.mode === "demo" && <span className="demo-pill">demo</span>}</small>
+          <small>{t(ROLE_META[me.role].label)}</small>
         </div>
       </div>
       <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>

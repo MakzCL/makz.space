@@ -107,7 +107,6 @@ p { margin: 0; }
 .sk-logo { display: block; }
 .brand-txt b { display: block; font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
 .brand-txt small { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--muted); }
-.demo-pill { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.05rem 0.45rem; border-radius: 99px; background: var(--surface-3); color: var(--text-2); font-weight: 600; }
 .me-btn { border-radius: 50%; }
 .scroller { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0.3rem 1.25rem calc(var(--nav-h) + var(--safe-b) + 1.6rem); -webkit-overflow-scrolling: touch; }
 .scroller::-webkit-scrollbar { width: 0; }

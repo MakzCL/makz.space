@@ -29,13 +29,19 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000a1', 'op1@x.test',  '{"full_name":"Olly One"}'),
   ('00000000-0000-0000-0000-0000000000a2', 'op2@x.test',  '{"full_name":"Tess Two"}');
 
-select pg_temp.check((select role from public.profiles where id = '00000000-0000-0000-0000-00000000000b') = 'boss', 'first account becomes boss');
-select pg_temp.check((select role from public.profiles where id = '00000000-0000-0000-0000-0000000000a1') = 'operator', 'later accounts start as operator');
+select pg_temp.check((select count(*) from public.profiles where role = 'operator' and not active) = 3, 'every sign-up starts as a pending operator (no automatic boss)');
 select pg_temp.check((select count(distinct employee_code) from public.profiles) = 3, 'unique employee codes');
 
+-- Bootstrap: a boss link made in the SQL editor turns the owner into the boss
+insert into public.join_links (code, pin, role, expires_at, max_uses)
+  values ('BOSSBOOT', public.join_pin(), 'boss', now() + interval '1 day', 1);
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select pg_temp.check(public.redeem_join_link('BOSSBOOT', '101010') = 'ok', 'owner redeems the bootstrap boss link');
+select pg_temp.check((select active and role = 'boss' from public.profiles where id = auth.uid()), 'owner is now an active boss');
+select pg_temp.become('00000000-0000-0000-0000-0000000000a2');
+select pg_temp.check(public.redeem_join_link('BOSSBOOT', '101010') = 'invalid', 'single-use boss link cannot be reused');
+
 -- Pending accounts: no access until they join with link + PIN
-select pg_temp.check((select active from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'first account is active');
-select pg_temp.check(not (select active from public.profiles where id = '00000000-0000-0000-0000-0000000000a1'), 'later sign-ups start pending');
 select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.check((select count(*) from public.profiles) = 1, 'pending account sees only itself');
 select pg_temp.expect_fail($$insert into public.shifts (user_id) values (auth.uid())$$, 'pending account clocks in');
@@ -44,26 +50,27 @@ select pg_temp.expect_fail($$select public.create_join_link('operator', '1111', 
 
 select pg_temp.become('00000000-0000-0000-0000-00000000000b');
 select code as link from public.create_join_link('operator', '4321', 24, 5) \gset
-select code as bosslink from public.create_join_link('manager', '9999', 24, 1) \gset
-select pg_temp.check((select count(*) from public.join_links) = 2, 'boss creates invite links');
-select pg_temp.expect_fail($$select public.create_join_link('operator', '12', 24, null)$$, 'PIN shorter than 4 digits');
+select code as bosslink from public.create_join_link('manager', '', 24, 1) \gset
+select pg_temp.check((select count(*) from public.join_links where created_by = auth.uid()) = 2, 'boss creates invite links');
+select pg_temp.check((select count(distinct code) from public.join_links) = 3, 'every link is unique');
+select pg_temp.check((select bool_and(pin = '101010') from public.join_links), 'every link uses the team PIN 101010');
 
 select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.check((select valid and role = 'operator' and inviter = 'Bo' from public.join_link_info(:'link')), 'link info is public and minimal');
 select pg_temp.check(not public.check_join_pin(:'link', '0000'), 'wrong PIN rejected');
 select pg_temp.check(public.redeem_join_link(:'link', '0000') = 'wrong_pin', 'redeem with wrong PIN refused');
 select pg_temp.check(not (select active from public.profiles where id = auth.uid()), 'still pending after wrong PIN');
-select pg_temp.check(public.check_join_pin(:'link', '4321'), 'right PIN accepted');
-select pg_temp.check(public.redeem_join_link(:'link', '4321') = 'ok', 'redeem with right PIN');
+select pg_temp.check(public.check_join_pin(:'link', '101010'), 'right PIN accepted');
+select pg_temp.check(public.redeem_join_link(:'link', '101010') = 'ok', 'redeem with right PIN');
 select pg_temp.check((select active and role = 'operator' from public.profiles where id = auth.uid()), 'link + PIN activates the account');
 select pg_temp.become('00000000-0000-0000-0000-0000000000a2');
-select public.redeem_join_link(:'link', '4321');
+select public.redeem_join_link(:'link', '101010');
 select pg_temp.become(null);
 select pg_temp.check((select uses = 2 and failed = 2 from public.join_links where code = :'link'), 'uses and failed attempts counted');
 -- Ten wrong guesses lock the manager link
 select public.check_join_pin(:'bosslink', '0000') from generate_series(1, 10);
 select pg_temp.check((select reason = 'locked' from public.join_link_info(:'bosslink')), 'link locks after 10 wrong PINs');
-select pg_temp.check(not public.check_join_pin(:'bosslink', '9999'), 'locked link refuses the right PIN');
+select pg_temp.check(not public.check_join_pin(:'bosslink', '101010'), 'locked link refuses the right PIN');
 
 -- Operator 1
 select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
@@ -122,6 +129,12 @@ update public.jobs set status = 'done', completed_at = now() where id = '1000000
 -- Boss: role changes, stock, news
 select pg_temp.become('00000000-0000-0000-0000-00000000000b');
 update public.profiles set role = 'assistant' where id = '00000000-0000-0000-0000-0000000000a2';
+-- Managers and office can no longer make invite links
+update public.profiles set role = 'manager' where id = '00000000-0000-0000-0000-0000000000a1';
+select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.expect_fail($$select public.create_join_link('operator', '101010', 24, 1)$$, 'manager creates a link');
+select pg_temp.check((select count(*) from public.join_links) = 0, 'manager cannot see invite links');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
 select pg_temp.check((select role from public.profiles where id = '00000000-0000-0000-0000-0000000000a2') = 'assistant', 'boss changes roles');
 insert into public.announcements (author_id, body) values (auth.uid(), 'hello');
 

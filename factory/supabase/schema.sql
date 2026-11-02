@@ -3,8 +3,11 @@
 -- Run once in Supabase → SQL Editor (or `psql -f schema.sql`).
 --
 -- Roles (gateways): boss · manager · office · assistant · operator
--- The FIRST account that signs up becomes the boss; everyone after that
--- starts as an operator and the boss promotes them from the Team screen.
+-- Nobody gets in on their own: the boss makes one invite link per person
+-- (every link uses the team PIN 101010) and the link sets their role.
+-- Accounts made without a link wait for an admin to approve them.
+-- Bootstrap the first boss with a boss link inserted from the SQL editor
+-- (see README).
 -- =========================================================================
 
 create extension if not exists pgcrypto;
@@ -54,19 +57,15 @@ language sql stable security definer set search_path = public as $$
   select coalesce(public.my_role() in ('boss','manager','office'), false)
 $$;
 
--- New auth user → profile. First person in is the boss.
+-- New auth user → pending operator profile. An invite link activates it.
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare
-  first boolean;
 begin
-  select not exists (select 1 from public.profiles) into first;
   insert into public.profiles (id, full_name, role, active)
   values (
     new.id,
     coalesce(nullif(trim(new.raw_user_meta_data->>'full_name'), ''), split_part(new.email, '@', 1)),
-    case when first then 'boss'::public.staff_role else 'operator'::public.staff_role end,
-    first
+    'operator', false
   );
   return new;
 end $$;
@@ -226,7 +225,7 @@ create table if not exists public.join_links (
   code text not null unique,
   pin text not null check (pin ~ '^[0-9]{4,8}$'),
   role public.staff_role not null default 'operator',
-  created_by uuid not null references public.profiles(id) on delete cascade,
+  created_by uuid references public.profiles(id) on delete set null,
   expires_at timestamptz not null,
   max_uses int check (max_uses is null or max_uses > 0),
   uses int not null default 0,
@@ -347,9 +346,10 @@ create policy "admins post news" on public.announcements for insert to authentic
 create policy "admins edit news" on public.announcements for update to authenticated using (public.is_admin());
 create policy "admins delete news" on public.announcements for delete to authenticated using (public.is_admin());
 
--- invite links: admins see and revoke; creation goes through create_join_link()
-create policy "admins read links" on public.join_links for select to authenticated using (public.is_admin());
-create policy "admins revoke links" on public.join_links for update to authenticated using (public.is_admin());
+-- invite links: the boss sees and revokes; creation goes through create_join_link()
+alter table public.join_links alter column created_by drop not null;
+create policy "boss reads links" on public.join_links for select to authenticated using (public.my_role() = 'boss');
+create policy "boss revokes links" on public.join_links for update to authenticated using (public.my_role() = 'boss');
 
 -- Pending accounts see nothing but their own profile. RESTRICTIVE policies are
 -- AND-ed with the permissive ones above.
@@ -376,6 +376,9 @@ language sql stable as $$
     else 'ok' end
 $$;
 
+-- Every invite link uses the same team PIN.
+create or replace function public.join_pin() returns text language sql immutable as $$ select '101010' $$;
+
 create or replace function public.create_join_link(p_role public.staff_role, p_pin text, p_hours int, p_max_uses int)
 returns public.join_links
 language plpgsql security definer set search_path = public, extensions as $$
@@ -385,14 +388,11 @@ declare
   c text := '';
   b bytea := gen_random_bytes(8);
 begin
-  if not public.is_admin() or not public.is_active() then raise exception 'Only boss, manager or office can create invite links'; end if;
-  if p_role in ('boss','manager','office') and public.my_role() <> 'boss' then
-    raise exception 'Only the boss can invite boss, manager or office staff';
-  end if;
-  if p_pin !~ '^[0-9]{4,8}$' then raise exception 'PIN must be 4 to 8 digits'; end if;
+  -- p_pin is ignored: every link uses the team PIN.
+  if public.my_role() is distinct from 'boss' or not public.is_active() then raise exception 'Only the boss can create invite links'; end if;
   for i in 0..7 loop c := c || substr(alphabet, (get_byte(b, i) % 32) + 1, 1); end loop;
   insert into public.join_links (code, pin, role, created_by, expires_at, max_uses)
-  values (c, p_pin, p_role, auth.uid(), now() + make_interval(hours => greatest(1, least(p_hours, 24 * 90))), p_max_uses)
+  values (c, public.join_pin(), p_role, auth.uid(), now() + make_interval(hours => greatest(1, least(p_hours, 24 * 90))), p_max_uses)
   returning * into r;
   return r;
 end $$;

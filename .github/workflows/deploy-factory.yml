@@ -31,7 +31,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Optional. Leave unset to ship the self-contained demo mode.
+          # Required: the app has no demo mode.
           VITE_SUPABASE_URL: ${{ secrets.FACTORY_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.FACTORY_SUPABASE_ANON_KEY }}
       - name: Deploy
