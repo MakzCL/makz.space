@@ -441,6 +441,9 @@ const ITEM_FIELDS = {
   supplier: ["default supplier", "supplier name", "supplier"],
   supplier_code: ["supplier item code", "supplier code", "supplier sku"],
   lead_days: ["lead time days", "lead time", "purchase lead time"],
+  notes: ["notes", "note", "description"],
+  make_min: ["keep ready", "keep at least", "make min"],
+  make_batch: ["build batch", "batch size", "make batch"],
 };
 const BOM_FIELDS = {
   product_sku: ["product variant code", "product sku", "product code", "parent sku", "product"],
@@ -450,9 +453,9 @@ const BOM_FIELDS = {
 const LABELS: Record<string, string> = {
   sku: "SKU", name: "Name", kind: "Type", category: "Category", unit: "Unit", location: "Location", quantity: "In stock", min_quantity: "Reorder point",
   avg_cost: "Average cost", sale_price: "Sale price", supplier: "Supplier", supplier_code: "Supplier's code", lead_days: "Lead time (days)",
-  product_sku: "Product SKU", material_sku: "Material SKU",
+  product_sku: "Product SKU", material_sku: "Material SKU", notes: "Notes", make_min: "Keep at least", make_batch: "Build in batches of",
 };
-const NUMERIC = new Set(["quantity", "min_quantity", "avg_cost", "sale_price", "lead_days"]);
+const NUMERIC = new Set(["quantity", "min_quantity", "avg_cost", "sale_price", "lead_days", "make_min", "make_batch"]);
 
 export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const a = useActions();

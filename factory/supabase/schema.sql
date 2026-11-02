@@ -1052,9 +1052,13 @@ begin
     returning id into iid;
     if r->>'avg_cost' ~ num then update public.stock_items set avg_cost = (r->>'avg_cost')::numeric where id = iid; end if;
     perform set_config('app.stock_move', 'off', true);
+    if r ? 'notes' then update public.stock_items set notes = coalesce(r->>'notes', '') where id = iid; end if;
     if r->>'quantity' ~ num then
       perform public.move_stock(iid, (r->>'quantity')::numeric - (select quantity from public.stock_items where id = iid), 'import', 'Katana import', '');
     end if;
+    -- Keep-ready rule last, so a build is only raised for what is really missing.
+    if r->>'make_batch' ~ num and (r->>'make_batch')::numeric > 0 then update public.stock_items set make_batch = (r->>'make_batch')::numeric where id = iid; end if;
+    if r->>'make_min' ~ num then update public.stock_items set make_min = greatest((r->>'make_min')::numeric, 0) where id = iid; end if;
     n := n + 1;
   end loop;
   return n;
