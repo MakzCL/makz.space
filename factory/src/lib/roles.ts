@@ -15,10 +15,15 @@ export const ROLE_ORDER: Role[] = ["boss", "manager", "office", "assistant", "op
 export const TABS_FOR: Record<Role, Tab[]> = {
   boss:      ["home", "jobs", "team", "insights", "requests"],
   manager:   ["home", "jobs", "team", "requests", "issues"],
-  office:    ["home", "team", "requests", "stock", "time"],
-  assistant: ["home", "jobs", "time", "issues", "stock"],
-  operator:  ["home", "jobs", "time", "issues", "stock"],
+  office:    ["home", "team", "requests", "time"],
+  assistant: ["home", "jobs", "time", "issues"],
+  operator:  ["home", "jobs", "time", "issues"],
 };
+
+/** Inventory (stock, recipes, purchasing) lives on the desktop app only. */
+export const DESKTOP_ONLY: Tab[] = ["stock"];
+export const tabsFor = (r: Role, desktop: boolean): Tab[] =>
+  desktop && can.editStock(r) ? [...TABS_FOR[r], "stock"] : TABS_FOR[r];
 
 export const can = {
   manageJobs: (r: Role) => r === "boss" || r === "manager",

@@ -3,7 +3,7 @@ import { useToast } from "../components/Toast";
 import { t } from "./i18n";
 import { blip, buzz } from "./prefs";
 import { useStore } from "./store";
-import type { AbsenceKind, Invite, Issue, Job, JobLinkRole, JobStatus, Product, Profile, Station, StockItem } from "./types";
+import type { AbsenceKind, BomLine, Invite, Issue, Job, JobLinkRole, JobStatus, PoLine, Product, Profile, PurchaseOrder, Station, StockItem, Supplier } from "./types";
 
 const nowIso = () => new Date().toISOString();
 
@@ -244,19 +244,71 @@ export function useActions() {
       } catch (e) { fail(e); }
     }
 
-    async function adjustStock(item: StockItem, delta: number) {
+    const stockRefresh = () => Promise.all([refresh("stock_items"), refresh("stock_movements")]);
+    async function adjustStock(item: StockItem, delta: number, note = "") {
+      try { await B.rpc("adjust_stock", { p_item: item.id, p_delta: delta, p_note: note }); await stockRefresh(); buzz(8); }
+      catch (e) { fail(e); }
+    }
+    async function countStock(item: StockItem, counted: number, note = "") {
+      try { await B.rpc("count_stock", { p_item: item.id, p_counted: counted, p_note: note }); await stockRefresh(); ok(t("Count saved")); }
+      catch (e) { fail(e); }
+    }
+    async function saveStock(item: Partial<StockItem>, opening?: { qty: number; cost: number | null }) {
       try {
-        await B.update("stock_items", item.id, { quantity: Math.max(0, item.quantity + delta), updated_by: me.id, updated_at: nowIso() });
-        await refresh("stock_items");
-        buzz(8);
+        const { quantity: _q, avg_cost: _c, ...details } = item;
+        void _q; void _c;
+        let id = item.id;
+        if (id) await B.update("stock_items", id, { ...details, updated_by: me.id, updated_at: nowIso() });
+        else id = (await B.insert("stock_items", { ...details, quantity: 0, updated_by: me.id, updated_at: nowIso() })).id;
+        if (opening && (opening.qty || opening.cost !== null)) await B.rpc("opening_stock", { p_item: id, p_qty: opening.qty, p_cost: opening.cost });
+        await stockRefresh();
+        ok(t(item.id ? "Item saved" : "Item added"));
+        return id;
+      } catch (e) { return fail(e); }
+    }
+    async function importRows(kind: "items" | "bom", rows: Record<string, string>[]) {
+      let n = 0;
+      try {
+        for (let i = 0; i < rows.length; i += 200)
+          n += await B.rpc<number>(kind === "items" ? "import_items" : "import_bom", { p_rows: rows.slice(i, i + 200) });
+        await Promise.all([stockRefresh(), refresh("suppliers"), refresh("bom_lines")]);
+        ok(t("{n} rows imported", { n }));
+        return n;
+      } catch (e) { return fail(e); }
+    }
+    async function saveBomLine(l: Partial<BomLine>) {
+      try {
+        if (l.id) await B.update("bom_lines", l.id, l); else await B.insert("bom_lines", l);
+        await refresh("bom_lines");
       } catch (e) { fail(e); }
     }
-    async function saveStock(item: Partial<StockItem>) {
+    async function removeBomLine(id: string) {
+      try { await B.remove("bom_lines", id); await refresh("bom_lines"); } catch (e) { fail(e); }
+    }
+    async function saveSupplier(sup: Partial<Supplier>) {
       try {
-        if (item.id) await B.update("stock_items", item.id, { ...item, updated_by: me.id, updated_at: nowIso() });
-        else await B.insert("stock_items", { ...item, updated_by: me.id, updated_at: nowIso() });
-        await refresh("stock_items");
-        ok(t(item.id ? "Stock updated" : "Item added"));
+        const r = sup.id ? await B.update("suppliers", sup.id, sup) : await B.insert("suppliers", sup);
+        await refresh("suppliers"); ok(t("Supplier saved")); return r.id;
+      } catch (e) { return fail(e); }
+    }
+    async function savePo(po: Partial<PurchaseOrder>, lines?: Partial<PoLine>[]) {
+      try {
+        const r = po.id ? await B.update("purchase_orders", po.id, po) : await B.insert("purchase_orders", { status: "draft", created_by: me.id, ...po });
+        if (lines) for (const l of lines) {
+          if (l.id) await B.update("po_lines", l.id, l); else await B.insert("po_lines", { ...l, po_id: r.id });
+        }
+        await Promise.all([refresh("purchase_orders"), refresh("po_lines")]);
+        return r;
+      } catch (e) { return fail(e); }
+    }
+    async function removePoLine(id: string) {
+      try { await B.remove("po_lines", id); await refresh("po_lines"); } catch (e) { fail(e); }
+    }
+    async function receive(line: PoLine, qty: number) {
+      try {
+        const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty });
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders")]);
+        ok(t(r === "received" ? "Delivery received — PO complete" : "Delivery received"));
       } catch (e) { fail(e); }
     }
 
@@ -356,7 +408,8 @@ export function useActions() {
     return {
       createJoinLink, revokeJoinLink, approve, removeMember,
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
-      saveJob, deleteJob, reopenJob, reportIssue, setIssue, adjustStock, saveStock, requestAbsence,
+      saveJob, deleteJob, reopenJob, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
+      saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, requestAbsence,
       decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift,
       setStationMember, saveStation, moveStation, deleteStation, saveProduct, deleteProduct,
     };

@@ -5,6 +5,7 @@ import { AvatarStack } from "../components/Avatar";
 import { Scene } from "../components/Scene";
 import { Count, Empty, RoundBtn, Section, item, list } from "../components/ui";
 import { useMine, usePresence } from "../lib/actions";
+import { useDesktop } from "../lib/media";
 import { t } from "../lib/i18n";
 import { can, ROLE_META, TABS_FOR, type Tab } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
@@ -84,6 +85,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
   const now = useNow(1000);
   const presence = usePresence();
   const { invites } = useMine();
+  const desktop = useDesktop();
   const today = startOfDay().getTime();
 
   const k = useMemo(() => {
@@ -97,7 +99,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
       on, live, personToday, teamToday,
       issues: db.issues.filter((i) => i.status !== "resolved").length,
       requests: db.absences.filter((a) => a.status === "pending").length + db.profiles.filter((p) => !p.active).length,
-      low: db.stock_items.filter((s) => s.quantity <= s.min_quantity).length,
+      low: db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity <= s.min_quantity).length,
     };
   }, [db, presence, now, today]);
 
@@ -106,7 +108,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
     { label: t("Team jobs today"), v: k.teamToday, tab: (me.role === "boss" ? "insights" : "jobs") as Tab },
     { label: t("Open issues"), v: k.issues, tab: "issues" as Tab },
     { label: t("Waiting for you"), v: k.requests, tab: "requests" as Tab },
-    ...(me.role === "office" ? [{ label: t("Low stock"), v: k.low, tab: "stock" as Tab }] : []),
+    ...(desktop && can.editStock(me.role) ? [{ label: t("Low stock"), v: k.low, tab: "stock" as Tab }] : []),
   ];
 
   return (

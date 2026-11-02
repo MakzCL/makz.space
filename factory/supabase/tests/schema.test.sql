@@ -139,8 +139,9 @@ select pg_temp.check((select role from public.profiles where id = '00000000-0000
 insert into public.announcements (author_id, body) values (auth.uid(), 'hello');
 
 select pg_temp.become('00000000-0000-0000-0000-0000000000a2');
-insert into public.stock_items (sku, name, quantity) values ('RES-1', 'Resistor', 10);
-select pg_temp.check((select count(*) from public.stock_items) = 1, 'assistant manages stock');
+insert into public.stock_items (sku, name) values ('RES-1', 'Resistor');
+select public.adjust_stock((select id from public.stock_items where sku = 'RES-1'), 10, 'delivery');
+select pg_temp.check((select quantity = 10 from public.stock_items where sku = 'RES-1'), 'assistant manages stock');
 select pg_temp.expect_fail($$insert into public.announcements (author_id, body) values (auth.uid(), 'spam')$$, 'assistant posts news');
 select pg_temp.check((select count(*) from public.shifts where user_id <> auth.uid() and clock_out is not null) = 0, 'no access to others'' shift history');
 
@@ -200,6 +201,60 @@ select pg_temp.check((select assignees @> array[:'A1'::uuid, :'A2'::uuid] from p
 delete from public.station_members where user_id = :'A2';
 select pg_temp.check((select not (:'A2'::uuid = any(assignees)) from public.jobs where shopify_line_id = 9002), 'leaving a station drops its waiting jobs');
 
+-- ------------------------------------------------------- inventory (Katana)
+\set B '00000000-0000-0000-0000-00000000000b'
+select pg_temp.become(:'B');
+select pg_temp.check(public.import_items($j$[
+  {"sku":"SK-0123","name":"A32X Pedestal","kind":"product","category":"Pedestals","unit":"pcs","quantity":"1"},
+  {"sku":"AL-SHEET","name":"Aluminium sheet 2mm","category":"Metal","unit":"m2","quantity":"20.5","avg_cost":"12.40","supplier":"Metals Ltd","min_quantity":"5"},
+  {"sku":"LED-AMB","name":"Amber LED strip","quantity":"100","avg_cost":"0.80","supplier":"metals ltd"},
+  {"sku":"","name":"no sku row"}
+]$j$::jsonb) = 3, 'Katana items import (rows without SKU skipped)');
+select pg_temp.check((select count(*) from public.suppliers) = 1, 'suppliers matched by name, case-insensitive');
+select pg_temp.check((select quantity = 20.5 and avg_cost = 12.4 from public.stock_items where sku = 'AL-SHEET'), 'imported quantity and cost');
+select pg_temp.check((select count(*) from public.stock_movements where reason = 'import') = 3, 'import is in the stock history');
+select pg_temp.check(public.import_bom($j$[
+  {"product_sku":"SK-0123","material_sku":"AL-SHEET","quantity":"1.5"},
+  {"product_sku":"SK-0123","material_sku":"LED-AMB","quantity":"4"},
+  {"product_sku":"SK-0123","material_sku":"NOPE","quantity":"1"}
+]$j$::jsonb) = 2, 'recipe import (unknown SKUs skipped)');
+select pg_temp.expect_fail($$update public.stock_items set quantity = 999 where sku = 'AL-SHEET'$$, 'editing quantity directly');
+update public.stock_items set location = 'Rack B2' where sku = 'AL-SHEET';
+select pg_temp.check((select location = 'Rack B2' from public.stock_items where sku = 'AL-SHEET'), 'item details stay editable');
+select pg_temp.check(public.count_stock((select id from public.stock_items where sku = 'AL-SHEET'), 18, 'stocktake') = 18, 'stocktake sets the counted quantity');
+select pg_temp.check((select delta = -2.5 and reason = 'count' from public.stock_movements where reason = 'count'), 'stocktake records the difference');
+-- Purchase order: receive 10 m2 at 15.00 → average cost moves
+insert into public.purchase_orders (supplier_id, status) select id, 'ordered' from public.suppliers limit 1;
+insert into public.po_lines (po_id, item_id, quantity, unit_cost)
+  select (select id from public.purchase_orders limit 1), id, 10, 15 from public.stock_items where sku = 'AL-SHEET';
+select pg_temp.check(public.receive_po_line((select id from public.po_lines limit 1), 4) = 'partial', 'part delivery leaves the PO open');
+select pg_temp.check(public.receive_po_line((select id from public.po_lines limit 1), 6) = 'received', 'full delivery closes the PO');
+select pg_temp.check((select quantity = 28 from public.stock_items where sku = 'AL-SHEET'), 'receiving adds stock');
+select pg_temp.check((select avg_cost > 12.4 and avg_cost < 15 from public.stock_items where sku = 'AL-SHEET'), 'receiving at a higher price raises the average cost');
+select pg_temp.expect_fail($$select public.receive_po_line((select id from public.po_lines limit 1), 1)$$, 'receiving on a closed PO');
+-- Finishing the Shopify job for SK-0123 ×2 consumes its recipe (made to order: no finished stock added)
+select pg_temp.become(null);
+update public.jobs set status = 'open', completed_at = null, stock_booked = false where shopify_line_id = 9001;
+update public.jobs set status = 'done' where shopify_line_id = 9001;
+select pg_temp.check((select quantity = 25 from public.stock_items where sku = 'AL-SHEET'), 'finished job uses 1.5 m2 × 2');
+select pg_temp.check((select quantity = 92 from public.stock_items where sku = 'LED-AMB'), 'finished job uses 4 LEDs × 2');
+select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'SK-0123'), 'customer order does not add finished stock');
+update public.jobs set status = 'paused' where shopify_line_id = 9001;
+update public.jobs set status = 'done' where shopify_line_id = 9001;
+select pg_temp.check((select quantity = 25 from public.stock_items where sku = 'AL-SHEET'), 'stock is booked only once per job');
+-- Make-to-stock job adds finished product
+insert into public.jobs (code, title, sku, quantity, status) values ('SK-2401', 'Build 3 pedestals for stock', 'SK-0123', 3, 'open');
+update public.jobs set status = 'done' where code = 'SK-2401';
+select pg_temp.check((select quantity = 4 from public.stock_items where sku = 'SK-0123'), 'make-to-stock job adds finished products');
+select pg_temp.check((select count(*) from public.stock_movements where reason = 'consume' and ref = 'SK-2401') = 2, 'consumption is in the history with the job code');
+-- operators cannot touch stock
+update public.profiles set role = 'operator' where id = :'A2';
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.adjust_stock((select id from public.stock_items where sku = 'LED-AMB'), -5, '')$$, 'operator books stock out');
+select pg_temp.expect_fail($$select public.import_items('[{"sku":"X","quantity":"5"}]'::jsonb)$$, 'operator imports stock');
+select pg_temp.expect_fail($$insert into public.purchase_orders (status) values ('draft')$$, 'operator creates a purchase order');
+select pg_temp.expect_fail($$select public.move_stock((select id from public.stock_items where sku = 'LED-AMB'), 5, 'adjust')$$, 'calling the internal stock function directly');
+select pg_temp.become(null);
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

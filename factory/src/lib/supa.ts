@@ -7,7 +7,7 @@ const WINDOW_DAYS = 120;
 const TIME_COL: Partial<Record<TableName, string>> = {
   shifts: "clock_in", breaks: "started_at", work_sessions: "started_at",
   participants: "joined_at", invites: "created_at", announcements: "created_at",
-  orders: "created_at", job_steps: "completed_at",
+  orders: "created_at", job_steps: "completed_at", stock_movements: "created_at",
 };
 
 export class SupabaseBackend implements Backend {
@@ -81,6 +81,12 @@ export class SupabaseBackend implements Backend {
     });
     if (error) throw error;
     return this.sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+  }
+
+  async rpc<T = unknown>(fn: string, args: Record<string, unknown>) {
+    const { data, error } = await this.sb.rpc(fn, args);
+    if (error) throw error;
+    return data as T;
   }
 
   async completeStage(jobId: string) {

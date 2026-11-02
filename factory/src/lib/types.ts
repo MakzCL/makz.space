@@ -55,6 +55,8 @@ export interface Job {
   stage: number;
   station_id: string | null;
   shopify_line_id: number | null;
+  /** Materials have been taken off stock for this job. */
+  stock_booked: boolean;
 }
 
 export interface Station {
@@ -150,16 +152,89 @@ export interface Issue {
   created_at: string;
 }
 
+export type ItemKind = "material" | "product" | "part";
+
 export interface StockItem {
   id: string;
   sku: string;
   name: string;
+  kind: ItemKind;
+  category: string;
   location: string;
   unit: string;
+  /** In stock now (changes only through stock functions). */
   quantity: number;
+  /** Reorder point. */
   min_quantity: number;
+  avg_cost: number;
+  sale_price: number | null;
+  supplier_id: string | null;
+  supplier_code: string;
+  lead_days: number | null;
+  notes: string;
+  archived: boolean;
   updated_by: string | null;
   updated_at: string;
+  created_at: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  currency: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface BomLine {
+  id: string;
+  product_id: string;
+  material_id: string;
+  quantity: number;
+  notes: string;
+  created_at: string;
+}
+
+export type PoStatus = "draft" | "ordered" | "partial" | "received" | "cancelled";
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  supplier_id: string | null;
+  status: PoStatus;
+  expected_date: string | null;
+  ordered_at: string | null;
+  received_at: string | null;
+  notes: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PoLine {
+  id: string;
+  po_id: string;
+  item_id: string;
+  quantity: number;
+  received: number;
+  unit_cost: number;
+  created_at: string;
+}
+
+export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening";
+
+export interface StockMovement {
+  id: string;
+  item_id: string;
+  delta: number;
+  after: number;
+  reason: MoveReason;
+  ref: string;
+  note: string;
+  unit_cost: number | null;
+  user_id: string | null;
   created_at: string;
 }
 
@@ -219,6 +294,11 @@ export interface Tables {
   products: Product;
   orders: Order;
   job_steps: JobStep;
+  suppliers: Supplier;
+  bom_lines: BomLine;
+  purchase_orders: PurchaseOrder;
+  po_lines: PoLine;
+  stock_movements: StockMovement;
 }
 
 export type TableName = keyof Tables;
@@ -227,6 +307,7 @@ export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
   "stations", "station_members", "products", "orders", "job_steps",
+  "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
 ];
 
 export type DB = { [K in TableName]: Tables[K][] };

@@ -692,6 +692,40 @@ p { margin: 0; }
   .profile-head .folder-tabs { padding-left: 6.6rem; }
 }
 
+
+/* ------------------------------------------------------- inventory (desk) */
+.ok-t { color: var(--ok); } .nowrap { white-space: nowrap; } .end { justify-content: flex-end; }
+.toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.tb-select { width: auto; min-width: 180px; border-radius: 99px; padding-top: 0.7rem; padding-bottom: 0.7rem; background-color: var(--surface); box-shadow: var(--shadow); }
+.tbl-wrap { overflow: auto; border-radius: var(--r-m); background: var(--surface); box-shadow: var(--shadow); max-height: 70vh; }
+.sheet .tbl-wrap, .card .tbl-wrap { box-shadow: none; background: var(--surface-2); max-height: none; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.tbl th { position: sticky; top: 0; z-index: 1; background: var(--surface); text-align: left; font-weight: 500; font-size: 0.74rem; color: var(--muted); padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sheet .tbl th, .card .tbl th { background: var(--surface-2); }
+.tbl th button { font-weight: inherit; color: inherit; }
+.tbl th.num, .tbl td.num { text-align: right; }
+.tbl td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl td b { font-weight: 600; margin-right: 0.4rem; }
+.tbl td small { color: var(--muted); }
+.tbl tbody tr { cursor: pointer; transition: background 0.15s; }
+.tbl tbody tr.static { cursor: default; }
+.tbl tbody tr:not(.static):hover { background: var(--surface-2); }
+.tbl tbody tr.low td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+.tbl tfoot td { padding: 0.7rem 0.8rem; font-weight: 500; }
+.cell-input { width: 90px; padding: 0.35rem 0.55rem; border-radius: 10px; text-align: right; display: inline-block; }
+.qty-input { width: 96px; flex: none; text-align: right; }
+.split { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 1rem; align-items: start; }
+.pick-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 65vh; overflow-y: auto; }
+.pick-list button { display: flex; flex-direction: column; gap: 0.1rem; text-align: left; padding: 0.7rem 0.9rem; border-radius: var(--r-m); background: var(--surface); }
+.pick-list button.on { background: var(--ink); color: var(--on-ink); }
+.pick-list button.on .muted { color: inherit; opacity: 0.7; }
+.pick-list b { font-weight: 600; font-size: 0.92rem; }
+.pick-list small { font-size: 0.76rem; }
+.file-drop { position: relative; display: grid; justify-items: center; gap: 0.35rem; padding: 1.6rem 1rem; border-radius: var(--r-l); border: 2px dashed var(--surface-3); text-align: center; cursor: pointer; }
+.file-drop:hover { border-color: var(--red); }
+.file-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+.inventory .scene-head + * { margin-top: 0.2rem; }
 /* ================================================================ desktop
    Same look; the bottom bar becomes a side rail, lists go two-up and
    sheets open as a panel on the right. */
@@ -726,6 +760,9 @@ p { margin: 0; }
   .login > .login-top { grid-column: 1 / -1; }
   .login > .login-hero .scene, .login.join > .scene { height: 100% !important; min-height: 420px; }
   .login.join > .card, .login > .login-card { align-self: center; }
+}
+@media (min-width: 1024px) {
+  .sheet:has(.tbl) { max-width: 860px; }
 }
 @media (min-width: 1400px) {
   .page > .stack:has(> .job-row), .page > .stack:has(> .card.person) { grid-template-columns: repeat(3, minmax(0, 1fr)); }

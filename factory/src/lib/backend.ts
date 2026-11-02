@@ -21,6 +21,8 @@ export interface Backend {
   onAuthChange(cb: () => void): () => void;
   uploadAvatar(userId: string, blob: Blob): Promise<string>;
 
+  /** Call a database function (stock moves, imports, receiving). */
+  rpc<T = unknown>(fn: string, args: Record<string, unknown>): Promise<T>;
   /** Routed (Shopify) job: the current station is finished — pass it on. */
   completeStage(jobId: string): Promise<"next" | "done">;
 

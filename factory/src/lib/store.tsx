@@ -6,6 +6,7 @@ const EMPTY: DB = {
   profiles: [], shifts: [], breaks: [], jobs: [], work_sessions: [], participants: [], invites: [],
   issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
   stations: [], station_members: [], products: [], orders: [], job_steps: [],
+  suppliers: [], bom_lines: [], purchase_orders: [], po_lines: [], stock_movements: [],
 };
 
 interface Ctx {

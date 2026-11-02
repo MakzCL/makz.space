@@ -9,7 +9,8 @@ import { createBackend, type Backend } from "./lib/backend";
 import { useMine } from "./lib/actions";
 import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
-import { TABS_FOR, type Tab } from "./lib/roles";
+import { tabsFor, type Tab } from "./lib/roles";
+import { useDesktop } from "./lib/media";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
 import type { Job } from "./lib/types";
 import { Home } from "./screens/Home";
@@ -20,7 +21,7 @@ import { Join, Pending } from "./screens/Join";
 import { Login } from "./screens/Login";
 import { Profile } from "./screens/Profile";
 import { Requests } from "./screens/Requests";
-import { Stock } from "./screens/Stock";
+import { Inventory } from "./screens/Inventory";
 import { PersonSheet, Team } from "./screens/Team";
 import { TimeScreen } from "./screens/Time";
 
@@ -78,7 +79,8 @@ function Member({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCod
 
 function Main({ signOut }: { signOut: () => void }) {
   const { db, me, ready } = useStore();
-  const tabs = TABS_FOR[me.role];
+  const desktop = useDesktop();
+  const tabs = tabsFor(me.role, desktop);
   const [tab, setTab] = useState<Tab>(() => (tabs.includes(getPrefs().startTab) ? getPrefs().startTab : "home"));
   const [dir, setDir] = useState(1);
   const [profile, setProfile] = useState(false);
@@ -109,7 +111,7 @@ function Main({ signOut }: { signOut: () => void }) {
   }, [mine.invites, ready, toast]);
 
   const go = (t: Tab) => {
-    if (!tabs.includes(t)) t = t === "issues" || t === "stock" || t === "time" ? t : "home";
+    if (!tabs.includes(t)) t = t === "issues" || t === "time" || (t === "stock" && desktop) ? t : "home";
     setDir(tabs.indexOf(t) >= tabs.indexOf(tab) ? 1 : -1);
     setProfile(false); setTab(t);
     scroller.current?.scrollTo({ top: 0 });
@@ -119,7 +121,7 @@ function Main({ signOut }: { signOut: () => void }) {
     home: mine.invites.length,
     requests: db.absences.filter((a) => a.status === "pending").length + db.profiles.filter((p) => !p.active).length,
     issues: db.issues.filter((i) => i.status === "open").length,
-    stock: tabs.includes("stock") && me.role !== "operator" ? db.stock_items.filter((s) => s.quantity <= s.min_quantity).length : 0,
+    stock: tabs.includes("stock") ? db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity <= s.min_quantity).length : 0,
   }), [db, mine.invites, tabs, me.role]);
 
   // Keyboard shortcuts on tablets / desktops: 1–5 switch tabs.
@@ -142,7 +144,7 @@ function Main({ signOut }: { signOut: () => void }) {
       case "requests": return <Requests />;
       case "insights": return <Insights onOpenJob={setJob} />;
       case "issues": return <Issues preset={reportFor} onPresetUsed={() => setReportFor(null)} />;
-      case "stock": return <Stock />;
+      case "stock": return <Inventory />;
     }
   })();
 

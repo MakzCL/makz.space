@@ -328,9 +328,7 @@ create policy "triage issue" on public.issues for update to authenticated
 
 -- stock
 create policy "staff read stock" on public.stock_items for select to authenticated using (true);
-create policy "stock keepers write" on public.stock_items for all to authenticated
-  using (public.my_role() in ('boss','manager','office','assistant'))
-  with check (public.my_role() in ('boss','manager','office','assistant'));
+-- (write policies for stock_items are in the Inventory section)
 
 -- absences
 create policy "own or admin read absences" on public.absences for select to authenticated
@@ -731,6 +729,352 @@ declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
     foreach t in array array['stations','station_members','products','orders','job_steps'] loop
+      begin
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      exception when duplicate_object then null; end;
+    end loop;
+  end if;
+end $$;
+
+-- =========================================================================
+-- Inventory (replaces Katana): items, recipes (BOMs), suppliers, purchase
+-- orders and a full stock history. Desktop only in the app.
+--   stock_items      products + materials; quantity = in stock
+--   bom_lines        product → materials it uses (per 1 unit)
+--   suppliers        who we buy from
+--   purchase_orders  + po_lines; receiving books stock in at cost
+--   stock_movements  every change to quantity (who, when, why)
+-- Stock only changes through the functions below, so history is complete.
+-- =========================================================================
+alter table public.stock_items alter column quantity type numeric(14,3);
+alter table public.stock_items alter column min_quantity type numeric(14,3);
+alter table public.stock_items add column if not exists kind text not null default 'material' check (kind in ('material','product','part'));
+alter table public.stock_items add column if not exists category text not null default '';
+alter table public.stock_items add column if not exists avg_cost numeric(14,4) not null default 0;
+alter table public.stock_items add column if not exists sale_price numeric(14,2);
+alter table public.stock_items add column if not exists supplier_id uuid;
+alter table public.stock_items add column if not exists supplier_code text not null default '';
+alter table public.stock_items add column if not exists lead_days int;
+alter table public.stock_items add column if not exists notes text not null default '';
+alter table public.stock_items add column if not exists archived boolean not null default false;
+
+create table if not exists public.suppliers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null default '',
+  phone text not null default '',
+  address text not null default '',
+  currency text not null default 'GBP',
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+do $$ begin
+  alter table public.stock_items add constraint stock_items_supplier_fk foreign key (supplier_id) references public.suppliers(id) on delete set null;
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.bom_lines (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.stock_items(id) on delete cascade,
+  material_id uuid not null references public.stock_items(id) on delete restrict,
+  quantity numeric(14,4) not null check (quantity > 0),
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  unique (product_id, material_id),
+  check (product_id <> material_id)
+);
+
+create sequence if not exists public.po_seq start 1;
+create table if not exists public.purchase_orders (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'PO-' || lpad(nextval('public.po_seq')::text, 4, '0'),
+  supplier_id uuid references public.suppliers(id) on delete set null,
+  status text not null default 'draft' check (status in ('draft','ordered','partial','received','cancelled')),
+  expected_date date,
+  ordered_at timestamptz,
+  received_at timestamptz,
+  notes text not null default '',
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.po_lines (
+  id uuid primary key default gen_random_uuid(),
+  po_id uuid not null references public.purchase_orders(id) on delete cascade,
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  quantity numeric(14,3) not null check (quantity > 0),
+  received numeric(14,3) not null default 0,
+  unit_cost numeric(14,4) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.stock_items(id) on delete cascade,
+  delta numeric(14,3) not null,
+  after numeric(14,3) not null,
+  reason text not null check (reason in ('adjust','count','receive','consume','produce','import','opening')),
+  ref text not null default '',
+  note text not null default '',
+  unit_cost numeric(14,4),
+  user_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists stock_movements_item_idx on public.stock_movements (item_id, created_at desc);
+
+alter table public.jobs add column if not exists stock_booked boolean not null default false;
+
+alter table public.suppliers       enable row level security;
+alter table public.bom_lines       enable row level security;
+alter table public.purchase_orders enable row level security;
+alter table public.po_lines        enable row level security;
+alter table public.stock_movements enable row level security;
+
+create or replace function public.is_stock_keeper() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(public.my_role() in ('boss','manager','office','assistant'), false) and public.is_active()
+$$;
+
+drop policy if exists "keepers add or edit items" on public.stock_items;
+drop policy if exists "keepers edit items" on public.stock_items;
+drop policy if exists "leads delete items" on public.stock_items;
+-- Item details are editable; quantity/avg_cost only move through the functions (see guard below).
+create policy "keepers add or edit items" on public.stock_items for insert to authenticated with check (public.is_stock_keeper());
+create policy "keepers edit items" on public.stock_items for update to authenticated using (public.is_stock_keeper());
+create policy "leads delete items" on public.stock_items for delete to authenticated using (public.is_lead());
+
+do $$
+declare t text;
+begin
+  foreach t in array array['suppliers','bom_lines','purchase_orders','po_lines','stock_movements'] loop
+    execute format('drop policy if exists "staff read" on public.%I', t);
+    execute format('drop policy if exists "keepers write" on public.%I', t);
+    execute format('drop policy if exists "active staff only" on public.%I', t);
+    execute format('create policy "staff read" on public.%I for select to authenticated using (true)', t);
+    execute format('create policy "active staff only" on public.%I as restrictive for all to authenticated using (public.is_active()) with check (public.is_active())', t);
+    if t <> 'stock_movements' then
+      execute format('create policy "keepers write" on public.%I for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper())', t);
+    end if;
+  end loop;
+end $$;
+
+-- Quantity and average cost can only change inside the stock functions.
+create or replace function public.guard_stock_qty() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or current_setting('app.stock_move', true) = 'on' then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.quantity <> 0 then raise exception 'Use opening stock to set a new item''s quantity'; end if;
+  elsif new.quantity is distinct from old.quantity or new.avg_cost is distinct from old.avg_cost then
+    raise exception 'Stock levels change through adjustments, counts, receiving and jobs';
+  end if;
+  return new;
+end $$;
+drop trigger if exists guard_stock_qty on public.stock_items;
+create trigger guard_stock_qty before insert or update on public.stock_items
+  for each row execute function public.guard_stock_qty();
+
+-- Core: move stock and log it. Receiving at a cost updates the average cost.
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  q := s.quantity + p_delta;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q,
+    avg_cost = case when p_cost is not null and p_delta > 0 and q > 0
+                    then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+                    when p_cost is not null and s.quantity <= 0 then p_cost
+                    else s.avg_cost end,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), p_cost, auth.uid());
+  return q;
+end $$;
+revoke all on function public.move_stock(uuid, numeric, text, text, text, numeric) from public, anon, authenticated;
+
+-- App: book stock in/out by hand.
+create or replace function public.adjust_stock(p_item uuid, p_delta numeric, p_note text default '') returns numeric
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  if p_delta = 0 then raise exception 'Nothing to change'; end if;
+  return public.move_stock(p_item, p_delta, 'adjust', '', p_note);
+end $$;
+
+-- App: stocktake — set what is physically there.
+create or replace function public.count_stock(p_item uuid, p_counted numeric, p_note text default '') returns numeric
+language plpgsql security definer set search_path = public as $$
+declare cur numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  if p_counted < 0 then raise exception 'A count cannot be negative'; end if;
+  select quantity into cur from public.stock_items where id = p_item;
+  return public.move_stock(p_item, p_counted - cur, 'count', '', p_note);
+end $$;
+
+-- App: opening stock for new / imported items (also sets the cost).
+create or replace function public.opening_stock(p_item uuid, p_qty numeric, p_cost numeric default null) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare cur numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  select quantity into cur from public.stock_items where id = p_item;
+  if p_qty = cur and p_cost is null then return cur; end if;
+  perform set_config('app.stock_move', 'on', true);
+  if p_cost is not null then update public.stock_items set avg_cost = p_cost where id = p_item; end if;
+  perform set_config('app.stock_move', 'off', true);
+  return public.move_stock(p_item, p_qty - cur, 'import', 'Katana import', '');
+end $$;
+
+-- App: receive a delivery against a purchase order line.
+create or replace function public.receive_po_line(p_line uuid, p_qty numeric) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.po_lines;
+  po public.purchase_orders;
+  open_left numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can receive deliveries'; end if;
+  if p_qty <= 0 then raise exception 'Receive at least one'; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status in ('cancelled','received') then raise exception 'This purchase order is closed'; end if;
+  update public.po_lines set received = received + p_qty where id = l.id;
+  perform public.move_stock(l.item_id, p_qty, 'receive', po.number, '', l.unit_cost);
+  select coalesce(sum(greatest(quantity - received, 0)), 0) into open_left from public.po_lines where po_id = po.id;
+  update public.purchase_orders set status = case when open_left = 0 then 'received' else 'partial' end,
+    received_at = case when open_left = 0 then now() else received_at end,
+    ordered_at = coalesce(ordered_at, now())
+  where id = po.id;
+  return case when open_left = 0 then 'received' else 'partial' end;
+end $$;
+
+-- A finished job uses up its recipe: materials × job quantity.
+-- Make-to-stock jobs (not from a customer order) also add the product to stock.
+create or replace function public.book_job_stock() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  prod public.stock_items;
+  b record;
+  qty numeric := coalesce(new.quantity, 1);
+begin
+  if new.status <> 'done' or old.status = 'done' or new.stock_booked or new.sku is null then return new; end if;
+  select * into prod from public.stock_items where sku = new.sku and kind <> 'material' limit 1;
+  if prod.id is null then select * into prod from public.stock_items where sku = new.sku limit 1; end if;
+  if prod.id is null then return new; end if;
+  for b in select material_id, quantity from public.bom_lines where product_id = prod.id loop
+    perform public.move_stock(b.material_id, -(b.quantity * qty), 'consume', new.code, '');
+  end loop;
+  if new.order_id is null then
+    perform public.move_stock(prod.id, qty, 'produce', new.code, '');
+  end if;
+  new.stock_booked := true;
+  return new;
+end $$;
+drop trigger if exists book_job_stock on public.jobs;
+create trigger book_job_stock before update of status on public.jobs
+  for each row execute function public.book_job_stock();
+
+-- Bulk import (Katana CSV exports). Rows are matched on SKU, so re-importing updates.
+-- items: [{sku,name,kind,category,unit,location,quantity,min_quantity,avg_cost,sale_price,supplier,supplier_code,lead_days}]
+create or replace function public.import_items(p_rows jsonb) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  r jsonb;
+  sid uuid;
+  iid uuid;
+  n int := 0;
+  num text := '^-?[0-9]+(\.[0-9]+)?$';
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can import stock'; end if;
+  for r in select * from jsonb_array_elements(p_rows) loop
+    continue when nullif(trim(r->>'sku'), '') is null;
+    sid := null;
+    if nullif(trim(r->>'supplier'), '') is not null then
+      select id into sid from public.suppliers where lower(name) = lower(trim(r->>'supplier')) limit 1;
+      if sid is null then insert into public.suppliers (name) values (trim(r->>'supplier')) returning id into sid; end if;
+    end if;
+    perform set_config('app.stock_move', 'on', true);
+    insert into public.stock_items (sku, name, kind, category, unit, location, min_quantity, sale_price, supplier_id, supplier_code, lead_days, quantity, updated_at)
+    values (trim(r->>'sku'), coalesce(nullif(trim(r->>'name'), ''), trim(r->>'sku')),
+            case when lower(r->>'kind') in ('product','material','part') then lower(r->>'kind') else 'material' end,
+            coalesce(r->>'category', ''), coalesce(nullif(r->>'unit', ''), 'pcs'), coalesce(r->>'location', ''),
+            case when r->>'min_quantity' ~ num then (r->>'min_quantity')::numeric else 0 end,
+            case when r->>'sale_price' ~ num then (r->>'sale_price')::numeric end,
+            sid, coalesce(r->>'supplier_code', ''),
+            case when r->>'lead_days' ~ '^[0-9]+$' then (r->>'lead_days')::int end, 0, now())
+    on conflict (sku) do update set
+      name = coalesce(nullif(trim(excluded.name), ''), stock_items.name),
+      kind = case when r ? 'kind' then excluded.kind else stock_items.kind end,
+      category = case when r ? 'category' then excluded.category else stock_items.category end,
+      unit = case when r ? 'unit' then excluded.unit else stock_items.unit end,
+      location = case when r ? 'location' then excluded.location else stock_items.location end,
+      min_quantity = case when r ? 'min_quantity' then excluded.min_quantity else stock_items.min_quantity end,
+      sale_price = coalesce(excluded.sale_price, stock_items.sale_price),
+      supplier_id = coalesce(excluded.supplier_id, stock_items.supplier_id),
+      supplier_code = case when r ? 'supplier_code' then excluded.supplier_code else stock_items.supplier_code end,
+      lead_days = coalesce(excluded.lead_days, stock_items.lead_days),
+      archived = false
+    returning id into iid;
+    if r->>'avg_cost' ~ num then update public.stock_items set avg_cost = (r->>'avg_cost')::numeric where id = iid; end if;
+    perform set_config('app.stock_move', 'off', true);
+    if r->>'quantity' ~ num then
+      perform public.move_stock(iid, (r->>'quantity')::numeric - (select quantity from public.stock_items where id = iid), 'import', 'Katana import', '');
+    end if;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+-- recipes: [{product_sku, material_sku, quantity}] — replaces each listed product's recipe.
+create or replace function public.import_bom(p_rows jsonb) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  r jsonb;
+  pid uuid;
+  mid uuid;
+  n int := 0;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can import recipes'; end if;
+  delete from public.bom_lines where product_id in (
+    select s.id from public.stock_items s where s.sku in (select trim(x->>'product_sku') from jsonb_array_elements(p_rows) x));
+  for r in select * from jsonb_array_elements(p_rows) loop
+    select id into pid from public.stock_items where sku = trim(r->>'product_sku');
+    select id into mid from public.stock_items where sku = trim(r->>'material_sku');
+    continue when pid is null or mid is null or pid = mid or not (r->>'quantity' ~ '^[0-9]+(\.[0-9]+)?$') or (r->>'quantity')::numeric <= 0;
+    insert into public.bom_lines (product_id, material_id, quantity) values (pid, mid, (r->>'quantity')::numeric)
+    on conflict (product_id, material_id) do update set quantity = bom_lines.quantity + excluded.quantity;
+    update public.stock_items set kind = 'product' where id = pid and kind = 'material';
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.import_items(jsonb) from public, anon;
+revoke all on function public.import_bom(jsonb) from public, anon;
+grant execute on function public.import_items(jsonb) to authenticated;
+grant execute on function public.import_bom(jsonb) to authenticated;
+
+revoke all on function public.adjust_stock(uuid, numeric, text) from public, anon;
+revoke all on function public.count_stock(uuid, numeric, text) from public, anon;
+revoke all on function public.opening_stock(uuid, numeric, numeric) from public, anon;
+revoke all on function public.receive_po_line(uuid, numeric) from public, anon;
+grant execute on function public.adjust_stock(uuid, numeric, text) to authenticated;
+grant execute on function public.count_stock(uuid, numeric, text) to authenticated;
+grant execute on function public.opening_stock(uuid, numeric, numeric) to authenticated;
+grant execute on function public.receive_po_line(uuid, numeric) to authenticated;
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['suppliers','bom_lines','purchase_orders','po_lines','stock_movements'] loop
       begin
         execute format('alter publication supabase_realtime add table public.%I', t);
       exception when duplicate_object then null; end;
