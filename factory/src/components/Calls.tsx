@@ -37,7 +37,7 @@ let iceCache: { servers: RTCIceServer[]; at: number } | null = null;
 
 /** Video sender limits: camera vs. screen share (higher frame rate + bit rate). */
 const CAM = { maxBitrate: 1_500_000, maxFramerate: 30 };
-const SCREEN = { maxBitrate: 6_000_000, maxFramerate: 30 };
+const SCREEN = { maxBitrate: 6_000_000, maxFramerate: 30, minHeight: 720 };
 const NO_ANSWER_MS = 45_000;
 
 /** STUN + Cloudflare TURN relay (short-lived login from our Worker), so calls connect on mobile data too. */
@@ -84,7 +84,9 @@ async function tuneVideo(sender: RTCRtpSender, screen: boolean) {
     const lim = screen ? SCREEN : CAM;
     p.encodings[0]!.maxBitrate = lim.maxBitrate;
     p.encodings[0]!.maxFramerate = lim.maxFramerate;
-    (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "balanced";
+    p.encodings[0]!.scaleResolutionDownBy = 1;
+    // Screen: keep the resolution (text stays readable at 720p+) — the bit-rate budget covers 30 fps.
+    (p as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = screen ? "maintain-resolution" : "balanced";
     await sender.setParameters(p);
   } catch { /* not supported before the connection is up — retried on connect */ }
 }
@@ -363,17 +365,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       try {
         const s = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920, max: 2560 }, height: { ideal: 1080, max: 1440 } },
+          video: { frameRate: { ideal: 30, max: 30 }, width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 } },
           audio: false,
         });
         const tr = s.getVideoTracks()[0]!;
-        try { tr.contentHint = "detail"; } catch { /* older browsers */ }
+        // "motion" keeps the frame rate up ("detail" lets Chrome drop a still screen to ~5 fps).
+        try { tr.contentHint = "motion"; } catch { /* older browsers */ }
         tr.onended = () => { if (screenRef.current === tr) { screenRef.current = null; set({ sharing: false }); replaceVideo(); sendState(); } };
         screenRef.current = tr;
         set({ sharing: true }); await replaceVideo(); sendState();
       } catch { /* cancelled */ }
     },
   }), [replaceVideo, sendState, set, toast]);
+
+  // Re-send my camera/mic/share state every few seconds, so one lost message never leaves a stale picture.
+  const inCall = !!live;
+  useEffect(() => { if (!inCall) return; const i = setInterval(() => sendState(), 3000); return () => clearInterval(i); }, [inCall, sendState]);
 
   // Leave cleanly if the tab closes.
   useEffect(() => {
@@ -532,21 +539,37 @@ function CtrlBtn({ on, onClick, label, children }: { on: boolean; onClick: () =>
 function Tile({ stream, state, name, p }: { stream: MediaStream; state?: PeerState; name: string; p: ReturnType<ReturnType<typeof useStore>["person"]> }) {
   const v = useRef<HTMLVideoElement>(null);
   const [flowing, setFlowing] = useState(false);
+  const [stalled, setStalled] = useState(true);
   useEffect(() => {
-    if (v.current && v.current.srcObject !== stream) { v.current.srcObject = stream; v.current.play().catch(() => {}); }
+    const el = v.current;
+    if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); }
     const check = () => setFlowing(stream.getVideoTracks().some((tr) => tr.readyState === "live" && !tr.muted));
     check();
     const tracks = stream.getVideoTracks();
     tracks.forEach((tr) => { tr.addEventListener("mute", check); tr.addEventListener("unmute", check); });
     stream.addEventListener("addtrack", check);
-    const i = setInterval(check, 1000);
-    return () => { clearInterval(i); tracks.forEach((tr) => { tr.removeEventListener("mute", check); tr.removeEventListener("unmute", check); }); stream.removeEventListener("addtrack", check); };
+    // Frame watchdog: when no new frame has arrived for a moment the sender's camera is off
+    // (browsers keep showing the last frame and don't always report it) → show the picture.
+    let last = 0, lastT = -1, handle = 0;
+    type RVFC = HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number; cancelVideoFrameCallback?: (h: number) => void };
+    const vid = el as RVFC | null;
+    const onFrame = () => { last = performance.now(); handle = vid?.requestVideoFrameCallback?.(onFrame) ?? 0; };
+    if (vid?.requestVideoFrameCallback) handle = vid.requestVideoFrameCallback(onFrame);
+    const i = setInterval(() => {
+      check();
+      if (vid && !vid.requestVideoFrameCallback && vid.currentTime !== lastT) { lastT = vid.currentTime; last = performance.now(); }
+      setStalled(performance.now() - last > 1200);
+    }, 300);
+    return () => {
+      clearInterval(i); if (handle) vid?.cancelVideoFrameCallback?.(handle);
+      tracks.forEach((tr) => { tr.removeEventListener("mute", check); tr.removeEventListener("unmute", check); }); stream.removeEventListener("addtrack", check);
+    };
   }, [stream]);
-  // Their own report wins: camera off → avatar, never a frozen last frame.
-  const show = flowing && (state ? state.cam || state.share : true);
+  // Their report says the camera is off → picture. A frozen stream → picture too (a still shared screen may pause, so sharing is exempt).
+  const show = flowing && (state ? (state.share || (state.cam && !stalled)) : !stalled);
   return (
     <div className={`tile-v ${state?.share ? "sharing" : ""}`}>
-      <video ref={v} autoPlay playsInline style={{ opacity: show ? 1 : 0 }} />
+      <video ref={v} autoPlay playsInline muted={false} style={{ opacity: show ? 1 : 0 }} />
       {!show && <div className="tile-av"><Avatar p={p} size={88} /></div>}
       <span className="tile-name">{state && !state.mic && <MicOff size={13} />}{name}</span>
     </div>
