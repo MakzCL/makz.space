@@ -3248,5 +3248,283 @@ end $$;
 revoke all on function public.my_costs(text, timestamptz) from public, anon;
 grant execute on function public.my_costs(text, timestamptz) to authenticated;
 
+-- ============================================================================
+-- KIMERA phase 3a — locations, per-location stock, bins, transfers
+--  (INV-01, INV-05, INV-06, INV-07; scenario 6)
+--  * one ledger: every movement now also records its location; stock_items.quantity
+--    stays the company total and stock_levels holds the split per location
+--  * a movement's location comes from its document (PO, sales order, MO,
+--    transfer) or is given explicitly (adjust / count); otherwise the default
+--  * transfers go A → "In transit" → B, so the company total never changes
+--  * average cost stays per item (company-wide), not per location
+-- ============================================================================
+create table if not exists public.locations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  kind text not null default 'warehouse' check (kind in ('warehouse','production','partner','transit')),
+  address text not null default '',
+  is_default boolean not null default false,
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists locations_one_default on public.locations ((true)) where is_default;
+create unique index if not exists locations_one_transit on public.locations ((true)) where kind = 'transit';
+create unique index if not exists locations_name_key on public.locations (lower(name));
+insert into public.locations (name, kind, is_default) select 'Skalarki', 'warehouse', true
+  where not exists (select 1 from public.locations where is_default);
+insert into public.locations (name, kind) select 'In transit', 'transit'
+  where not exists (select 1 from public.locations where kind = 'transit');
+
+create or replace function public.default_location() returns uuid
+language sql stable security definer set search_path = public as $$ select id from public.locations where is_default limit 1 $$;
+create or replace function public.transit_location() returns uuid
+language sql stable security definer set search_path = public as $$ select id from public.locations where kind = 'transit' limit 1 $$;
+
+create table if not exists public.stock_levels (
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  location_id uuid not null references public.locations(id) on delete restrict,
+  quantity numeric(14,3) not null default 0,
+  bin text not null default '',
+  updated_at timestamptz not null default now(),
+  primary key (item_id, location_id)
+);
+create index if not exists stock_levels_location_idx on public.stock_levels (location_id);
+alter table public.stock_movements add column if not exists location_id uuid references public.locations(id) on delete restrict;
+create index if not exists stock_movements_location_idx on public.stock_movements (location_id, item_id);
+alter table public.purchase_orders add column if not exists location_id uuid references public.locations(id) on delete set null;
+alter table public.orders add column if not exists location_id uuid references public.locations(id) on delete set null;
+alter table public.jobs add column if not exists location_id uuid references public.locations(id) on delete set null;
+alter table public.stock_movements drop constraint if exists stock_movements_reason_check;
+alter table public.stock_movements add constraint stock_movements_reason_check
+  check (reason in ('adjust','count','receive','consume','produce','import','opening','ship','return','transfer'));
+
+-- Existing stock → the default location (the old free-text location becomes the bin there).
+update public.stock_movements set location_id = public.default_location() where location_id is null;
+insert into public.stock_levels (item_id, location_id, quantity, bin)
+  select id, public.default_location(), quantity, coalesce(location, '') from public.stock_items
+  on conflict (item_id, location_id) do nothing;
+
+alter table public.locations enable row level security;
+alter table public.stock_levels enable row level security;
+drop policy if exists "staff read" on public.locations;
+drop policy if exists "office write" on public.locations;
+drop policy if exists "staff read" on public.stock_levels;
+create policy "staff read" on public.locations for select to authenticated using (public.is_active());
+create policy "office write" on public.locations for all to authenticated using (public.is_admin()) with check (public.is_admin() and kind <> 'transit');
+create policy "staff read" on public.stock_levels for select to authenticated using (public.is_active());
+-- stock_levels has no write policy: it only changes inside move_stock / set_bin.
+
+-- Explicit location for the next movements (adjust, count, transfers).
+create or replace function public.stock_location(p_loc uuid) returns void
+language plpgsql set search_path = public as $$
+begin perform set_config('app.stock_loc', coalesce(p_loc::text, ''), true); end $$;
+revoke all on function public.stock_location(uuid) from public, anon, authenticated;
+
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+  a numeric;
+  loc uuid := nullif(current_setting('app.stock_loc', true), '')::uuid;
+  st text := nullif(current_setting('app.stock_src_type', true), '');
+  sid uuid := nullif(current_setting('app.stock_src_id', true), '')::uuid;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  if s.kind = 'service' then raise exception 'Services are not kept in stock'; end if;
+  -- where: explicit, else the document's location, else the default
+  if loc is null then
+    loc := case st
+      when 'po_line' then (select p.location_id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where l.id = sid)
+      when 'order_line' then (select o.location_id from public.order_lines l join public.orders o on o.id = l.order_id where l.id = sid)
+      when 'return' then (select o.location_id from public.order_returns r join public.orders o on o.id = r.order_id where r.id = sid)
+      when 'job' then (select j.location_id from public.jobs j where j.id = sid)
+      else null end;
+  end if;
+  loc := coalesce(loc, public.default_location());
+  q := s.quantity + p_delta;
+  a := case
+         when p_cost is null then s.avg_cost
+         when p_delta > 0 and q > 0 then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+         when p_delta > 0 then p_cost
+         when p_delta < 0 and q > 0 and s.quantity > 0 then greatest(round((s.quantity * s.avg_cost + p_delta * p_cost) / q, 4), 0)
+         else s.avg_cost end;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q, avg_cost = a,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_levels (item_id, location_id, quantity) values (s.id, loc, p_delta)
+  on conflict (item_id, location_id) do update set quantity = stock_levels.quantity + p_delta, updated_at = now();
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id, job_id, source_type, source_id, location_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), coalesce(p_cost, s.avg_cost), auth.uid(),
+          nullif(current_setting('app.stock_job', true), '')::uuid, st, sid, loc);
+  return q;
+end $$;
+revoke all on function public.move_stock(uuid, numeric, text, text, text, numeric) from public, anon, authenticated;
+
+-- Adjust / count at a location (default location when not given).
+drop function if exists public.adjust_stock(uuid, numeric, text, text);
+create or replace function public.adjust_stock(p_item uuid, p_delta numeric, p_note text default '', p_key text default null, p_location uuid default null) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare prev text; q numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  if p_delta = 0 then raise exception 'Nothing to change'; end if;
+  prev := public.claim_op('adjust_stock', p_key);
+  if prev is not null then return prev::numeric; end if;
+  perform public.stock_source('adjustment', null);
+  perform public.stock_location(coalesce(p_location, public.default_location()));
+  q := public.move_stock(p_item, p_delta, 'adjust', '', p_note);
+  perform public.finish_op('adjust_stock', p_key, q::text);
+  return q;
+end $$;
+revoke all on function public.adjust_stock(uuid, numeric, text, text, uuid) from public, anon;
+grant execute on function public.adjust_stock(uuid, numeric, text, text, uuid) to authenticated;
+
+drop function if exists public.count_stock(uuid, numeric, text);
+create or replace function public.count_stock(p_item uuid, p_counted numeric, p_note text default '', p_location uuid default null) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare cur numeric; loc uuid := coalesce(p_location, public.default_location());
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  if p_counted < 0 then raise exception 'A count cannot be negative'; end if;
+  perform 1 from public.stock_items where id = p_item for update;
+  select coalesce((select quantity from public.stock_levels where item_id = p_item and location_id = loc), 0) into cur;
+  perform public.stock_source('count', null);
+  perform public.stock_location(loc);
+  perform public.move_stock(p_item, p_counted - cur, 'count', '', p_note);
+  return p_counted;
+end $$;
+revoke all on function public.count_stock(uuid, numeric, text, uuid) from public, anon;
+grant execute on function public.count_stock(uuid, numeric, text, uuid) to authenticated;
+
+-- Bin (shelf / rack) of an item at a location.
+create or replace function public.set_bin(p_item uuid, p_location uuid, p_bin text) returns text
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change bins'; end if;
+  insert into public.stock_levels (item_id, location_id, quantity, bin) values (p_item, p_location, 0, trim(coalesce(p_bin, '')))
+  on conflict (item_id, location_id) do update set bin = excluded.bin, updated_at = now();
+  if p_location = public.default_location() then
+    update public.stock_items set location = trim(coalesce(p_bin, '')) where id = p_item;
+  end if;
+  return trim(coalesce(p_bin, ''));
+end $$;
+revoke all on function public.set_bin(uuid, uuid, text) from public, anon;
+grant execute on function public.set_bin(uuid, uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------- transfers
+create sequence if not exists public.tr_seq start 1;
+create table if not exists public.stock_transfers (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'TR-' || lpad(nextval('public.tr_seq')::text, 4, '0'),
+  from_location uuid not null references public.locations(id) on delete restrict,
+  to_location uuid not null references public.locations(id) on delete restrict,
+  status text not null default 'draft' check (status in ('draft','in_transit','received','cancelled')),
+  expected_date date,
+  notes text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  dispatched_at timestamptz,
+  received_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (from_location <> to_location)
+);
+create table if not exists public.transfer_lines (
+  id uuid primary key default gen_random_uuid(),
+  transfer_id uuid not null references public.stock_transfers(id) on delete cascade,
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  quantity numeric(14,3) not null check (quantity > 0),
+  created_at timestamptz not null default now()
+);
+create index if not exists transfer_lines_transfer_idx on public.transfer_lines (transfer_id);
+alter table public.stock_transfers enable row level security;
+alter table public.transfer_lines enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['stock_transfers', 'transfer_lines', 'locations', 'stock_levels'] loop
+    if t in ('stock_transfers', 'transfer_lines') then
+      execute format('drop policy if exists "staff read" on public.%I', t);
+      execute format('drop policy if exists "keepers write" on public.%I', t);
+      execute format('create policy "staff read" on public.%I for select to authenticated using (public.is_active())', t);
+      execute format('create policy "keepers write" on public.%I for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper())', t);
+    end if;
+    if t <> 'stock_levels' then
+      execute format('drop trigger if exists audit_row on public.%I', t);
+      execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t);
+    end if;
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- Lines can only change while the transfer is a draft; posted transfers are reversed, not deleted.
+create or replace function public.guard_transfer() returns trigger
+language plpgsql set search_path = public as $$
+declare st text;
+begin
+  if tg_table_name = 'transfer_lines' then
+    select status into st from public.stock_transfers where id = coalesce(new.transfer_id, old.transfer_id);
+    if st is not null and st <> 'draft' then raise exception 'This transfer has been dispatched — its lines are fixed'; end if;
+  elsif tg_op = 'DELETE' and old.status <> 'draft' then
+    raise exception 'Only draft transfers can be deleted — cancel it instead';
+  elsif tg_op = 'UPDATE' and new.status is distinct from old.status and current_setting('app.transfer_post', true) is distinct from 'on' then
+    raise exception 'Use Dispatch / Receive / Cancel to change a transfer';
+  elsif tg_op = 'UPDATE' and old.status <> 'draft' and (new.from_location is distinct from old.from_location or new.to_location is distinct from old.to_location) then
+    raise exception 'This transfer has been dispatched — its locations are fixed';
+  end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists guard_transfer on public.stock_transfers;
+create trigger guard_transfer before update or delete on public.stock_transfers for each row execute function public.guard_transfer();
+drop trigger if exists guard_transfer_lines on public.transfer_lines;
+create trigger guard_transfer_lines before insert or update or delete on public.transfer_lines for each row execute function public.guard_transfer();
+
+create or replace function public.post_transfer(p_id uuid, p_action text, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare tr public.stock_transfers; l record; prev text; tl uuid := public.transit_location(); st text;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can move stock between locations'; end if;
+  if p_action not in ('dispatch', 'receive', 'cancel') then raise exception 'Unknown transfer action'; end if;
+  prev := public.claim_op('post_transfer', p_key);
+  if prev is not null then return prev; end if;
+  select * into tr from public.stock_transfers where id = p_id for update;
+  if tr.id is null then raise exception 'Transfer not found'; end if;
+  if p_action = 'dispatch' and tr.status <> 'draft' then raise exception 'Only a draft transfer can be dispatched'; end if;
+  if p_action = 'receive' and tr.status <> 'in_transit' then raise exception 'Only a dispatched transfer can be received'; end if;
+  if p_action = 'cancel' and tr.status not in ('draft', 'in_transit') then raise exception 'This transfer is already %', tr.status; end if;
+  if p_action = 'dispatch' and not exists (select 1 from public.transfer_lines where transfer_id = tr.id) then raise exception 'Add items first'; end if;
+  for l in select * from public.transfer_lines where transfer_id = tr.id order by created_at loop
+    perform public.stock_source('transfer_line', l.id);
+    if p_action = 'dispatch' then
+      perform public.stock_location(tr.from_location); perform public.move_stock(l.item_id, -l.quantity, 'transfer', tr.number, 'Dispatched');
+      perform public.stock_location(tl);              perform public.move_stock(l.item_id, l.quantity, 'transfer', tr.number, 'In transit');
+    elsif p_action = 'receive' then
+      perform public.stock_location(tl);              perform public.move_stock(l.item_id, -l.quantity, 'transfer', tr.number, 'Arrived');
+      perform public.stock_location(tr.to_location);  perform public.move_stock(l.item_id, l.quantity, 'transfer', tr.number, 'Received');
+    elsif tr.status = 'in_transit' then
+      perform public.stock_location(tl);              perform public.move_stock(l.item_id, -l.quantity, 'transfer', tr.number, 'Cancelled — back');
+      perform public.stock_location(tr.from_location); perform public.move_stock(l.item_id, l.quantity, 'transfer', tr.number, 'Cancelled — returned');
+    end if;
+  end loop;
+  perform public.stock_location(null);
+  st := case p_action when 'dispatch' then 'in_transit' when 'receive' then 'received' else 'cancelled' end;
+  perform set_config('app.transfer_post', 'on', true);
+  update public.stock_transfers set status = st,
+    dispatched_at = case when p_action = 'dispatch' then now() else dispatched_at end,
+    received_at = case when p_action = 'receive' then now() else received_at end
+  where id = tr.id;
+  perform set_config('app.transfer_post', 'off', true);
+  return public.finish_op('post_transfer', p_key, st);
+end $$;
+revoke all on function public.post_transfer(uuid, text, text) from public, anon;
+grant execute on function public.post_transfer(uuid, text, text) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
+

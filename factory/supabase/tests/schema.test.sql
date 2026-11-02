@@ -702,6 +702,59 @@ select pg_temp.check(public.my_costs('stock_items') is not null, 'owner grants c
 select pg_temp.become(:'B');
 select public.set_kimera_access('operator', array[]::text[]);
 
+-- ============================================================================
+-- KIMERA phase 3a: locations, per-location stock, transfers (scenario 6)
+-- ============================================================================
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) = 1 from public.locations where is_default) and (select count(*) = 1 from public.locations where kind = 'transit'), 'default location + in-transit exist');
+insert into public.locations (name, kind) values ('Upstairs', 'warehouse');
+select id as upstairs from public.locations where name = 'Upstairs' \gset
+select id as home from public.locations where is_default \gset
+select id as screw from public.stock_items where sku = 'K1-SCREW' \gset
+select quantity as screw0 from public.stock_items where sku = 'K1-SCREW' \gset
+select public.adjust_stock(:'screw', 10, 'found upstairs', null, :'upstairs');
+select pg_temp.check((select quantity = 10 from public.stock_levels where item_id = :'screw' and location_id = :'upstairs'), 'adjustment lands at the chosen location');
+select pg_temp.check((select quantity = :screw0 + 10 from public.stock_items where id = :'screw'), 'company total includes every location');
+-- S6: transfer 4 screws home → upstairs
+insert into public.stock_transfers (from_location, to_location) values (:'home', :'upstairs');
+select id as tr from public.stock_transfers order by created_at desc limit 1 \gset
+insert into public.transfer_lines (transfer_id, item_id, quantity) values (:'tr', :'screw', 4);
+select pg_temp.check(public.post_transfer(:'tr', 'dispatch', 'tr-1') = 'in_transit', 'S6 dispatch → in transit');
+select pg_temp.check(public.post_transfer(:'tr', 'dispatch', 'tr-1') = 'in_transit', 'S6 replayed dispatch is a no-op');
+select pg_temp.check((select quantity = :screw0 + 10 from public.stock_items where id = :'screw'), 'S6 total unchanged while in transit');
+select pg_temp.check((select quantity = 4 from public.stock_levels where item_id = :'screw' and location_id = public.transit_location()), 'S6 4 shown in transit');
+select pg_temp.expect_fail($$update public.transfer_lines set quantity = 5 where transfer_id = '$$ || :'tr' || $$'$$, 'changing lines after dispatch');
+select pg_temp.expect_fail($$update public.stock_transfers set status = 'received' where id = '$$ || :'tr' || $$'$$, 'marking a transfer received without booking stock');
+select pg_temp.check(public.post_transfer(:'tr', 'receive') = 'received', 'S6 receive');
+select pg_temp.check((select quantity = 14 from public.stock_levels where item_id = :'screw' and location_id = :'upstairs')
+  and (select quantity = 0 from public.stock_levels where item_id = :'screw' and location_id = public.transit_location())
+  and (select quantity = :screw0 + 10 from public.stock_items where id = :'screw'), 'S6 upstairs 14, transit 0, company total unchanged');
+select pg_temp.check((select count(*) = 4 from public.stock_movements where source_type = 'transfer_line' and reason = 'transfer'), 'S6 four linked transfer movements (out, in transit ×2, in)');
+select pg_temp.expect_fail($$delete from public.stock_transfers where id = '$$ || :'tr' || $$'$$, 'deleting a posted transfer');
+-- cancel while in transit puts it back
+insert into public.stock_transfers (from_location, to_location) values (:'upstairs', :'home');
+select id as tr2 from public.stock_transfers order by created_at desc limit 1 \gset
+insert into public.transfer_lines (transfer_id, item_id, quantity) values (:'tr2', :'screw', 3);
+select public.post_transfer(:'tr2', 'dispatch');
+select pg_temp.check(public.post_transfer(:'tr2', 'cancel') = 'cancelled', 'cancel an in-transit transfer');
+select pg_temp.check((select quantity = 14 from public.stock_levels where item_id = :'screw' and location_id = :'upstairs'), 'cancelling in transit returns the stock');
+-- count at one location only touches that location
+select public.count_stock(:'screw', 12, 'shelf count', :'upstairs');
+select pg_temp.check((select quantity = 12 from public.stock_levels where item_id = :'screw' and location_id = :'upstairs'), 'count sets that location');
+-- receiving into a PO's location
+insert into public.purchase_orders (supplier_id, status, location_id) select id, 'ordered', :'upstairs' from public.suppliers where name = 'K1 Screws Ltd';
+insert into public.po_lines (po_id, item_id, quantity, unit_cost)
+  select (select id from public.purchase_orders where location_id = :'upstairs'), :'screw', 5, 0.10;
+select public.receive_po_line((select l.id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where p.location_id = :'upstairs'), 5);
+select pg_temp.check((select quantity = 17 from public.stock_levels where item_id = :'screw' and location_id = :'upstairs'), 'PO receipt lands at the PO''s location');
+select public.set_bin(:'screw', :'upstairs', 'Rack U3');
+select pg_temp.check((select bin = 'Rack U3' from public.stock_levels where item_id = :'screw' and location_id = :'upstairs'), 'bin per location');
+-- invariant: locations always add up to the company total
+reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total, 0)) from public.stock_items s left join (select item_id, sum(quantity) total from public.stock_levels group by item_id) l on l.item_id = s.id), 'every item: Σ locations = company total'); set role authenticated;
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.post_transfer('$$ || :'tr' || $$', 'cancel')$$, 'operator posts transfers');
+select pg_temp.expect_fail($$insert into public.locations (name) values ('Sneaky')$$, 'operator adds locations');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
