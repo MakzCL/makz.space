@@ -876,6 +876,55 @@ select pg_temp.check(abs((:'mc'::jsonb->>'labour_hours')::numeric - 2) < 0.01 an
 select pg_temp.become(:'A2');
 select pg_temp.check(public.mo_costs(:'mo5') is null, 'operators without Costs & margins get no MO costs');
 
+-- ============================================================================
+-- KIMERA phase 4c: batches, expiry, serials, trace (scenario 7)
+-- ============================================================================
+select pg_temp.become(:'B');
+insert into public.stock_items (sku, name, kind, tracking) values ('LT-MAT', 'Resin', 'material', 'batch'), ('LT-PROD', 'Moulded part', 'product', 'batch'), ('LT-SER', 'Control unit', 'product', 'serial');
+select id as ltmat from public.stock_items where sku = 'LT-MAT' \gset
+select id as ltprod from public.stock_items where sku = 'LT-PROD' \gset
+select id as ltser from public.stock_items where sku = 'LT-SER' \gset
+insert into public.bom_lines (product_id, material_id, quantity) values (:'ltprod', :'ltmat', 2);
+insert into public.purchase_orders (supplier_id, status) select id, 'ordered' from public.suppliers where name = 'K1 Screws Ltd';
+select id as ltpo, number as ltpon from public.purchase_orders order by created_at desc limit 1 \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'ltpo', :'ltmat', 15, 2), (:'ltpo', :'ltser', 3, 50);
+select id as ltl1 from public.po_lines where po_id = :'ltpo' and item_id = :'ltmat' \gset
+select id as ltl2 from public.po_lines where po_id = :'ltpo' and item_id = :'ltser' \gset
+select public.receive_po_line(:'ltl1', 10, null, false, 'L-100', current_date + 30);
+select public.receive_po_line(:'ltl1', 5, null, false, 'L-200', current_date + 10);
+select id as l100 from public.lots where code = 'L-100' \gset
+select id as l200 from public.lots where code = 'L-200' \gset
+select pg_temp.check((select quantity = 10 from public.lot_levels where lot_id = :'l100') and (select quantity = 5 from public.lot_levels where lot_id = :'l200'), 'S7 two batches received with their expiry dates');
+-- MO for 3 needs 6 resin: first-expiry-first-out takes all of L-200 (5) then 1 of L-100
+select public.create_mo('LT-PROD', 'Mould 3', 3) as ltmo \gset
+select code as ltmocode from public.jobs where id = :'ltmo' \gset
+select public.complete_mo(:'ltmo');
+select pg_temp.check((select quantity = 0 from public.lot_levels where lot_id = :'l200') and (select quantity = 9 from public.lot_levels where lot_id = :'l100'), 'S7 FEFO: the batch expiring first is used first');
+select id as outlot from public.lots where item_id = :'ltprod' and code = :'ltmocode' \gset
+select pg_temp.check((select quantity = 3 from public.lot_levels where lot_id = :'outlot'), 'S7 output batch named after the MO');
+select pg_temp.check((select count(*) = 2 and sum(quantity) = 6 from public.lot_links where parent_lot = :'outlot'), 'S7 output linked to both resin batches (5 + 1)');
+-- ship 2 to a customer
+insert into public.orders (order_number, customer, company, kind) values ('', 'Trace Buyer', 'Trace Co', 'order');
+select id as ltso, order_number as ltson from public.orders where customer = 'Trace Buyer' \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity) values (:'ltso', :'ltprod', 'LT-PROD', 'Moulded part', 2);
+select public.ship_lines(:'ltso', null);
+select public.trace_lot(:'l100') as tr \gset
+select pg_temp.check((:'tr'::jsonb->'shipped'->0->>'order') = :'ltson' and (:'tr'::jsonb->'shipped'->0->>'company') = 'Trace Co', 'S7 resin batch L-100 traced forward to the customer order');
+select pg_temp.check((:'tr'::jsonb->'went_into'->0->>'lot') = :'ltmocode', 'S7 … through the MO batch it went into');
+select pg_temp.check((:'tr'::jsonb->'received'->0->>'po') = :'ltpon', 'S7 … and back to the PO it arrived on');
+select public.trace_lot(:'outlot') as tr2 \gset
+select pg_temp.check(jsonb_array_length(:'tr2'::jsonb->'made_from') = 2 and (:'tr2'::jsonb->'made_from'->0->'received'->0->>'po') = :'ltpon', 'S7 finished batch traced back to both resin batches and their PO');
+-- undoing the shipment puts it back into the same batch
+select public.unship_lines(:'ltso', null);
+select pg_temp.check((select quantity = 3 from public.lot_levels where lot_id = :'outlot'), 'undo shipment returns stock into the batch it left');
+-- serials: one lot per piece
+select public.receive_po_line(:'ltl2', 3, null, false, 'CU');
+select pg_temp.check((select count(*) = 3 from public.lots where item_id = :'ltser') and (select bool_and(quantity = 1) from public.lot_levels ll join public.lots l on l.id = ll.lot_id where l.item_id = :'ltser'), 'serial items: one serial number per piece (CU-001…003)');
+select pg_temp.expect_fail($$select public.receive_po_line('$$ || :'ltl1' || $$', 0.5)$$, 'receiving beyond the ordered quantity of a batch line');
+reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total, 0)) from public.stock_items s left join (select item_id, sum(quantity) total from public.stock_levels group by item_id) l on l.item_id = s.id), 'every item: Σ locations = company total (with lots)');
+select pg_temp.check((select bool_and(lv.total <= sl.quantity + 0.0001) from (select lo.item_id, ll.location_id, sum(ll.quantity) total from public.lot_levels ll join public.lots lo on lo.id = ll.lot_id group by 1, 2) lv
+  join public.stock_levels sl on sl.item_id = lv.item_id and sl.location_id = lv.location_id), 'lots never add up to more than the location holds'); set role authenticated;
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

@@ -2472,7 +2472,7 @@ begin
   if po.status = 'cancelled' then raise exception 'This purchase order is cancelled'; end if;
   update public.po_lines set received = received - p_qty where id = l.id;
   perform public.stock_source('po_line', l.id);
-  perform public.move_stock(l.item_id, -p_qty, 'receive', po.number, 'Receipt reversed', round(l.unit_cost * po.fx_rate, 4));
+  perform public.move_by_source_lots(l.item_id, -p_qty, 'receive', po.number, 'Receipt reversed', 'po_line', l.id, 'receive', round(l.unit_cost * po.fx_rate, 4));
   st := public.po_status_after(po.id);
   return public.finish_op('reverse_po_receipt', p_key, st);
 end $$;
@@ -2724,7 +2724,7 @@ begin
       from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
     if exists (select 1 from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship') then
       perform public.stock_source('order_line', l.id);
-      perform public.move_stock(l.item_id, q, 'ship', o.order_number, 'Shipment undone', c);
+      perform public.move_by_source_lots(l.item_id, q, 'ship', o.order_number, 'Shipment undone', 'order_line', l.id, 'ship', c);
     end if;
     update public.order_lines set shipped = shipped - q where id = l.id;
   end loop;
@@ -2774,7 +2774,7 @@ begin
       select case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end into c
         from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
       perform public.stock_source('return', rid);
-      perform public.move_stock(l.item_id, q, 'return', o.order_number, coalesce(nullif(p_reason, ''), 'Customer return'), c);
+      perform public.move_by_source_lots(l.item_id, q, 'return', o.order_number, coalesce(nullif(p_reason, ''), 'Customer return'), 'order_line', l.id, 'ship', c);
     end if;
     update public.order_lines set returned = returned + q where id = l.id;
     n := n + 1;
@@ -4094,6 +4094,382 @@ begin
 end $$;
 revoke all on function public.my_costs(text, timestamptz) from public, anon;
 grant execute on function public.my_costs(text, timestamptz) to authenticated;
+
+-- ============================================================================
+-- KIMERA phase 4c — batches, serial numbers, expiry, traceability
+-- (INV-10..13, BUY-04, MFG lot genealogy; scenario 7)
+--  * stock_items.tracking: none | batch | serial
+--  * a movement of a tracked item carries its lot; stock leaving without a named
+--    lot is drawn first-expiry-first-out (then oldest) at that location
+--  * receiving names the batch (default: the PO number) and its expiry; serial
+--    items get one lot per piece
+--  * production output gets a batch (the MO code) or serials, linked to every
+--    material lot it consumed (lot_links) → trace_lot() walks both directions
+--  * reversals (reopen, undo shipment, return, reverse receipt) go back into the
+--    lot the stock came from
+-- ============================================================================
+alter table public.stock_items add column if not exists tracking text not null default 'none' check (tracking in ('none', 'batch', 'serial'));
+
+create table if not exists public.lots (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  code text not null,
+  expiry date,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  unique (item_id, code)
+);
+create table if not exists public.lot_levels (
+  lot_id uuid not null references public.lots(id) on delete restrict,
+  location_id uuid not null references public.locations(id) on delete restrict,
+  quantity numeric(14,3) not null default 0,
+  primary key (lot_id, location_id)
+);
+create table if not exists public.lot_links (
+  id uuid primary key default gen_random_uuid(),
+  parent_lot uuid not null references public.lots(id) on delete restrict,  -- made
+  child_lot uuid not null references public.lots(id) on delete restrict,   -- used to make it
+  job_id uuid references public.jobs(id) on delete set null,
+  quantity numeric(14,3) not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists lot_links_parent_idx on public.lot_links (parent_lot);
+create index if not exists lot_links_child_idx on public.lot_links (child_lot);
+alter table public.stock_movements add column if not exists lot_id uuid references public.lots(id) on delete restrict;
+create index if not exists stock_movements_lot_idx on public.stock_movements (lot_id);
+alter table public.lots enable row level security;
+alter table public.lot_levels enable row level security;
+alter table public.lot_links enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['lots', 'lot_levels', 'lot_links'] loop
+    execute format('drop policy if exists "staff read" on public.%I', t);
+    execute format('create policy "staff read" on public.%I for select to authenticated using (public.is_active())', t);
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+drop policy if exists "keepers edit expiry" on public.lots;
+create policy "keepers edit expiry" on public.lots for update to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper());
+drop trigger if exists audit_row on public.lots;
+create trigger audit_row after insert or update or delete on public.lots for each row execute function public.audit_row();
+
+-- Get or create a lot by code.
+create or replace function public.lot_for(p_item uuid, p_code text, p_expiry date default null) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare id uuid;
+begin
+  if coalesce(trim(p_code), '') = '' then return null; end if;
+  insert into public.lots (item_id, code, expiry) values (p_item, trim(p_code), p_expiry)
+  on conflict (item_id, code) do update set expiry = coalesce(excluded.expiry, lots.expiry)
+  returning lots.id into id;
+  return id;
+end $$;
+revoke all on function public.lot_for(uuid, text, date) from public, anon, authenticated;
+
+create or replace function public.stock_lot(p_lot uuid) returns void
+language plpgsql set search_path = public as $$
+begin perform set_config('app.stock_lot', coalesce(p_lot::text, ''), true); end $$;
+revoke all on function public.stock_lot(uuid) from public, anon, authenticated;
+
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+  a numeric;
+  loc uuid := nullif(current_setting('app.stock_loc', true), '')::uuid;
+  st text := nullif(current_setting('app.stock_src_type', true), '');
+  sid uuid := nullif(current_setting('app.stock_src_id', true), '')::uuid;
+  lot uuid := nullif(current_setting('app.stock_lot', true), '')::uuid;
+  oldloc text := current_setting('app.stock_loc', true);
+  r record; left_qty numeric; take numeric;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  if s.kind = 'service' then raise exception 'Services are not kept in stock'; end if;
+  if loc is null then
+    loc := case st
+      when 'po_line' then (select p.location_id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where l.id = sid)
+      when 'order_line' then (select o.location_id from public.order_lines l join public.orders o on o.id = l.order_id where l.id = sid)
+      when 'return' then (select o.location_id from public.order_returns r2 join public.orders o on o.id = r2.order_id where r2.id = sid)
+      when 'job' then (select j.location_id from public.jobs j where j.id = sid)
+      else null end;
+  end if;
+  loc := coalesce(loc, public.default_location());
+
+  -- Tracked item leaving without a named lot: first-expiry-first-out, then the untracked rest.
+  if lot is null and p_delta < 0 and s.tracking <> 'none' and current_setting('app.stock_nolot', true) is distinct from 'on' then
+    left_qty := -p_delta;
+    perform set_config('app.stock_loc', loc::text, true);
+    for r in select ll.lot_id, ll.quantity from public.lot_levels ll join public.lots lo on lo.id = ll.lot_id
+              where lo.item_id = s.id and ll.location_id = loc and ll.quantity > 0
+              order by lo.expiry nulls last, lo.created_at, lo.code loop
+      exit when left_qty <= 0;
+      take := least(r.quantity, left_qty);
+      perform public.stock_lot(r.lot_id);
+      perform public.move_stock(p_item, -take, p_reason, p_ref, p_note, p_cost);
+      left_qty := left_qty - take;
+    end loop;
+    perform public.stock_lot(null);
+    if left_qty > 0 then
+      perform set_config('app.stock_nolot', 'on', true);
+      perform public.move_stock(p_item, -left_qty, p_reason, p_ref, p_note, p_cost);
+      perform set_config('app.stock_nolot', 'off', true);
+    end if;
+    perform set_config('app.stock_loc', coalesce(oldloc, ''), true);
+    return (select quantity from public.stock_items where id = p_item);
+  end if;
+
+  q := s.quantity + p_delta;
+  a := case
+         when p_cost is null then s.avg_cost
+         when p_delta > 0 and q > 0 then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+         when p_delta > 0 then p_cost
+         when p_delta < 0 and q > 0 and s.quantity > 0 then greatest(round((s.quantity * s.avg_cost + p_delta * p_cost) / q, 4), 0)
+         else s.avg_cost end;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q, avg_cost = a,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_levels (item_id, location_id, quantity) values (s.id, loc, p_delta)
+  on conflict (item_id, location_id) do update set quantity = stock_levels.quantity + p_delta, updated_at = now();
+  if lot is not null then
+    insert into public.lot_levels (lot_id, location_id, quantity) values (lot, loc, p_delta)
+    on conflict (lot_id, location_id) do update set quantity = lot_levels.quantity + p_delta;
+  end if;
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id, job_id, source_type, source_id, location_id, lot_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), coalesce(p_cost, s.avg_cost), auth.uid(),
+          nullif(current_setting('app.stock_job', true), '')::uuid, st, sid, loc, lot);
+  return q;
+end $$;
+revoke all on function public.move_stock(uuid, numeric, text, text, text, numeric) from public, anon, authenticated;
+
+-- Reverse stock of one document back into (or out of) the lots it used.
+--  p_delta > 0: puts back what left (lots with net outflow for that source); p_delta < 0: takes back what came in.
+create or replace function public.move_by_source_lots(p_item uuid, p_delta numeric, p_reason text, p_ref text, p_note text,
+  p_src_type text, p_src_id uuid, p_src_reason text, p_cost numeric default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare r record; left_qty numeric := abs(p_delta); take numeric; sgn int := sign(p_delta);
+begin
+  perform public.stock_source(p_src_type, p_src_id);
+  for r in select lot_id, location_id, -sgn * sum(delta) as avail from public.stock_movements
+            where source_type = p_src_type and source_id = p_src_id and item_id = p_item and lot_id is not null
+              and reason in (p_src_reason, p_reason)
+            group by lot_id, location_id having -sgn * sum(delta) > 0
+            order by max(created_at) desc loop
+    exit when left_qty <= 0;
+    take := least(r.avail, left_qty);
+    perform public.stock_lot(r.lot_id);
+    perform public.stock_location(r.location_id);
+    perform public.move_stock(p_item, sgn * take, p_reason, p_ref, p_note, p_cost);
+    left_qty := left_qty - take;
+  end loop;
+  perform public.stock_lot(null);
+  perform public.stock_location(null);
+  if left_qty > 0 then perform public.move_stock(p_item, sgn * left_qty, p_reason, p_ref, p_note, p_cost); end if;
+end $$;
+revoke all on function public.move_by_source_lots(uuid, numeric, text, text, text, text, uuid, text, numeric) from public, anon, authenticated;
+
+-- Receiving names the batch (default: the PO number) and its expiry; serial items get one lot per piece.
+drop function if exists public.receive_po_line(uuid, numeric, text, boolean);
+create or replace function public.receive_po_line(p_line uuid, p_qty numeric, p_key text default null, p_over boolean default false,
+  p_lot text default null, p_expiry date default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.po_lines; po public.purchase_orders; it public.stock_items;
+  prev text; st text; cost numeric; i int; n int;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can receive deliveries'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Receive at least one'; end if;
+  prev := public.claim_op('receive_po_line', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'draft' then raise exception 'Mark the purchase order as ordered first'; end if;
+  if po.status in ('cancelled','received') then raise exception 'This purchase order is closed'; end if;
+  if l.received + p_qty > l.quantity and not p_over then
+    raise exception 'That is more than ordered — % still to come', trim_scale(l.quantity - l.received);
+  end if;
+  select * into it from public.stock_items where id = l.item_id;
+  update public.po_lines set received = received + p_qty where id = l.id;
+  perform public.stock_source('po_line', l.id);
+  cost := round(l.unit_cost * po.fx_rate, 4);
+  if it.tracking = 'serial' then
+    if p_qty <> trunc(p_qty) then raise exception 'Serial-numbered items are received in whole pieces'; end if;
+    select count(*) into n from public.lots where item_id = it.id and code like coalesce(nullif(trim(p_lot), ''), po.number) || '-%';
+    for i in 1..p_qty::int loop
+      perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number) || '-' || lpad((n + i)::text, 3, '0'), p_expiry));
+      perform public.move_stock(l.item_id, 1, 'receive', po.number, '', cost);
+    end loop;
+  else
+    if it.tracking = 'batch' then perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number), p_expiry)); end if;
+    perform public.move_stock(l.item_id, p_qty, 'receive', po.number, '', cost);
+  end if;
+  perform public.stock_lot(null);
+  st := public.po_status_after(po.id);
+  return public.finish_op('receive_po_line', p_key, st);
+end $$;
+revoke all on function public.receive_po_line(uuid, numeric, text, boolean, text, date) from public, anon;
+grant execute on function public.receive_po_line(uuid, numeric, text, boolean, text, date) to authenticated;
+
+-- Production with lots: output batch = the MO code (or one serial per piece), linked to the lots it consumed.
+create or replace function public.produce_core(p_job uuid, p_qty numeric, p_actual jsonb default null, p_bump boolean default true) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prod uuid; pit public.stock_items; b record; need numeric; fromw numeric; avail numeric; total numeric := 0; c numeric;
+        loc uuid; w uuid := public.wip_location(); has_bom boolean := false; unit numeric; outl uuid; i int; n int; before jsonb;
+begin
+  select * into j from public.jobs where id = p_job;
+  prod := public.mo_product(j.id);
+  if prod is null then return 0; end if;
+  select * into pit from public.stock_items where id = prod;
+  loc := coalesce(j.location_id, public.default_location());
+  perform set_config('app.stock_job', j.id::text, true);
+  perform public.stock_source('job', j.id);
+  -- lots this MO had consumed before this batch (to link only what this batch used)
+  select coalesce(jsonb_object_agg(lot_id, used), '{}') into before from (select lot_id, -sum(delta) used from public.stock_movements
+   where job_id = j.id and reason = 'consume' and lot_id is not null group by lot_id) x;
+  for b in
+    select x.item_id, sum(x.qty) qty from (
+      select bl.material_id item_id, bl.quantity * p_qty qty from public.bom_lines bl join public.stock_items m on m.id = bl.material_id and m.kind <> 'service'
+       where bl.product_id = prod and (p_actual is null or not (p_actual ? bl.material_id::text))
+      union all
+      select (k)::uuid, (p_actual->>k)::numeric from jsonb_object_keys(coalesce(p_actual, '{}'::jsonb)) k) x
+    group by x.item_id loop
+    has_bom := true;
+    need := b.qty;
+    continue when need <= 0;
+    select coalesce(picked - used_from_wip - returned, 0) into avail from public.mo_materials where job_id = j.id and item_id = b.item_id for update;
+    fromw := least(greatest(coalesce(avail, 0), 0), need);
+    select avg_cost into c from public.stock_items where id = b.item_id;
+    total := total + need * coalesce(c, 0);
+    if fromw > 0 then
+      perform public.stock_location(w); perform public.move_stock(b.item_id, -fromw, 'consume', j.code, '');
+      update public.mo_materials set used_from_wip = used_from_wip + fromw where job_id = j.id and item_id = b.item_id;
+    end if;
+    if need - fromw > 0 then
+      perform public.stock_location(loc); perform public.move_stock(b.item_id, -(need - fromw), 'consume', j.code, '');
+    end if;
+  end loop;
+  unit := case when has_bom then round(total / p_qty, 4) end;
+  perform public.stock_location(loc);
+  if pit.tracking = 'serial' and p_qty = trunc(p_qty) then
+    select count(*) into n from public.lots where item_id = prod and code like j.code || '-%';
+    for i in 1..p_qty::int loop
+      outl := public.lot_for(prod, j.code || '-' || lpad((n + i)::text, 3, '0'));
+      perform public.stock_lot(outl);
+      perform public.move_stock(prod, 1, 'produce', j.code, 'Serial ' || j.code || '-' || lpad((n + i)::text, 3, '0'), unit);
+      insert into public.lot_links (parent_lot, child_lot, job_id, quantity)
+        select outl, x.lot_id, j.id, x.used / p_qty from (select m.lot_id, -sum(m.delta) - coalesce((before->>m.lot_id::text)::numeric, 0) used
+          from public.stock_movements m where m.job_id = j.id and m.reason = 'consume' and m.lot_id is not null group by m.lot_id) x where x.used > 0;
+    end loop;
+  else
+    if pit.tracking <> 'none' then outl := public.lot_for(prod, j.code); perform public.stock_lot(outl); end if;
+    perform public.move_stock(prod, p_qty, 'produce', j.code, case when p_qty < coalesce(j.quantity, 1) - j.produced then 'Part completed' else '' end, unit);
+    if outl is not null then
+      insert into public.lot_links (parent_lot, child_lot, job_id, quantity)
+        select outl, x.lot_id, j.id, x.used from (select m.lot_id, -sum(m.delta) - coalesce((before->>m.lot_id::text)::numeric, 0) used
+          from public.stock_movements m where m.job_id = j.id and m.reason = 'consume' and m.lot_id is not null group by m.lot_id) x where x.used > 0;
+    end if;
+  end if;
+  perform public.stock_lot(null);
+  perform public.stock_location(null); perform set_config('app.stock_job', '', true);
+  if p_bump then update public.jobs set produced = produced + p_qty where id = j.id; end if;
+  return p_qty;
+end $$;
+revoke all on function public.produce_core(uuid, numeric, jsonb, boolean) from public, anon, authenticated;
+
+-- Reopen: reverse into the same lot and location; finished-goods lots of the MO are unlinked.
+create or replace function public.book_job_stock() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare m record; rest numeric;
+begin
+  if old.status = 'done' and new.status <> 'done' and old.stock_booked then
+    perform set_config('app.stock_job', new.id::text, true);
+    perform public.stock_source('job', new.id);
+    for m in select item_id, reason, location_id, lot_id, sum(delta) as net,
+                    case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end as cost
+               from public.stock_movements
+              where job_id = new.id and reason in ('consume', 'produce') group by item_id, reason, location_id, lot_id having sum(delta) <> 0
+              order by reason desc loop
+      perform public.stock_location(m.location_id);
+      perform public.stock_lot(m.lot_id);
+      perform set_config('app.stock_nolot', 'on', true);
+      perform public.move_stock(m.item_id, -m.net, m.reason, new.code, 'Reopened — reversed', m.cost);
+      perform set_config('app.stock_nolot', 'off', true);
+    end loop;
+    perform public.stock_lot(null);
+    perform public.stock_location(null);
+    perform set_config('app.stock_job', '', true);
+    delete from public.lot_links where job_id = new.id;
+    update public.mo_materials set used_from_wip = 0 where job_id = new.id;
+    new.stock_booked := false;
+    new.produced := 0;
+    return new;
+  end if;
+  if new.status <> 'done' or old.status = 'done' or new.stock_booked or new.sku is null then return new; end if;
+  if public.mo_product(new.id) is null then return new; end if;
+  rest := coalesce(new.quantity, 1) - coalesce(old.produced, 0);
+  if rest > 0 then perform public.produce_core(new.id, rest, null, false); end if;
+  perform public.return_mo_materials_core(new.id, null);
+  new.produced := coalesce(new.quantity, 1);
+  new.stock_booked := true;
+  return new;
+end $$;
+drop trigger if exists book_job_stock on public.jobs;
+create trigger book_job_stock before update of status on public.jobs
+  for each row execute function public.book_job_stock();
+
+-- Trace a lot both ways (INV-13): where it came from, what it went into, who received it.
+create or replace function public.trace_lot(p_lot uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare back jsonb; fwd jsonb; base jsonb;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  with recursive up(id, depth) as (
+      select p_lot, 0 union select l.child_lot, up.depth + 1 from public.lot_links l join up on l.parent_lot = up.id where up.depth < 20),
+    down(id, depth) as (
+      select p_lot, 0 union select l.parent_lot, down.depth + 1 from public.lot_links l join down on l.child_lot = down.id where down.depth < 20)
+  select
+    (select coalesce(jsonb_agg(jsonb_build_object('lot', lo.code, 'lot_id', lo.id, 'sku', si.sku, 'name', si.name, 'depth', up.depth,
+        'received', (select coalesce(jsonb_agg(jsonb_build_object('po', p.number, 'supplier', sp.name, 'at', m.created_at, 'qty', m.delta) order by m.created_at), '[]')
+                       from public.stock_movements m join public.po_lines pl on pl.id = m.source_id join public.purchase_orders p on p.id = pl.po_id
+                       left join public.suppliers sp on sp.id = p.supplier_id
+                      where m.lot_id = lo.id and m.reason = 'receive' and m.delta > 0),
+        'made_by', (select string_agg(distinct j.code, ', ') from public.lot_links l join public.jobs j on j.id = l.job_id where l.parent_lot = lo.id))
+        order by up.depth, si.sku), '[]')
+       from up join public.lots lo on lo.id = up.id join public.stock_items si on si.id = lo.item_id where up.depth > 0),
+    (select coalesce(jsonb_agg(jsonb_build_object('lot', lo.code, 'lot_id', lo.id, 'sku', si.sku, 'name', si.name, 'depth', down.depth,
+        'made_by', (select string_agg(distinct j.code, ', ') from public.lot_links l join public.jobs j on j.id = l.job_id where l.parent_lot = lo.id))
+        order by down.depth, si.sku), '[]')
+       from down join public.lots lo on lo.id = down.id join public.stock_items si on si.id = lo.item_id where down.depth > 0)
+  into back, fwd;
+  -- every customer shipment of this lot or anything made from it
+  with recursive down(id, depth) as (
+      select p_lot, 0 union select l.parent_lot, down.depth + 1 from public.lot_links l join down on l.child_lot = down.id where down.depth < 20)
+  select jsonb_build_object(
+    'lot', (select jsonb_build_object('code', lo.code, 'sku', si.sku, 'name', si.name, 'expiry', lo.expiry, 'tracking', si.tracking)
+              from public.lots lo join public.stock_items si on si.id = lo.item_id where lo.id = p_lot),
+    'on_hand', (select coalesce(jsonb_agg(jsonb_build_object('location', lc.name, 'qty', ll.quantity)), '[]')
+                  from public.lot_levels ll join public.locations lc on lc.id = ll.location_id where ll.lot_id = p_lot and ll.quantity <> 0),
+    'received', (select coalesce(jsonb_agg(jsonb_build_object('po', p.number, 'supplier', sp.name, 'at', m.created_at, 'qty', m.delta) order by m.created_at), '[]')
+                   from public.stock_movements m join public.po_lines pl on pl.id = m.source_id join public.purchase_orders p on p.id = pl.po_id
+                   left join public.suppliers sp on sp.id = p.supplier_id where m.lot_id = p_lot and m.reason = 'receive' and m.delta > 0),
+    'shipped', (select coalesce(jsonb_agg(jsonb_build_object('order', o.order_number, 'order_id', o.id, 'customer', o.customer, 'company', o.company,
+                    'lot', lo.code, 'sku', si.sku, 'at', m.created_at, 'qty', -m.delta) order by m.created_at), '[]')
+                  from down join public.stock_movements m on m.lot_id = down.id and m.reason = 'ship' and m.delta < 0
+                  join public.order_lines ol on ol.id = m.source_id join public.orders o on o.id = ol.order_id
+                  join public.lots lo on lo.id = m.lot_id join public.stock_items si on si.id = lo.item_id)) into base;
+  return base || jsonb_build_object('made_from', back, 'went_into', fwd);
+end $$;
+revoke all on function public.trace_lot(uuid) from public, anon;
+grant execute on function public.trace_lot(uuid) to authenticated;
 
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
