@@ -289,6 +289,18 @@ key per intent and disables the button while it runs.
     double-click sends one request.
   - Still open from the audit: everything not marked ✔ above.
 
+- 2026-11-02 — **Phase 1 published** (DB migration `kimera_phase1_ledger_foundations`, Pages deploy `615d3338` of `b049ee9`).
+  Restore point: schema `backup_20261102_phase1` (38 tables) + branch `backup/pre-phase1-2026-11-02` (= `843bb16`).
+- 2026-11-02 — **Phase 2 part A done locally (`7f4f899`) — not yet published.**
+  - CAT-04 → **Complete**: `customers`, auto-link on every order insert (e-mail, else name+company), backfill, Sell → Customers with order history, customer picker on new orders.
+  - CAT-07 / SALES-02 → Partial→ mostly complete: `tax_rates`, per-line `tax_rate` snapshot, customer default rate, net/VAT/total, prices-include-VAT. (Shopify orders: tax not yet read from the payload.)
+  - CAT-05 → **Complete** (core): unique `barcode`, scannable in pickers, `item_suppliers` (code, price, lead time, preferred), PO line default price.
+  - CAT-08 / ADMIN-08 → **Complete** (core): `check_import()` dry run with per-row problems/changes; only clean rows imported.
+  - ADMIN-06 → Partial: Kimera → Settings (base currency + lock, default lead time, tax rates). Locations/workflows wait for phase 3.
+  - ADMIN-04 → Partial: activity log viewer (`recent_activity()`, office only).
+  - Tests: 259 schema checks ALL PASSED; tsc clean; build ok; browser smoke of Customers, customer sheet, order VAT, Settings (company/tax/activity), item sheet — no errors.
+  - Remaining in phase 2: ADMIN-03 (hide costs/prices from operators at the API), INV-04 drill-through, Shopify tax/currency mapping.
+
 ## Next steps (continuation plan)
 
 1. **Publish phase 1** when you say so: backup schema `backup_<date>_phase1`, branch
