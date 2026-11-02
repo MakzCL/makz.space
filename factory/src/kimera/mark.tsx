@@ -1,10 +1,5 @@
-import { SK_PATHS, SK_VIEWBOX } from "../components/Logo";
-
-/** Kimera "K": the SK blade geometry — a rounded upright stem plus the SK arm. */
-export const K_PATHS = [
-  "M96 150 C104 98 146 66 206 66 L262 66 L262 412 L96 412 Z",
-  "M282 238 L572 72 C578 69 584 68 590 68 L682 68 C692 68 694 78 686 83 L458 238 L564 412 L448 412 C434 412 424 406 418 396 Z",
-];
+import { K_PATHS, KLogo } from "../components/Logo";
+export { K_PATHS };
 
 /** App mark: white K on a violet tile (icons, sign-in, Factory link). */
 export function KimeraMark({ size = 30 }: { size?: number }) {
@@ -17,12 +12,7 @@ export function KimeraMark({ size = 30 }: { size?: number }) {
   );
 }
 
-/** Header lockup: the Skalarki SK in brand red, then "Kimera". */
-export function SkKimera({ height = 26 }: { height?: number }) {
-  return (
-    <span className="k-lockup">
-      <svg viewBox={SK_VIEWBOX} height={height} width={height * 2.28} aria-label="Skalarki">{SK_PATHS.map((d) => <path key={d} d={d} fill="#e3342f" />)}</svg>
-      <b>Kimera</b>
-    </span>
-  );
+/** Header lockup: the Kimera K, then "Kimera". */
+export function SkKimera({ height = 24 }: { height?: number }) {
+  return <span className="k-lockup"><KLogo size={height} /><b>Kimera</b></span>;
 }

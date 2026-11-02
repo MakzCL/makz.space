@@ -9,6 +9,19 @@ export const SK_PATHS = [
 ];
 export const SK_VIEWBOX = "30 55 840 368";
 
+/** Kimera "K": a rounded upright stem plus the SK arm (same blade geometry). */
+export const K_PATHS = [
+  "M96 150 C104 98 146 66 206 66 L262 66 L262 412 L96 412 Z",
+  "M282 238 L572 72 C578 69 584 68 590 68 L682 68 C692 68 694 78 686 83 L458 238 L564 412 L448 412 C434 412 424 406 418 396 Z",
+];
+export const K_VIEWBOX = "86 60 614 358";
+
+/** Kimera runs on kimera.makz.space (or /kimera): loaders and splash use the K there. */
+export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
+export interface Mark { paths: string[]; viewBox: string; ratio: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
+export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
+export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, fill: "var(--k-accent, #7c5cff)", hi: "#b8a6ff", from: [], origin: "390px 240px" };
+
 export function Logo({ size = 44, className = "" }: { size?: number; className?: string }) {
   return (
     <svg viewBox={SK_VIEWBOX} width={size * 2.28} height={size} className={`sk-logo ${className}`} aria-label="Skalarki Electronics">
@@ -25,9 +38,23 @@ const FROM = [
   { x: 300, y: -40, rotate: -12 },
 ];
 
-export function AssemblingLogo({ size = 96, delay = 0 }: { size?: number; delay?: number }) {
+SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
+K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
+export const MARK = IS_KIMERA ? K_MARK : SK_MARK;
+
+/** Plain Kimera K (no tile) — for headers, the sidebar button and the notch. */
+export function KLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg viewBox={SK_VIEWBOX} width={size * 2.28} height={size} className="sk-logo" style={{ overflow: "visible" }}>
+    <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kimera">
+      {K_PATHS.map((d) => <path key={d} d={d} fill={K_MARK.fill} />)}
+    </svg>
+  );
+}
+
+export function AssemblingLogo({ size = 96, delay = 0, mark = MARK }: { size?: number; delay?: number; mark?: Mark }) {
+  const SK_PATHS = mark.paths, FROM = mark.from;
+  return (
+    <svg viewBox={mark.viewBox} width={size * mark.ratio} height={size} className="sk-logo" style={{ overflow: "visible" }}>
       <defs>
         <linearGradient id="sk-shine" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
@@ -39,11 +66,11 @@ export function AssemblingLogo({ size = 96, delay = 0 }: { size?: number; delay?
       <g>
         {SK_PATHS.map((d, i) => (
           <motion.path
-            key={d} d={d} fill="var(--brand)"
+            key={d} d={d} fill={mark.fill}
             initial={{ ...FROM[i], opacity: 0, scale: 0.6 }}
             animate={{ x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 }}
             transition={{ type: "spring", stiffness: 140, damping: 16, mass: 0.9, delay: delay + i * 0.09 }}
-            style={{ transformOrigin: "450px 240px" }}
+            style={{ transformOrigin: mark.origin }}
           />
         ))}
       </g>

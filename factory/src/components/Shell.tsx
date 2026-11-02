@@ -50,8 +50,10 @@ export function Header({ onProfile, scrolled, hidden, extra }: { onProfile: () =
   );
 }
 
-export function BottomNav({ tabs, tab, onTab, badges }: {
+export function BottomNav({ tabs, tab, onTab, badges, foot }: {
   tabs: Tab[]; tab: Tab; onTab: (t: Tab) => void; badges: Partial<Record<Tab, number>>;
+  /** Desktop only: pinned to the bottom of the side menu (e.g. the Kimera button). */
+  foot?: ReactNode;
 }) {
   return (
     <nav className="nav" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
@@ -74,6 +76,7 @@ export function BottomNav({ tabs, tab, onTab, badges }: {
           </button>
         );
       })}
+      {foot && <div className="nav-foot">{foot}</div>}
     </nav>
   );
 }

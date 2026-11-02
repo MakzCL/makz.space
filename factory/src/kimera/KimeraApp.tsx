@@ -21,7 +21,9 @@ import { Plan } from "./Plan";
 import { Sell } from "./Sell";
 import { SubTabs } from "./kit";
 import { Tickets } from "./Tickets";
-import { KimeraMark, SkKimera } from "./mark";
+import { SkKimera } from "./mark";
+import { KLogo } from "../components/Logo";
+import { Splash } from "../components/Splash";
 
 export const FACTORY_URL = "https://factory.makz.space";
 
@@ -41,15 +43,18 @@ export function KimeraApp() {
   const prefs = usePrefs();
   const [backend, setBackend] = useState<Backend | null>(null);
   const [user, setUser] = useState<string | null | undefined>(undefined);
+  const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem("kim-splashed"); } catch { return true; } });
+  const endSplash = useCallback(() => { try { sessionStorage.setItem("kim-splashed", "1"); } catch { /* storage blocked */ } setSplash(false); }, []);
   useEffect(() => { createBackend().then(setBackend); }, []);
   const check = useCallback(async () => { if (backend) setUser(await backend.currentUser()); }, [backend]);
   useEffect(() => { if (!backend) return; check(); return backend.onAuthChange(check); }, [backend, check]);
   return (
     <MotionConfig reducedMotion={prefs.reduceMotion ? "always" : "user"}>
       <ToastProvider>
+        <AnimatePresence>{splash && <Splash key="splash" onDone={endSplash} />}</AnimatePresence>
         <div className="kimera">
           {!backend || user === undefined ? <FullLoader label={t("Starting up…")} />
-            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kimera", sub: t("Back office · Skalarki Electronics Ltd"), logo: <KimeraMark size={40} /> }} /></div>
+            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kimera", sub: t("Back office · Skalarki Electronics Ltd"), logo: <KLogo size={30} /> }} /></div>
               : (
                 <StoreProvider key={user} backend={backend} userId={user} onMissingProfile={async () => { await backend.signOut(); check(); }}>
                   <Gate signOut={async () => { await backend.signOut(); setUser(null); }} />
@@ -72,7 +77,7 @@ function Access({ signOut }: { signOut: () => void }) {
   if (!me.active || !can.editStock(me.role)) {
     return (
       <div className="k-locked">
-        <KimeraMark size={56} />
+        <KLogo size={48} />
         <h2>{t("Kimera is for the office team")}</h2>
         <p className="muted">{t("Your jobs, chat and clock-in live in the Factory app.")}</p>
         <a className="btn primary" href={FACTORY_URL}>{t("Open Factory")}</a>

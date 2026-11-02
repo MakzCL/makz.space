@@ -1,17 +1,17 @@
 import { motion } from "motion/react";
-import { SK_PATHS, SK_VIEWBOX } from "./Logo";
+import { MARK } from "./Logo";
 
 /** Branded buffer: the four blades pulse in sequence while a stroke traces the mark. */
 export function Loader({ size = 40, label }: { size?: number; label?: string }) {
   return (
     <div className="loader" role="status" aria-live="polite">
-      <svg viewBox={SK_VIEWBOX} width={size * 2.28} height={size} style={{ overflow: "visible" }}>
-        {SK_PATHS.map((d, i) => (
+      <svg viewBox={MARK.viewBox} width={size * MARK.ratio} height={size} style={{ overflow: "visible" }}>
+        {MARK.paths.map((d, i) => (
           <g key={d}>
-            <motion.path d={d} fill="var(--brand)"
+            <motion.path d={d} fill={MARK.fill}
               animate={{ opacity: [0.18, 1, 0.18] }}
-              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }} />
-            <motion.path d={d} fill="none" stroke="var(--brand-hi)" strokeWidth={6}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * (MARK.paths.length > 2 ? 0.15 : 0.3), ease: "easeInOut" }} />
+            <motion.path d={d} fill="none" stroke={MARK.hi} strokeWidth={6}
               initial={{ pathLength: 0 }} animate={{ pathLength: [0, 1, 1], opacity: [1, 1, 0] }}
               transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }} />
           </g>

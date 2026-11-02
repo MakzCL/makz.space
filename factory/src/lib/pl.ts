@@ -676,4 +676,5 @@ export const PL: Record<string, string> = {
   "{n} being built": "{n} w produkcji",
   "Time to clock in": "Czas odbić wejście",
   "Clock out?": "Odbić wyjście?",
+  "Back office": "Biuro",
 };

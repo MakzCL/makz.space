@@ -1108,3 +1108,19 @@ p { margin: 0; }
 .k-kept-card b { font-weight: 600; font-size: 0.9rem; }
 .k-kept-card.bad { box-shadow: inset 3px 0 0 var(--k-bad), var(--shadow); }
 .k-kept-card.warn { box-shadow: inset 3px 0 0 var(--k-warn), var(--shadow); }
+/* Kimera link: header on phones, bottom of the side menu on desktop. */
+.kimera-link .k-logo { display: block; }
+.nav-foot { display: none; }
+@media (min-width: 1024px) {
+  .top .kimera-link { display: none; }
+  .nav-foot { display: block; margin-top: auto; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+  .nav-kimera { display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 0.9rem; border-radius: 16px; color: var(--text); text-decoration: none;
+    background: color-mix(in srgb, #7c5cff 12%, transparent); transition: background 0.2s; }
+  .nav-kimera:hover { background: color-mix(in srgb, #7c5cff 22%, transparent); }
+  .nav-kimera .k-logo { flex: none; width: 34px; }
+  .nav-kimera span { display: flex; flex-direction: column; line-height: 1.15; }
+  .nav-kimera b { font-weight: 600; font-size: 0.95rem; }
+  .nav-kimera small { color: var(--muted); font-size: 0.76rem; }
+}
+.k-lockup .k-logo { display: block; flex: none; }
+.login-brand .k-logo { display: block; }
