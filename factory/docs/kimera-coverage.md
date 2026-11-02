@@ -301,6 +301,9 @@ key per intent and disables the button while it runs.
   - Tests: 259 schema checks ALL PASSED; tsc clean; build ok; browser smoke of Customers, customer sheet, order VAT, Settings (company/tax/activity), item sheet — no errors.
   - Remaining in phase 2: ADMIN-03 (hide costs/prices from operators at the API), INV-04 drill-through, Shopify tax/currency mapping.
 
+- 2026-11-02 — **Phase 2 part A + Developer role published** (migrations `developer_role_enum`, `kimera_phase2_master_data_developer_role`; deploy `32285036` of `1cad042`). Restore point: `backup_20261102_phase2` + branch `backup/pre-phase2-2026-11-02`. Karol Kuklinski → Developer (same full access as Owner).
+- 2026-11-02 — **Kimera section access published** (ADMIN-02/04): Settings → Access, owner-only `set_kimera_access()`, `kimera_access` per role; nav, deep links and Create menu follow it; Kimera gate now uses it (support can open Kimera). Defaults: manager/office all; assistant/support all but Insights & Settings; operator none. Migration `kimera_section_access`, deploy of `6158a10`. Restore point: `backup_20261102_access` + branch `backup/pre-access-2026-11-02`. Note: this hides sections in the app; protecting cost/price *data* at the API is ADMIN-03 (next).
+
 ## Next steps (continuation plan)
 
 1. **Publish phase 1** when you say so: backup schema `backup_<date>_phase1`, branch
