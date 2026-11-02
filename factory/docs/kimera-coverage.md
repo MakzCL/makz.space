@@ -311,6 +311,16 @@ key per intent and disables the button while it runs.
   - Tests: 280 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: Developer sees Avg cost/Value, Support does not; movement links open the source document.
   - Still open in phase 2: Shopify VAT/currency mapping (waits for question 17). Sales-price hiding waits for question 18.
 
+- 2026-11-02 — **ADMIN-03 published** (app deploy `efcfffa` first, then migration `kimera_costs_hidden_admin03`). Restore point: `backup_20261102_costs` + branch `backup/pre-costs-2026-11-02`.
+- 2026-11-02 — **Phase 3 (3a + 3b) done locally — not yet published.**
+  - INV-01 → **Complete**: stock per item per location (`stock_levels`), stock list location filter, item sheet "By location".
+  - INV-05 → **Complete** (core): `locations` (warehouse / production / partner), Settings → Locations. INV-07 → Partial: bin per item per location (`set_bin`), no bin master list yet.
+  - INV-06 → **Complete**: `stock_transfers` + lines, dispatch → In transit → receive / cancel (idempotent, locked once posted), Stock → Transfers. ✔ scenario 6.
+  - POs receive into a location, sales orders ship from one, MOs are made at one (pickers on each sheet); adjust / count at a location.
+  - ALLOC-01/02/03/05/06/07, SALES-03/04, MFG-04 → **Complete** (core): `availability()` server allocation (policy at the top of the phase 3b section in schema.sql), `set_rank()` + arrows in Sell and Make, status + reason on every line/MO. ALLOC-04 → Complete: MTO MOs use their order's rank. ✔ scenario 2.
+  - No over-shipping: shipping/dispatch can't overdraw a location; concurrent last-unit shipments → exactly one. ✔ scenario 13.
+  - Tests: 320 schema checks ALL PASSED; concurrency (incl. last-unit race) PASSED; tsc clean; build ok; browser smoke of Transfers, transfer sheet, Sell with ranks + server statuses — no errors.
+
 ## Next steps (continuation plan)
 
 1. **Publish phase 1** when you say so: backup schema `backup_<date>_phase1`, branch

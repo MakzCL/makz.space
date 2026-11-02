@@ -1,4 +1,5 @@
 import { PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2, Users } from "lucide-react";
+import { LocationSelect } from "../components/LocationSelect";
 import { useMemo, useRef, useState } from "react";
 import { Badge, Btn, Chip, Empty, Field, Sheet } from "../components/ui";
 import { opKey, useActions } from "../lib/actions";
@@ -155,6 +156,7 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
             </select>
           </Field>
           <Field label={t("Expected delivery")}><input type="date" value={p.expected_date ?? ""} disabled={!editable} onChange={(e) => a.savePo({ id: p.id, expected_date: e.target.value || null })} /></Field>
+          <LocationSelect value={p.location_id} disabled={!editable || lines.some((l) => l.received > 0)} label={t("Receive into")} onChange={(v) => a.savePo({ id: p.id, location_id: v })} />
         </div>
         <div className="row gap">
           <Field label={t("Currency")}>

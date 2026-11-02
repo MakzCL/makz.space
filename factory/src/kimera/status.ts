@@ -6,9 +6,11 @@
  */
 import type { DB, Job, Order, OrderLine, StockItem } from "../lib/types";
 import { stockLevels } from "../screens/Inventory";
+import { lineCell, moCell, type Avail } from "./availability";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "none";
-export interface Cell { label: string; tone: Tone; date?: string | null; action?: "make" }
+/** why = plain-language reason (shown on hover), from the server allocation. */
+export interface Cell { label: string; tone: Tone; date?: string | null; action?: "make"; why?: string }
 
 export interface LineInfo { line: OrderLine; item: StockItem | null; mo: Job | null; sales: Cell; ingredients: Cell }
 export interface OrderInfo {
@@ -23,7 +25,8 @@ export interface OrderInfo {
 const S = (label: string, tone: Tone, date?: string | null, action?: "make"): Cell => ({ label, tone, date, action });
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function analyse(db: DB) {
+export function analyse(db: DB, av?: Avail | null) {
+  const skuName = new Map(db.stock_items.map((s) => [s.id, s.sku]));
   const lv = stockLevels(db);
   const items = new Map(db.stock_items.map((s) => [s.id, s]));
   const bySku = new Map<string, StockItem>();
@@ -52,7 +55,9 @@ export function analyse(db: DB) {
   for (const s of db.stock_items) free.set(s.id, s.quantity - (lv.committed.get(s.id) ?? 0));
   const freeExp = new Map(lv.expected);
 
-  const orders = [...db.orders].sort((a, b) => (a.ordered_at ?? a.created_at).localeCompare(b.ordered_at ?? b.created_at));
+  // Queue order = the server's priority rank (Sell → arrows), oldest first by default.
+  const rk = (o: Order) => o.rank ?? Date.parse(o.ordered_at ?? o.created_at) / 1000;
+  const orders = [...db.orders].sort((a, b) => rk(a) - rk(b) || a.created_at.localeCompare(b.created_at));
   const out = new Map<string, OrderInfo>();
   let rank = 0;
   for (const o of orders) {
@@ -63,7 +68,8 @@ export function analyse(db: DB) {
       let sales: Cell, ingredients: Cell;
       if (mo) {
         sales = mo.status === "done" ? S("Made", "ok") : S("Expected", "warn", mo.due_date);
-        ingredients = ingredientCell(mo, item, bom, items, lv, poDate);
+        ingredients = av?.mos[mo.id] ? moCell(av.mos[mo.id]!, skuName) : ingredientCell(mo, item, bom, items, lv, poDate);
+        if (mo.stock_booked && av?.lines[line.id] && line.shipped < line.quantity) sales = { ...S("Made", "ok"), why: av.lines[line.id]!.why };
       } else {
         ingredients = S("Not applicable", "none");
         if (o.kind === "quote") sales = item ? (free.get(item.id) ?? 0) >= line.quantity ? S("In stock", "ok") : S("Not available", "bad") : S("Not tracked", "none");
@@ -71,6 +77,7 @@ export function analyse(db: DB) {
         else if (o.delivery === "packed") sales = S("Picked", "ok");
         else if (!item) sales = S("Not tracked", "none");
         else if (item.kind === "service") sales = S("Service", "none");
+        else if (av && open && av.lines[line.id]) sales = lineCell(av.lines[line.id]!, item.kind !== "material");
         else {
           const need = line.quantity - line.shipped;
           const f = free.get(item.id) ?? 0;

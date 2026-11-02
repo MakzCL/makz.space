@@ -1,4 +1,5 @@
 import { History, Lock, Percent, Plus, RefreshCw, Settings2 } from "lucide-react";
+import { LocationsSettings } from "./Locations";
 import { useEffect, useState } from "react";
 import { Badge, Btn, Empty, Field } from "../components/ui";
 import { cleanNumber } from "../lib/csv";
@@ -9,7 +10,7 @@ import type { AuditEntry, KimeraSection, Role } from "../lib/types";
 import { useKimera } from "./actions";
 import { PageHead, SubTabs } from "./kit";
 
-type View = "company" | "tax" | "activity" | "access";
+type View = "company" | "tax" | "activity" | "access" | "locations";
 
 /** Kimera → Settings (ADMIN-06): company defaults, tax rates and the activity log. */
 export function Settings() {
@@ -21,8 +22,8 @@ export function Settings() {
       <PageHead title={t("Settings")} sub={t("Company defaults, tax rates and who changed what.")}
         tabs={<SubTabs value={view} onChange={setView} tabs={[
           ...(isOwner(me.role) ? [{ value: "access" as View, label: t("Access") }] : []),
-          { value: "company", label: t("Company") }, { value: "tax", label: t("Tax rates") }, { value: "activity", label: t("Activity") }]} />} />
-      {view === "access" && isOwner(me.role) ? <Access /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
+          { value: "company", label: t("Company") }, { value: "locations", label: t("Locations") }, { value: "tax", label: t("Tax rates") }, { value: "activity", label: t("Activity") }]} />} />
+      {view === "access" && isOwner(me.role) ? <Access /> : view === "locations" ? <LocationsSettings /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
     </div>
   );
 }

@@ -12,8 +12,8 @@ export const fullDate = (d: string | null | undefined) =>
 export function Pill({ cell, onClick }: { cell: Cell; onClick?: () => void }) {
   const body = <>{t(cell.label)}{cell.date && <small>{shortDate(cell.date)}</small>}</>;
   return onClick
-    ? <button type="button" className={`kpill ${cell.tone} act`} onClick={(e) => { e.stopPropagation(); onClick(); }}>{body}</button>
-    : <span className={`kpill ${cell.tone}`}>{body}</span>;
+    ? <button type="button" title={cell.why} className={`kpill ${cell.tone} act`} onClick={(e) => { e.stopPropagation(); onClick(); }}>{body}</button>
+    : <span className={`kpill ${cell.tone}`} title={cell.why}>{body}</span>;
 }
 
 export function Channel({ source }: { source: "shopify" | "manual" }) {

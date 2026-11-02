@@ -41,6 +41,9 @@ export function useKimera() {
         run(() => B.rpc<string>("unship_lines", { p_order: id, p_lines: lines, p_key: key }), ["orders", "order_lines", "stock_items", "stock_movements"], t("Shipment undone — stock returned")),
       returnLines: (id: string, lines: { line: string; qty: number; restock: boolean }[], reason: string, key = opKey()) =>
         run(() => B.rpc<number>("return_lines", { p_order: id, p_lines: lines, p_reason: reason, p_key: key }), ["orders", "order_lines", "order_returns", "stock_items", "stock_movements"], t("Return booked")),
+      /** Move an order / make-to-stock MO to just before another (null = to the end). */
+      setRank: (kind: "order" | "job", id: string, before: string | null) =>
+        run(() => B.rpc<number>("set_rank", { p_kind: kind, p_id: id, p_before: before }), kind === "order" ? ["orders"] : ["jobs"]),
       convertQuote: (id: string) => run(() => B.rpc<string>("convert_quote", { p_order: id }), ["orders"], t("Quote turned into a sales order")),
       updateJob: (id: string, patch: Partial<Job>) => run(() => B.update("jobs", id, patch), ["jobs"]),
       deleteJob: (id: string) => run(() => B.remove("jobs", id), ["jobs"], t("Deleted")),

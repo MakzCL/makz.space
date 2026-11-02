@@ -57,4 +57,12 @@ default shown in brackets. Every default can be changed later.
     *(Default: Owner is left unassigned until you say.)*
 20. **Assistants and stock costs:** assistants keep stock and enter costs when they book opening stock, but can no longer see average cost or stock value. Is that right?
     *(Default: yes, hidden. Tick "Costs & margins" for Assistant in Settings → Access to change it.)*
+21. **Job priority P1–P5 vs queue order:** Kimera now has a queue order (the arrows in Sell and Make), and that decides who gets stock first. Should the P1–P5 priority on jobs also move the queue, or stay as a shop-floor urgency label only?
+    *(Default: P1–P5 stays a label for the crew; the arrows decide stock.)*
+22. **Transfers:** do you ever receive only part of a transfer (e.g. 8 of 10 arrive)?
+    *(Default: a transfer is received in full; a short delivery is fixed with a stock count at the destination.)*
+23. **Shipping more than the system shows:** if the system says 0 on the shelf but the goods are physically there, should someone be able to ship anyway?
+    *(Default: no. Count the stock first, then ship. This prevents two people shipping the same last unit.)*
+24. **Locations:** besides "Skalarki" (all current stock), which locations should I create? For example: Upstairs store, Downstairs workshop, Dispatch, any contractor holding your stock.
+    *(Default: only "Skalarki" until you add more in Kimera → Settings → Locations.)*
 

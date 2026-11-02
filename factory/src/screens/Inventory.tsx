@@ -1,10 +1,11 @@
 import { motion } from "motion/react";
-import { Boxes, ClipboardCheck, Download, History, Minus, Plus, Search, Trash2, Upload } from "lucide-react";
+import { Boxes, ClipboardCheck, Download, History, MapPin, Minus, Plus, Search, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SceneTabs } from "../components/Scene";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet, list } from "../components/ui";
 import { opKey, useActions } from "../lib/actions";
 import { docOf, useDocLink } from "../lib/doclink";
+import { LocationSelect, placeList } from "../components/LocationSelect";
 import { cleanNumber, download, guessColumns, parseCsv, toCsv } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { can, canSeeCosts } from "../lib/roles";
@@ -20,7 +21,7 @@ const KIND: Record<ItemKind, string> = { product: "Product", material: "Material
 export const kindLabel = (k: ItemKind) => t(KIND[k]);
 const REASON: Record<MoveReason, string> = {
   adjust: "Adjustment", count: "Stocktake", receive: "Received", consume: "Used in job", produce: "Made", import: "Import", opening: "Opening stock",
-  ship: "Shipped", return: "Returned",
+  ship: "Shipped", return: "Returned", transfer: "Transfer",
 };
 
 /**
@@ -110,6 +111,14 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
   const lv = useMemo(() => stockLevels(db), [db]);
   const cats = [...new Set(db.stock_items.map((s) => s.category).filter(Boolean))].sort();
   const sup = new Map(db.suppliers.map((s) => [s.id, s.name]));
+  const [locF, setLocF] = useState<string>("");
+  const places = placeList(db.locations);
+  const atLoc = useMemo(() => {
+    if (!locF) return null;
+    const m = new Map<string, { q: number; bin: string }>();
+    for (const l of db.stock_levels) if (l.location_id === locF) m.set(l.item_id, { q: l.quantity, bin: l.bin });
+    return m;
+  }, [db.stock_levels, locF]);
 
   const rows = db.stock_items
     .filter((s) => !s.archived)
@@ -118,8 +127,10 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
     .filter((s) => !q || `${s.sku} ${s.name} ${s.location} ${s.category} ${s.barcode ?? ""} ${s.supplier_code}`.toLowerCase().includes(q.toLowerCase()) || refsBySku(db, q).has(s.id))
     .map((s) => {
       const committed = lv.committed.get(s.id) ?? 0, expected = lv.expected.get(s.id) ?? 0;
-      return { s, committed, expected, available: s.quantity - committed, value: s.avg_cost === null ? 0 : s.quantity * s.avg_cost };
+      const qty = atLoc ? atLoc.get(s.id)?.q ?? 0 : s.quantity;
+      return { s, qty, bin: atLoc ? atLoc.get(s.id)?.bin ?? "" : s.location, committed, expected, available: qty - committed, value: s.avg_cost === null ? 0 : qty * s.avg_cost };
     })
+    .filter((r) => !atLoc || r.qty !== 0 || atLoc.has(r.s.id))
     .filter((r) => !low || (r.s.min_quantity > 0 && r.available + r.expected <= r.s.min_quantity))
     .sort((a, b) => {
       const v = (r: typeof a) => sort.k === "name" ? r.s.name.toLowerCase() : sort.k === "sku" ? r.s.sku : sort.k === "value" ? r.value : sort.k === "available" ? r.available : r.s.quantity;
@@ -136,10 +147,12 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
     <div className="stack">
       <div className="toolbar">
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search SKU, name, location, category…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        {places.length > 1 && <select value={locF} onChange={(e) => setLocF(e.target.value)} className="tb-select" aria-label={t("Location")}>
+          <option value="">{t("All locations")}</option>{places.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>}
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="tb-select"><option value="">{t("All categories")}</option>{cats.map((c) => <option key={c}>{c}</option>)}</select>
         <Btn tone="soft" icon={<Download size={17} />} onClick={() => download(`stock-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(
           ["SKU", "Name", "Type", "Category", "Location", "Unit", "In stock", "Committed", "Expected", "Available", "Reorder point", ...(costs ? ["Average cost", "Value"] : []), "Supplier"],
-          rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.s.location, r.s.unit, r.s.quantity, r.committed, r.expected, r.available, r.s.min_quantity, ...(costs ? [r.s.avg_cost ?? "", r.value.toFixed(2)] : []), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
+          rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.bin, r.s.unit, r.qty, r.committed, r.expected, r.available, r.s.min_quantity, ...(costs ? [r.s.avg_cost ?? "", r.value.toFixed(2)] : []), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
         {can.editStock(me.role) && <Btn tone="primary" icon={<Plus size={18} />} onClick={() => setOpen("new")}>{t("New item")}</Btn>}
       </div>
       <div className="row between wrap">
@@ -164,8 +177,8 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
                   <tr key={r.s.id} onClick={() => setOpen(r.s)} className={isLow ? "low" : ""}>
                     <td><span className="code">{r.s.sku}</span></td>
                     <td><b>{r.s.name}</b>{r.s.kind !== "material" && <Badge tone={r.s.kind === "product" ? "blue" : "muted"}>{kindLabel(r.s.kind)}</Badge>}</td>
-                    <td className="muted">{r.s.category}</td><td className="muted">{r.s.location}</td>
-                    <td className="num"><b>{fmtQty(r.s.quantity)}</b> <small>{r.s.unit}</small></td>
+                    <td className="muted">{r.s.category}</td><td className="muted">{r.bin}</td>
+                    <td className="num"><b>{fmtQty(r.qty)}</b> <small>{r.s.unit}</small></td>
                     <td className="num muted">{r.committed ? fmtQty(r.committed) : ""}</td>
                     <td className="num muted">{r.expected ? fmtQty(r.expected) : ""}</td>
                     <td className={`num ${r.available < 0 ? "red-t" : ""}`}>{fmtQty(r.available)}</td>
@@ -195,6 +208,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
   const [delta, setDelta] = useState("");
   const [adjKey, setAdjKey] = useState(opKey);
   const [count, setCount] = useState("");
+  const [loc, setLoc] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [key, setKey] = useState<string | null>(null);
   const k = item === "new" ? "new" : item?.id ?? null;
@@ -231,6 +245,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
           <>
             {editable && (
               <div className="card flat">
+                <LocationSelect value={loc} onChange={setLoc} label={t("At location")} />
                 <Field label={t("Book in / out")} hint={t("e.g. +25 found, −3 scrapped")}>
                   <div className="row gap">
                     <button type="button" className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) - 1))} aria-label={t("Less")}><Minus size={16} /></button>
@@ -238,14 +253,15 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                     <button type="button" className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) + 1))} aria-label={t("More")}><Plus size={16} /></button>
                   </div>
                 </Field>
-                <Field label={t("Stocktake — counted quantity")}><input inputMode="decimal" value={count} onChange={(e) => setCount(e.target.value)} placeholder={fmtQty(live.quantity)} /></Field>
+                <Field label={t("Stocktake — counted quantity")}><input inputMode="decimal" value={count} onChange={(e) => setCount(e.target.value)} placeholder={fmtQty(loc || db.stock_levels.some((s) => s.item_id === live.id && s.location_id !== db.locations.find((l) => l.is_default)?.id && s.quantity !== 0) ? (db.stock_levels.find((s) => s.item_id === live.id && s.location_id === (loc ?? db.locations.find((l) => l.is_default)?.id))?.quantity ?? 0) : live.quantity)} /></Field>
                 <Field label={t("Reason / note")}><input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Optional")} /></Field>
                 <div className="row gap">
-                  <Btn tone="soft" wide disabled={!Number(cleanNumber(delta))} onClick={async () => { await a.adjustStock(live, Number(cleanNumber(delta)), note, adjKey); setDelta(""); setNote(""); setAdjKey(opKey()); }}>{t("Apply change")}</Btn>
-                  <Btn tone="primary" wide icon={<ClipboardCheck size={17} />} disabled={cleanNumber(count) === ""} onClick={async () => { await a.countStock(live, Number(cleanNumber(count)), note); setCount(""); setNote(""); }}>{t("Save count")}</Btn>
+                  <Btn tone="soft" wide disabled={!Number(cleanNumber(delta))} onClick={async () => { await a.adjustStock(live, Number(cleanNumber(delta)), note, adjKey, loc); setDelta(""); setNote(""); setAdjKey(opKey()); }}>{t("Apply change")}</Btn>
+                  <Btn tone="primary" wide icon={<ClipboardCheck size={17} />} disabled={cleanNumber(count) === ""} onClick={async () => { await a.countStock(live, Number(cleanNumber(count)), note, loc); setCount(""); setNote(""); }}>{t("Save count")}</Btn>
                 </div>
               </div>
             )}
+            <ItemLocations item={live} editable={editable} />
             {usedIn.length > 0 && <div className="card flat"><small className="label">{t("Used in")}</small><div className="chips">{usedIn.map((p) => <Badge key={p!.id}>{p!.sku} · {p!.name}</Badge>)}</div></div>}
             <div className="card flat">
               <small className="label"><History size={13} /> {t("History")}</small>
@@ -678,3 +694,34 @@ function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }
 }
 
 interface ImportCheck { row: number; key: string; action: "create" | "update" | "error"; problems: string[]; changes: string[] }
+
+/** Stock of one item per location, with its bin there (INV-01, INV-07). */
+export function ItemLocations({ item, editable }: { item: StockItem; editable: boolean }) {
+  const { db, backend: B, refresh } = useStore();
+  const names = new Map(db.locations.map((l) => [l.id, l]));
+  const rows = db.stock_levels.filter((s) => s.item_id === item.id && (s.quantity !== 0 || s.bin) && names.get(s.location_id))
+    .sort((a, b) => Number(names.get(b.location_id)!.is_default) - Number(names.get(a.location_id)!.is_default));
+  if (!rows.length) return null;
+  return (
+    <div className="card flat stack">
+      <small className="label"><MapPin size={13} /> {t("By location")}</small>
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th>{t("Location")}</th><th>{t("Bin")}</th><th className="num">{t("Quantity")}</th></tr></thead>
+          <tbody>{rows.map((r) => {
+            const l = names.get(r.location_id)!;
+            return (
+              <tr key={r.location_id} className="static">
+                <td>{l.name}{l.kind === "transit" && <Badge tone="blue">{t("moving")}</Badge>}</td>
+                <td>{editable && l.kind !== "transit"
+                  ? <input className="cell-input wide" defaultValue={r.bin} key={r.bin} placeholder="—" onBlur={async (e) => { if (e.target.value.trim() !== r.bin) { await B.rpc("set_bin", { p_item: item.id, p_location: r.location_id, p_bin: e.target.value }); await Promise.all([refresh("stock_levels"), refresh("stock_items")]); } }} />
+                  : r.bin || "—"}</td>
+                <td className={`num ${r.quantity < 0 ? "red-t" : ""}`}><b>{fmtQty(r.quantity)}</b> <small>{item.unit}</small></td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

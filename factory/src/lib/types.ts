@@ -141,6 +141,10 @@ export interface Job {
   stock_booked: boolean;
   /** Sales order line this manufacturing order is for. */
   order_line_id: string | null;
+  /** Production location (null = default). */
+  location_id: string | null;
+  /** Make-to-stock priority (make-to-order MOs follow their sales order). */
+  rank: number | null;
 }
 
 export interface Station {
@@ -188,6 +192,10 @@ export interface Order {
   delivery_deadline: string | null;
   customer_id: string | null;
   prices_include_tax: boolean;
+  /** Ships from here (null = default location). */
+  location_id: string | null;
+  /** Priority: lower goes first (Sell → arrows). */
+  rank: number | null;
   source: "shopify" | "manual";
   stock_out: boolean;
   tracking: string;
@@ -267,6 +275,43 @@ export interface AuditEntry {
   changes: Record<string, unknown>;
 }
 /** Kimera sections, plus "costs" = may see costs, stock value and margins (ADMIN-03). */
+export interface Location {
+  id: string;
+  name: string;
+  kind: "warehouse" | "production" | "partner" | "transit";
+  address: string;
+  is_default: boolean;
+  archived: boolean;
+  created_at: string;
+}
+/** Stock of one item at one location (Σ over locations = stock_items.quantity). */
+export interface StockLevel {
+  item_id: string;
+  location_id: string;
+  quantity: number;
+  bin: string;
+  updated_at: string;
+}
+export interface StockTransfer {
+  id: string;
+  number: string;
+  from_location: string;
+  to_location: string;
+  status: "draft" | "in_transit" | "received" | "cancelled";
+  expected_date: string | null;
+  notes: string;
+  created_by: string | null;
+  dispatched_at: string | null;
+  received_at: string | null;
+  created_at: string;
+}
+export interface TransferLine {
+  id: string;
+  transfer_id: string;
+  item_id: string;
+  quantity: number;
+  created_at: string;
+}
 export type KimeraSection = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings" | "costs";
 export interface KimeraAccess {
   role: Role;
@@ -408,6 +453,8 @@ export interface PurchaseOrder {
   number: string;
   supplier_id: string | null;
   status: PoStatus;
+  /** Receiving location (null = default). */
+  location_id: string | null;
   /** Supplier currency (null = base currency) and its value in base currency, fixed when ordered. */
   currency: string | null;
   fx_rate: number;
@@ -430,7 +477,7 @@ export interface PoLine {
   created_at: string;
 }
 
-export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return";
+export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return" | "transfer";
 
 export interface StockMovement {
   id: string;
@@ -444,7 +491,8 @@ export interface StockMovement {
   user_id: string | null;
   /** Manufacturing order that booked this movement (consume / produce). */
   job_id: string | null;
-  /** Document the movement came from: po_line / order_line / job / return / adjustment. */
+  location_id: string | null;
+  /** Document the movement came from: po_line / order_line / job / return / adjustment / transfer_line / count. */
   source_type: string | null;
   source_id: string | null;
   created_at: string;
@@ -512,6 +560,10 @@ export interface Tables {
   tax_rates: TaxRate;
   item_suppliers: ItemSupplier;
   kimera_access: KimeraAccess;
+  locations: Location;
+  stock_levels: StockLevel;
+  stock_transfers: StockTransfer;
+  transfer_lines: TransferLine;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -535,7 +587,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

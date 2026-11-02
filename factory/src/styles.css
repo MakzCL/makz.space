@@ -1154,3 +1154,6 @@ label.k-check input { width: auto; }
 .k-access th.c, .k-access td.c { text-align: center; }
 .k-access td.c input { width: 18px; height: 18px; accent-color: var(--accent, #8b5cf6); cursor: pointer; }
 .k-access td.c input:disabled { cursor: default; }
+.k-rank { display: inline-flex; align-items: center; gap: 0.1rem; margin-right: 0.3rem; }
+.k-rank .icon-btn { width: 22px; height: 22px; }
+.k-why { display: block; max-width: 260px; font-size: 0.72rem; line-height: 1.25; margin-top: 0.2rem; white-space: normal; }

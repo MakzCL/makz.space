@@ -65,15 +65,17 @@ function SheetHandle() {
   return <div ref={ref} className="sheet-handle"><i /></div>;
 }
 
-export function Btn({ children, onClick, tone = "ghost", busy, disabled, icon, wide, small, type = "button" }: {
+export function Btn({ children, onClick, tone = "ghost", busy, disabled, icon, wide, small, type = "button", title }: {
   children?: ReactNode; onClick?: () => unknown | Promise<unknown>; tone?: "primary" | "ghost" | "danger" | "ok" | "soft";
   busy?: boolean; disabled?: boolean; icon?: ReactNode; wide?: boolean; small?: boolean; type?: "button" | "submit";
+  /** Tooltip — use it to say why a button is disabled. */
+  title?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const isBusy = busy || loading;
   return (
     <motion.button
-      type={type} className={`btn ${tone} ${wide ? "wide" : ""} ${small ? "small" : ""}`} disabled={disabled || isBusy}
+      type={type} title={title} className={`btn ${tone} ${wide ? "wide" : ""} ${small ? "small" : ""}`} disabled={disabled || isBusy}
       whileTap={{ scale: 0.96 }} transition={spring}
       onClick={async () => {
         if (!onClick) return;

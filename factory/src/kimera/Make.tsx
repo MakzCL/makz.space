@@ -1,4 +1,6 @@
-import { CheckCircle2, Factory, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Factory, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { moCell, useAvailability } from "./availability";
+import { LocationSelect } from "../components/LocationSelect";
 import { useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, Segmented, Sheet } from "../components/ui";
@@ -21,20 +23,26 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
   const [done, setDone] = useState(false);
   const [kind, setKind] = useState<"all" | "order" | "stock">("all");
   const [q, setQ] = useState("");
-  const info = useMemo(() => analyse(db), [db]);
+  const av = useAvailability();
+  const info = useMemo(() => analyse(db, av), [db, av]);
   const ingr = useMemo(() => {
     const m = new Map<string, Cell>();
     for (const o of info.values()) for (const l of o.lines) if (l.mo) m.set(l.mo.id, l.ingredients);
+    const names = new Map(db.stock_items.map((s) => [s.id, s.sku]));
+    if (av) for (const [id, a] of Object.entries(av.mos)) if (!m.has(id)) m.set(id, moCell(a, names));
     return m;
-  }, [info]);
+  }, [info, av, db.stock_items]);
   const stations = new Map(db.stations.map((s) => [s.id, s.name]));
   const orders = new Map(db.orders.map((o) => [o.id, o]));
+  const effRank = (j: Job) => (j.order_id ? orders.get(j.order_id)?.rank : j.rank) ?? Date.parse(j.created_at) / 1000;
+  const k = useKimera();
   // Manufacturing orders = routed jobs (Shopify lines, sales lines, stock builds).
   const rows = db.jobs.filter((j) => j.route?.length || j.order_id || j.code.startsWith("STK-"))
     .filter((j) => (done ? j.status === "done" : j.status !== "done"))
     .filter((j) => kind === "all" || (kind === "order" ? !!j.order_id : !j.order_id))
     .filter((j) => !q || `${j.code} ${jobCode(j)} ${j.title} ${j.sku ?? ""} ${j.customer}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => done ? (b.completed_at ?? "").localeCompare(a.completed_at ?? "") : a.priority - b.priority || (a.due_date ?? "9").localeCompare(b.due_date ?? "9") || a.created_at.localeCompare(b.created_at));
+    // Open MOs in queue order: the rank allocation uses (MTO MOs follow their sales order).
+    .sort((a, b) => done ? (b.completed_at ?? "").localeCompare(a.completed_at ?? "") : effRank(a) - effRank(b) || a.created_at.localeCompare(b.created_at));
   const editable = can.admin(me.role);
   const cur = openId ? db.jobs.find((j) => j.id === openId) ?? null : null;
 
@@ -65,7 +73,13 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
                 const late = j.due_date && j.status !== "done" && j.due_date < new Date().toISOString().slice(0, 10);
                 return (
                   <tr key={j.id} onClick={() => onOpen(j.id)}>
-                    <td><span className="code">{jobCode(j)}</span></td>
+                    <td className="nowrap">{!done && editable && !q && !j.order_id ? (() => {
+                      const i = rows.indexOf(j);
+                      return <span className="k-rank">
+                        <button type="button" className="icon-btn subtle" disabled={i === 0} aria-label={t("Move up")} title={t("Higher priority")} onClick={(e) => { e.stopPropagation(); k.setRank("job", j.id, rows[i - 1]!.id); }}><ChevronUp size={14} /></button>
+                        <button type="button" className="icon-btn subtle" disabled={i === rows.length - 1} aria-label={t("Move down")} title={t("Lower priority")} onClick={(e) => { e.stopPropagation(); k.setRank("job", j.id, rows[i + 2]?.id ?? null); }}><ChevronDown size={14} /></button>
+                      </span>;
+                    })() : null}<span className="code">{jobCode(j)}</span></td>
                     <td className="muted nowrap">{shortDate(j.created_at)}</td>
                     <td><b>{j.title}</b>{j.sku && <small className="muted"> · {j.sku}</small>}</td>
                     <td className="num">{j.quantity ?? 1}</td>
@@ -179,8 +193,9 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
                 <Field label={t("Deadline")}><input type="date" defaultValue={job.due_date ?? ""} key={job.due_date} onBlur={(e) => e.target.value !== (job.due_date ?? "") && k.updateJob(job.id, { due_date: e.target.value || null })} /></Field>
                 <Field label={t("Priority")}><select value={job.priority} onChange={(e) => k.updateJob(job.id, { priority: Number(e.target.value) })}>
                   {[1, 2, 3, 4, 5].map((p) => <option key={p} value={p}>P{p}</option>)}</select></Field>
-                <Field label={t("Quantity")}><input inputMode="numeric" defaultValue={job.quantity ?? 1} key={job.quantity} onBlur={(e) => { const v = Math.round(Number(cleanNumber(e.target.value))); if (v > 0 && v !== job.quantity) k.updateJob(job.id, { quantity: v }); }} /></Field>
+                <Field label={t("Quantity")}><input inputMode="decimal" defaultValue={job.quantity ?? 1} key={job.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== job.quantity) k.updateJob(job.id, { quantity: v }); }} /></Field>
               </div>
+              <LocationSelect value={job.location_id} disabled={job.stock_booked} label={t("Made at")} onChange={(v) => k.updateJob(job.id, { location_id: v })} />
               {job.status === "open" && job.stage === 0 && <HoldButton tone="danger" icon={<Trash2 size={16} />} onConfirm={async () => { await k.deleteJob(job.id); onClose(); }}>{t("Hold to delete manufacturing order")}</HoldButton>}
             </>
           )}

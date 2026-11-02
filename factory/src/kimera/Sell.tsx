@@ -1,4 +1,6 @@
-import { ArrowRightLeft, Download, Factory, PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2 } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, ChevronUp, Download, Factory, PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2 } from "lucide-react";
+import { useAvailability } from "./availability";
+import { LocationSelect } from "../components/LocationSelect";
 import { useMemo, useState } from "react";
 import { Badge, Btn, Empty, Field, HoldButton, Segmented, Sheet } from "../components/ui";
 import { opKey } from "../lib/actions";
@@ -23,7 +25,8 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
   const { db, me } = useStore();
   const [done, setDone] = useState(false);
   const [q, setQ] = useState("");
-  const info = useMemo(() => analyse(db), [db]);
+  const av = useAvailability();
+  const info = useMemo(() => analyse(db, av), [db, av]);
   const rows = [...info.values()]
     .filter((x) => x.order.kind === kind)
     .filter((x) => (done ? x.order.status !== "open" : x.order.status === "open"))
@@ -33,6 +36,7 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
   const editable = can.admin(me.role);
   const total = rows.reduce((x, r) => x + (r.amount ?? 0), 0);
 
+  const k = useKimera();
   return (
     <div className="k-page">
       <PageHead title={t("Sell")}
@@ -62,7 +66,16 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.order.id} onClick={() => onOpen(r.order.id)} className={r.order.status === "cancelled" ? "dim" : ""}>
-                  {!done && kind === "order" && <td className="num muted">{r.rank}</td>}
+                  {!done && kind === "order" && <td className="num muted nowrap">{editable && !q ? (() => {
+                    const i = rows.indexOf(r);
+                    return <span className="k-rank">
+                      <button type="button" className="icon-btn subtle" disabled={i === 0} aria-label={t("Move up")} title={t("Higher priority")}
+                        onClick={(e) => { e.stopPropagation(); k.setRank("order", r.order.id, rows[i - 1]!.order.id); }}><ChevronUp size={14} /></button>
+                      {r.rank}
+                      <button type="button" className="icon-btn subtle" disabled={i === rows.length - 1} aria-label={t("Move down")} title={t("Lower priority")}
+                        onClick={(e) => { e.stopPropagation(); k.setRank("order", r.order.id, rows[i + 2]?.order.id ?? null); }}><ChevronDown size={14} /></button>
+                    </span>;
+                  })() : r.rank}</td>}
                   <td className="muted nowrap">{shortDate(r.order.ordered_at ?? r.order.created_at)}</td>
                   <td><span className="code">{r.order.order_number}</span></td>
                   <td><b>{r.order.customer || "—"}</b>{r.order.company && <small className="muted"> · {r.order.company}</small>}</td>
@@ -182,7 +195,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
                         </select>
                       : line.tax_rate === null ? "—" : `${Math.round(line.tax_rate * 10000) / 100}%`}</td>
                     <td className="num">{money(line.unit_price === null ? null : line.unit_price * line.quantity)}</td>
-                    <td><Pill cell={sales} /></td>
+                    <td><Pill cell={sales} />{sales.why && sales.tone !== "ok" && <small className="muted k-why">{sales.why}</small>}</td>
                     {o.kind === "order" && <td>{mo
                       ? <span className="row gap-s"><span className="code">{jobCode(mo)}</span><small className="muted">{mo.status === "done" ? t("Done") : db.stations.find((s) => s.id === mo.station_id)?.name ?? ""}</small></span>
                       : editable && o.status === "open" && o.delivery === "not_shipped" ? <Btn small tone={sales.action === "make" ? "primary" : "soft"} icon={<Factory size={14} />} onClick={() => k.makeLine(line.id)}>{t("Make")}</Btn> : <span className="muted">—</span>}</td>}
@@ -228,6 +241,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
               <p className="fine">{t("Stock leaves when a line ships. Made-to-order items go on stock when their manufacturing order is done and leave when their line ships. Services never touch stock.")}</p>
               {editable && <Fulfilment info={info} />}
               <div className="row gap">
+                <LocationSelect value={o.location_id} disabled={!editable || o.stock_out} label={t("Ships from")} onChange={(v) => k.updateOrder(o.id, { location_id: v })} />
                 {field("tracking", t("Tracking number"))}
                 {field("shipping_method", t("Shipping method"))}
               </div>

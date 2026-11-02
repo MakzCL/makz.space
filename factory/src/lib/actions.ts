@@ -251,14 +251,14 @@ export function useActions() {
       } catch (e) { fail(e); }
     }
 
-    const stockRefresh = () => Promise.all([refresh("stock_items"), refresh("stock_movements")]);
+    const stockRefresh = () => Promise.all([refresh("stock_items"), refresh("stock_movements"), refresh("stock_levels")]);
     // key: one per user intent — a retried or double-clicked request books once (server op_keys).
-    async function adjustStock(item: StockItem, delta: number, note = "", key: string = opKey()) {
-      try { await B.rpc("adjust_stock", { p_item: item.id, p_delta: delta, p_note: note, p_key: key }); await stockRefresh(); buzz(8); }
+    async function adjustStock(item: StockItem, delta: number, note = "", key: string = opKey(), location: string | null = null) {
+      try { await B.rpc("adjust_stock", { p_item: item.id, p_delta: delta, p_note: note, p_key: key, p_location: location }); await stockRefresh(); buzz(8); }
       catch (e) { fail(e); }
     }
-    async function countStock(item: StockItem, counted: number, note = "") {
-      try { await B.rpc("count_stock", { p_item: item.id, p_counted: counted, p_note: note }); await stockRefresh(); ok(t("Count saved")); }
+    async function countStock(item: StockItem, counted: number, note = "", location: string | null = null) {
+      try { await B.rpc("count_stock", { p_item: item.id, p_counted: counted, p_note: note, p_location: location }); await stockRefresh(); ok(t("Count saved")); }
       catch (e) { fail(e); }
     }
     async function saveStock(item: Partial<StockItem>, opening?: { qty: number; cost: number | null }) {
