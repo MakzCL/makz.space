@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Backend, JoinInfo, Row } from "./backend";
+import type { Backend, Change, JoinInfo, Row } from "./backend";
 import { TABLES, type JoinLink, type Role, type TableName } from "./types";
 
 /** History older than this is not loaded into the app (keeps phones fast). */
@@ -8,12 +8,15 @@ const TIME_COL: Partial<Record<TableName, string>> = {
   shifts: "clock_in", breaks: "started_at", work_sessions: "started_at",
   participants: "joined_at", invites: "created_at", announcements: "created_at",
   orders: "created_at", job_steps: "completed_at", stock_movements: "created_at",
+  notifications: "created_at", messages: "created_at", message_reactions: "created_at", calls: "created_at", call_participants: "created_at",
 };
 
 export class SupabaseBackend implements Backend {
   sb: SupabaseClient;
 
+  url: string;
   constructor(url: string, key: string) {
+    this.url = url;
     this.sb = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
   }
 
@@ -60,10 +63,13 @@ export class SupabaseBackend implements Backend {
     const { error } = await this.sb.from(table).delete().eq("id", id);
     if (error) throw error;
   }
-  subscribe(onChange: (t: TableName) => void) {
+  subscribe(onChange: (t: TableName, change?: Change) => void) {
     const ch = this.sb.channel("factory-live");
     for (const t of TABLES) {
-      ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => onChange(t));
+      ch.on("postgres_changes", { event: "*", schema: "public", table: t }, (p) => onChange(t, {
+        type: p.eventType, row: (p.new && Object.keys(p.new).length ? p.new : null) as Record<string, unknown> | null,
+        oldId: (p.old as { id?: string } | null)?.id ?? null,
+      }));
     }
     ch.subscribe();
     return () => { this.sb.removeChannel(ch); };
@@ -82,6 +88,24 @@ export class SupabaseBackend implements Backend {
     if (error) throw error;
     return this.sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
   }
+
+  channel(name: string, opts?: { presenceKey?: string }) {
+    return this.sb.channel(name, { config: { broadcast: { self: false, ack: false }, presence: { key: opts?.presenceKey ?? "" } } });
+  }
+  removeChannel(ch: ReturnType<SupabaseClient["channel"]>) { this.sb.removeChannel(ch); }
+  async uploadChatFile(conversationId: string, file: Blob, name: string) {
+    const safe = name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(-80) || "file";
+    const path = `${conversationId}/${crypto.randomUUID()}-${safe}`;
+    const { error } = await this.sb.storage.from("chat").upload(path, file, { contentType: file.type || "application/octet-stream" });
+    if (error) throw error;
+    return path;
+  }
+  async signedUrl(path: string) {
+    const { data, error } = await this.sb.storage.from("chat").createSignedUrl(path, 60 * 60 * 6);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+  functionUrl(name: string) { return `${this.url.replace(/\/$/, "")}/functions/v1/${name}`; }
 
   async rpc<T = unknown>(fn: string, args: Record<string, unknown>) {
     const { data, error } = await this.sb.rpc(fn, args);

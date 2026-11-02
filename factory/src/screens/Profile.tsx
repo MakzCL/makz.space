@@ -14,6 +14,8 @@ import { DAY_TARGET, HOUR, dailyTotals, dayLabel, daysBetween, hm, jobStats, spl
 import type { AbsenceKind } from "../lib/types";
 import { KIND, kindLabel } from "./Requests";
 import { roleLabel } from "./Team";
+import { PushCard } from "../components/Notifications";
+import { STATUS_META } from "../lib/comms";
 
 async function squareCrop(file: File, size = 320): Promise<Blob> {
   const img = await createImageBitmap(file);
@@ -188,8 +190,26 @@ function Awards() {
 function Settings({ onSignOut }: { onSignOut: () => void }) {
   const { me } = useStore();
   const prefs = usePrefs();
+  const a = useActions();
+  const [note, setNote] = useState(me.status_note ?? "");
   return (
     <>
+      <div className="card status-card">
+        <small className="label">{t("My status")}</small>
+        <div className="status-pick">
+          {(["available", "busy", "dnd", "away"] as const).map((s) => (
+            <button key={s} className={me.status === s ? "on" : ""} onClick={() => a.updateProfile(me.id, { status: s })}>
+              <i className="pdot" style={{ background: STATUS_META[s].color }} />{t(STATUS_META[s].label)}
+            </button>
+          ))}
+        </div>
+        <div className="row gap">
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Status message, e.g. On the CNC till 2pm")} maxLength={80} />
+          <Btn tone="soft" disabled={note === (me.status_note ?? "")} onClick={() => a.updateProfile(me.id, { status_note: note.trim() })}>{t("Set")}</Btn>
+        </div>
+        {me.status === "dnd" && <small className="muted">{t("Do not disturb: no phone notifications except calls.")}</small>}
+      </div>
+      <PushCard compact />
       <div className="card settings">
         <div className="set"><span><b>{t("Language")}</b><small>English / Polski</small></span><LangSwitch /></div>
         <div className="set"><span><b>{t("Text & layout size")}</b><small>{t("Bigger for gloves and tablets")}</small></span>

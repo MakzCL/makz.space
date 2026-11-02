@@ -1,8 +1,10 @@
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { JoinLink, Role, TableName, Tables } from "./types";
 
 export interface JoinInfo { valid: boolean; reason: "ok" | "expired" | "revoked" | "used_up" | "locked" | "not_found"; role: Role; inviter: string }
 
 export type Row<T extends TableName> = Tables[T];
+export interface Change { type: "INSERT" | "UPDATE" | "DELETE"; row: Record<string, unknown> | null; oldId: string | null }
 
 export interface Backend {
   /** Resolve the signed-in user id, or null. */
@@ -16,8 +18,14 @@ export interface Backend {
   insert<T extends TableName>(table: T, row: Partial<Row<T>>): Promise<Row<T>>;
   update<T extends TableName>(table: T, id: string, patch: Partial<Row<T>>): Promise<Row<T>>;
   remove(table: TableName, id: string): Promise<void>;
-  /** Called with the table that changed (from anyone, anywhere). */
-  subscribe(onChange: (table: TableName) => void): () => void;
+  /** Called with the table that changed (from anyone, anywhere), plus the row when known. */
+  subscribe(onChange: (table: TableName, change?: Change) => void): () => void;
+  /** Realtime room for presence, typing and call signalling. */
+  channel(name: string, opts?: { presenceKey?: string }): RealtimeChannel;
+  removeChannel(ch: RealtimeChannel): void;
+  uploadChatFile(conversationId: string, file: Blob, name: string): Promise<string>;
+  signedUrl(path: string): Promise<string>;
+  functionUrl(name: string): string;
   onAuthChange(cb: () => void): () => void;
   uploadAvatar(userId: string, blob: Blob): Promise<string>;
 

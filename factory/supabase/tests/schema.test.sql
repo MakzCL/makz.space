@@ -255,6 +255,69 @@ select pg_temp.expect_fail($$select public.import_items('[{"sku":"X","quantity":
 select pg_temp.expect_fail($$insert into public.purchase_orders (status) values ('draft')$$, 'operator creates a purchase order');
 select pg_temp.expect_fail($$select public.move_stock((select id from public.stock_items where sku = 'LED-AMB'), 5, 'adjust')$$, 'calling the internal stock function directly');
 select pg_temp.become(null);
+-- ----------------------------------------------------------- comms (Teams)
+select pg_temp.become(null);
+select pg_temp.check((select count(*) from public.notifications n join public.profiles p on p.id = n.user_id where n.kind = 'news') >= 2, 'noticeboard post notifies everyone else');
+select pg_temp.check((select count(*) from public.notifications where user_id = :'A2' and kind = 'job_new') >= 1, 'new Shopify job notifies the station crew');
+select pg_temp.check((select count(*) from public.notifications where user_id = :'A2' and kind = 'invite') = 1, 'team invite notifies the helper');
+select pg_temp.check((select count(*) from public.notifications where kind = 'job_given' and user_id = :'A1') >= 1, 'job reaching your station notifies you');
+select pg_temp.check((select count(*) from public.conversation_members m join public.conversations c on c.id = m.conversation_id where c.name = 'General') = 3, 'everyone active is in the General channel');
+
+select pg_temp.become(:'A1');
+select public.open_direct(:'B') as dm \gset
+select pg_temp.check(public.open_direct(:'B') = :'dm', 'opening a chat with the same person reuses it');
+insert into public.messages (conversation_id, sender_id, body) values (:'dm', auth.uid(), 'Pedestal for #1043 ready?');
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'message' and body like 'Pedestal%') = 1, 'chat message notifies the other person');
+select pg_temp.check((select count(*) from public.messages where conversation_id = :'dm') = 1, 'boss reads the direct chat');
+update public.conversation_members set last_read_at = now() where conversation_id = :'dm' and user_id = auth.uid();
+select pg_temp.check((select count(*) from public.conversation_members where conversation_id = :'dm' and last_read_at is not null) = 2, 'read receipts recorded');
+select pg_temp.become(:'A2');
+select pg_temp.check((select count(*) from public.messages where conversation_id = :'dm') = 0, 'others cannot read a private chat');
+select pg_temp.expect_fail(format($$insert into public.messages (conversation_id, sender_id, body) values (%L, auth.uid(), 'hi')$$, :'dm'), 'posting into someone else''s chat');
+select pg_temp.check((select count(*) from public.notifications where user_id = :'B') = 0, 'notifications are private');
+select pg_temp.expect_fail($$select public.create_conversation('channel', 'Ops', '{}')$$, 'operator creates a channel');
+insert into public.messages (conversation_id, sender_id, body) select id, auth.uid(), 'Morning all' from public.conversations where name = 'General';
+select pg_temp.become(:'A1');
+update public.messages set body = 'Hacked' where body = 'Morning all';
+select pg_temp.check((select body = 'Morning all' from public.messages where body in ('Morning all', 'Hacked')), 'cannot edit other people''s messages');
+update public.messages set body = 'Pedestal for #1043 ready today?' where conversation_id = :'dm';
+select pg_temp.check((select edited_at is not null from public.messages where conversation_id = :'dm' and kind = 'text'), 'edits are marked');
+select public.create_conversation('group', 'Line 2', array[:'B'::uuid]) as grp \gset
+select pg_temp.check((select count(*) from public.conversation_members where conversation_id = :'grp') = 2, 'group chat with members');
+-- Calendar
+insert into public.events (id, title, starts_at, ends_at, organizer_id)
+  values ('e0000000-0000-0000-0000-000000000001', 'Production meeting', now() + interval '5 minutes', now() + interval '35 minutes', auth.uid());
+insert into public.event_attendees (event_id, user_id) values ('e0000000-0000-0000-0000-000000000001', :'B');
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'meeting') = 1, 'meeting invite notifies attendee');
+update public.event_attendees set response = 'accepted' where user_id = auth.uid();
+select pg_temp.check((select count(*) from public.events) = 1, 'attendee sees the meeting');
+select pg_temp.become(:'A2');
+select pg_temp.check((select count(*) from public.events) = 0, 'others do not see the meeting');
+select pg_temp.become(null);
+select pg_temp.check(public.send_reminders() = 1, 'reminder sent 10 minutes before');
+select pg_temp.check((select count(*) from public.notifications where kind = 'reminder') = 2, 'organiser and attendee reminded');
+select pg_temp.check(public.send_reminders() = 0, 'reminders only once');
+-- Calls
+select pg_temp.become(:'A1');
+insert into public.calls (id, conversation_id, started_by, kind) values ('ca000000-0000-0000-0000-000000000001', :'dm', auth.uid(), 'video');
+select public.join_call('ca000000-0000-0000-0000-000000000001');
+select pg_temp.check((select count(*) from public.messages where conversation_id = :'dm' and kind = 'call') = 1, 'call shows in the chat');
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'call') = 1, 'call rings the other person');
+select public.join_call('ca000000-0000-0000-0000-000000000001');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.join_call('ca000000-0000-0000-0000-000000000001')$$, 'joining someone else''s call');
+select pg_temp.become(:'A1');
+select public.leave_call('ca000000-0000-0000-0000-000000000001');
+select pg_temp.check((select status = 'active' from public.calls), 'call continues while someone is in it');
+select pg_temp.become(:'B');
+select public.leave_call('ca000000-0000-0000-0000-000000000001');
+select pg_temp.check((select status = 'ended' and ended_at is not null from public.calls), 'last one out ends the call');
+update public.profiles set status = 'dnd' where id = auth.uid();
+select pg_temp.check((select status = 'dnd' from public.profiles where id = auth.uid()), 'set own presence status');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

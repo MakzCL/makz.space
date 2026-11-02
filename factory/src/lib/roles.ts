@@ -1,6 +1,6 @@
 import type { Role } from "./types";
 
-export type Tab = "home" | "jobs" | "time" | "team" | "requests" | "insights" | "issues" | "stock";
+export type Tab = "home" | "jobs" | "chat" | "time" | "team" | "requests" | "insights" | "issues" | "stock";
 
 export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: string; hue: string }> = {
   boss:      { label: "Boss",      gateway: "Command",    blurb: "Full control, live floor, insights",   hue: "#ff4d4a" },
@@ -13,11 +13,11 @@ export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: st
 export const ROLE_ORDER: Role[] = ["boss", "manager", "office", "assistant", "operator"];
 
 export const TABS_FOR: Record<Role, Tab[]> = {
-  boss:      ["home", "jobs", "team", "insights", "requests"],
-  manager:   ["home", "jobs", "team", "requests", "issues"],
-  office:    ["home", "team", "requests", "time"],
-  assistant: ["home", "jobs", "time", "issues"],
-  operator:  ["home", "jobs", "time", "issues"],
+  boss:      ["home", "jobs", "chat", "team", "insights", "requests"],
+  manager:   ["home", "jobs", "chat", "team", "requests", "issues"],
+  office:    ["home", "chat", "team", "requests", "time"],
+  assistant: ["home", "jobs", "chat", "time", "issues"],
+  operator:  ["home", "jobs", "chat", "time", "issues"],
 };
 
 /** Inventory (stock, recipes, purchasing) lives on the desktop app only. */

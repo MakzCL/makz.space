@@ -7,6 +7,8 @@ const EMPTY: DB = {
   issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
   stations: [], station_members: [], products: [], orders: [], job_steps: [],
   suppliers: [], bom_lines: [], purchase_orders: [], po_lines: [], stock_movements: [],
+  notifications: [], conversations: [], conversation_members: [], messages: [], message_reactions: [],
+  events: [], event_attendees: [], calls: [], call_participants: [],
 };
 
 interface Ctx {
@@ -19,6 +21,8 @@ interface Ctx {
   patch: <T extends TableName>(t: T, fn: (rows: DB[T]) => DB[T]) => void;
   person: (id: string | null | undefined) => Profile | undefined;
 }
+
+const INCREMENTAL = new Set<TableName>(["messages", "message_reactions", "notifications", "conversation_members", "calls", "call_participants", "conversations"]);
 
 const StoreCtx = createContext<Ctx | null>(null);
 
@@ -49,7 +53,22 @@ export function StoreProvider({ backend, userId, children, onMissingProfile }: {
   useEffect(() => {
     let alive = true;
     refresh().then(() => alive && setReady(true));
-    const off = backend.subscribe((t) => {
+    const off = backend.subscribe((t, change) => {
+      // Chat-speed tables apply the row straight away; others re-fetch.
+      if (change && INCREMENTAL.has(t)) {
+        setDb((prev) => {
+          const rows = prev[t] as { id: string }[];
+          let next = rows;
+          if (change.type === "DELETE" && change.oldId) next = rows.filter((r) => r.id !== change.oldId);
+          else if (change.row) {
+            const row = change.row as { id: string };
+            const i = rows.findIndex((r) => r.id === row.id);
+            next = i < 0 ? [...rows, row] : rows.map((r) => (r.id === row.id ? row : r));
+          }
+          return { ...prev, [t]: next } as DB;
+        });
+        return;
+      }
       // Coalesce bursts of changes into one fetch per table.
       pending.current.add(t);
       clearTimeout(timer.current);

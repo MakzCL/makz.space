@@ -10,7 +10,87 @@ export interface Profile {
   /** False until approved by an admin or joined through an invite link. */
   active: boolean;
   created_at: string;
+  /** Teams-style status the person picks. */
+  status: PresenceStatus;
+  status_note: string;
+  last_seen_at: string | null;
 }
+
+export type PresenceStatus = "available" | "busy" | "dnd" | "away";
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  kind: "news" | "job_new" | "job_given" | "invite" | "message" | "call" | "meeting" | "reminder" | string;
+  title: string;
+  body: string;
+  link: NotifyLink;
+  read_at: string | null;
+  pushed_at: string | null;
+  created_at: string;
+}
+export interface NotifyLink { tab?: string; job_id?: string; conversation_id?: string; call_id?: string; event_id?: string }
+
+export interface Conversation {
+  id: string;
+  kind: "direct" | "group" | "channel";
+  name: string;
+  topic: string;
+  direct_key: string | null;
+  created_by: string | null;
+  last_message_at: string;
+  created_at: string;
+}
+export interface ConversationMember {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  role: "owner" | "member";
+  last_read_at: string;
+  muted: boolean;
+  joined_at: string;
+  created_at: string;
+}
+export interface Attachment { path?: string; name?: string; type?: string; size?: number; w?: number; h?: number; call_id?: string }
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  kind: "text" | "system" | "call";
+  body: string;
+  attachments: Attachment[];
+  reply_to: string | null;
+  edited_at: string | null;
+  deleted_at: string | null;
+  created_at: string;
+}
+export interface Reaction { id: string; message_id: string; conversation_id: string; user_id: string; emoji: string; created_at: string }
+export interface CalEvent {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  online: boolean;
+  organizer_id: string | null;
+  reminded: boolean;
+  created_at: string;
+}
+export interface EventAttendee { id: string; event_id: string; user_id: string; response: "pending" | "accepted" | "tentative" | "declined"; created_at: string }
+export interface Call {
+  id: string;
+  conversation_id: string | null;
+  event_id: string | null;
+  started_by: string | null;
+  kind: "voice" | "video";
+  status: "ringing" | "active" | "ended";
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+}
+export interface CallParticipant { id: string; call_id: string; user_id: string; joined_at: string; left_at: string | null; created_at: string }
 
 export interface Shift {
   id: string;
@@ -299,6 +379,15 @@ export interface Tables {
   purchase_orders: PurchaseOrder;
   po_lines: PoLine;
   stock_movements: StockMovement;
+  notifications: AppNotification;
+  conversations: Conversation;
+  conversation_members: ConversationMember;
+  messages: Message;
+  message_reactions: Reaction;
+  events: CalEvent;
+  event_attendees: EventAttendee;
+  calls: Call;
+  call_participants: CallParticipant;
 }
 
 export type TableName = keyof Tables;
@@ -308,6 +397,8 @@ export const TABLES: TableName[] = [
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
   "stations", "station_members", "products", "orders", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
+  "notifications", "conversations", "conversation_members", "messages", "message_reactions",
+  "events", "event_attendees", "calls", "call_participants",
 ];
 
 export type DB = { [K in TableName]: Tables[K][] };

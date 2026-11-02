@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
-  AlertTriangle, BarChart3, Boxes, Briefcase, CalendarCheck, Clock3, Home, Users,
+  AlertTriangle, BarChart3, Boxes, Briefcase, CalendarCheck, Clock3, Home, MessageSquare, Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "../lib/i18n";
@@ -8,11 +8,13 @@ import { buzz } from "../lib/prefs";
 import { ROLE_META, type Tab } from "../lib/roles";
 import { useStore } from "../lib/store";
 import { Avatar } from "./Avatar";
+import { STATUS_META, shownStatus, useOnline } from "../lib/comms";
 import { Logo } from "./Logo";
 
 const ICON: Record<Tab, ReactNode> = {
   home: <Home size={21} strokeWidth={1.8} />,
   jobs: <Briefcase size={21} strokeWidth={1.8} />,
+  chat: <MessageSquare size={21} strokeWidth={1.8} />,
   time: <Clock3 size={21} strokeWidth={1.8} />,
   team: <Users size={21} strokeWidth={1.8} />,
   requests: <CalendarCheck size={21} strokeWidth={1.8} />,
@@ -21,13 +23,13 @@ const ICON: Record<Tab, ReactNode> = {
   stock: <Boxes size={21} strokeWidth={1.8} />,
 };
 const LABEL: Record<Tab, string> = {
-  home: "Home", jobs: "Jobs", time: "Time", team: "Team", requests: "Requests", insights: "Insights", issues: "Issues", stock: "Inventory",
+  home: "Home", jobs: "Jobs", chat: "Chat", time: "Time", team: "Team", requests: "Requests", insights: "Insights", issues: "Issues", stock: "Inventory",
 };
 export const tabLabel = (tab: Tab) => t(LABEL[tab]);
 
 export function Background() { return <div className="bg" aria-hidden />; }
 
-export function Header({ onProfile, scrolled }: { onProfile: () => void; scrolled: boolean }) {
+export function Header({ onProfile, scrolled, extra }: { onProfile: () => void; scrolled: boolean; extra?: ReactNode }) {
   const { me } = useStore();
   return (
     <header className={`top ${scrolled ? "scrolled" : ""}`}>
@@ -38,9 +40,12 @@ export function Header({ onProfile, scrolled }: { onProfile: () => void; scrolle
           <small>{t(ROLE_META[me.role].label)}</small>
         </div>
       </div>
-      <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>
-        <Avatar p={me} size={38} />
-      </motion.button>
+      <div className="top-actions">
+        {extra}
+        <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>
+          <Avatar p={me} size={38} /><MyDot />
+        </motion.button>
+      </div>
     </header>
   );
 }
@@ -83,4 +88,11 @@ export function OfflineBar({ online }: { online: boolean }) {
       )}
     </AnimatePresence>
   );
+}
+
+function MyDot() {
+  const { me } = useStore();
+  const online = useOnline();
+  const s = shownStatus(me, online.size ? online : new Set([me.id]));
+  return <i className="pdot me-dot" style={{ background: STATUS_META[s].color }} />;
 }

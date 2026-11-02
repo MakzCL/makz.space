@@ -1081,3 +1081,527 @@ begin
     end loop;
   end if;
 end $$;
+
+-- =========================================================================
+-- Comms (Teams-style): notifications + phone push, chat, calls, calendar
+-- =========================================================================
+-- Presence: status the person picks (Teams-style) and when they were last here.
+alter table public.profiles add column if not exists status text not null default 'available'
+  check (status in ('available','busy','dnd','away'));
+alter table public.profiles add column if not exists status_note text not null default '';
+alter table public.profiles add column if not exists last_seen_at timestamptz;
+
+-- Small key/value settings used by triggers (e.g. the project URL for push).
+create table if not exists public.app_settings (key text primary key, value text not null);
+alter table public.app_settings enable row level security; -- no policies: server-side only
+
+-- ----------------------------------------------------------- notifications
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  kind text not null,               -- news | job_new | job_given | invite | message | call | meeting | reminder
+  title text not null,
+  body text not null default '',
+  link jsonb not null default '{}', -- {tab, job_id, conversation_id, call_id, event_id}
+  read_at timestamptz,
+  pushed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text not null default '',
+  created_at timestamptz not null default now()
+);
+-- Server-only: the VAPID key pair the push function creates on first use.
+create table if not exists public.push_keys (id int primary key default 1 check (id = 1), public_key text not null, private_key text not null);
+alter table public.notifications      enable row level security;
+alter table public.push_subscriptions enable row level security;
+alter table public.push_keys          enable row level security; -- no policies: service role only
+
+-- Anyone signed in may read the public push key (it is public by design).
+create or replace function public.vapid_public_key() returns text
+language sql stable security definer set search_path = public as $$ select public_key from public.push_keys where id = 1 $$;
+
+-- Create a notification (and hand it to the push sender if configured).
+create or replace function public.notify(p_user uuid, p_kind text, p_title text, p_body text, p_link jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare nid uuid; url text;
+begin
+  if p_user is null then return; end if;
+  if not exists (select 1 from public.profiles where id = p_user and active) then return; end if;
+  insert into public.notifications (user_id, kind, title, body, link) values (p_user, p_kind, p_title, left(coalesce(p_body, ''), 300), coalesce(p_link, '{}'))
+  returning id into nid;
+  select value into url from public.app_settings where key = 'push_url';
+  if url is not null and exists (select 1 from pg_extension where extname = 'pg_net')
+     and exists (select 1 from public.push_subscriptions where user_id = p_user) then
+    perform net.http_post(url := url, body := jsonb_build_object('id', nid), headers := '{"Content-Type":"application/json"}'::jsonb);
+  end if;
+end $$;
+revoke all on function public.notify(uuid, text, text, text, jsonb) from public, anon, authenticated;
+
+create or replace function public.first_name(p uuid) returns text
+language sql stable security definer set search_path = public as $$ select coalesce(split_part(full_name, ' ', 1), '') from public.profiles where id = p $$;
+
+-- Noticeboard post → everyone
+create or replace function public.notify_news() returns trigger language plpgsql security definer set search_path = public as $$
+declare u uuid;
+begin
+  for u in select id from public.profiles where active and id <> new.author_id loop
+    perform public.notify(u, 'news', public.first_name(new.author_id) || ' posted on the noticeboard', new.body, '{"tab":"home"}');
+  end loop;
+  return new;
+end $$;
+drop trigger if exists notify_news on public.announcements;
+create trigger notify_news after insert on public.announcements for each row execute function public.notify_news();
+
+-- New job → its crew; job given to new people (assignment or station move) → them
+create or replace function public.notify_jobs() returns trigger language plpgsql security definer set search_path = public as $$
+declare u uuid; st text;
+begin
+  select name into st from public.stations where id = new.station_id;
+  if tg_op = 'INSERT' then
+    foreach u in array coalesce(new.assignees, '{}') loop
+      continue when u = auth.uid();
+      perform public.notify(u, 'job_new', 'New job ' || new.code, new.title || coalesce(' · ' || st, ''), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
+    end loop;
+    if new.order_id is not null then
+      for u in select id from public.profiles where active and role in ('boss','manager') and not (id = any(coalesce(new.assignees, '{}'))) loop
+        perform public.notify(u, 'job_new', 'New order ' || new.code, new.title || ' ×' || coalesce(new.quantity, 1), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
+      end loop;
+    end if;
+  elsif new.status <> 'done' then
+    foreach u in array coalesce(new.assignees, '{}') loop
+      continue when u = any(coalesce(old.assignees, '{}')) or u = auth.uid();
+      perform public.notify(u, 'job_given',
+        case when new.station_id is distinct from old.station_id and st is not null then new.code || ' is at ' || st || ' — your turn' else 'Job ' || new.code || ' given to you' end,
+        new.title, jsonb_build_object('tab', 'jobs', 'job_id', new.id));
+    end loop;
+  end if;
+  return new;
+end $$;
+drop trigger if exists notify_jobs on public.jobs;
+create trigger notify_jobs after insert or update of assignees on public.jobs for each row execute function public.notify_jobs();
+
+-- Team job invite → the invited person
+create or replace function public.notify_invite() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  perform public.notify(new.to_user, 'invite', public.first_name(new.from_user) || ' wants your help',
+    (select code || ' · ' || title from public.jobs where id = new.job_id), jsonb_build_object('tab', 'home', 'job_id', new.job_id));
+  return new;
+end $$;
+drop trigger if exists notify_invite on public.invites;
+create trigger notify_invite after insert on public.invites for each row execute function public.notify_invite();
+
+-- ------------------------------------------------------------------- chat
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('direct','group','channel')),
+  name text not null default '',
+  topic text not null default '',
+  direct_key text unique,           -- "<uuid>:<uuid>" (sorted) for 1:1 chats
+  created_by uuid references public.profiles(id) on delete set null,
+  last_message_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create table if not exists public.conversation_members (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null default 'member' check (role in ('owner','member')),
+  last_read_at timestamptz not null default now(),
+  muted boolean not null default false,
+  joined_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (conversation_id, user_id)
+);
+create index if not exists conv_members_user_idx on public.conversation_members (user_id);
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid references public.profiles(id) on delete set null,
+  kind text not null default 'text' check (kind in ('text','system','call')),
+  body text not null default '',
+  attachments jsonb not null default '[]',  -- [{path,name,type,size,w,h}]
+  reply_to uuid references public.messages(id) on delete set null,
+  edited_at timestamptz,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists messages_conv_idx on public.messages (conversation_id, created_at desc);
+create table if not exists public.message_reactions (
+  id uuid primary key default gen_random_uuid(),
+  message_id uuid not null references public.messages(id) on delete cascade,
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  emoji text not null,
+  created_at timestamptz not null default now(),
+  unique (message_id, user_id, emoji)
+);
+
+alter table public.conversations        enable row level security;
+alter table public.conversation_members enable row level security;
+alter table public.messages             enable row level security;
+alter table public.message_reactions    enable row level security;
+
+create or replace function public.is_member(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.conversation_members where conversation_id = c and user_id = auth.uid())
+$$;
+create or replace function public.is_conv_owner(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.conversation_members where conversation_id = c and user_id = auth.uid() and role = 'owner')
+$$;
+create or replace function public.can_see_conv(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_member(c) or exists (select 1 from public.conversations where id = c and kind = 'channel')
+$$;
+
+-- 1:1 chat with someone (created on first use).
+create or replace function public.open_direct(p_other uuid) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare k text; cid uuid;
+begin
+  if not public.is_active() then raise exception 'Not allowed'; end if;
+  if p_other = auth.uid() then raise exception 'Pick someone else'; end if;
+  k := least(auth.uid()::text, p_other::text) || ':' || greatest(auth.uid()::text, p_other::text);
+  select id into cid from public.conversations where direct_key = k;
+  if cid is null then
+    insert into public.conversations (kind, direct_key, created_by) values ('direct', k, auth.uid()) returning id into cid;
+    insert into public.conversation_members (conversation_id, user_id) values (cid, auth.uid()), (cid, p_other) on conflict do nothing;
+  end if;
+  return cid;
+end $$;
+
+-- Group chat or channel; the creator owns it.
+create or replace function public.create_conversation(p_kind text, p_name text, p_members uuid[]) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare cid uuid; u uuid;
+begin
+  if not public.is_active() then raise exception 'Not allowed'; end if;
+  if p_kind not in ('group','channel') then raise exception 'Unknown chat type'; end if;
+  if p_kind = 'channel' and not public.is_admin() then raise exception 'Only boss, manager or office can create channels'; end if;
+  insert into public.conversations (kind, name, created_by) values (p_kind, coalesce(nullif(trim(p_name), ''), 'Group'), auth.uid()) returning id into cid;
+  insert into public.conversation_members (conversation_id, user_id, role) values (cid, auth.uid(), 'owner');
+  foreach u in array coalesce(p_members, '{}') loop
+    insert into public.conversation_members (conversation_id, user_id) values (cid, u) on conflict do nothing;
+  end loop;
+  insert into public.messages (conversation_id, sender_id, kind, body) values (cid, auth.uid(), 'system', 'created ' || case when p_kind = 'channel' then 'the channel' else 'the group' end);
+  return cid;
+end $$;
+
+drop policy if exists "see my chats and channels" on public.conversations;
+drop policy if exists "owners rename" on public.conversations;
+create policy "see my chats and channels" on public.conversations for select to authenticated using (kind = 'channel' or public.is_member(id));
+create policy "owners rename" on public.conversations for update to authenticated
+  using (public.is_conv_owner(id) or (kind = 'channel' and public.is_admin()));
+
+drop policy if exists "see members" on public.conversation_members;
+drop policy if exists "join channel or add to my group" on public.conversation_members;
+drop policy if exists "update own membership" on public.conversation_members;
+drop policy if exists "leave or remove" on public.conversation_members;
+create policy "see members" on public.conversation_members for select to authenticated using (public.can_see_conv(conversation_id));
+create policy "join channel or add to my group" on public.conversation_members for insert to authenticated with check (
+  (user_id = auth.uid() and exists (select 1 from public.conversations c where c.id = conversation_id and c.kind = 'channel'))
+  or (public.is_member(conversation_id) and exists (select 1 from public.conversations c where c.id = conversation_id and c.kind = 'group')));
+create policy "update own membership" on public.conversation_members for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "leave or remove" on public.conversation_members for delete to authenticated using (user_id = auth.uid() or public.is_conv_owner(conversation_id));
+
+drop policy if exists "read messages" on public.messages;
+drop policy if exists "post messages" on public.messages;
+drop policy if exists "edit own messages" on public.messages;
+create policy "read messages" on public.messages for select to authenticated using (public.can_see_conv(conversation_id));
+create policy "post messages" on public.messages for insert to authenticated with check (sender_id = auth.uid() and kind <> 'system' and public.is_member(conversation_id));
+create policy "edit own messages" on public.messages for update to authenticated using (sender_id = auth.uid()) with check (sender_id = auth.uid());
+
+drop policy if exists "read reactions" on public.message_reactions;
+drop policy if exists "react" on public.message_reactions;
+drop policy if exists "unreact" on public.message_reactions;
+create policy "read reactions" on public.message_reactions for select to authenticated using (public.can_see_conv(conversation_id));
+create policy "react" on public.message_reactions for insert to authenticated with check (user_id = auth.uid() and public.can_see_conv(conversation_id));
+create policy "unreact" on public.message_reactions for delete to authenticated using (user_id = auth.uid());
+
+-- New message → bump the chat, mark it read for the sender, notify the others.
+create or replace function public.on_message() returns trigger language plpgsql security definer set search_path = public as $$
+declare m record; c public.conversations; title text; preview text;
+begin
+  update public.conversations set last_message_at = new.created_at where id = new.conversation_id returning * into c;
+  if new.sender_id is not null then
+    update public.conversation_members set last_read_at = new.created_at where conversation_id = new.conversation_id and user_id = new.sender_id;
+  end if;
+  if new.kind <> 'text' then return new; end if;
+  preview := coalesce(nullif(left(new.body, 140), ''), case when jsonb_array_length(new.attachments) > 0 then
+    case when new.attachments->0->>'type' like 'image/%' then '📷 Photo' when new.attachments->0->>'type' like 'video/%' then '🎬 Video' else '📎 File' end else '' end);
+  title := case when c.kind = 'direct' then public.first_name(new.sender_id) else coalesce(nullif(c.name, ''), 'Group') || ' · ' || public.first_name(new.sender_id) end;
+  for m in select user_id from public.conversation_members where conversation_id = new.conversation_id and user_id <> coalesce(new.sender_id, '00000000-0000-0000-0000-000000000000'::uuid) and not muted loop
+    perform public.notify(m.user_id, 'message', title, preview, jsonb_build_object('tab', 'chat', 'conversation_id', new.conversation_id));
+  end loop;
+  return new;
+end $$;
+drop trigger if exists on_message on public.messages;
+create trigger on_message after insert on public.messages for each row execute function public.on_message();
+
+-- Messages: only the body can be edited; "delete" blanks it.
+create or replace function public.guard_message() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return new; end if;
+  if new.conversation_id <> old.conversation_id or new.sender_id is distinct from old.sender_id or new.kind <> old.kind or new.created_at <> old.created_at then
+    raise exception 'Only the text of a message can change';
+  end if;
+  if new.deleted_at is not null then new.body := ''; new.attachments := '[]'; end if;
+  if new.body is distinct from old.body and new.deleted_at is null then new.edited_at := now(); end if;
+  return new;
+end $$;
+drop trigger if exists guard_message on public.messages;
+create trigger guard_message before update on public.messages for each row execute function public.guard_message();
+
+-- ------------------------------------------------------------------ calls
+create table if not exists public.events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text not null default '',
+  location text not null default '',
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  all_day boolean not null default false,
+  online boolean not null default true,
+  organizer_id uuid references public.profiles(id) on delete set null,
+  reminded boolean not null default false,
+  created_at timestamptz not null default now(),
+  check (ends_at >= starts_at)
+);
+create table if not exists public.event_attendees (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  response text not null default 'pending' check (response in ('pending','accepted','tentative','declined')),
+  created_at timestamptz not null default now(),
+  unique (event_id, user_id)
+);
+create table if not exists public.calls (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid references public.conversations(id) on delete cascade,
+  event_id uuid references public.events(id) on delete set null,
+  started_by uuid references public.profiles(id) on delete set null,
+  kind text not null default 'video' check (kind in ('voice','video')),
+  status text not null default 'ringing' check (status in ('ringing','active','ended')),
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.call_participants (
+  id uuid primary key default gen_random_uuid(),
+  call_id uuid not null references public.calls(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  left_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.events            enable row level security;
+alter table public.event_attendees   enable row level security;
+alter table public.calls             enable row level security;
+alter table public.call_participants enable row level security;
+
+create or replace function public.in_event(e uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.events where id = e and organizer_id = auth.uid())
+      or exists (select 1 from public.event_attendees where event_id = e and user_id = auth.uid())
+$$;
+create or replace function public.in_call(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.calls k where k.id = c and (
+    (k.conversation_id is not null and public.can_see_conv(k.conversation_id)) or (k.event_id is not null and public.in_event(k.event_id)) or k.started_by = auth.uid()))
+$$;
+
+drop policy if exists "see my events" on public.events;
+drop policy if exists "create events" on public.events;
+drop policy if exists "organiser edits" on public.events;
+drop policy if exists "organiser deletes" on public.events;
+create policy "see my events" on public.events for select to authenticated using (public.in_event(id));
+create policy "create events" on public.events for insert to authenticated with check (organizer_id = auth.uid());
+create policy "organiser edits" on public.events for update to authenticated using (organizer_id = auth.uid());
+create policy "organiser deletes" on public.events for delete to authenticated using (organizer_id = auth.uid());
+
+drop policy if exists "see attendees" on public.event_attendees;
+drop policy if exists "organiser invites" on public.event_attendees;
+drop policy if exists "answer invite" on public.event_attendees;
+drop policy if exists "organiser removes" on public.event_attendees;
+create policy "see attendees" on public.event_attendees for select to authenticated using (public.in_event(event_id));
+create policy "organiser invites" on public.event_attendees for insert to authenticated
+  with check (exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid()));
+create policy "answer invite" on public.event_attendees for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "organiser removes" on public.event_attendees for delete to authenticated
+  using (user_id = auth.uid() or exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid()));
+
+drop policy if exists "see calls" on public.calls;
+drop policy if exists "start calls" on public.calls;
+drop policy if exists "update calls" on public.calls;
+create policy "see calls" on public.calls for select to authenticated using (public.in_call(id));
+create policy "start calls" on public.calls for insert to authenticated with check (started_by = auth.uid()
+  and ((conversation_id is not null and public.is_member(conversation_id)) or (event_id is not null and public.in_event(event_id))));
+create policy "update calls" on public.calls for update to authenticated using (public.in_call(id));
+
+drop policy if exists "see participants" on public.call_participants;
+drop policy if exists "join call" on public.call_participants;
+drop policy if exists "leave call" on public.call_participants;
+create policy "see participants" on public.call_participants for select to authenticated using (public.in_call(call_id));
+create policy "join call" on public.call_participants for insert to authenticated with check (user_id = auth.uid() and public.in_call(call_id));
+create policy "leave call" on public.call_participants for update to authenticated using (user_id = auth.uid());
+
+-- Call started → ring everyone in the chat / meeting and drop a card in the chat.
+create or replace function public.on_call() returns trigger language plpgsql security definer set search_path = public as $$
+declare u uuid; who text := public.first_name(new.started_by); ev public.events;
+begin
+  if tg_op = 'INSERT' then
+    if new.conversation_id is not null then
+      insert into public.messages (conversation_id, sender_id, kind, body, attachments)
+        values (new.conversation_id, new.started_by, 'call', new.kind, jsonb_build_array(jsonb_build_object('call_id', new.id)));
+      for u in select user_id from public.conversation_members where conversation_id = new.conversation_id and user_id <> new.started_by loop
+        perform public.notify(u, 'call', case when new.kind = 'voice' then '📞 ' else '🎥 ' end || who || ' is calling',
+          'Tap to answer', jsonb_build_object('tab', 'chat', 'conversation_id', new.conversation_id, 'call_id', new.id));
+      end loop;
+    elsif new.event_id is not null then
+      select * into ev from public.events where id = new.event_id;
+      for u in select user_id from public.event_attendees where event_id = new.event_id and user_id <> new.started_by and response <> 'declined'
+               union select ev.organizer_id where ev.organizer_id <> new.started_by loop
+        perform public.notify(u, 'call', 'Meeting started: ' || ev.title, who || ' has joined', jsonb_build_object('tab', 'chat', 'event_id', ev.id, 'call_id', new.id));
+      end loop;
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists on_call on public.calls;
+create trigger on_call after insert on public.calls for each row execute function public.on_call();
+
+-- Last one out ends the call.
+create or replace function public.leave_call(p_call uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.call_participants set left_at = now() where call_id = p_call and user_id = auth.uid() and left_at is null;
+  if not exists (select 1 from public.call_participants where call_id = p_call and left_at is null) then
+    update public.calls set status = 'ended', ended_at = now() where id = p_call and status <> 'ended';
+  end if;
+end $$;
+create or replace function public.join_call(p_call uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.in_call(p_call) then raise exception 'Not invited to this call'; end if;
+  if not exists (select 1 from public.call_participants where call_id = p_call and user_id = auth.uid() and left_at is null) then
+    insert into public.call_participants (call_id, user_id) values (p_call, auth.uid());
+  end if;
+  update public.calls set status = 'active', ended_at = null where id = p_call and status <> 'active';
+end $$;
+
+-- Meeting invite → attendee
+create or replace function public.on_attendee() returns trigger language plpgsql security definer set search_path = public as $$
+declare e public.events;
+begin
+  select * into e from public.events where id = new.event_id;
+  if new.user_id <> e.organizer_id then
+    perform public.notify(new.user_id, 'meeting', public.first_name(e.organizer_id) || ' invited you: ' || e.title,
+      to_char(e.starts_at at time zone 'Europe/London', 'Dy DD Mon, HH24:MI'), jsonb_build_object('tab', 'calendar', 'event_id', e.id));
+  end if;
+  return new;
+end $$;
+drop trigger if exists on_attendee on public.event_attendees;
+create trigger on_attendee after insert on public.event_attendees for each row execute function public.on_attendee();
+
+-- Called every minute (pg_cron): 10-minute meeting reminders.
+create or replace function public.send_reminders() returns int
+language plpgsql security definer set search_path = public as $$
+declare e public.events; u uuid; n int := 0;
+begin
+  for e in select * from public.events where not reminded and not all_day and starts_at between now() and now() + interval '10 minutes' for update skip locked loop
+    for u in select user_id from public.event_attendees where event_id = e.id and response <> 'declined' union select e.organizer_id loop
+      perform public.notify(u, 'reminder', 'Starting soon: ' || e.title, to_char(e.starts_at at time zone 'Europe/London', 'HH24:MI') || case when e.online then ' · online meeting' else coalesce(' · ' || nullif(e.location, ''), '') end,
+        jsonb_build_object('tab', 'calendar', 'event_id', e.id));
+    end loop;
+    update public.events set reminded = true where id = e.id;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.send_reminders() from public, anon, authenticated;
+
+-- Notifications / push / presence policies
+drop policy if exists "own notifications" on public.notifications;
+drop policy if exists "mark read" on public.notifications;
+drop policy if exists "clear own" on public.notifications;
+create policy "own notifications" on public.notifications for select to authenticated using (user_id = auth.uid());
+create policy "mark read" on public.notifications for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "clear own" on public.notifications for delete to authenticated using (user_id = auth.uid());
+drop policy if exists "own push subscriptions" on public.push_subscriptions;
+create policy "own push subscriptions" on public.push_subscriptions for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+do $$
+declare t text;
+begin
+  foreach t in array array['notifications','push_subscriptions','conversations','conversation_members','messages','message_reactions',
+                           'events','event_attendees','calls','call_participants'] loop
+    execute format('drop policy if exists "active staff only" on public.%I', t);
+    execute format('create policy "active staff only" on public.%I as restrictive for all to authenticated using (public.is_active()) with check (public.is_active())', t);
+  end loop;
+end $$;
+
+revoke all on function public.open_direct(uuid) from public, anon;
+revoke all on function public.create_conversation(text, text, uuid[]) from public, anon;
+revoke all on function public.join_call(uuid) from public, anon;
+revoke all on function public.leave_call(uuid) from public, anon;
+grant execute on function public.open_direct(uuid) to authenticated;
+grant execute on function public.create_conversation(text, text, uuid[]) to authenticated;
+grant execute on function public.join_call(uuid) to authenticated;
+grant execute on function public.leave_call(uuid) to authenticated;
+grant execute on function public.vapid_public_key() to authenticated;
+
+-- Private bucket for chat photos, videos and files: <conversation_id>/<file>
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit) values ('chat', 'chat', false, 52428800)
+      on conflict (id) do update set public = false;
+    drop policy if exists "chat files read" on storage.objects;
+    drop policy if exists "chat files write" on storage.objects;
+    create policy "chat files read" on storage.objects for select to authenticated
+      using (bucket_id = 'chat' and public.can_see_conv(((storage.foldername(name))[1])::uuid));
+    create policy "chat files write" on storage.objects for insert to authenticated
+      with check (bucket_id = 'chat' and public.is_member(((storage.foldername(name))[1])::uuid));
+  end if;
+end $$;
+
+-- Starter channel everyone can join.
+insert into public.conversations (kind, name, topic)
+select 'channel', 'General', 'Everyone at Skalarki' where not exists (select 1 from public.conversations where kind = 'channel');
+insert into public.conversation_members (conversation_id, user_id)
+select c.id, p.id from public.conversations c cross join public.profiles p where c.kind = 'channel' and c.name = 'General' and p.active
+on conflict do nothing;
+
+-- New starters land in every channel once their account is active.
+create or replace function public.join_channels() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.active and (tg_op = 'INSERT' or not old.active) then
+    insert into public.conversation_members (conversation_id, user_id)
+    select id, new.id from public.conversations where kind = 'channel' on conflict do nothing;
+  end if;
+  return new;
+end $$;
+drop trigger if exists join_channels on public.profiles;
+create trigger join_channels after insert or update of active on public.profiles for each row execute function public.join_channels();
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['notifications','conversations','conversation_members','messages','message_reactions',
+                             'events','event_attendees','calls','call_participants'] loop
+      begin
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      exception when duplicate_object then null; end;
+    end loop;
+  end if;
+end $$;
