@@ -319,7 +319,7 @@ key per intent and disables the button while it runs.
   - POs receive into a location, sales orders ship from one, MOs are made at one (pickers on each sheet); adjust / count at a location.
   - ALLOC-01/02/03/05/06/07, SALES-03/04, MFG-04 → **Complete** (core): `availability()` server allocation (policy at the top of the phase 3b section in schema.sql), `set_rank()` + arrows in Sell and Make, status + reason on every line/MO. ALLOC-04 → Complete: MTO MOs use their order's rank. ✔ scenario 2.
   - No over-shipping: shipping/dispatch can't overdraw a location; concurrent last-unit shipments → exactly one. ✔ scenario 13.
-  - Tests: 320 schema checks ALL PASSED; concurrency (incl. last-unit race) PASSED; tsc clean; build ok; browser smoke of Transfers, transfer sheet, Sell with ranks + server statuses — no errors.
+  - Tests: 313 schema checks ALL PASSED; concurrency (incl. last-unit race) PASSED; tsc clean; build ok; browser smoke of Transfers, transfer sheet, Sell with ranks + server statuses — no errors.
 
 ## Next steps (continuation plan)
 
