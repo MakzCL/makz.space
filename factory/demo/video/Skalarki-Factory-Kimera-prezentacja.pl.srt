@@ -1,0 +1,59 @@
+1
+00:00:01,500 --> 00:00:08,032
+Skalarki Factory. Cała fabryka — w jednej aplikacji.
+
+2
+00:00:08,432 --> 00:00:15,800
+Każdy dzień zaczyna się tutaj: kto jest na zmianie, które zlecenia są w toku i co czeka właśnie na Ciebie.
+
+3
+00:00:16,200 --> 00:00:27,864
+Zamówienia z Shopify trafiają prosto na halę. Każde przechodzi przez stanowiska — od obróbki metalu, przez montaż paneli, po kontrolę jakości i pakowanie.
+
+4
+00:00:28,264 --> 00:00:34,864
+Na komputerze widać całą halę na żywo: kto pracuje, nad czym i od jak dawna.
+
+5
+00:00:35,264 --> 00:00:41,192
+Czat, połączenia głosowe i wideo — odbierzesz je prosto z powiadomienia.
+
+6
+00:00:41,592 --> 00:00:47,520
+Kalendarz zespołu przypomina o spotkaniach i pozwala dołączyć jednym kliknięciem.
+
+7
+00:00:47,920 --> 00:00:55,864
+Kierownicy zarządzają zespołem: role, zmiany, urlopy i zatwierdzenia — w jednym miejscu.
+
+8
+00:00:56,964 --> 00:01:02,288
+A w tle pracuje Kimera — nasz system magazynu i planowania.
+
+9
+00:01:02,688 --> 00:01:11,496
+Zamówienia sprzedaży z czytelnymi statusami: produkty, składniki, produkcja i wysyłka — na pierwszy rzut oka.
+
+10
+00:01:11,896 --> 00:01:19,456
+Każde zamówienie ma swoją kartę — od pozycji, przez produkcję, aż po dostawę do hangaru klienta.
+
+11
+00:01:19,856 --> 00:01:29,000
+Kimera planuje produkcję i podpowiada, co wyprodukować, a co dokupić. Ramy zawsze czekają gotowe na górze.
+
+12
+00:01:29,400 --> 00:01:35,232
+Pełny katalog produktów z recepturami — każdy panel i każda część.
+
+13
+00:01:35,632 --> 00:01:40,744
+Analizy sprzedaży i magazynu pokazują, jak rośnie firma.
+
+14
+00:01:41,144 --> 00:01:48,464
+Problemy z hali trafiają jako zgłoszenia — z osobą odpowiedzialną, historią i odpowiedziami.
+
+15
+00:01:48,764 --> 00:01:58,168
+Skalarki Factory i Kimera. Jedna rodzina. Jedna fabryka.
