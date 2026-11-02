@@ -501,4 +501,5 @@ export const PL: Record<string, string> = {
   "{n} in call": "W rozmowie: {n}",
   "{n} members": "Członkowie: {n}",
   "{n} min": "{n} min",
+  "Search people and chats…": "Szukaj osób i czatów…", "New group chat": "Nowy czat grupowy", "Everyone at Skalarki": "Wszyscy w Skalarki", "Nobody found": "Nikogo nie znaleziono",
 };

@@ -50,25 +50,63 @@ export function ChatHub({ openConv, onOpenConv, openEvent, onOpenEvent }: {
 }
 
 function ChatsView({ convs, openConv, onOpenConv }: { convs: ConvView[]; openConv: string | null; onOpenConv: (id: string | null) => void }) {
-  const channels = false;
+  const { db, me, backend, refresh } = useStore();
+  const toast = useToast();
+  const online = useOnline();
   const desktop = useDesktop();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const shown = convs
-    .filter((v) => !q || v.title.toLowerCase().includes(q.toLowerCase()));
+  const [opening, setOpening] = useState<string | null>(null);
+  const match = (s: string) => !q || s.toLowerCase().includes(q.toLowerCase());
+  // Chats with something in them (empty 1:1 chats show under People instead).
+  const shown = convs.filter((v) => (v.c.kind !== "direct" || v.last) && match(v.title));
+  // Everyone at work: tap to message, no setup needed.
+  const directWith = new Map(convs.filter((v) => v.c.kind === "direct" && v.other).map((v) => [v.other!.id, v]));
+  const people = db.profiles
+    .filter((p) => p.active && p.id !== me.id && !directWith.get(p.id)?.last && match(p.full_name))
+    .sort((a, b) => Number(online.has(b.id)) - Number(online.has(a.id)) || a.full_name.localeCompare(b.full_name));
+  const message = async (pid: string) => {
+    const existing = directWith.get(pid);
+    if (existing) { onOpenConv(existing.c.id); return; }
+    setOpening(pid);
+    try {
+      const id = await backend.rpc<string>("open_direct", { p_other: pid });
+      await Promise.all([refresh("conversations"), refresh("conversation_members")]);
+      onOpenConv(id);
+    } catch (e) { toast(t((e as Error).message), "error"); }
+    finally { setOpening(null); }
+  };
   const current = convs.find((v) => v.c.id === openConv);
   const listEl = (
     <div className="stack">
       <div className="row gap">
-        <div className="searchbar grow"><Search size={18} /><input placeholder={channels ? t("Search channels…") : t("Search chats…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        {<button className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={channels ? t("New channel") : t("New chat")}><MessageSquarePlus size={20} /></button>}
+        <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search people and chats…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <button className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={t("New group chat")} title={t("New group chat")}><Users size={20} /></button>
       </div>
-      <div className="conv-list">
-        {shown.map((v) => <ConvRow key={v.c.id} v={v} on={v.c.id === openConv} onClick={() => onOpenConv(v.c.id)} />)}
-        {!shown.length && <Empty icon={channels ? <Hash size={26} /> : <MessageSquarePlus size={26} />} title={channels ? t("No channels") : t("No chats yet")}
-          hint={channels ? undefined : t("Start one with the button above — pick a person or a few for a group.")} />}
-      </div>
-      <NewChatSheet open={creating} channel={channels} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); onOpenConv(id); }} />
+      {shown.length > 0 && (
+        <div className="conv-list">
+          {shown.map((v) => <ConvRow key={v.c.id} v={v} on={v.c.id === openConv} onClick={() => onOpenConv(v.c.id)} />)}
+        </div>
+      )}
+      {people.length > 0 && (
+        <>
+          <small className="label people-label">{t("Everyone at Skalarki")}</small>
+          <div className="conv-list">
+            {people.map((p) => (
+              <button key={p.id} className={`conv-row ${directWith.get(p.id)?.c.id === openConv ? "on" : ""}`} onClick={() => message(p.id)} disabled={opening === p.id}>
+                <span className="conv-av"><Avatar p={p} size={46} /><PresenceDot p={p} /></span>
+                <span className="grow">
+                  <b>{p.full_name}</b>
+                  <small className="conv-prev">{p.status_note || t(STATUS_META[shownStatus(p, online)].label)}</small>
+                </span>
+                {opening === p.id ? <Loader2 size={18} className="spin" /> : <MessageSquarePlus size={18} className="muted" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {!shown.length && !people.length && <Empty icon={<Search size={26} />} title={t("Nobody found")} />}
+      <NewChatSheet open={creating} channel={false} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); onOpenConv(id); }} />
     </div>
   );
   if (desktop) {
