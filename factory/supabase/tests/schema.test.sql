@@ -287,8 +287,9 @@ select pg_temp.check((select edited_at is not null from public.messages where co
 select public.create_conversation('group', 'Line 2', array[:'B'::uuid]) as grp \gset
 select pg_temp.check((select count(*) from public.conversation_members where conversation_id = :'grp') = 2, 'group chat with members');
 -- Calendar
+-- (the app inserts with RETURNING, so the new row must be visible to its creator)
 insert into public.events (id, title, starts_at, ends_at, organizer_id)
-  values ('e0000000-0000-0000-0000-000000000001', 'Production meeting', now() + interval '5 minutes', now() + interval '35 minutes', auth.uid());
+  values ('e0000000-0000-0000-0000-000000000001', 'Production meeting', now() + interval '5 minutes', now() + interval '35 minutes', auth.uid()) returning id;
 insert into public.event_attendees (event_id, user_id) values ('e0000000-0000-0000-0000-000000000001', :'B');
 select pg_temp.become(:'B');
 select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'meeting') = 1, 'meeting invite notifies attendee');
@@ -302,7 +303,7 @@ select pg_temp.check((select count(*) from public.notifications where kind = 're
 select pg_temp.check(public.send_reminders() = 0, 'reminders only once');
 -- Calls
 select pg_temp.become(:'A1');
-insert into public.calls (id, conversation_id, started_by, kind) values ('ca000000-0000-0000-0000-000000000001', :'dm', auth.uid(), 'video');
+insert into public.calls (id, conversation_id, started_by, kind) values ('ca000000-0000-0000-0000-000000000001', :'dm', auth.uid(), 'video') returning id;
 select public.join_call('ca000000-0000-0000-0000-000000000001');
 select pg_temp.check((select count(*) from public.messages where conversation_id = :'dm' and kind = 'call') = 1, 'call shows in the chat');
 select pg_temp.become(:'B');

@@ -17,9 +17,26 @@ import { useToast } from "./Toast";
  * - Of each pair, the person with the smaller id makes the offer, so two
  *   people never offer to each other at the same time.
  */
-const ICE: RTCIceServer[] = [
+const STUN: RTCIceServer[] = [
   { urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] },
 ];
+const TURN_URL = import.meta.env.VITE_TURN_URL as string | undefined;
+let iceCache: { servers: RTCIceServer[]; at: number } | null = null;
+
+/** STUN + Cloudflare TURN relay (short-lived login from our Worker), so calls connect on mobile data too. */
+async function iceServers(token: string | null): Promise<RTCIceServer[]> {
+  if (iceCache && Date.now() - iceCache.at < 6 * 3600e3) return iceCache.servers;
+  if (!TURN_URL || !token) return STUN;
+  try {
+    const r = await fetch(TURN_URL, { headers: { authorization: `Bearer ${token}` } });
+    if (!r.ok) return STUN;
+    const j = await r.json() as { iceServers?: RTCIceServer | RTCIceServer[] };
+    const relay = Array.isArray(j.iceServers) ? j.iceServers : j.iceServers ? [j.iceServers] : [];
+    const servers = [...STUN, ...relay];
+    iceCache = { servers, at: Date.now() };
+    return servers;
+  } catch { return STUN; }
+}
 
 interface Peer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[] }
 interface Live { call: Call; local: MediaStream | null; peers: Record<string, MediaStream>; muted: boolean; camOff: boolean; sharing: boolean; front: boolean; started: number }
@@ -40,6 +57,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const peers = useRef<Map<string, Peer>>(new Map());
   const room = useRef<ReturnType<typeof backend.channel> | null>(null);
   const localRef = useRef<MediaStream | null>(null);
+  const iceRef = useRef<RTCIceServer[]>(STUN);
   const liveRef = useRef<Live | null>(null);
   liveRef.current = live;
 
@@ -52,7 +70,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const peerFor = useCallback((uid: string) => {
     let p = peers.current.get(uid);
     if (p) return p;
-    const pc = new RTCPeerConnection({ iceServers: ICE });
+    const pc = new RTCPeerConnection({ iceServers: iceRef.current });
     p = { pc, stream: new MediaStream(), queued: [] };
     peers.current.set(uid, p);
     // Always negotiate audio + video, so cameras/screens can be switched on later without renegotiating.
@@ -100,6 +118,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       catch { toast(t("Allow the microphone to join calls"), "error"); return; }
     }
     localRef.current = local;
+    iceRef.current = await iceServers(await backend.accessToken());
     await backend.rpc("join_call", { p_call: c.id });
     setLive({ call: c, local, peers: {}, muted: false, camOff: c.kind === "voice", sharing: false, front: true, started: Date.now() });
     const ch = backend.channel(`call:${c.id}`, { presenceKey: me.id });

@@ -105,6 +105,7 @@ export class SupabaseBackend implements Backend {
     if (error) throw error;
     return data.signedUrl;
   }
+  async accessToken() { return (await this.sb.auth.getSession()).data.session?.access_token ?? null; }
   functionUrl(name: string) { return `${this.url.replace(/\/$/, "")}/functions/v1/${name}`; }
 
   async rpc<T = unknown>(fn: string, args: Record<string, unknown>) {

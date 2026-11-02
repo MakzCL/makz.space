@@ -26,6 +26,8 @@ export interface Backend {
   uploadChatFile(conversationId: string, file: Blob, name: string): Promise<string>;
   signedUrl(path: string): Promise<string>;
   functionUrl(name: string): string;
+  /** Current sign-in token (for our own services, e.g. the call relay). */
+  accessToken(): Promise<string | null>;
   onAuthChange(cb: () => void): () => void;
   uploadAvatar(userId: string, blob: Blob): Promise<string>;
 

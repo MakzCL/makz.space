@@ -1423,7 +1423,7 @@ drop policy if exists "see my events" on public.events;
 drop policy if exists "create events" on public.events;
 drop policy if exists "organiser edits" on public.events;
 drop policy if exists "organiser deletes" on public.events;
-create policy "see my events" on public.events for select to authenticated using (public.in_event(id));
+create policy "see my events" on public.events for select to authenticated using (organizer_id = auth.uid() or public.in_event(id));
 create policy "create events" on public.events for insert to authenticated with check (organizer_id = auth.uid());
 create policy "organiser edits" on public.events for update to authenticated using (organizer_id = auth.uid());
 create policy "organiser deletes" on public.events for delete to authenticated using (organizer_id = auth.uid());
@@ -1442,10 +1442,13 @@ create policy "organiser removes" on public.event_attendees for delete to authen
 drop policy if exists "see calls" on public.calls;
 drop policy if exists "start calls" on public.calls;
 drop policy if exists "update calls" on public.calls;
-create policy "see calls" on public.calls for select to authenticated using (public.in_call(id));
+-- Check the row's own columns (looking it up by id fails during INSERT ... RETURNING).
+create policy "see calls" on public.calls for select to authenticated using (started_by = auth.uid()
+  or (conversation_id is not null and public.can_see_conv(conversation_id)) or (event_id is not null and public.in_event(event_id)));
 create policy "start calls" on public.calls for insert to authenticated with check (started_by = auth.uid()
   and ((conversation_id is not null and public.is_member(conversation_id)) or (event_id is not null and public.in_event(event_id))));
-create policy "update calls" on public.calls for update to authenticated using (public.in_call(id));
+create policy "update calls" on public.calls for update to authenticated using (started_by = auth.uid()
+  or (conversation_id is not null and public.can_see_conv(conversation_id)) or (event_id is not null and public.in_event(event_id)));
 
 drop policy if exists "see participants" on public.call_participants;
 drop policy if exists "join call" on public.call_participants;
