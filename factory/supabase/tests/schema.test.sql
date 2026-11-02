@@ -925,6 +925,53 @@ reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total,
 select pg_temp.check((select bool_and(lv.total <= sl.quantity + 0.0001) from (select lo.item_id, ll.location_id, sum(ll.quantity) total from public.lot_levels ll join public.lots lo on lo.id = ll.lot_id group by 1, 2) lv
   join public.stock_levels sl on sl.item_id = lv.item_id and sl.location_id = lv.location_id), 'lots never add up to more than the location holds'); set role authenticated;
 
+-- ---------------------------------------------------------------- phase 5: outsourcing
+insert into public.suppliers (name, currency) values ('Powder Co', 'GBP');
+select id as osup from public.suppliers where name = 'Powder Co' \gset
+insert into public.locations (name, kind, supplier_id) values ('Powder Co (contractor)', 'partner', :'osup');
+select id as oloc from public.locations where name = 'Powder Co (contractor)' \gset
+insert into public.stock_items (sku, name, kind) values ('OUT-MAT', 'Raw obudowa', 'material'), ('OUT-PROD', 'Coated obudowa', 'product');
+select id as omat from public.stock_items where sku = 'OUT-MAT' \gset
+select id as oprod from public.stock_items where sku = 'OUT-PROD' \gset
+insert into public.bom_lines (product_id, material_id, quantity) values (:'oprod', :'omat', 2);
+insert into public.purchase_orders (supplier_id, status) values (:'osup', 'ordered') returning id as obuy \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'obuy', :'omat', 20, 4) returning id as obuyl \gset
+select public.receive_po_line(:'obuyl', 20);
+insert into public.purchase_orders (supplier_id, status, kind) values (:'osup', 'draft', 'outsourced') returning id as opo \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'opo', :'oprod', 5, 10) returning id as opl \gset
+select pg_temp.check((select quantity_per = 2 from public.po_materials where po_line_id = :'opl' and item_id = :'omat'), 'OUT-02 outsourced PO line takes its materials from the recipe');
+select pg_temp.expect_fail($$update public.purchase_orders set status = 'ordered' where id = '$$ || :'opo' || $$'$$, 'ordering an outsourced PO without a contractor location');
+select pg_temp.expect_fail($$update public.purchase_orders set partner_location_id = public.default_location() where id = '$$ || :'opo' || $$'$$, 'a non-partner location as the contractor');
+update public.purchase_orders set partner_location_id = :'oloc', status = 'ordered' where id = :'opo';
+select public.availability() as oav \gset
+select pg_temp.check((:'oav'::jsonb->'mos'->:'opo'->>'status') = 'not_available', 'OUT-06 allocation: the contractor has none of the materials yet');
+select public.send_po_materials(:'opo') as otr \gset
+select pg_temp.check((select quantity = 10 from public.transfer_lines where transfer_id = :'otr' and item_id = :'omat'), 'OUT-04 send materials: a transfer of exactly what the contractor needs (10)');
+select public.post_transfer(:'otr', 'dispatch');
+select public.post_transfer(:'otr', 'receive');
+select pg_temp.check((select quantity = 10 from public.stock_levels where item_id = :'omat' and location_id = :'oloc'), 'OUT-03 our stock is visible at the contractor');
+select public.availability() as oav \gset
+select pg_temp.check((:'oav'::jsonb->'mos'->:'opo'->>'status') = 'in_stock', 'OUT-06 allocation: contractor now has everything');
+select pg_temp.check((:'oav'::jsonb->'items'->:'omat'->>'reserved')::numeric = 10, 'materials at the contractor are reserved for the PO');
+select pg_temp.check(public.receive_po_line(:'opl', 3) = 'partial', 'OUT-05 receive 3 finished pieces');
+select pg_temp.check((select quantity = 4 from public.stock_levels where item_id = :'omat' and location_id = :'oloc'), 'OUT-05 receipt consumed 6 materials at the contractor');
+select pg_temp.check((select quantity = 3 from public.stock_levels where item_id = :'oprod' and location_id = public.default_location()), 'OUT-05 finished goods arrive at our location');
+reset role;
+select pg_temp.check((select avg_cost = 18 from public.stock_items where id = :'oprod'), 'OUT-05 cost = contractor fee 10 + materials 2 × £4');
+select pg_temp.check((select avg_cost = 4 from public.stock_items where id = :'omat'), 'material cost unchanged by the transfer and consumption');
+set role authenticated;
+select pg_temp.expect_fail($$update public.po_materials set quantity_per = 3 where po_line_id = '$$ || :'opl' || $$'$$, 'changing materials after a receipt');
+select pg_temp.expect_fail($$update public.purchase_orders set kind = 'standard' where id = '$$ || :'opo' || $$'$$, 'switching a received PO back to standard');
+select public.reverse_po_receipt(:'opl', 1);
+select pg_temp.check((select quantity = 6 from public.stock_levels where item_id = :'omat' and location_id = :'oloc')
+  and (select quantity = 2 from public.stock_items where id = :'oprod')
+  and (select consumed = 4 from public.po_materials where po_line_id = :'opl'), 'reversal: product out, its materials back with the contractor');
+reset role; select pg_temp.check((select avg_cost = 18 from public.stock_items where id = :'oprod'), 'reversal leaves product cost unchanged'); set role authenticated;
+select pg_temp.expect_fail($$select public.send_po_materials('$$ || :'opo' || $$')$$, 'sending materials the contractor already has');
+select pg_temp.check(public.receive_po_line(:'opl', 3) = 'received', 'finish the outsourced PO');
+select pg_temp.check((select quantity = 0 from public.stock_levels where item_id = :'omat' and location_id = :'oloc'), 'contractor used all the materials');
+reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total, 0)) from public.stock_items s left join (select item_id, sum(quantity) total from public.stock_levels group by item_id) l on l.item_id = s.id), 'every item: Σ locations = company total (with contractors)'); set role authenticated;
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

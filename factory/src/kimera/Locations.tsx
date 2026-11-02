@@ -32,7 +32,7 @@ export function LocationsSettings() {
       <p className="muted">{t("Warehouses, production sites and partner locations (e.g. a contractor holding your stock). Every stock movement records where it happened; the company total is the sum of all locations.")}</p>
       <div className="tbl-wrap">
         <table className="tbl">
-          <thead><tr><th>{t("Name")}</th><th>{t("Type")}</th><th className="num">{t("Items with stock")}</th><th /></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>{t("Type")}</th><th>{t("Contractor")}</th><th className="num">{t("Items with stock")}</th><th /></tr></thead>
           <tbody>
             {locs.map((l) => (
               <tr key={l.id} className={`static ${l.archived ? "dim" : ""}`}>
@@ -40,6 +40,8 @@ export function LocationsSettings() {
                   {l.is_default && <Badge tone="ok">{t("Default")}</Badge>}</td>
                 <td><select value={l.kind} onChange={(e) => save(() => B.update("locations", l.id, { kind: e.target.value as Location["kind"] }))}>
                   {(["warehouse", "production", "partner"] as const).map((k) => <option key={k} value={k}>{t(KIND_LABEL[k])}</option>)}</select></td>
+                <td>{l.kind === "partner" ? <select value={l.supplier_id ?? ""} aria-label={t("Contractor")} onChange={(e) => save(() => B.update("locations", l.id, { supplier_id: e.target.value || null }))}>
+                  <option value="">—</option>{[...db.suppliers].sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select> : <span className="muted">—</span>}</td>
                 <td className="num">{qtyAt(l.id) || "—"}</td>
                 <td>{!l.is_default && <Btn small tone="ghost" disabled={!l.archived && qtyAt(l.id) > 0} title={qtyAt(l.id) ? t("Move or count its stock to zero first") : undefined}
                   onClick={() => save(() => B.update("locations", l.id, { archived: !l.archived }))}>{l.archived ? t("Restore") : t("Archive")}</Btn>}</td>

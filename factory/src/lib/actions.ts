@@ -315,7 +315,7 @@ export function useActions() {
     async function receive(line: PoLine, qty: number, key: string = opKey(), over = false, lot: string | null = null, expiry: string | null = null) {
       try {
         const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty, p_key: key, p_over: over, p_lot: lot, p_expiry: expiry });
-        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("lots"), refresh("lot_levels")]);
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("lots"), refresh("lot_levels"), refresh("po_materials")]);
         ok(t(r === "received" ? "Delivery received — PO complete" : "Delivery received"));
         return true;
       } catch (e) { fail(e); return false; }
@@ -323,7 +323,7 @@ export function useActions() {
     async function reverseReceipt(line: PoLine, qty: number, key: string = opKey()) {
       try {
         await B.rpc<string>("reverse_po_receipt", { p_line: line.id, p_qty: qty, p_key: key });
-        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders")]);
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("po_materials")]);
         ok(t("Receipt reversed — stock taken back out"), "info");
         return true;
       } catch (e) { fail(e); return false; }

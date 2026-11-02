@@ -298,6 +298,8 @@ export interface Location {
   address: string;
   is_default: boolean;
   archived: boolean;
+  /** Partner locations: the contract manufacturer (supplier) holding this stock. */
+  supplier_id: string | null;
   created_at: string;
 }
 /** Stock of one item at one location (Σ over locations = stock_items.quantity). */
@@ -335,6 +337,15 @@ export interface MoMaterial {
   picked: number;
   used_from_wip: number;
   returned: number;
+}
+/** Materials a contractor uses per piece on an outsourced PO line; consumed at their location on receipt. */
+export interface PoMaterial {
+  id: string;
+  po_line_id: string;
+  item_id: string;
+  quantity_per: number;
+  consumed: number;
+  created_at: string;
 }
 export interface Lot {
   id: string;
@@ -495,6 +506,9 @@ export interface PurchaseOrder {
   number: string;
   supplier_id: string | null;
   status: PoStatus;
+  /** outsourced = buying finished work from a contractor who uses our materials at partner_location_id. */
+  kind: "standard" | "outsourced";
+  partner_location_id: string | null;
   /** Receiving location (null = default). */
   location_id: string | null;
   /** Supplier currency (null = base currency) and its value in base currency, fixed when ordered. */
@@ -609,6 +623,7 @@ export interface Tables {
   stock_transfers: StockTransfer;
   transfer_lines: TransferLine;
   mo_materials: MoMaterial;
+  po_materials: PoMaterial;
   product_operations: ProductOperation;
   lots: Lot;
   lot_levels: LotLevel;
@@ -635,7 +650,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

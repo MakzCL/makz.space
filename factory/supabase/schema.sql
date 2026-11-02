@@ -4271,8 +4271,11 @@ begin
     left_qty := left_qty - take;
   end loop;
   perform public.stock_lot(null);
-  perform public.stock_location(null);
+  -- Untracked remainder goes back where the original movement happened (e.g. a contractor's location).
+  perform public.stock_location((select location_id from public.stock_movements where source_type = p_src_type and source_id = p_src_id
+     and item_id = p_item and reason = p_src_reason order by created_at desc limit 1));
   if left_qty > 0 then perform public.move_stock(p_item, sgn * left_qty, p_reason, p_ref, p_note, p_cost); end if;
+  perform public.stock_location(null);
 end $$;
 revoke all on function public.move_by_source_lots(uuid, numeric, text, text, text, text, uuid, text, numeric) from public, anon, authenticated;
 
@@ -4471,6 +4474,335 @@ end $$;
 revoke all on function public.trace_lot(uuid) from public, anon;
 grant execute on function public.trace_lot(uuid) to authenticated;
 
+-- ============================================================================
+-- Phase 5 — outsourced manufacturing (OUT-01..06).
+-- A contract manufacturer is a supplier with a partner location that holds
+-- our stock. An outsourced PO buys the finished product from them; each line
+-- carries the materials they use (copied from the recipe, editable). We send
+-- materials with an ordinary transfer; on receipt the materials are consumed
+-- at the partner location and the product is costed at fee + materials.
+-- ============================================================================
+alter table public.locations add column if not exists supplier_id uuid references public.suppliers(id) on delete set null;
+alter table public.purchase_orders add column if not exists kind text not null default 'standard' check (kind in ('standard', 'outsourced'));
+alter table public.purchase_orders add column if not exists partner_location_id uuid references public.locations(id) on delete restrict;
+alter table public.purchase_orders drop constraint if exists purchase_orders_partner_check;
+alter table public.purchase_orders add constraint purchase_orders_partner_check
+  check (kind = 'standard' or status in ('draft', 'cancelled') or partner_location_id is not null);
+
+create table if not exists public.po_materials (
+  id uuid primary key default gen_random_uuid(),
+  po_line_id uuid not null references public.po_lines(id) on delete cascade,
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  quantity_per numeric(14,4) not null check (quantity_per >= 0),
+  consumed numeric(14,3) not null default 0,
+  created_at timestamptz not null default now(),
+  unique (po_line_id, item_id)
+);
+create index if not exists po_materials_line_idx on public.po_materials (po_line_id);
+alter table public.po_materials enable row level security;
+drop policy if exists "staff read" on public.po_materials;
+drop policy if exists "keepers write" on public.po_materials;
+create policy "staff read" on public.po_materials for select to authenticated using (public.is_active());
+create policy "keepers write" on public.po_materials for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper());
+drop trigger if exists audit_row on public.po_materials;
+create trigger audit_row after insert or update or delete on public.po_materials for each row execute function public.audit_row();
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'po_materials') then
+    alter publication supabase_realtime add table public.po_materials;
+  end if;
+end $$;
+
+-- Materials can only be changed while nothing has been received on that line.
+create or replace function public.guard_po_materials() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_setting('app.po_mat', true) = 'on' then return coalesce(new, old); end if;
+  if exists (select 1 from public.po_lines where id = coalesce(new.po_line_id, old.po_line_id) and received > 0) then
+    raise exception 'Part of this line has been received — its materials are fixed';
+  end if;
+  if tg_op = 'UPDATE' and new.consumed is distinct from old.consumed then raise exception 'Consumption is booked on receipt'; end if;
+  if tg_op = 'INSERT' and new.consumed <> 0 then raise exception 'Consumption is booked on receipt'; end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists guard_po_materials on public.po_materials;
+create trigger guard_po_materials before insert or update or delete on public.po_materials for each row execute function public.guard_po_materials();
+
+create or replace function public.fill_po_materials(p_line uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.po_materials (po_line_id, item_id, quantity_per)
+  select l.id, b.material_id, b.quantity from public.po_lines l
+    join public.bom_lines b on b.product_id = l.item_id
+    join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+   where l.id = p_line
+  on conflict (po_line_id, item_id) do nothing;
+end $$;
+revoke all on function public.fill_po_materials(uuid) from public, anon, authenticated;
+
+create or replace function public.po_outsourcing() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare k text; l record;
+begin
+  if tg_table_name = 'po_lines' then
+    select kind into k from public.purchase_orders where id = new.po_id;
+    if k = 'outsourced' then perform public.fill_po_materials(new.id); end if;
+    return new;
+  end if;
+  -- purchase_orders
+  if (new.kind is distinct from old.kind or new.partner_location_id is distinct from old.partner_location_id)
+     and exists (select 1 from public.po_lines where po_id = new.id and received > 0) then
+    raise exception 'Something has been received on this PO — it can''t be switched';
+  end if;
+  if new.partner_location_id is not null and not exists (select 1 from public.locations where id = new.partner_location_id and kind = 'partner') then
+    raise exception 'Pick a contractor (partner) location';
+  end if;
+  if new.kind = 'outsourced' and old.kind = 'standard' then
+    for l in select id from public.po_lines where po_id = new.id loop perform public.fill_po_materials(l.id); end loop;
+  elsif new.kind = 'standard' and old.kind = 'outsourced' then
+    delete from public.po_materials where po_line_id in (select id from public.po_lines where po_id = new.id);
+  end if;
+  return new;
+end $$;
+drop trigger if exists po_outsourcing on public.po_lines;
+create trigger po_outsourcing after insert on public.po_lines for each row execute function public.po_outsourcing();
+drop trigger if exists po_outsourcing on public.purchase_orders;
+create trigger po_outsourcing after update of kind, partner_location_id on public.purchase_orders for each row execute function public.po_outsourcing();
+
+-- Receipt: outsourced lines consume their materials at the partner location.
+create or replace function public.receive_po_line(p_line uuid, p_qty numeric, p_key text default null, p_over boolean default false,
+  p_lot text default null, p_expiry date default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.po_lines; po public.purchase_orders; it public.stock_items; m record;
+  prev text; st text; cost numeric; mat numeric := 0; i int; n int;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can receive deliveries'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Receive at least one'; end if;
+  prev := public.claim_op('receive_po_line', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'draft' then raise exception 'Mark the purchase order as ordered first'; end if;
+  if po.status in ('cancelled','received') then raise exception 'This purchase order is closed'; end if;
+  if l.received + p_qty > l.quantity and not p_over then
+    raise exception 'That is more than ordered — % still to come', trim_scale(l.quantity - l.received);
+  end if;
+  select * into it from public.stock_items where id = l.item_id;
+  update public.po_lines set received = received + p_qty where id = l.id;
+  perform public.stock_source('po_line', l.id);
+  if po.kind = 'outsourced' then
+    perform set_config('app.po_mat', 'on', true);
+    for m in select pm.*, s.avg_cost from public.po_materials pm join public.stock_items s on s.id = pm.item_id
+              where pm.po_line_id = l.id and pm.quantity_per > 0 order by s.sku loop
+      mat := mat + m.quantity_per * p_qty * m.avg_cost;
+      perform public.stock_location(po.partner_location_id);
+      perform public.move_stock(m.item_id, -(m.quantity_per * p_qty), 'consume', po.number, 'Used by contractor');
+      update public.po_materials set consumed = consumed + m.quantity_per * p_qty where id = m.id;
+    end loop;
+    perform set_config('app.po_mat', 'off', true);
+    perform public.stock_location(null);
+  end if;
+  cost := round(l.unit_cost * po.fx_rate + mat / p_qty, 4);
+  if it.tracking = 'serial' then
+    if p_qty <> trunc(p_qty) then raise exception 'Serial-numbered items are received in whole pieces'; end if;
+    select count(*) into n from public.lots where item_id = it.id and code like coalesce(nullif(trim(p_lot), ''), po.number) || '-%';
+    for i in 1..p_qty::int loop
+      perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number) || '-' || lpad((n + i)::text, 3, '0'), p_expiry));
+      perform public.move_stock(l.item_id, 1, 'receive', po.number, '', cost);
+    end loop;
+  else
+    if it.tracking = 'batch' then perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number), p_expiry)); end if;
+    perform public.move_stock(l.item_id, p_qty, 'receive', po.number, '', cost);
+  end if;
+  perform public.stock_lot(null);
+  st := public.po_status_after(po.id);
+  return public.finish_op('receive_po_line', p_key, st);
+end $$;
+revoke all on function public.receive_po_line(uuid, numeric, text, boolean, text, date) from public, anon;
+grant execute on function public.receive_po_line(uuid, numeric, text, boolean, text, date) to authenticated;
+
+-- Reversal: product back out at what it was booked at; materials back to the partner.
+create or replace function public.reverse_po_receipt(p_line uuid, p_qty numeric, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare l public.po_lines; po public.purchase_orders; prev text; st text; c numeric; m record; q numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change receipts'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Reverse at least one'; end if;
+  prev := public.claim_op('reverse_po_receipt', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  if p_qty > l.received then raise exception 'Only % was received on this line', trim_scale(l.received); end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'cancelled' then raise exception 'This purchase order is cancelled'; end if;
+  update public.po_lines set received = received - p_qty where id = l.id;
+  select round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) into c from public.stock_movements
+   where source_type = 'po_line' and source_id = l.id and reason = 'receive' and item_id = l.item_id and delta > 0;
+  perform public.stock_source('po_line', l.id);
+  perform public.move_by_source_lots(l.item_id, -p_qty, 'receive', po.number, 'Receipt reversed', 'po_line', l.id, 'receive',
+    coalesce(c, round(l.unit_cost * po.fx_rate, 4)));
+  if po.kind = 'outsourced' then
+    perform set_config('app.po_mat', 'on', true);
+    for m in select * from public.po_materials where po_line_id = l.id and consumed > 0 loop
+      q := least(m.consumed, m.quantity_per * p_qty);
+      continue when q <= 0;
+      select round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) into c from public.stock_movements
+       where source_type = 'po_line' and source_id = l.id and reason = 'consume' and item_id = m.item_id and delta < 0;
+      perform public.move_by_source_lots(m.item_id, q, 'consume', po.number, 'Receipt reversed — back with contractor', 'po_line', l.id, 'consume', c);
+      update public.po_materials set consumed = consumed - q where id = m.id;
+    end loop;
+    perform set_config('app.po_mat', 'off', true);
+  end if;
+  st := public.po_status_after(po.id);
+  return public.finish_op('reverse_po_receipt', p_key, st);
+end $$;
+
+-- Draft transfer of whatever the contractor still needs (needed − already there − on the way).
+create or replace function public.send_po_materials(p_po uuid, p_from uuid default null) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare po public.purchase_orders; tid uuid; src uuid := coalesce(p_from, public.default_location()); n int;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can send materials'; end if;
+  select * into po from public.purchase_orders where id = p_po for update;
+  if po.id is null or po.kind <> 'outsourced' then raise exception 'Not an outsourced purchase order'; end if;
+  if po.partner_location_id is null then raise exception 'Pick the contractor location first'; end if;
+  if po.status in ('cancelled', 'received') then raise exception 'This purchase order is closed'; end if;
+  if src = po.partner_location_id then raise exception 'Send from one of your own locations'; end if;
+  insert into public.stock_transfers (from_location, to_location, expected_date, notes)
+  values (src, po.partner_location_id, po.expected_date, 'Materials for ' || po.number) returning id into tid;
+  insert into public.transfer_lines (transfer_id, item_id, quantity)
+  select tid, x.item_id, x.need from (
+    select pm.item_id, sum(pm.quantity_per * greatest(l.quantity - l.received, 0))
+           - coalesce((select quantity from public.stock_levels where item_id = pm.item_id and location_id = po.partner_location_id), 0)
+           - coalesce((select sum(tl.quantity) from public.transfer_lines tl join public.stock_transfers t on t.id = tl.transfer_id
+                        where t.to_location = po.partner_location_id and t.status in ('draft', 'in_transit') and t.id <> tid and tl.item_id = pm.item_id), 0) as need
+      from public.po_materials pm join public.po_lines l on l.id = pm.po_line_id where l.po_id = po.id group by pm.item_id) x
+  where x.need > 0;
+  get diagnostics n = row_count;
+  if n = 0 then delete from public.stock_transfers where id = tid; raise exception 'The contractor already has (or is getting) everything this PO needs'; end if;
+  return tid;
+end $$;
+revoke all on function public.send_po_materials(uuid, uuid) from public, anon;
+grant execute on function public.send_po_materials(uuid, uuid) to authenticated;
+
+-- Allocation also covers materials an outsourced PO needs at the contractor (shown under 'mos', keyed by PO id).
+create or replace function public.availability() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  d record; e record; need numeric; take numeric; got numeric; exp_qty numeric; exp_date date; exp_src text;
+  holders text; tl uuid := public.transit_location(); dl uuid := public.default_location();
+  lines jsonb := '{}'; ingr jsonb := '{}'; items jsonb := '{}'; st text; why text; nm text;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  create temp table if not exists av_supply (item_id uuid, location_id uuid, qty numeric, primary key (item_id, location_id)) on commit drop;
+  create temp table if not exists av_expected (item_id uuid, location_id uuid, due date, src text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_taken (item_id uuid, location_id uuid, who text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_demand (kind text, ref_id uuid, owner_id uuid, label text, item_id uuid, location_id uuid,
+    qty numeric, pegged boolean, rank numeric, due date, created timestamptz) on commit drop;
+  truncate av_supply, av_expected, av_taken, av_demand;
+
+  -- in transit and on the production floor (picked for an MO) is not free stock
+  insert into av_supply select item_id, location_id, quantity from public.stock_levels
+   where location_id not in (select id from public.locations where kind in ('transit', 'wip'));
+  insert into av_expected
+    select l.item_id, coalesce(p.location_id, dl), p.expected_date, p.number, l.quantity - l.received, 0
+      from public.po_lines l join public.purchase_orders p on p.id = l.po_id
+     where p.status in ('ordered', 'partial') and l.quantity > l.received
+    union all
+    select si.id, coalesce(j.location_id, dl), j.due_date, j.code, j.quantity - j.produced, 0
+      from public.jobs j join lateral (select id from public.stock_items where sku = j.sku and kind not in ('material', 'service') order by created_at limit 1) si on true
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null and coalesce(j.quantity, 0) > j.produced
+    union all
+    select tl2.item_id, t.to_location, t.expected_date, t.number, tl2.quantity, 0
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'in_transit';
+
+  -- sales lines (stocked, not yet shipped). MTO lines with a finished MO are pegged to it.
+  insert into av_demand
+    select 'line', l.id, o.id, o.order_number, l.item_id, coalesce(o.location_id, dl), l.quantity - l.shipped,
+           (j.id is not null and j.stock_booked), o.rank, o.delivery_deadline, o.created_at
+      from public.order_lines l join public.orders o on o.id = l.order_id
+      join public.stock_items si on si.id = l.item_id and si.kind <> 'service'
+      left join public.jobs j on j.order_line_id = l.id
+     where o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+       and (j.id is null or j.stock_booked);
+  -- ingredients of unfinished MOs
+  insert into av_demand
+    -- still needed = recipe × (qty − already produced) − what is already picked for this MO
+    select 'ingredient', j.id, j.id, j.code, b.material_id, coalesce(j.location_id, dl),
+           greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0),
+           false, coalesce(o.rank, j.rank), j.due_date, j.created_at
+      from public.jobs j
+      join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
+      join public.bom_lines b on b.product_id = p.id
+      join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+      left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = b.material_id
+      left join public.orders o on o.id = j.order_id
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null;
+  -- draft transfers reserve at their source
+  insert into av_demand
+    select 'ingredient', p.id, p.id, p.number, pm.item_id, p.partner_location_id,
+           sum(pm.quantity_per * (l.quantity - l.received)), false, null, p.expected_date, p.created_at
+      from public.purchase_orders p join public.po_lines l on l.po_id = p.id
+      join public.po_materials pm on pm.po_line_id = l.id
+     where p.kind = 'outsourced' and p.status in ('ordered', 'partial') and p.partner_location_id is not null and l.quantity > l.received
+     group by p.id, pm.item_id;
+  insert into av_demand
+    select 'transfer', tl2.id, t.id, t.number, tl2.item_id, t.from_location, tl2.quantity, false,
+           extract(epoch from t.created_at), t.expected_date, t.created_at
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'draft';
+
+  for d in select * from av_demand order by pegged desc, rank nulls last, due nulls last, created, ref_id loop
+    need := d.qty;
+    select coalesce(qty, 0) into got from av_supply where item_id = d.item_id and location_id = d.location_id;
+    got := coalesce(got, 0);
+    take := least(greatest(got, 0), need);
+    if take > 0 then
+      update av_supply set qty = qty - take where item_id = d.item_id and location_id = d.location_id;
+      insert into av_taken values (d.item_id, d.location_id, d.label, take, 0);
+    end if;
+    need := need - take;
+    exp_qty := 0; exp_date := null; exp_src := null;
+    for e in select ctid, * from av_expected where item_id = d.item_id and location_id = d.location_id and qty > 0
+              order by due nulls last, src loop
+      exit when need <= 0;
+      got := least(e.qty, need);
+      update av_expected set qty = qty - got where ctid = e.ctid;
+      need := need - got; exp_qty := exp_qty + got; exp_date := e.due;
+      exp_src := coalesce(exp_src || ', ', '') || e.src;
+    end loop;
+    if need > 0 then
+      select string_agg(distinct who, ', ') into holders from (select who from av_taken where item_id = d.item_id and location_id = d.location_id and who <> d.label limit 4) h;
+      select name into nm from public.locations where id = d.location_id;
+      st := 'not_available';
+      why := format('%s short at %s', trim_scale(need), nm)
+          || case when holders is not null then format(' — on-hand stock is promised to %s (higher priority)', holders) else ' — none on hand or on order' end;
+    elsif exp_qty > 0 then
+      st := 'expected';
+      why := format('%s reserved now, %s expected from %s', trim_scale(take), trim_scale(exp_qty), exp_src);
+    else
+      st := 'in_stock'; why := format('%s reserved from stock', trim_scale(take));
+    end if;
+    if d.kind in ('line', 'transfer') then
+      lines := lines || jsonb_build_object(d.ref_id::text, jsonb_build_object('status', st, 'reserved', take, 'expected', exp_qty,
+        'short', need, 'date', exp_date, 'why', why, 'kind', d.kind));
+    else
+      -- an MO is as available as its worst ingredient
+      ingr := jsonb_set(ingr, array[d.ref_id::text], jsonb_build_object(
+        'status', case when st = 'not_available' or ingr->d.ref_id::text->>'status' = 'not_available' then 'not_available'
+                       when st = 'expected' or ingr->d.ref_id::text->>'status' = 'expected' then 'expected' else 'in_stock' end,
+        'date', greatest((ingr->d.ref_id::text->>'date')::date, exp_date),
+        'short', coalesce(ingr->d.ref_id::text->'short', '[]'::jsonb) || case when need > 0
+             then jsonb_build_array(jsonb_build_object('item_id', d.item_id, 'short', need, 'why', why)) else '[]'::jsonb end), true);
+    end if;
+  end loop;
+
+  select coalesce(jsonb_object_agg(item_id, jsonb_build_object('on_hand', on_hand, 'reserved', reserved, 'available', on_hand - reserved)), '{}') into items
+    from (select s.item_id, sum(s.quantity) on_hand, coalesce((select sum(qty) from av_taken t where t.item_id = s.item_id), 0) reserved
+            from public.stock_levels s where s.location_id not in (select id from public.locations where kind in ('transit', 'wip')) group by s.item_id) x;
+  return jsonb_build_object('lines', lines, 'mos', ingr, 'items', items, 'at', now());
+end $$;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
-
