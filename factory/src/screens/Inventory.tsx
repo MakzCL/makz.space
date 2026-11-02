@@ -316,7 +316,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
             {live && editable && <HoldButton tone="danger" icon={<Trash2 size={16} />} onConfirm={async () => { await a.saveStock({ id: live.id, archived: true }); onClose(); }}>{t("Hold to archive item")}</HoldButton>}
           </form>
         )}
-        {live && tab === "recipe" && <RecipeEditor product={live} />}
+        {live && tab === "recipe" && <><RecipeEditor product={live} /><OperationsEditor product={live} /></>}
         {live && <p className="fine">{t("Last change")} {dayLabel(live.updated_at)} {clock(live.updated_at)}{live.updated_by ? ` · ${person(live.updated_by)?.full_name ?? ""}` : ""}</p>}
       </div>
     </Sheet>
@@ -722,6 +722,44 @@ export function ItemLocations({ item, editable }: { item: StockItem; editable: b
           })}</tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/** Operations to make a product (MFG-06/08): station, setup once per MO, minutes per unit, fixed cost. */
+function OperationsEditor({ product }: { product: StockItem }) {
+  const { db, me, backend: B, refresh } = useStore();
+  const editable = can.admin(me.role);
+  const costs = canSeeCosts(me.role, db.kimera_access);
+  const ops = db.product_operations.filter((o) => o.product_id === product.id).sort((a, b) => a.sort - b.sort || a.created_at.localeCompare(b.created_at));
+  const stations = [...db.stations].sort((a, b) => a.sort - b.sort);
+  const [err, setErr] = useState("");
+  const save = async (fn: () => Promise<unknown>) => { setErr(""); try { await fn(); await refresh("product_operations"); } catch (e) { setErr(e instanceof Error ? t(e.message) : String(e)); } };
+  const num = (v: string) => { const n = Number(cleanNumber(v)); return Number.isFinite(n) && n >= 0 ? n : null; };
+  return (
+    <div className="card flat stack">
+      <small className="label">{t("Operations")}</small>
+      <p className="fine" style={{ textAlign: "left" }}>{t("The steps to make one batch: setup happens once per manufacturing order, the per-unit time for each piece. Station rates (Stations & routes) turn the minutes into cost.")}</p>
+      {ops.length > 0 && (
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>{t("Step")}</th><th>{t("Station")}</th><th className="num">{t("Setup (min)")}</th><th className="num">{t("Per unit (min)")}</th>{costs && <th className="num">{t("Fixed £")}</th>}{editable && <th />}</tr></thead>
+            <tbody>{ops.map((o) => (
+              <tr key={o.id} className="static">
+                <td>{editable ? <input className="cell-input wide" defaultValue={o.name} key={o.name} onBlur={(e) => e.target.value !== o.name && save(() => B.update("product_operations", o.id, { name: e.target.value }))} /> : o.name}</td>
+                <td>{editable ? <select value={o.station_id ?? ""} onChange={(e) => save(() => B.update("product_operations", o.id, { station_id: e.target.value || null }))}>
+                  <option value="">—</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select> : stations.find((s) => s.id === o.station_id)?.name ?? "—"}</td>
+                <td className="num">{editable ? <input className="cell-input" inputMode="decimal" defaultValue={o.setup_minutes} key={`s${o.setup_minutes}`} onBlur={(e) => { const v = num(e.target.value); if (v !== null && v !== o.setup_minutes) save(() => B.update("product_operations", o.id, { setup_minutes: v })); }} /> : fmtQty(o.setup_minutes)}</td>
+                <td className="num">{editable ? <input className="cell-input" inputMode="decimal" defaultValue={o.unit_minutes} key={`u${o.unit_minutes}`} onBlur={(e) => { const v = num(e.target.value); if (v !== null && v !== o.unit_minutes) save(() => B.update("product_operations", o.id, { unit_minutes: v })); }} /> : fmtQty(o.unit_minutes)}</td>
+                {costs && <td className="num">{editable ? <input className="cell-input" inputMode="decimal" defaultValue={o.fixed_cost ?? 0} key={`f${o.fixed_cost}`} onBlur={(e) => { const v = num(e.target.value); if (v !== null && v !== o.fixed_cost) save(() => B.update("product_operations", o.id, { fixed_cost: v })); }} /> : money(o.fixed_cost)}</td>}
+                {editable && <td><button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => save(() => B.remove("product_operations", o.id))}><Trash2 size={15} /></button></td>}
+              </tr>))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {editable && <Btn small tone="soft" icon={<Plus size={15} />} onClick={() => save(() => B.insert("product_operations", { product_id: product.id, name: t("Step {n}", { n: ops.length + 1 }), station_id: stations[ops.length]?.id ?? stations[0]?.id ?? null, sort: ops.length }))}>{t("Add step")}</Btn>}
+      {err && <p className="hint red-t">{err}</p>}
     </div>
   );
 }

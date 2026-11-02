@@ -852,6 +852,30 @@ reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total,
 select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.pick_mo('$$ || :'mo5' || $$')$$, 'operator not on the job picks materials');
 
+-- ============================================================================
+-- KIMERA phase 4b: operations + costs (MFG-08/09/14/15). P5 ×10: setup 30 min + 6 min/unit
+-- at £30/h + £5 fixed = £50 planned operations; materials £50 planned (10 × (2×£1 + 1×£3))
+-- ============================================================================
+select pg_temp.become(:'B');
+update public.company_settings set labour_rate = 20, work_hours_per_day = 8;
+insert into public.stations (name, cost_per_hour) values ('Assembly bench', 30);
+insert into public.product_operations (product_id, station_id, name, setup_minutes, unit_minutes, fixed_cost)
+  select p.id, s.id, 'Assemble', 30, 6, 5 from public.stock_items p, public.stations s where p.sku = 'P5' and s.name = 'Assembly bench';
+select public.mo_costs(:'mo5') as mc \gset
+select pg_temp.check((:'mc'::jsonb->>'operations_planned')::numeric = 50 and (:'mc'::jsonb->>'minutes_planned')::numeric = 90, 'operations planned: 90 min → £45 + £5 fixed = £50');
+reset role; select (select avg_cost from public.stock_items where sku = 'M5A') * 20 + (select avg_cost from public.stock_items where sku = 'M5B') * 10 as matplan \gset
+set role authenticated;
+select pg_temp.check(abs((:'mc'::jsonb->>'materials_planned')::numeric - :matplan) < 0.01, 'materials planned = recipe × qty at current average cost');
+select pg_temp.check((:'mc'::jsonb->>'estimated_finish')::date = current_date + 1, '90 min left at 8 h/day → finishes in 1 working day');
+-- 2 h logged on the job → £40 labour at £20/h
+insert into public.work_sessions (job_id, started_by, started_at) values (:'mo5', :'B', now() - interval '2 hours');
+insert into public.participants (session_id, job_id, user_id, joined_at, left_at)
+  select id, :'mo5', :'B', now() - interval '2 hours', now() from public.work_sessions where job_id = :'mo5' order by started_at desc limit 1;
+select public.mo_costs(:'mo5') as mc \gset
+select pg_temp.check(abs((:'mc'::jsonb->>'labour_hours')::numeric - 2) < 0.01 and abs((:'mc'::jsonb->>'labour_actual')::numeric - 40) < 0.5, 'actual labour: 2 h × £20 = £40 from logged time');
+select pg_temp.become(:'A2');
+select pg_temp.check(public.mo_costs(:'mo5') is null, 'operators without Costs & margins get no MO costs');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

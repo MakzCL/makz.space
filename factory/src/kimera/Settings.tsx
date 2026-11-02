@@ -48,6 +48,13 @@ function Company() {
           onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (Number.isInteger(v) && v >= 0 && v !== s.default_lead_days) k.saveSettings({ default_lead_days: v }); }} />
       </Field>
       <p className="fine">{t("Used for items and suppliers without their own lead time.")}</p>
+      <div className="row gap">
+        <Field label={t("Labour cost per hour")}><input inputMode="decimal" defaultValue={s.labour_rate} key={`lr-${s.labour_rate}`}
+          onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== s.labour_rate) k.saveSettings({ labour_rate: v }); }} /></Field>
+        <Field label={t("Working hours per day")}><input inputMode="decimal" defaultValue={s.work_hours_per_day} key={`wh-${s.work_hours_per_day}`}
+          onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v <= 24 && v !== s.work_hours_per_day) k.saveSettings({ work_hours_per_day: v }); }} /></Field>
+      </div>
+      <p className="fine">{t("Labour cost turns the time people log on a job in the Factory app into actual MO cost. Working hours set how many days an MO's remaining operations take.")}</p>
     </div>
   );
 }

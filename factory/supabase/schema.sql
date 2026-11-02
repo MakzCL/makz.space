@@ -3971,6 +3971,130 @@ drop trigger if exists book_job_stock on public.jobs;
 create trigger book_job_stock before update of status on public.jobs
   for each row execute function public.book_job_stock();
 
+-- ============================================================================
+-- KIMERA phase 4b — operations, resource rates, manufacturing cost, deadlines
+-- (MFG-06/08/09/14/15, REP-04)
+--  * product_operations: the steps to make a product, each at a station
+--    (resource) with setup minutes (once per MO), minutes per unit and a fixed cost
+--  * stations.cost_per_hour: what an hour at that station costs
+--  * company_settings.labour_rate / work_hours_per_day: actual labour cost from the
+--    time people logged on the job in the Factory app, and the working day length
+--  * mo_costs(): planned vs actual materials, operations and labour, minutes, and
+--    an estimated finish date compared with the deadline. Only for "Costs & margins".
+--  * operation and labour costs are reported per MO; stock is valued at material
+--    cost (see open question 25)
+-- ============================================================================
+alter table public.stations add column if not exists cost_per_hour numeric(10,2) not null default 0 check (cost_per_hour >= 0);
+alter table public.company_settings add column if not exists labour_rate numeric(10,2) not null default 0 check (labour_rate >= 0);
+alter table public.company_settings add column if not exists work_hours_per_day numeric(4,2) not null default 8 check (work_hours_per_day > 0 and work_hours_per_day <= 24);
+
+create table if not exists public.product_operations (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.stock_items(id) on delete cascade,
+  station_id uuid references public.stations(id) on delete set null,
+  name text not null default '',
+  setup_minutes numeric(10,2) not null default 0 check (setup_minutes >= 0),
+  unit_minutes numeric(10,3) not null default 0 check (unit_minutes >= 0),
+  fixed_cost numeric(12,2) not null default 0 check (fixed_cost >= 0),
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists product_operations_product_idx on public.product_operations (product_id, sort);
+alter table public.product_operations enable row level security;
+drop policy if exists "staff read" on public.product_operations;
+drop policy if exists "office write" on public.product_operations;
+create policy "staff read" on public.product_operations for select to authenticated using (public.is_active());
+create policy "office write" on public.product_operations for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop trigger if exists audit_row on public.product_operations;
+create trigger audit_row after insert or update or delete on public.product_operations for each row execute function public.audit_row();
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'product_operations') then
+    alter publication supabase_realtime add table public.product_operations;
+  end if;
+end $$;
+
+create or replace function public.mo_costs(p_job uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  j public.jobs; prod uuid; qty numeric; cs public.company_settings;
+  mat_plan numeric; mat_act numeric; ops jsonb; ops_cost numeric; ops_min numeric; hours numeric; labour numeric;
+  left_min numeric; days int; finish date;
+begin
+  if not public.can_see_costs() then return null; end if;
+  select * into j from public.jobs where id = p_job;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  select * into cs from public.company_settings where id = 1;
+  prod := public.mo_product(j.id);
+  qty := coalesce(j.quantity, 1);
+  select coalesce(sum(b.quantity * qty * s.avg_cost), 0) into mat_plan
+    from public.bom_lines b join public.stock_items s on s.id = b.material_id where b.product_id = prod;
+  select coalesce(sum(-delta * coalesce(unit_cost, 0)), 0) into mat_act
+    from public.stock_movements where job_id = j.id and reason = 'consume';
+  select coalesce(jsonb_agg(jsonb_build_object('name', coalesce(nullif(o.name, ''), st.name, 'Operation'), 'station', st.name,
+           'minutes', o.setup_minutes + o.unit_minutes * qty,
+           'cost', round((o.setup_minutes + o.unit_minutes * qty) / 60 * coalesce(st.cost_per_hour, 0) + o.fixed_cost, 2)) order by o.sort, o.created_at), '[]'),
+         coalesce(sum(round((o.setup_minutes + o.unit_minutes * qty) / 60 * coalesce(st.cost_per_hour, 0) + o.fixed_cost, 2)), 0),
+         coalesce(sum(o.setup_minutes + o.unit_minutes * qty), 0)
+    into ops, ops_cost, ops_min
+    from public.product_operations o left join public.stations st on st.id = o.station_id where o.product_id = prod;
+  select coalesce(sum(extract(epoch from (coalesce(p.left_at, now()) - p.joined_at)) / 3600), 0) into hours
+    from public.participants p where p.job_id = j.id;
+  labour := round(hours * cs.labour_rate, 2);
+  -- remaining operation time → working days → estimated finish (MFG-09)
+  left_min := case when ops_min > 0 then ops_min * (qty - j.produced) / qty else coalesce(j.estimate_minutes, 0) * (qty - j.produced) end;
+  days := case when j.status = 'done' or left_min <= 0 then 0 else ceil(left_min / (cs.work_hours_per_day * 60))::int end;
+  finish := case when j.status = 'done' then j.completed_at::date else current_date + days end;
+  return jsonb_build_object(
+    'quantity', qty, 'produced', j.produced,
+    'materials_planned', round(mat_plan, 2), 'materials_actual', round(mat_act, 2),
+    'operations', ops, 'operations_planned', ops_cost, 'minutes_planned', ops_min,
+    'labour_hours', round(hours, 2), 'labour_rate', cs.labour_rate, 'labour_actual', labour,
+    'total_planned', round(mat_plan + ops_cost, 2), 'total_actual', round(mat_act + labour + (select coalesce(sum(fixed_cost), 0) from public.product_operations where product_id = prod), 2),
+    'unit_planned', round((mat_plan + ops_cost) / qty, 4),
+    'estimated_finish', finish, 'due', j.due_date, 'late', (j.due_date is not null and finish > j.due_date and j.status <> 'done'));
+end $$;
+revoke all on function public.mo_costs(uuid) from public, anon;
+grant execute on function public.mo_costs(uuid) to authenticated;
+
+-- Station hourly rates are costs too.
+create or replace function public.apply_cost_privileges() returns void
+language plpgsql security definer set search_path = public as $$
+declare t record; cols text;
+begin
+  for t in select * from (values ('stock_items', array['avg_cost']), ('stock_movements', array['unit_cost']),
+                                 ('po_lines', array['unit_cost']), ('item_suppliers', array['unit_cost']),
+                                 ('stations', array['cost_per_hour']), ('product_operations', array['fixed_cost'])) v(tbl, hidden) loop
+    execute format('revoke select on public.%I from anon, authenticated', t.tbl);
+    select string_agg(quote_ident(column_name), ', ' order by ordinal_position) into cols
+      from information_schema.columns where table_schema = 'public' and table_name = t.tbl and not (column_name = any(t.hidden));
+    execute format('grant select (%s) on public.%I to authenticated', cols, t.tbl);
+  end loop;
+end $$;
+revoke all on function public.apply_cost_privileges() from public, anon, authenticated;
+
+create or replace function public.my_costs(p_table text, p_since timestamptz default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare buy boolean := 'buy' = any(public.my_kimera_sections()) and public.is_active();
+begin
+  if p_table = 'stock_items' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, avg_cost), '{}') from public.stock_items);
+  elsif p_table = 'stock_movements' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.stock_movements where p_since is null or created_at >= p_since);
+  elsif p_table = 'po_lines' and (public.can_see_costs() or buy) then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.po_lines);
+  elsif p_table = 'item_suppliers' and (public.can_see_costs() or buy) then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.item_suppliers);
+  elsif p_table = 'stations' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, cost_per_hour), '{}') from public.stations);
+  elsif p_table = 'product_operations' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, fixed_cost), '{}') from public.product_operations);
+  end if;
+  return null;
+end $$;
+revoke all on function public.my_costs(text, timestamptz) from public, anon;
+grant execute on function public.my_costs(text, timestamptz) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
 

@@ -21,6 +21,8 @@ const COST: Partial<Record<TableName, { col: string; cols: string }>> = {
   stock_movements: { col: "unit_cost", cols: "id,item_id,delta,after,reason,ref,note,user_id,created_at,job_id,source_type,source_id" },
   po_lines: { col: "unit_cost", cols: "id,po_id,item_id,quantity,received,created_at" },
   item_suppliers: { col: "unit_cost", cols: "id,item_id,supplier_id,supplier_sku,lead_days,preferred,created_at" },
+  stations: { col: "cost_per_hour", cols: "id,name,sort,in_default,created_at" },
+  product_operations: { col: "fixed_cost", cols: "id,product_id,station_id,name,setup_minutes,unit_minutes,sort,created_at" },
 };
 
 export class SupabaseBackend implements Backend {

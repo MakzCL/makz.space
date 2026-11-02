@@ -59,6 +59,8 @@ function StationCard({ s, first, last }: { s: Station; first: boolean; last: boo
       <div className="row gap">
         <span className="station-no">{stations.list.indexOf(s) + 1}</span>
         <input className="station-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== s.name && a.saveStation({ id: s.id, name: name.trim() })} aria-label={t("Station name")} />
+        {s.cost_per_hour !== null && <label className="row gap-s fine" title={t("What an hour at this station costs (for MO cost estimates)")}>£/h
+          <input className="cell-input" inputMode="decimal" defaultValue={s.cost_per_hour} key={s.cost_per_hour} onBlur={(e) => { const v = Number(e.target.value.replace(",", ".")); if (v >= 0 && v !== s.cost_per_hour) a.saveStation({ id: s.id, cost_per_hour: v }); }} /></label>}
         <button type="button" className="icon-btn subtle" disabled={first} onClick={() => a.moveStation(s, -1)} aria-label={t("Move up")}><ArrowUp size={17} /></button>
         <button type="button" className="icon-btn subtle" disabled={last} onClick={() => a.moveStation(s, 1)} aria-label={t("Move down")}><ArrowDown size={17} /></button>
       </div>

@@ -154,6 +154,20 @@ export interface Station {
   name: string;
   sort: number;
   in_default: boolean;
+  /** Resource rate (null when this role may not see costs). */
+  cost_per_hour: number | null;
+  created_at: string;
+}
+/** One step to make a product: setup once per MO + minutes per unit at a station, plus a fixed cost. */
+export interface ProductOperation {
+  id: string;
+  product_id: string;
+  station_id: string | null;
+  name: string;
+  setup_minutes: number;
+  unit_minutes: number;
+  fixed_cost: number | null;
+  sort: number;
   created_at: string;
 }
 
@@ -333,6 +347,9 @@ export interface CompanySettings {
   id: number;
   base_currency: string;
   default_lead_days: number;
+  /** Labour cost per person-hour (actual MO labour from logged time). */
+  labour_rate: number;
+  work_hours_per_day: number;
   updated_at: string;
 }
 export interface IssueComment {
@@ -575,6 +592,7 @@ export interface Tables {
   stock_transfers: StockTransfer;
   transfer_lines: TransferLine;
   mo_materials: MoMaterial;
+  product_operations: ProductOperation;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -598,7 +616,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "product_operations", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

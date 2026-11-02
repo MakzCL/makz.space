@@ -65,4 +65,10 @@ default shown in brackets. Every default can be changed later.
     *(Default: no. Count the stock first, then ship. This prevents two people shipping the same last unit.)*
 24. **Locations:** besides "Skalarki" (all current stock), which locations should I create? For example: Upstairs store, Downstairs workshop, Dispatch, any contractor holding your stock.
     *(Default: only "Skalarki" until you add more in Kimera → Settings → Locations.)*
+25. **Labour in stock value:** should the cost of operations and labour be added to the value of finished products in stock (full manufacturing cost)? Or should stock be valued at material cost, with labour shown on each MO's cost?
+    *(Default: stock is valued at material cost; each MO shows planned vs actual materials, operations and labour.)*
+26. **Rates:** what does an hour cost at each station (e.g. CNC, powder coating, assembly), and what is your labour cost per person-hour? I need these for real MO costs and finish dates.
+    *(Default: £0 until you enter them in Stations & routes and Settings → Company.)*
+27. **Over-consumption:** when the crew uses more material than the recipe (scrap, mistakes), should Kimera ask for a reason, or just record it?
+    *(Default: just record it; the MO shows planned vs actual.)*
 

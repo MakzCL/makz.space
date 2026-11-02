@@ -2,7 +2,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, Factory, PackagePlus, Plus, Rotat
 import { opKey } from "../lib/actions";
 import { moCell, useAvailability } from "./availability";
 import { LocationSelect } from "../components/LocationSelect";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, Segmented, Sheet } from "../components/ui";
 import { cleanNumber } from "../lib/csv";
@@ -10,7 +10,7 @@ import { t } from "../lib/i18n";
 import { can } from "../lib/roles";
 import { useStore } from "../lib/store";
 import type { Job } from "../lib/types";
-import { ItemPicker, fmtQty } from "../screens/Inventory";
+import { ItemPicker, fmtQty, money } from "../screens/Inventory";
 import { RoutePicker } from "../screens/Jobs";
 import { RouteDots, STATUS, jobCode, statusLabel } from "../screens/parts";
 import { useKimera } from "./actions";
@@ -183,6 +183,7 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
             </div>
           ) : <p className="muted">{t("No recipe for this product yet — add one under Items › Recipes.")}</p>}
           {job.sku && ingr.length > 0 && <MoProduction job={job} />}
+          {job.sku && <MoCost job={job} />}
           <small className="label">{t("Crew")}</small>
           <div className="chips">{job.assignees.length ? job.assignees.map((id) => <Badge key={id}><Avatar p={person(id)} size={18} />{person(id)?.full_name}</Badge>) : <span className="muted">{t("Nobody yet — add people to the station in Factory › Jobs › Production setup.")}</span>}</div>
           {job.status === "done" && <UsedByMo job={job} />}
@@ -324,6 +325,46 @@ function MoProduction({ job }: { job: Job }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+interface MoCosts {
+  quantity: number; produced: number; materials_planned: number; materials_actual: number;
+  operations: { name: string; station: string | null; minutes: number; cost: number }[]; operations_planned: number; minutes_planned: number;
+  labour_hours: number; labour_rate: number; labour_actual: number; total_planned: number; total_actual: number; unit_planned: number;
+  estimated_finish: string | null; due: string | null; late: boolean;
+}
+
+/** Manufacturing cost (MFG-14/15) and finish estimate (MFG-09) — only for roles with Costs & margins. */
+function MoCost({ job }: { job: Job }) {
+  const { db, backend: B } = useStore();
+  const [c, setC] = useState<MoCosts | null>(null);
+  useEffect(() => {
+    let live = true;
+    B.rpc<MoCosts | null>("mo_costs", { p_job: job.id }).then((r) => { if (live) setC(r); }).catch(() => live && setC(null));
+    return () => { live = false; };
+  }, [B, job.id, job.status, job.produced, job.quantity, db.stock_movements, db.product_operations, db.participants]);
+  if (!c) return null;
+  const hrs = (m: number) => `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`;
+  return (
+    <div className="card flat stack">
+      <div className="row between"><small className="label">{t("Cost")}</small>
+        <span className={c.late ? "red-t" : "muted"}>{job.status === "done" ? t("Finished {d}", { d: shortDate(c.estimated_finish) }) : t("Estimated finish {d}", { d: shortDate(c.estimated_finish) })}{c.late ? ` · ${t("after the deadline")}` : ""}</span></div>
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th /><th className="num">{t("Planned")}</th><th className="num">{t("Actual")}</th></tr></thead>
+          <tbody>
+            <tr className="static"><td>{t("Materials")}</td><td className="num">{money(c.materials_planned)}</td><td className="num">{money(c.materials_actual)}</td></tr>
+            {c.operations.map((o, i) => <tr key={i} className="static"><td className="muted">{o.name}{o.station ? ` · ${o.station}` : ""} <small>({hrs(o.minutes)})</small></td><td className="num muted">{money(o.cost)}</td><td /></tr>)}
+            <tr className="static"><td>{t("Operations")}{c.minutes_planned ? <small className="muted"> · {hrs(c.minutes_planned)}</small> : null}</td><td className="num">{money(c.operations_planned)}</td>
+              <td className="num">{money(c.labour_actual)} <small className="muted">{t("{h} h logged", { h: c.labour_hours })}</small></td></tr>
+          </tbody>
+          <tfoot><tr><td><b>{t("Total")}</b></td><td className="num"><b>{money(c.total_planned)}</b><br /><small className="muted">{money(c.unit_planned)} / {t("unit")}</small></td><td className="num"><b>{money(c.total_actual)}</b></td></tr></tfoot>
+        </table>
+      </div>
+      {!c.operations.length && <p className="fine" style={{ textAlign: "left" }}>{t("Add operations to this product (Items → Recipe) to plan time, cost and finish dates.")}</p>}
+      {!c.labour_rate && <p className="fine" style={{ textAlign: "left" }}>{t("Set a labour cost per hour in Settings → Company to cost the time logged on jobs.")}</p>}
     </div>
   );
 }
