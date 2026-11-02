@@ -194,7 +194,7 @@ function Shell({ signOut }: { signOut: () => void }) {
             <div className="k-menu-wrap">
               <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setMenu(menu === "create" ? null : "create")}>{t("Create")}</Btn>
               <AnimatePresence>{menu === "create" && (
-                <motion.div className="k-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+                <motion.div className="k-menu right" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
                   {allowed.includes("sell") && <button type="button" onClick={() => { setSellKind("order"); go("sell"); setNewOrder("order"); }}><Tag size={15} />{t("Sales order")}</button>}
                   {allowed.includes("sell") && <button type="button" onClick={() => { setSellKind("quote"); go("sell"); setNewOrder("quote"); }}><Tag size={15} />{t("Quote")}</button>}
                   {allowed.includes("make") && <button type="button" onClick={() => { go("make"); setNewMo(true); }}><Factory size={15} />{t("Manufacturing order")}</button>}

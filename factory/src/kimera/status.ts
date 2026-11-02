@@ -68,8 +68,8 @@ export function analyse(db: DB, av?: Avail | null) {
       let sales: Cell, ingredients: Cell;
       if (mo) {
         sales = mo.status === "done" ? S("Made", "ok") : S("Expected", "warn", mo.due_date);
-        ingredients = av?.mos[mo.id] ? moCell(av.mos[mo.id]!, skuName) : ingredientCell(mo, item, bom, items, lv, poDate);
-        if (mo.stock_booked && av?.lines[line.id] && line.shipped < line.quantity) sales = { ...S("Made", "ok"), why: av.lines[line.id]!.why };
+        ingredients = av?.mos?.[mo.id] ? moCell(av.mos[mo.id]!, skuName) : ingredientCell(mo, item, bom, items, lv, poDate);
+        if (mo.stock_booked && av?.lines?.[line.id] && line.shipped < line.quantity) sales = { ...S("Made", "ok"), why: av.lines[line.id]!.why };
       } else {
         ingredients = S("Not applicable", "none");
         if (o.kind === "quote") sales = item ? (free.get(item.id) ?? 0) >= line.quantity ? S("In stock", "ok") : S("Not available", "bad") : S("Not tracked", "none");
@@ -77,7 +77,7 @@ export function analyse(db: DB, av?: Avail | null) {
         else if (o.delivery === "packed") sales = S("Picked", "ok");
         else if (!item) sales = S("Not tracked", "none");
         else if (item.kind === "service") sales = S("Service", "none");
-        else if (av && open && av.lines[line.id]) sales = lineCell(av.lines[line.id]!, item.kind !== "material");
+        else if (av && open && av.lines?.[line.id]) sales = lineCell(av.lines[line.id]!, item.kind !== "material");
         else {
           const need = line.quantity - line.shipped;
           const f = free.get(item.id) ?? 0;

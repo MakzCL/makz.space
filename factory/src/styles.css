@@ -1007,7 +1007,7 @@ p { margin: 0; }
 .k-menu-wrap { position: relative; }
 .k-me { display: flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.4rem 0.2rem 0.2rem; border-radius: 99px; color: var(--muted); }
 .k-me:hover { background: var(--surface); }
-.k-menu { position: absolute; top: calc(100% + 8px); left: 0; min-width: 220px; padding: 0.4rem; border-radius: 16px; background: var(--surface); box-shadow: 0 12px 40px rgba(3, 5, 22, 0.35); display: flex; flex-direction: column; z-index: 30; border: 1px solid var(--line); }
+.k-menu { position: absolute; top: calc(100% + 8px); left: 0; min-width: 220px; padding: 0.4rem; border-radius: 16px; background: var(--surface); box-shadow: 0 12px 40px rgba(3, 5, 22, 0.35); display: flex; flex-direction: column; z-index: 30; border: 1px solid var(--line); max-width: calc(100vw - 24px); }
 .k-menu.right { left: auto; right: 0; }
 .k-menu > button, .k-menu > a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 10px; color: var(--text); font-size: 0.9rem; text-decoration: none; text-align: left; }
 .k-menu > button:hover, .k-menu > a:hover { background: var(--surface-2); }
