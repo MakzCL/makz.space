@@ -26,10 +26,10 @@ import { TimeScreen } from "./screens/Time";
 
 export function App() {
   const prefs = usePrefs();
-  const [splash, setSplash] = useState(() => !sessionStorage.getItem("skf-splashed"));
+  const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem("skf-splashed"); } catch { return true; } });
   const [backend, setBackend] = useState<Backend | null>(null);
   const [user, setUser] = useState<string | null | undefined>(undefined);
-  const endSplash = useCallback(() => { sessionStorage.setItem("skf-splashed", "1"); setSplash(false); }, []);
+  const endSplash = useCallback(() => { try { sessionStorage.setItem("skf-splashed", "1"); } catch { /* storage blocked */ } setSplash(false); }, []);
   const [joinCode, setJoinCode] = useState<string | null>(() => new URLSearchParams(location.search).get("join")?.toUpperCase() ?? null);
   const clearJoin = useCallback(() => { setJoinCode(null); history.replaceState(null, "", location.pathname); }, []);
 
