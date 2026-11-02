@@ -49,7 +49,7 @@ export function App() {
         <Background />
         <AnimatePresence mode="wait">
           {splash ? <Splash key="splash" onDone={endSplash} />
-            : !backend || user === undefined ? <motion.div key="load" exit={{ opacity: 0 }}><FullLoader label={t("Starting up…")} /></motion.div>
+            : !backend || user === undefined ? <motion.div key="load" exit={{ opacity: 0 }}><StartUp onReset={async () => { try { await backend?.signOut(); } catch { /* ignore */ } try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ } location.reload(); }} /></motion.div>
               : user === null ? (
                 <motion.div key={joinCode ? "join" : "login"} className="fill" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                   {joinCode
@@ -201,6 +201,24 @@ function Main({ signOut }: { signOut: () => void }) {
         onReport={(j) => { setJob(null); setReportFor(j); go("issues"); }} />
       <JobEditor open={!!editJob} job={editJob?.job ?? null} onClose={() => setEditJob(null)} />
       <PersonSheet id={personId} onClose={() => setPersonId(null)} />
+    </div>
+  );
+}
+
+/** Start-up screen; after 10 s offers a way out instead of spinning forever. */
+function StartUp({ onReset }: { onReset: () => void }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const i = setTimeout(() => setSlow(true), 10000); return () => clearTimeout(i); }, []);
+  return (
+    <div className="fill startup">
+      <FullLoader label={t("Starting up…")} />
+      {slow && (
+        <div className="startup-help">
+          <p className="muted">{t("This is taking longer than usual.")}</p>
+          <button className="btn primary" onClick={() => location.reload()}>{t("Reload")}</button>
+          <button className="link center" onClick={onReset}>{t("Sign out and sign in again")}</button>
+        </div>
+      )}
     </div>
   );
 }

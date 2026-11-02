@@ -21,8 +21,14 @@ export class SupabaseBackend implements Backend {
   }
 
   async currentUser() {
-    const { data } = await this.sb.auth.getSession();
-    return data.session?.user.id ?? null;
+    // getSession() can wait on a token refresh; never let start-up hang on it.
+    const timeout = new Promise<"timeout">((res) => setTimeout(() => res("timeout"), 8000));
+    const r = await Promise.race([this.sb.auth.getSession().then((x) => x.data.session?.user.id ?? null), timeout]).catch(() => null);
+    if (r !== "timeout") return r;
+    try {
+      const key = Object.keys(localStorage).find((k) => /^sb-.*-auth-token$/.test(k));
+      return key ? (JSON.parse(localStorage.getItem(key) ?? "null")?.user?.id ?? null) : null;
+    } catch { return null; }
   }
   async signIn(email: string, password: string) {
     const { error } = await this.sb.auth.signInWithPassword({ email, password });
@@ -76,7 +82,9 @@ export class SupabaseBackend implements Backend {
   }
   onAuthChange(cb: () => void) {
     const { data } = this.sb.auth.onAuthStateChange((evt) => {
-      if (evt === "SIGNED_IN" || evt === "SIGNED_OUT" || evt === "USER_UPDATED") cb();
+      // Never call back into Supabase auth inside this callback — it holds the
+      // auth lock, and getSession() would wait for it forever (stuck start-up).
+      if (evt === "SIGNED_IN" || evt === "SIGNED_OUT" || evt === "USER_UPDATED") setTimeout(cb, 0);
     });
     return () => data.subscription.unsubscribe();
   }

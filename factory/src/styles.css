@@ -129,6 +129,9 @@ p { margin: 0; }
 
 /* ---------------------------------------------------------------- loaders */
 .loader { display: grid; justify-items: center; gap: 0.9rem; color: var(--muted); font-size: 0.88rem; }
+.startup { position: relative; z-index: 1; display: grid; place-items: center; align-content: center; }
+.startup .full-loader { min-height: 0; height: auto; }
+.startup-help { display: grid; justify-items: center; gap: 0.8rem; margin-top: 1.5rem; padding: 0 1.5rem; text-align: center; }
 .full-loader { position: relative; z-index: 1; min-height: 60vh; height: 100%; display: grid; place-items: center; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
