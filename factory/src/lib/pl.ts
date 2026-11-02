@@ -677,4 +677,8 @@ export const PL: Record<string, string> = {
   "Time to clock in": "Czas odbić wejście",
   "Clock out?": "Odbić wyjście?",
   "Back office": "Biuro",
+  "No answer": "Brak odpowiedzi",
+  "Nobody joined": "Nikt nie dołączył",
+  "Everyone else has left": "Wszyscy inni wyszli",
+  "That call has ended": "To połączenie już się zakończyło",
 };

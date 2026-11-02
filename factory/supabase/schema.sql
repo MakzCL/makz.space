@@ -2077,3 +2077,38 @@ end $$;
 drop trigger if exists replenish_on_change on public.stock_items;
 create trigger replenish_on_change after insert or update of quantity, make_min, make_batch, archived on public.stock_items
   for each row execute function public.replenish_on_change();
+
+-- ============================================================================
+-- Calls: a 1:1 call ends for both as soon as either person hangs up; anyone who
+-- was rung but never joined gets a "Missed call" notification (push + Activity).
+-- ============================================================================
+create or replace function public.leave_call(p_call uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare k public.calls; direct boolean;
+begin
+  update public.call_participants set left_at = now() where call_id = p_call and user_id = auth.uid() and left_at is null;
+  select * into k from public.calls where id = p_call;
+  select c.kind = 'direct' into direct from public.conversations c where c.id = k.conversation_id;
+  if coalesce(direct, false) or not exists (select 1 from public.call_participants where call_id = p_call and left_at is null) then
+    update public.call_participants set left_at = now() where call_id = p_call and left_at is null;
+    update public.calls set status = 'ended', ended_at = now() where id = p_call and status <> 'ended';
+  end if;
+end $$;
+revoke all on function public.leave_call(uuid) from public, anon;
+grant execute on function public.leave_call(uuid) to authenticated;
+
+create or replace function public.missed_call() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare u uuid; who text := coalesce(public.first_name(new.started_by), 'Someone');
+begin
+  if new.status <> 'ended' or old.status = 'ended' or new.conversation_id is null then return new; end if;
+  for u in select m.user_id from public.conversation_members m
+            where m.conversation_id = new.conversation_id and m.user_id is distinct from new.started_by
+              and not exists (select 1 from public.call_participants p where p.call_id = new.id and p.user_id = m.user_id) loop
+    perform public.notify(u, 'missed_call', 'Missed ' || case when new.kind = 'voice' then 'call' else 'video call' end || ' from ' || who,
+      'Tap to call back', jsonb_build_object('tab', 'chat', 'conversation_id', new.conversation_id));
+  end loop;
+  return new;
+end $$;
+drop trigger if exists missed_call on public.calls;
+create trigger missed_call after update of status on public.calls for each row execute function public.missed_call();

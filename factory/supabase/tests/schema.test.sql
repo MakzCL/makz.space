@@ -322,7 +322,7 @@ select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.join_call('ca000000-0000-0000-0000-000000000001')$$, 'joining someone else''s call');
 select pg_temp.become(:'A1');
 select public.leave_call('ca000000-0000-0000-0000-000000000001');
-select pg_temp.check((select status = 'active' from public.calls), 'call continues while someone is in it');
+select pg_temp.check((select status = 'ended' from public.calls), 'a 1:1 call ends when either person hangs up');
 select pg_temp.become(:'B');
 select public.leave_call('ca000000-0000-0000-0000-000000000001');
 select pg_temp.check((select status = 'ended' and ended_at is not null from public.calls), 'last one out ends the call');
@@ -414,6 +414,24 @@ select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'F
 select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED' and status <> 'done') = 0, 'stock at target: nothing new raised');
 select public.adjust_stock((select id from public.stock_items where sku = 'FR-PED'), -1, 'used in pedestal');
 select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED' and status = 'open') = 1, 'using the frame raises the next build');
+
+-- 1:1 call: hanging up ends it for both; an unanswered call leaves a missed-call notification
+select pg_temp.become(:'A1');
+insert into public.calls (id, conversation_id, started_by, kind) values ('ca000000-0000-0000-0000-000000000002', :'dm', auth.uid(), 'voice') returning id;
+select public.join_call('ca000000-0000-0000-0000-000000000002');
+select pg_temp.become(:'B');
+select public.join_call('ca000000-0000-0000-0000-000000000002');
+select pg_temp.become(:'A1');
+select public.leave_call('ca000000-0000-0000-0000-000000000002');
+select pg_temp.check((select status = 'ended' from public.calls where id = 'ca000000-0000-0000-0000-000000000002'), 'one person hanging up ends a 1:1 call');
+select pg_temp.check((select count(*) from public.call_participants where call_id = 'ca000000-0000-0000-0000-000000000002' and left_at is null) = 0, 'both are out of the ended call');
+insert into public.calls (id, conversation_id, started_by, kind) values ('ca000000-0000-0000-0000-000000000003', :'dm', auth.uid(), 'video') returning id;
+select public.join_call('ca000000-0000-0000-0000-000000000003');
+select public.leave_call('ca000000-0000-0000-0000-000000000003');
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'missed_call' and title like 'Missed video call from%') = 1, 'unanswered call: missed-call notification');
+select pg_temp.become(:'A1');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'missed_call') = 0, 'caller gets no missed-call notice');
 
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
