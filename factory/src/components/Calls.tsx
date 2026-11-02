@@ -38,6 +38,13 @@ async function iceServers(token: string | null): Promise<RTCIceServer[]> {
   } catch { return STUN; }
 }
 
+/** A call is worth joining if someone is in it, or it started ringing in the last minute. */
+export function isLive(k: Call, parts: { call_id: string; left_at: string | null }[]) {
+  if (k.status === "ended") return false;
+  if (parts.some((p) => p.call_id === k.id && !p.left_at)) return true;
+  return Date.now() - new Date(k.started_at).getTime() < 60000;
+}
+
 interface Peer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[] }
 interface Live { call: Call; local: MediaStream | null; peers: Record<string, MediaStream>; muted: boolean; camOff: boolean; sharing: boolean; front: boolean; started: number }
 
@@ -108,15 +115,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (l) { await backend.rpc("leave_call", { p_call: l.call.id }).catch(() => {}); refresh("calls"); }
   }, [backend, drop, refresh]);
 
-  const enter = useCallback(async (c: Call) => {
-    if (liveRef.current) { if (liveRef.current.call.id === c.id) return; await leave(); }
-    let local: MediaStream | null = null;
+  /** Microphone (+ camera for video). Asked for before anything is created, so a refused permission leaves nothing behind. */
+  const getMedia = useCallback(async (kind: Call["kind"]): Promise<MediaStream | null> => {
     try {
-      local = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: c.kind === "video" ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false });
+      return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: kind === "video" ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false });
     } catch {
-      try { local = await navigator.mediaDevices.getUserMedia({ audio: true }); toast(t("Camera not available — joining with sound only"), "info"); }
-      catch { toast(t("Allow the microphone to join calls"), "error"); return; }
+      try { const a = await navigator.mediaDevices.getUserMedia({ audio: true }); if (kind === "video") toast(t("Camera not available — joining with sound only"), "info"); return a; }
+      catch { toast(t("Allow the microphone to join calls — tap the lock icon by the address, or Settings → Apps → your browser → Permissions"), "error"); return null; }
     }
+  }, [toast]);
+
+  const enter = useCallback(async (c: Call, media?: MediaStream) => {
+    if (liveRef.current) { if (liveRef.current.call.id === c.id) return; await leave(); }
+    const local = media ?? await getMedia(c.kind);
+    if (!local) return;
     localRef.current = local;
     iceRef.current = await iceServers(await backend.accessToken());
     await backend.rpc("join_call", { p_call: c.id });
@@ -149,15 +161,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
       for (const u of [...peers.current.keys()]) if (!here.includes(u)) drop(u);
     });
     ch.subscribe((st) => { if (st === "SUBSCRIBED") ch.track({ at: Date.now() }); });
-  }, [backend, call, drop, leave, me.id, peerFor, signal, toast]);
+  }, [backend, call, drop, getMedia, leave, me.id, peerFor, signal]);
 
   const start = useCallback(async (o: { conversationId?: string; eventId?: string; kind: "voice" | "video" }) => {
+    const media = await getMedia(o.kind);
+    if (!media) return;
     try {
-      const existing = db.calls.find((k) => k.status !== "ended" && ((o.conversationId && k.conversation_id === o.conversationId) || (o.eventId && k.event_id === o.eventId)));
+      const existing = db.calls.find((k) => isLive(k, db.call_participants) && ((o.conversationId && k.conversation_id === o.conversationId) || (o.eventId && k.event_id === o.eventId)));
       const c = existing ?? await backend.insert("calls", { conversation_id: o.conversationId ?? null, event_id: o.eventId ?? null, started_by: me.id, kind: o.kind, status: "ringing" });
-      await enter(c);
-    } catch (e) { toast(t((e as Error).message), "error"); }
-  }, [backend, db.calls, enter, me.id, toast]);
+      await enter(c, media);
+    } catch (e) { media.getTracks().forEach((tr) => tr.stop()); toast(t((e as Error).message), "error"); }
+  }, [backend, db.calls, db.call_participants, enter, getMedia, me.id, toast]);
 
   // Leave cleanly if the tab closes.
   useEffect(() => {

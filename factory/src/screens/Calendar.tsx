@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, HelpCircle, MapPin, Plus, Trash2, Video, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
-import { useCalls } from "../components/Calls";
+import { isLive, useCalls } from "../components/Calls";
 import { useToast } from "../components/Toast";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, Sheet, Toggle } from "../components/ui";
 import { locale, t } from "../lib/i18n";
@@ -115,7 +115,7 @@ function EventSheet({ e, onClose, onEdit }: { e: CalEvent | null; onClose: () =>
   const organizer = e.organizer_id === me.id;
   const now = Date.now();
   const joinable = e.online && now >= new Date(e.starts_at).getTime() - 15 * 60000 && now <= new Date(e.ends_at).getTime() + 30 * 60000;
-  const active = db.calls.find((k) => k.event_id === e.id && k.status !== "ended");
+  const active = db.calls.find((k) => k.event_id === e.id && isLive(k, db.call_participants));
   const answer = async (response: EventAttendee["response"]) => {
     if (!mine) return;
     try { await backend.update("event_attendees", mine.id, { response }); await refresh("event_attendees"); } catch (x) { toast(t((x as Error).message), "error"); }

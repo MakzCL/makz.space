@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "../components/Avatar";
-import { useCalls } from "../components/Calls";
+import { isLive, useCalls } from "../components/Calls";
 import { SceneTabs } from "../components/Scene";
 import { useToast } from "../components/Toast";
 import { Btn, Chip, Empty, Field, Sheet, list } from "../components/ui";
@@ -175,7 +175,7 @@ function Conversation({ v, onBack }: { v: ConvView; onBack: () => void }) {
   const isMember = v.members.includes(me.id);
   const msgs = useMemo(() => db.messages.filter((m) => m.conversation_id === c.id).sort((a, b) => a.created_at.localeCompare(b.created_at)), [db.messages, c.id]);
   const members = db.conversation_members.filter((m) => m.conversation_id === c.id);
-  const activeCall = db.calls.find((k) => k.conversation_id === c.id && k.status !== "ended" && Date.now() - new Date(k.started_at).getTime() < 12 * 3600e3);
+  const activeCall = db.calls.find((k) => k.conversation_id === c.id && isLive(k, db.call_participants));
 
   // Typing indicator over a realtime room.
   useEffect(() => {
@@ -343,11 +343,11 @@ function Bubble({ m, grouped, group, menu, onMenu, onReact, onReply, onEdit, onD
     const k = db.calls.find((x) => x.id === m.attachments[0]?.call_id);
     const mins = k?.ended_at ? Math.max(1, Math.round((new Date(k.ended_at).getTime() - new Date(k.started_at).getTime()) / 60000)) : 0;
     return (
-      <div className={`call-card ${k?.status === "ended" ? "" : "live"}`}>
+      <div className={`call-card ${k && isLive(k, db.call_participants) ? "live" : ""}`}>
         {m.body === "voice" ? <Phone size={18} /> : <Video size={18} />}
         <span className="grow"><b>{who?.full_name.split(" ")[0]} {t(m.body === "voice" ? "started a voice call" : "started a video call")}</b>
-          <small>{clock(m.created_at)}{k?.status === "ended" ? ` · ${t("{n} min", { n: mins })}` : ""}</small></span>
-        {k && k.status !== "ended" && <Btn small tone="primary" onClick={() => onJoinCall(k.id)}>{t("Join")}</Btn>}
+          <small>{clock(m.created_at)}{k?.status === "ended" && k.ended_at ? ` · ${t("{n} min", { n: mins })}` : k && !isLive(k, db.call_participants) ? ` · ${t("Missed")}` : ""}</small></span>
+        {k && isLive(k, db.call_participants) && <Btn small tone="primary" onClick={() => onJoinCall(k.id)}>{t("Join")}</Btn>}
       </div>
     );
   }

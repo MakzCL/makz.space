@@ -502,4 +502,5 @@ export const PL: Record<string, string> = {
   "{n} members": "Członkowie: {n}",
   "{n} min": "{n} min",
   "Search people and chats…": "Szukaj osób i czatów…", "New group chat": "Nowy czat grupowy", "Everyone at Skalarki": "Wszyscy w Skalarki", "Nobody found": "Nikogo nie znaleziono",
+  "Allow the microphone to join calls — tap the lock icon by the address, or Settings → Apps → your browser → Permissions": "Zezwól na mikrofon, aby dołączać do rozmów — dotknij kłódki przy adresie albo Ustawienia → Aplikacje → przeglądarka → Uprawnienia", "Missed": "Nieodebrane",
 };
