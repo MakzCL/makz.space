@@ -298,6 +298,10 @@ export interface StockItem {
   lead_days: number | null;
   notes: string;
   archived: boolean;
+  /** Keep at least this many ready: a build is raised automatically below it (0 = off). */
+  make_min: number;
+  /** Build this many at a time. */
+  make_batch: number;
   updated_by: string | null;
   updated_at: string;
   created_at: string;

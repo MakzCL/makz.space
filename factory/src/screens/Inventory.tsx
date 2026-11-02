@@ -266,6 +266,16 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                 <Field label={t("Unit cost (£)")}><input inputMode="decimal" value={open0.cost} onChange={(e) => setOpen0({ ...open0, cost: e.target.value })} placeholder="0.00" /></Field>
               </div>
             )}
+            {f.kind !== "material" && (
+              <div className="card flat stack">
+                <small className="label">{t("Keep ready (automatic builds)")}</small>
+                <p className="fine">{t("When fewer than this are on the shelf or being built, a make-to-stock job is raised for the crew — e.g. always one frame ready upstairs. 0 = off.")}</p>
+                <div className="row gap">
+                  <Field label={t("Keep at least")}><input inputMode="decimal" value={f.make_min ?? 0} onChange={(e) => setF({ ...f, make_min: Number(cleanNumber(e.target.value) || 0) })} disabled={!editable} /></Field>
+                  <Field label={t("Build in batches of")}><input inputMode="decimal" value={f.make_batch ?? 1} onChange={(e) => setF({ ...f, make_batch: Math.max(1, Number(cleanNumber(e.target.value) || 1)) })} disabled={!editable} /></Field>
+                </div>
+              </div>
+            )}
             <Field label={t("Notes")}><textarea rows={2} value={f.notes ?? ""} onChange={(e) => setF({ ...f, notes: e.target.value })} disabled={!editable} /></Field>
             {editable && <Btn type="submit" tone="primary" wide>{live ? t("Save details") : t("Add item")}</Btn>}
             {live && editable && <HoldButton tone="danger" icon={<Trash2 size={16} />} onConfirm={async () => { await a.saveStock({ id: live.id, archived: true }); onClose(); }}>{t("Hold to archive item")}</HoldButton>}

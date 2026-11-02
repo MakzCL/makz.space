@@ -42,3 +42,6 @@ export const playJoined = () => { tone(523.25, 0, 0.14, 0.07); tone(783.99, 0.12
 
 /** Call ended / someone left: short falling pair. */
 export const playEnded = () => { tone(659.25, 0, 0.16, 0.07); tone(440, 0.14, 0.3, 0.06); };
+
+/** Clock in / out reminder: one soft, low two-note chime. */
+export const playClock = () => { tone(587.33, 0, 0.35, 0.045); tone(783.99, 0.22, 0.5, 0.04); };

@@ -384,6 +384,37 @@ select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$insert into public.issue_comments (issue_id, author_id, body) select id, auth.uid(), 'x' from public.issues where title = 'Office printer'$$, 'commenting on someone else''s ticket');
 select pg_temp.expect_fail($$insert into public.issue_comments (issue_id, author_id, body, kind) select id, auth.uid(), 'status:open', 'event' from public.issues where title = 'Bent panel'$$, 'faking a history entry');
 
+-- Clock reminders (Mon 2 Nov 2026, UK time = GMT)
+select pg_temp.become(null);
+delete from public.notifications where kind = 'clock';
+delete from public.shifts;
+insert into public.shifts (user_id, clock_in) values (:'A1', '2026-11-02 05:50+00');
+select pg_temp.check(public.shift_reminders('2026-11-02 05:59+00') = 1, 'clock-in reminder only for the one not clocked in (owner skipped)');
+select pg_temp.check((select user_id = :'A2' from public.notifications where kind = 'clock'), 'reminder goes to the operator');
+select pg_temp.check(public.shift_reminders('2026-11-02 05:59:30+00') = 0, 'clock-in reminder sent once');
+select pg_temp.check(public.shift_reminders('2026-11-02 10:00+00') = 0, 'no reminders outside the set times');
+update public.shifts set clock_out = '2026-11-02 14:00+00' where user_id = :'A1';
+select pg_temp.check(public.shift_reminders('2026-11-02 13:59+00') = 1, 'afternoon reminder skips someone who worked this morning');
+select pg_temp.check(public.shift_reminders('2026-11-07 05:59+00') = 0, 'no clock-in reminders at the weekend');
+insert into public.shifts (user_id, clock_in) values (:'A2', '2026-11-02 14:02+00');
+select pg_temp.check(public.shift_reminders('2026-11-02 14:01+00') = 0, 'just clocked in: no clock-out nag');
+select pg_temp.check(public.shift_reminders('2026-11-02 22:01+00') = 1, 'clock-out reminder at 22:01 for an open shift');
+select pg_temp.check(public.shift_reminders('2026-11-03 02:00+00') = 1, 'and again at 02:00 if still clocked in');
+
+-- Keep-in-stock builds
+select pg_temp.become(:'B');
+insert into public.stock_items (sku, name, kind, location) values ('FR-PED', 'Pedestal metal frame', 'part', 'Upstairs');
+update public.stock_items set make_min = 1 where sku = 'FR-PED';
+select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED' and code like 'STK-%' and status = 'open' and quantity = 1) = 1, 'keep-1 rule raises a frame build');
+update public.stock_items set location = 'Upstairs rack' where sku = 'FR-PED';
+update public.stock_items set make_min = 1 where sku = 'FR-PED';
+select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED') = 1, 'no duplicate build while one is in production');
+update public.jobs set status = 'done' where sku = 'FR-PED';
+select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'FR-PED'), 'finished frame goes on stock upstairs');
+select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED' and status <> 'done') = 0, 'stock at target: nothing new raised');
+select public.adjust_stock((select id from public.stock_items where sku = 'FR-PED'), -1, 'used in pedestal');
+select pg_temp.check((select count(*) from public.jobs where sku = 'FR-PED' and status = 'open') = 1, 'using the frame raises the next build');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

@@ -772,6 +772,7 @@ end $$;
 --   stock_movements  every change to quantity (who, when, why)
 -- Stock only changes through the functions below, so history is complete.
 -- =========================================================================
+drop trigger if exists replenish_on_change on public.stock_items; -- recreated further down
 alter table public.stock_items alter column quantity type numeric(14,3);
 alter table public.stock_items alter column min_quantity type numeric(14,3);
 alter table public.stock_items add column if not exists kind text not null default 'material' check (kind in ('material','product','part'));
@@ -1972,3 +1973,103 @@ drop policy if exists "office delete jobs" on public.jobs;
 create policy "office create jobs" on public.jobs for insert to authenticated with check (public.is_admin());
 create policy "office or crew update jobs" on public.jobs for update to authenticated using (public.is_admin() or public.on_job(id));
 create policy "office delete jobs" on public.jobs for delete to authenticated using (public.is_admin());
+
+-- ============================================================================
+-- Clock in / out reminders (UK time). The working day runs 02:00 → 02:00.
+--   Clock in  05:59, 13:59 (Mon–Fri): people who are not clocked in and have
+--             not had a shift yet today, and are not on approved leave.
+--   Clock out 14:01, 22:01, 02:00: people still clocked in after 4+ hours.
+-- Runs every minute from pg_cron; each reminder goes once per person.
+-- ============================================================================
+create table if not exists public.reminder_log (
+  kind text not null,
+  day date not null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (kind, day, user_id)
+);
+alter table public.reminder_log enable row level security;
+
+create or replace function public.shift_reminders(p_at timestamptz default now()) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  lt timestamp := p_at at time zone 'Europe/London';
+  hm text := to_char(lt, 'HH24:MI');
+  wday date := (lt - interval '2 hours')::date;
+  day_start timestamptz := (wday + time '02:00') at time zone 'Europe/London';
+  u uuid; n int := 0;
+begin
+  if hm in ('05:59', '13:59') and extract(isodow from wday) <= 5 then
+    for u in
+      select p.id from public.profiles p
+       where p.active and p.role <> 'boss'
+         and (p.role in ('operator', 'assistant') or exists (select 1 from public.shifts s where s.user_id = p.id and s.clock_in > p_at - interval '30 days'))
+         and not exists (select 1 from public.shifts s where s.user_id = p.id and (s.clock_out is null or s.clock_in >= day_start))
+         and not exists (select 1 from public.absences a where a.user_id = p.id and a.status = 'approved' and wday between a.start_date and a.end_date)
+    loop
+      insert into public.reminder_log (kind, day, user_id) values ('in-' || hm, wday, u) on conflict do nothing;
+      if found then
+        perform public.notify(u, 'clock', 'Time to clock in', case when hm = '05:59' then 'Your shift starts at 6:00' else 'The afternoon shift starts at 14:00' end, '{"tab":"home"}');
+        n := n + 1;
+      end if;
+    end loop;
+  elsif hm in ('14:01', '22:01', '02:00') then
+    for u in select distinct s.user_id from public.shifts s join public.profiles p on p.id = s.user_id
+              where p.active and s.clock_out is null and s.clock_in < p_at - interval '4 hours' loop
+      insert into public.reminder_log (kind, day, user_id) values ('out-' || hm, lt::date, u) on conflict do nothing;
+      if found then
+        perform public.notify(u, 'clock', 'Clock out?', 'Your shift has ended — clock out before you leave', '{"tab":"home"}');
+        n := n + 1;
+      end if;
+    end loop;
+  end if;
+  return n;
+end $$;
+revoke all on function public.shift_reminders(timestamptz) from public, anon, authenticated;
+
+do $$ begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'shift-reminders';
+    perform cron.schedule('shift-reminders', '* * * * *', 'select public.shift_reminders()');
+  end if;
+end $$;
+
+-- ============================================================================
+-- Keep-in-stock builds: e.g. "always 1 pedestal frame ready upstairs".
+-- When on-hand + already-in-production drops below make_min, a make-to-stock
+-- manufacturing order (STK-…) is raised for the downstairs crew automatically.
+-- ============================================================================
+alter table public.stock_items add column if not exists make_min numeric(14,3) not null default 0 check (make_min >= 0);
+alter table public.stock_items add column if not exists make_batch numeric(14,3) not null default 1 check (make_batch > 0);
+
+create or replace function public.replenish(p_item uuid default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare s public.stock_items; busy numeric; q numeric; r uuid[]; pr public.products; n int := 0;
+begin
+  for s in select * from public.stock_items where make_min > 0 and not archived and (p_item is null or id = p_item) loop
+    select coalesce(sum(quantity), 0) into busy from public.jobs
+     where sku = s.sku and order_id is null and status <> 'done';
+    if s.quantity + busy >= s.make_min then continue; end if;
+    q := greatest(s.make_batch, s.make_min - s.quantity - busy);
+    select * into pr from public.products where sku = s.sku;
+    r := case when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+    insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity, estimate_minutes,
+                             sku, route, stage, station_id)
+    values ('STK-' || nextval('public.mo_seq'), 'Restock: ' || s.name,
+            'Keep ' || trim(to_char(s.make_min, 'FM999990.###')) || ' ready' || coalesce(' (' || nullif(s.location, '') || ')', '') || ' — raised automatically.',
+            '', 3, 'open', public.station_assignees(r[1]), ceil(q)::int, pr.estimate_minutes, s.sku, r, 0, r[1]);
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.replenish(uuid) from public, anon, authenticated;
+
+create or replace function public.replenish_on_change() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.make_min > 0 then perform public.replenish(new.id); end if;
+  return null;
+end $$;
+drop trigger if exists replenish_on_change on public.stock_items;
+create trigger replenish_on_change after insert or update of quantity, make_min, make_batch, archived on public.stock_items
+  for each row execute function public.replenish_on_change();

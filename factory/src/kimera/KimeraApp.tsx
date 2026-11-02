@@ -21,7 +21,7 @@ import { Plan } from "./Plan";
 import { Sell } from "./Sell";
 import { SubTabs } from "./kit";
 import { Tickets } from "./Tickets";
-import { KimeraMark } from "./mark";
+import { KimeraMark, SkKimera } from "./mark";
 
 export const FACTORY_URL = "https://factory.makz.space";
 
@@ -161,7 +161,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   return (
     <div className="k-app">
       <header className="k-top">
-        <a className="k-brand" href="#sell" onClick={(e) => { e.preventDefault(); go("sell"); }}><KimeraMark /><b>Kimera</b></a>
+        <a className="k-brand" href="#sell" onClick={(e) => { e.preventDefault(); go("sell"); }}><SkKimera /></a>
         <nav className="k-nav" aria-label={t("Sections")}>
           {NAV.map((n) => (
             <button key={n.v} className={tab === n.v ? "on" : ""} aria-current={tab === n.v ? "page" : undefined} onClick={() => go(n.v)}>

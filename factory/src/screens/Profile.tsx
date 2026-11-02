@@ -34,6 +34,7 @@ export function Profile({ onSignOut }: { onSignOut: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [photoMenu, setPhotoMenu] = useState(false);
 
   return (
     <motion.div className="page" initial="hidden" animate="show" variants={list}>
@@ -45,7 +46,7 @@ export function Profile({ onSignOut }: { onSignOut: () => void }) {
             { value: "settings", label: <SettingsIcon size={22} />, aria: t("Settings") },
           ]} />
         <div className="profile-id">
-          <motion.button className="avatar-edit" whileTap={{ scale: 0.94 }} onClick={() => fileRef.current?.click()} aria-label={t("Change photo")}>
+          <motion.button className="avatar-edit" whileTap={{ scale: 0.94 }} onClick={() => (me.avatar_url ? setPhotoMenu(true) : fileRef.current?.click())} aria-label={t("Change photo")}>
             <Avatar p={me} size={88} />
             <span className="cam"><Camera size={15} /></span>
           </motion.button>
@@ -74,6 +75,14 @@ export function Profile({ onSignOut }: { onSignOut: () => void }) {
         </motion.div>
       </AnimatePresence>
 
+      <Sheet open={photoMenu} onClose={() => setPhotoMenu(false)} title={t("Profile photo")}>
+        <div className="stack center">
+          <Avatar p={me} size={120} />
+          <Btn tone="primary" wide icon={<Camera size={16} />} onClick={() => { setPhotoMenu(false); fileRef.current?.click(); }}>{t("Choose a new photo")}</Btn>
+          <Btn tone="ghost" wide icon={<Trash2 size={16} />} onClick={async () => { await a.updateProfile(me.id, { avatar_url: null }); setPhotoMenu(false); }}>{t("Remove photo")}</Btn>
+          <p className="fine">{t("Without a photo your initials are shown.")}</p>
+        </div>
+      </Sheet>
       <Sheet open={!!preview} onClose={() => setPreview(null)} title={t("New profile photo")}>
         {preview && (
           <div className="stack center">

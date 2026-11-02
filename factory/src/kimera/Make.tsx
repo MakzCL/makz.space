@@ -51,6 +51,7 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
         </div>
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search MO, product, customer…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       </div>
+      {!done && <KeptReady />}
       {rows.length ? (
         <div className="tbl-wrap">
           <table className="tbl k-tbl">
@@ -182,5 +183,30 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
         </div>
       )}
     </Sheet>
+  );
+}
+
+/** Items kept ready by automatic builds (e.g. frames upstairs). */
+function KeptReady() {
+  const { db } = useStore();
+  const kept = db.stock_items.filter((s) => !s.archived && s.make_min > 0).sort((a, b) => a.name.localeCompare(b.name));
+  if (!kept.length) return null;
+  return (
+    <div className="k-kept">
+      <small className="label">{t("Kept ready")}</small>
+      <div className="k-kept-row">
+        {kept.map((s) => {
+          const building = db.jobs.filter((j) => j.sku === s.sku && !j.order_id && j.status !== "done").reduce((x, j) => x + (j.quantity ?? 1), 0);
+          const tone = s.quantity >= s.make_min ? "ok" : building ? "warn" : "bad";
+          return (
+            <div key={s.id} className={`k-kept-card ${tone}`}>
+              <b>{s.name}</b>
+              <small className="muted">{s.location || t("No location")}</small>
+              <span className="row gap-s"><Pill cell={{ label: `${fmtQty(s.quantity)} / ${fmtQty(s.make_min)}`, tone }} />{building > 0 && <small className="muted">{t("{n} being built", { n: building })}</small>}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

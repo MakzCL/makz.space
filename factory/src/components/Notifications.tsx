@@ -1,3 +1,4 @@
+import { playClock } from "../lib/sounds";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, BellRing, Briefcase, CalendarDays, Check, Megaphone, MessageSquare, Phone, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -117,7 +118,8 @@ export function useNotificationToasts(onOpen: (l: NotifyLink) => void) {
       if (seen.current.has(n.id)) continue;
       seen.current.add(n.id);
       if (n.read_at || n.kind === "call") continue; // calls have their own ringing screen
-      buzz([30, 50, 30]); blip(880, 0.08);
+      if (n.kind === "clock") { try { navigator.vibrate?.([70, 60, 70]); } catch { /* unsupported */ } playClock(); }
+      else { buzz([30, 50, 30]); blip(880, 0.08); }
       toast(n.title + (n.body ? ` — ${n.body}` : ""), "info");
       void onOpen;
     }

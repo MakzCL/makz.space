@@ -1,5 +1,5 @@
 // Network-first for the app shell, cache as fallback so the app opens offline.
-const CACHE = "skf-v3";
+const CACHE = "skf-v4";
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/icon.svg"]))); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -21,6 +21,7 @@ self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { title: "Skalarki Factory", body: e.data ? e.data.text() : "" }; }
   const call = d.kind === "call";
+  const clock = d.kind === "clock";
   e.waitUntil(self.registration.showNotification(d.title || "Skalarki Factory", {
     body: d.body || "",
     icon: "/icon-192.png",
@@ -28,7 +29,8 @@ self.addEventListener("push", (e) => {
     tag: d.link && (d.link.conversation_id || d.link.job_id || d.link.event_id) ? `${d.kind}-${d.link.conversation_id || d.link.job_id || d.link.event_id}` : d.id,
     renotify: true,
     requireInteraction: call,
-    vibrate: call ? [400, 200, 400, 200, 400] : [120, 60, 120],
+    vibrate: call ? [400, 200, 400, 200, 400] : clock ? [70, 60, 70] : [120, 60, 120],
+    silent: false,
     data: d,
   }));
 });
