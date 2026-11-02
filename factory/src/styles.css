@@ -1143,3 +1143,6 @@ p { margin: 0; }
 .missed-row { align-items: center; }
 .missed-row input { flex: 1 1 120px; width: auto; min-width: 0; }
 .missed-row input[type="date"] { flex-basis: 150px; }
+/* Headers with folder tabs: the subtitle stays on one line so it never slides under the tabs. */
+.scene-head .scene-title p { max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scene-head:has(.scene-actions) .scene-title { right: 5.5rem; }
