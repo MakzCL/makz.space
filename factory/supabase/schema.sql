@@ -3084,7 +3084,7 @@ begin
       if act = 'update' then
         if nullif(trim(r->>'name'), '') is not null and trim(r->>'name') <> s.name then chg := chg || format('name: %s → %s', s.name, trim(r->>'name')); end if;
         if trim(r->>'quantity') ~ num and (r->>'quantity')::numeric <> s.quantity then chg := chg || format('stock: %s → %s', trim_scale(s.quantity), trim(r->>'quantity')); end if;
-        if trim(r->>'avg_cost') ~ num and (r->>'avg_cost')::numeric <> s.avg_cost then chg := chg || format('cost: %s → %s', trim_scale(s.avg_cost), trim(r->>'avg_cost')); end if;
+        if trim(r->>'avg_cost') ~ num and (r->>'avg_cost')::numeric <> s.avg_cost then chg := chg || case when public.can_see_costs() then format('cost: %s → %s', trim_scale(s.avg_cost), trim(r->>'avg_cost')) else 'cost changes' end; end if;
         if trim(r->>'sale_price') ~ num and (r->>'sale_price')::numeric is distinct from s.sale_price then chg := chg || format('price: %s → %s', coalesce(trim_scale(s.sale_price)::text, '—'), trim(r->>'sale_price')); end if;
       elsif act = 'create' and trim(r->>'quantity') ~ num then chg := chg || format('opening stock %s', trim(r->>'quantity'));
       end if;
@@ -3189,3 +3189,64 @@ begin
 end $$;
 revoke all on function public.set_kimera_access(public.staff_role, text[]) from public, anon;
 grant execute on function public.set_kimera_access(public.staff_role, text[]) to authenticated;
+
+-- ============================================================================
+-- ADMIN-03 — costs & margins are only released to roles allowed to see them.
+-- Cost columns are not readable through the API at all (column privileges);
+-- my_costs() hands them to people whose role has the 'costs' permission
+-- (Settings → Access). PO and supplier prices also go to roles with 'buy'.
+-- ============================================================================
+alter table public.kimera_access drop constraint if exists kimera_access_sections_check;
+alter table public.kimera_access add constraint kimera_access_sections_check
+  check (sections <@ array['sell','make','buy','stock','items','plan','tickets','insights','settings','costs']::text[]);
+update public.kimera_access set sections = sections || array['costs']
+ where role in ('manager','office') and not ('costs' = any(sections))
+   and not exists (select 1 from public.audit_log where table_name = 'kimera_access' and changes ? 'sections' and action = 'update');
+
+create or replace function public.my_kimera_sections() returns text[]
+language sql stable security definer set search_path = public as $$
+  select case when public.my_role() in ('boss','developer') then array['sell','make','buy','stock','items','plan','tickets','insights','settings','costs']
+              else coalesce((select sections from public.kimera_access where role = public.my_role()), '{}') end
+$$;
+
+create or replace function public.can_see_costs() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_active() and 'costs' = any(public.my_kimera_sections())
+$$;
+
+-- Re-applied at the end of every migration: hide these columns from API roles.
+create or replace function public.apply_cost_privileges() returns void
+language plpgsql security definer set search_path = public as $$
+declare t record; cols text;
+begin
+  for t in select * from (values ('stock_items', array['avg_cost']), ('stock_movements', array['unit_cost']),
+                                 ('po_lines', array['unit_cost']), ('item_suppliers', array['unit_cost'])) v(tbl, hidden) loop
+    execute format('revoke select on public.%I from anon, authenticated', t.tbl);
+    select string_agg(quote_ident(column_name), ', ' order by ordinal_position) into cols
+      from information_schema.columns where table_schema = 'public' and table_name = t.tbl and not (column_name = any(t.hidden));
+    execute format('grant select (%s) on public.%I to authenticated', cols, t.tbl);
+  end loop;
+end $$;
+revoke all on function public.apply_cost_privileges() from public, anon, authenticated;
+
+-- {row id: cost} for one table, or null when this person may not see it.
+create or replace function public.my_costs(p_table text, p_since timestamptz default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare buy boolean := 'buy' = any(public.my_kimera_sections()) and public.is_active();
+begin
+  if p_table = 'stock_items' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, avg_cost), '{}') from public.stock_items);
+  elsif p_table = 'stock_movements' and public.can_see_costs() then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.stock_movements where p_since is null or created_at >= p_since);
+  elsif p_table = 'po_lines' and (public.can_see_costs() or buy) then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.po_lines);
+  elsif p_table = 'item_suppliers' and (public.can_see_costs() or buy) then
+    return (select coalesce(jsonb_object_agg(id, unit_cost), '{}') from public.item_suppliers);
+  end if;
+  return null;
+end $$;
+revoke all on function public.my_costs(text, timestamptz) from public, anon;
+grant execute on function public.my_costs(text, timestamptz) to authenticated;
+
+-- Keep last in the file (and re-run after any migration that adds columns to these tables).
+select public.apply_cost_privileges();

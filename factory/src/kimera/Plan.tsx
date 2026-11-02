@@ -103,7 +103,7 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
               <b>{sup.get(sid)?.name ?? t("No supplier set")}</b>
               {editable && can.editStock(me.role) && <Btn small tone="primary" busy={busy === "po" + sid} icon={<ShoppingCart size={14} />} onClick={async () => {
                 setBusy("po" + sid);
-                await a.savePo({ supplier_id: sid || null }, list.map((r) => ({ item_id: r.s.id, quantity: r.buy, unit_cost: r.s.avg_cost })));
+                await a.savePo({ supplier_id: sid || null }, list.map((r) => ({ item_id: r.s.id, quantity: r.buy, unit_cost: db.item_suppliers.find((x) => x.item_id === r.s.id && x.supplier_id === sid)?.unit_cost ?? r.s.avg_cost ?? 0 })));
                 setBusy(null); onBuy();
               }}>{t("Draft purchase order")}</Btn>}
             </div>
@@ -117,7 +117,7 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
                     <td className={`num ${r.after < 0 ? "red-t" : ""}`}><b>{fmtQty(r.after)}</b></td>
                     <td className="num muted">{r.s.min_quantity ? fmtQty(r.s.min_quantity) : ""}</td>
                     <td className="num"><b>{fmtQty(r.buy)}</b> <small>{r.s.unit}</small></td>
-                    <td className="num muted">{money(r.buy * r.s.avg_cost)}</td>
+                    <td className="num muted">{money(r.s.avg_cost === null ? null : r.buy * r.s.avg_cost)}</td>
                   </tr>))}
                 </tbody>
               </table>

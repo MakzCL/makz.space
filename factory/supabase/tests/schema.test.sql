@@ -220,7 +220,7 @@ select pg_temp.check(public.import_items($j$[
   {"sku":"","name":"no sku row"}
 ]$j$::jsonb) = 3, 'Katana items import (rows without SKU skipped)');
 select pg_temp.check((select count(*) from public.suppliers) = 1, 'suppliers matched by name, case-insensitive');
-select pg_temp.check((select quantity = 20.5 and avg_cost = 12.4 from public.stock_items where sku = 'AL-SHEET'), 'imported quantity and cost');
+reset role; select pg_temp.check((select quantity = 20.5 and avg_cost = 12.4 from public.stock_items where sku = 'AL-SHEET'), 'imported quantity and cost'); set role authenticated;
 select pg_temp.check((select count(*) from public.stock_movements where reason = 'import') = 3, 'import is in the stock history');
 select pg_temp.check(public.import_bom($j$[
   {"product_sku":"SK-0123","material_sku":"AL-SHEET","quantity":"1.5"},
@@ -239,7 +239,7 @@ insert into public.po_lines (po_id, item_id, quantity, unit_cost)
 select pg_temp.check(public.receive_po_line((select id from public.po_lines limit 1), 4) = 'partial', 'part delivery leaves the PO open');
 select pg_temp.check(public.receive_po_line((select id from public.po_lines limit 1), 6) = 'received', 'full delivery closes the PO');
 select pg_temp.check((select quantity = 28 from public.stock_items where sku = 'AL-SHEET'), 'receiving adds stock');
-select pg_temp.check((select avg_cost > 12.4 and avg_cost < 15 from public.stock_items where sku = 'AL-SHEET'), 'receiving at a higher price raises the average cost');
+reset role; select pg_temp.check((select avg_cost > 12.4 and avg_cost < 15 from public.stock_items where sku = 'AL-SHEET'), 'receiving at a higher price raises the average cost'); set role authenticated;
 select pg_temp.expect_fail($$select public.receive_po_line((select id from public.po_lines limit 1), 1)$$, 'receiving on a closed PO');
 -- Finishing the Shopify job for SK-0123 ×2 consumes its recipe (made to order: no finished stock added)
 select pg_temp.become(null);
@@ -508,13 +508,13 @@ update public.purchase_orders set status = 'ordered' where id = :'k1po';
 select pg_temp.check(public.receive_po_line(:'screwline', 60, 'rcv-1') = 'partial', 'S1 receive 60 of 100 → partial');
 select pg_temp.check(public.receive_po_line(:'screwline', 60, 'rcv-1') = 'partial', 'S9 same key replayed → same answer');
 select pg_temp.check((select received = 60 and quantity - received = 40 from public.po_lines where id = :'screwline'), 'S1 received 60, outstanding 40');
-select pg_temp.check((select quantity = 60 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW'), 'S1 on hand 60 @ 0.10');
+reset role; select pg_temp.check((select quantity = 60 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW'), 'S1 on hand 60 @ 0.10'); set role authenticated;
 select pg_temp.check((select count(*) = 1 from public.stock_movements where source_type = 'po_line' and source_id = :'screwline'), 'S9 replay posts no second movement');
 select pg_temp.expect_fail($$select public.receive_po_line(:'screwline', 50)$$, 'receiving more than outstanding without confirming');
 select pg_temp.check(public.receive_po_line(:'screwline', 40) = 'partial', 'rest of the screws in, panels still due');
 select pg_temp.check(public.receive_po_line(:'panelline', 10) = 'received', 'panels in → PO received');
 select pg_temp.check(public.reverse_po_receipt(:'panelline', 2) = 'partial', 'reversing 2 panels reopens the PO');
-select pg_temp.check((select quantity = 8 and avg_cost = 5 from public.stock_items where sku = 'K1-PANEL'), 'reversal takes 2 panels out at their receipt cost');
+reset role; select pg_temp.check((select quantity = 8 and avg_cost = 5 from public.stock_items where sku = 'K1-PANEL'), 'reversal takes 2 panels out at their receipt cost'); set role authenticated;
 select pg_temp.check(public.receive_po_line(:'panelline', 2) = 'received', 'panels re-received');
 select pg_temp.expect_fail($$delete from public.purchase_orders where id = '$$ || :'k1po' || $$'$$, 'deleting a PO with receipts');
 
@@ -523,14 +523,14 @@ insert into public.purchase_orders (supplier_id, status, currency, fx_rate) sele
 insert into public.po_lines (po_id, item_id, quantity, unit_cost)
   select (select id from public.purchase_orders where currency = 'EUR'), id, 10, 10 from public.stock_items where sku = 'K1-PANEL';
 select public.receive_po_line((select l.id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where p.currency = 'EUR'), 10);
-select pg_temp.check((select quantity = 20 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL'), 'EUR receipt converted to GBP before averaging (avg 6.75)');
-select pg_temp.check((select unit_cost = 8.5 from public.stock_movements m join public.purchase_orders p on p.number = m.ref where p.currency = 'EUR'), 'movement keeps the base-currency cost 8.50');
+reset role; select pg_temp.check((select quantity = 20 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL'), 'EUR receipt converted to GBP before averaging (avg 6.75)'); set role authenticated;
+reset role; select pg_temp.check((select unit_cost = 8.5 from public.stock_movements m join public.purchase_orders p on p.number = m.ref where p.currency = 'EUR'), 'movement keeps the base-currency cost 8.50'); set role authenticated;
 
 -- Scenario 4: sub-assembly. 2 × SUB = 8 screws (0.80) + 2 panels (13.50) → 7.15 each
 select public.create_mo('K1-SUB', 'K1 sub', 2);
 select public.complete_mo((select id from public.jobs where sku = 'K1-SUB' and status <> 'done'));
 select pg_temp.check((select quantity = 92 from public.stock_items where sku = 'K1-SCREW') and (select quantity = 18 from public.stock_items where sku = 'K1-PANEL'), 'S4 SUB MO consumes 8 screws + 2 panels');
-select pg_temp.check((select quantity = 2 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'S4 SUB output costed at consumed materials: 7.15');
+reset role; select pg_temp.check((select quantity = 2 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'S4 SUB output costed at consumed materials: 7.15'); set role authenticated;
 
 -- Scenario 3: make-to-order unit + a service line on one sales order
 insert into public.orders (order_number, customer, kind) values ('', 'K1 Customer', 'order');
@@ -544,13 +544,13 @@ select id as svcline from public.order_lines where order_id = :'k1so' and sku = 
 select public.create_mo(null, null, null, null, :'unitline');
 select public.complete_mo((select id from public.jobs where order_line_id = :'unitline'));
 select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'K1-SUB') and (select quantity = 90 from public.stock_items where sku = 'K1-SCREW'), 'S4 unit uses 1 SUB + 2 screws — screws inside the SUB are not counted again');
-select pg_temp.check((select quantity = 1 and avg_cost = 7.35 from public.stock_items where sku = 'K1-UNIT'), 'S3 MTO output on stock at 7.15 + 0.20 = 7.35');
+reset role; select pg_temp.check((select quantity = 1 and avg_cost = 7.35 from public.stock_items where sku = 'K1-UNIT'), 'S3 MTO output on stock at 7.15 + 0.20 = 7.35'); set role authenticated;
 select pg_temp.check(public.ship_lines(:'k1so', jsonb_build_array(jsonb_build_object('line', :'svcline', 'qty', 2))) = 'partially_shipped', 'S3 service line ships first → partially shipped');
 select pg_temp.check((select count(*) = 0 from public.stock_movements where source_id = :'svcline'), 'services never move stock');
 select pg_temp.check(public.ship_lines(:'k1so', null, 'ship-1') = 'shipped', 'S3 rest ships → shipped');
 select pg_temp.check(public.ship_lines(:'k1so', null, 'ship-1') = 'shipped', 'S9 replayed ship is a no-op');
 select pg_temp.check((select quantity = 0 from public.stock_items where sku = 'K1-UNIT'), 'S3 unit left stock once');
-select pg_temp.check((select unit_cost = 7.35 and source_type = 'order_line' from public.stock_movements where source_id = :'unitline'), 'S3 shipment linked to its line at cost 7.35');
+reset role; select pg_temp.check((select unit_cost = 7.35 and source_type = 'order_line' from public.stock_movements where source_id = :'unitline'), 'S3 shipment linked to its line at cost 7.35'); set role authenticated;
 select pg_temp.expect_fail($$delete from public.orders where id = '$$ || :'k1so' || $$'$$, 'deleting a shipped order');
 select pg_temp.expect_fail($$delete from public.jobs where order_line_id = '$$ || :'unitline' || $$'$$, 'deleting an MO with booked stock');
 
@@ -573,8 +573,8 @@ select pg_temp.expect_fail($$update public.orders set status = 'cancelled' where
 select public.create_mo('K1-SUB', 'K1 sub again', 1);
 select public.complete_mo((select id from public.jobs where title = 'K1 sub again'));
 select public.reopen_mo((select id from public.jobs where title = 'K1 sub again'));
-select pg_temp.check((select quantity = 88 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW') and (select quantity = 18 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL')
-  and (select quantity = 1 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'reopen puts everything back at the cost it was booked at');
+reset role; select pg_temp.check((select quantity = 88 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW') and (select quantity = 18 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL')
+  and (select quantity = 1 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'reopen puts everything back at the cost it was booked at'); set role authenticated;
 select pg_temp.check((select quantity = 0.5 from public.jobs where id = public.create_mo('K1-SUB', 'Half', 0.5)), 'fractional MO quantity kept (no rounding up)');
 select pg_temp.expect_fail($$select public.adjust_stock((select id from public.stock_items where sku = 'K1-SVC'), 1, '')$$, 'stocking a service');
 select pg_temp.check(public.adjust_stock((select id from public.stock_items where sku = 'K1-SCREW'), -8, 'lost', 'adj-1') = 80
@@ -582,10 +582,10 @@ select pg_temp.check(public.adjust_stock((select id from public.stock_items wher
 select pg_temp.expect_fail($$delete from public.stock_items where sku = 'K1-SCREW'$$, 'deleting an item with stock history');
 
 -- Scenario 12: valuation reconciles to the ledger, item by item
-select pg_temp.check((select bool_and(abs(s.quantity * s.avg_cost - v.val) < 0.01) from public.stock_items s
+reset role; select pg_temp.check((select bool_and(abs(s.quantity * s.avg_cost - v.val) < 0.01) from public.stock_items s
   join (select item_id, sum(delta * unit_cost) val from public.stock_movements group by item_id) v on v.item_id = s.id
-  where s.sku like 'K1-%'), 'S12 stock value = Σ movement delta × unit cost for every item');
-select pg_temp.check((select abs(sum(-delta * unit_cost) - 7.35) < 0.001 from public.stock_movements where job_id = (select id from public.jobs where order_line_id = :'unitline') and reason = 'consume'), 'S12 unit MO cost = 7.35 from its consumption');
+  where s.sku like 'K1-%'), 'S12 stock value = Σ movement delta × unit cost for every item'); set role authenticated;
+reset role; select pg_temp.check((select abs(sum(-delta * unit_cost) - 7.35) < 0.001 from public.stock_movements where job_id = (select id from public.jobs where order_line_id = :'unitline') and reason = 'consume'), 'S12 unit MO cost = 7.35 from its consumption'); set role authenticated;
 
 -- Scenario 10: restricted actions (API level; the UI hides/disables the same buttons)
 select pg_temp.check((select count(*) > 0 from public.audit_log where table_name = 'order_lines' and row_id = :'rline'), 'audit log records order line changes');
@@ -671,7 +671,7 @@ update public.profiles set role = :'a1role' where id = :'A1';
 
 -- Kimera section access: owner decides, others only read
 select pg_temp.become(:'B');
-select pg_temp.check('insights' = any(public.my_kimera_sections()) and cardinality(public.my_kimera_sections()) = 9, 'owner sees every Kimera section');
+select pg_temp.check('insights' = any(public.my_kimera_sections()) and cardinality(public.my_kimera_sections()) = 10, 'owner sees every Kimera section (+ costs)');
 select pg_temp.check((select not ('insights' = any(sections)) and 'tickets' = any(sections) from public.kimera_access where role = 'support'), 'support: everything + tickets, no insights by default');
 select public.set_kimera_access('support', array['tickets']);
 select pg_temp.check((select sections = array['tickets'] from public.kimera_access where role = 'support'), 'owner changes what support sees');
@@ -682,6 +682,25 @@ update public.kimera_access set sections = array['insights'] where role = 'opera
 select pg_temp.check((select not ('insights' = any(sections)) from public.kimera_access where role = 'operator'), 'operator cannot grant themselves insights (RLS: 0 rows)');
 select pg_temp.check(not ('insights' = any(public.my_kimera_sections())), 'operator sections come from the table');
 select pg_temp.expect_fail($$select public.set_kimera_access('operator', array['insights'])$$, 'operator changes section access');
+
+-- ADMIN-03: costs only for roles with the 'costs' permission
+select pg_temp.become(:'B');
+select pg_temp.expect_fail($$select avg_cost from public.stock_items limit 1$$, 'reading avg_cost straight from the API (even the owner)');
+select pg_temp.check((public.my_costs('stock_items')->>(select id::text from public.stock_items where sku = 'K1-SUB'))::numeric = 7.15, 'owner gets costs through my_costs()');
+select pg_temp.check((select count(*) > 0 from public.stock_items where sku = 'K1-SUB'), 'items stay readable without the cost column');
+select pg_temp.become(:'A2');
+select pg_temp.check(public.my_costs('stock_items') is null and public.my_costs('stock_movements') is null and public.my_costs('po_lines') is null, 'operator gets no costs');
+select pg_temp.expect_fail($$select unit_cost from public.stock_movements limit 1$$, 'operator reads movement costs');
+select pg_temp.become(:'B');
+select public.set_kimera_access('operator', array['buy']);
+select pg_temp.become(:'A2');
+select pg_temp.check(public.my_costs('po_lines') is not null and public.my_costs('stock_items') is null, 'Buy access shows PO prices, not stock costs');
+select pg_temp.become(:'B');
+select public.set_kimera_access('operator', array['costs']);
+select pg_temp.become(:'A2');
+select pg_temp.check(public.my_costs('stock_items') is not null, 'owner grants costs → operator sees them');
+select pg_temp.become(:'B');
+select public.set_kimera_access('operator', array[]::text[]);
 
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');

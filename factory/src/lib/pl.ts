@@ -831,4 +831,10 @@ export const PL: Record<string, string> = {
   "Insights shows revenue, profit and margins. Hiding a section hides it in Kimera; editing rights (prices, stock, purchasing) still follow each role's permissions on the server.": "Analizy pokazują przychody, zysk i marże. Ukrycie sekcji ukrywa ją w Kimerze; prawa edycji (ceny, magazyn, zakupy) nadal wynikają z uprawnień roli na serwerze.",
   "Only the owner can change who sees what": "Tylko właściciel decyduje, kto co widzi",
   "Owner and Developer always see everything": "Właściciel i Developer zawsze widzą wszystko",
+  "Costs & margins": "Koszty i marże",
+  "Average costs, stock value, purchase prices and margins — hidden on the server, not just on screen": "Średnie koszty, wartość magazynu, ceny zakupu i marże — ukryte na serwerze, nie tylko na ekranie",
+  "Costs & margins is enforced on the server: without it, costs and stock value are never sent to that person's phone or computer. Roles with Buy still see purchase prices. Other sections hide screens in Kimera; editing rights (stock, purchasing, orders) still follow each role's permissions on the server.": "Koszty i marże są chronione na serwerze: bez tego uprawnienia koszty i wartość magazynu nie trafiają na telefon ani komputer tej osoby. Role z dostępem do Zakupów nadal widzą ceny zakupu. Pozostałe sekcje ukrywają ekrany w Kimerze; prawa edycji (magazyn, zakupy, zamówienia) nadal wynikają z uprawnień roli na serwerze.",
+  "Kimera is not open for your role yet": "Kimera nie jest jeszcze dostępna dla Twojej roli",
+  "The owner can give your role access in Kimera → Settings → Access.": "Właściciel może nadać Twojej roli dostęp w Kimera → Ustawienia → Dostęp.",
+  "cost changes": "zmiana kosztu",
 };

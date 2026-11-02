@@ -13,15 +13,16 @@ default shown in brackets. Every default can be changed later.
    - (a) push stock levels back to Shopify, and
    - (b) mark orders fulfilled in Shopify with the tracking number?
    *(Default: orders in only.)*
-4. **Publish phase 1?** Say "publish". I'll take the backup and restore point first.
+4. ~~**Publish phase 1?**~~ Answered: Phase 1, Phase 2 and the Access dashboard are live.
 
 ## Shapes the next phases
 
 5. **Locations:** which stock locations exist? For example: the downstairs workshop, the upstairs store, a dispatch area, any outside sites.
    Do you need named bins or shelves inside them?
    *(Default: one warehouse "Skalarki", bins added later.)*
-6. **Who may see costs, margins and stock value?**
-   *(Default: Owner, Manager, Office. Hidden from Assistant, Support and Operator.)*
+6. **Who may see costs, margins and stock value?** You can now set this yourself in
+   Kimera → Settings → Access → "Costs & margins". It is enforced on the server.
+   *(Default: Owner, Developer, Manager, Office. Hidden from Assistant, Support and Operator.)*
 7. **Warehouse staff:** a new "Warehouse" role, or use Assistant?
    *(Default: use Assistant.)*
 8. **VAT:**
@@ -45,3 +46,15 @@ default shown in brackets. Every default can be changed later.
     - Do you want forecasts weekly or monthly?
 15. **Recipes:** the boss's recipe spreadsheets (still waiting for them).
 16. **Demo data:** remove the demo catalogue and orders before real use? If so, when?
+
+## Added while building (2 Nov)
+
+17. **Shopify VAT and currency:** are your Shopify prices entered with VAT included? Do you sell in more than one currency on Shopify (GBP, USD, EUR)?
+    *(Default: Shopify order lines take the default VAT rate with prices before VAT, and the order keeps Shopify's currency.)*
+18. **Sales prices:** should sales prices (order amounts, the price on a job card) also be hidden from some roles, or only costs and margins?
+    *(Default: only costs and margins are hidden. Anyone who can open Sell, and operators on their job cards, still see sales prices.)*
+19. **Who gets the Owner role?** Karol is now Developer (full access). Should the boss (Mirosław?) be made Owner?
+    *(Default: Owner is left unassigned until you say.)*
+20. **Assistants and stock costs:** assistants keep stock and enter costs when they book opening stock, but can no longer see average cost or stock value. Is that right?
+    *(Default: yes, hidden. Tick "Costs & margins" for Assistant in Settings → Access to change it.)*
+

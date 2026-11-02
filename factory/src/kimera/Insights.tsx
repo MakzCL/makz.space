@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { canSeeCosts } from "../lib/roles";
 import { t } from "../lib/i18n";
 import { useStore } from "../lib/store";
 import { money, stockLevels } from "../screens/Inventory";
@@ -9,7 +10,8 @@ const WEEKS = 12;
 const monday = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
 
 export function KInsights() {
-  const { db } = useStore();
+  const { db, me } = useStore();
+  const costs = canSeeCosts(me.role, db.kimera_access);
   const info = useMemo(() => analyse(db), [db]);
   const lv = useMemo(() => stockLevels(db), [db]);
   const now = new Date();
@@ -22,7 +24,7 @@ export function KInsights() {
   const moOpen = db.jobs.filter((j) => j.route?.length && j.status !== "done");
   const week0 = monday(now).toISOString();
   const madeWeek = db.jobs.filter((j) => j.route?.length && j.status === "done" && (j.completed_at ?? "") >= week0).length;
-  const stockValue = db.stock_items.filter((s) => !s.archived).reduce((x, s) => x + Math.max(0, s.quantity) * s.avg_cost, 0);
+  const stockValue = db.stock_items.filter((s) => !s.archived).reduce((x, s) => x + Math.max(0, s.quantity) * (s.avg_cost ?? 0), 0);
   const reorder = db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity - (lv.committed.get(s.id) ?? 0) + (lv.expected.get(s.id) ?? 0) <= s.min_quantity).length;
   const tickets = db.issues.filter((i) => i.status !== "resolved").length;
 
@@ -51,7 +53,7 @@ export function KInsights() {
         <Stat label={t("Open orders")} value={open.length} sub={money(open.reduce((x, o) => x + (o.amount ?? 0), 0))} />
         <Stat label={t("Late orders")} value={late} tone={late ? "bad" : "ok"} sub={late ? t("past their deadline") : t("all on time")} />
         <Stat label={t("In production")} value={moOpen.length} sub={t("{n} finished this week", { n: madeWeek })} />
-        <Stat label={t("Stock value")} value={money(stockValue)} sub={t("at average cost")} />
+        {costs && <Stat label={t("Stock value")} value={money(stockValue)} sub={t("at average cost")} />}
         <Stat label={t("To reorder")} value={reorder} tone={reorder ? "warn" : undefined} sub={t("items at or below reorder point")} />
         <Stat label={t("Open tickets")} value={tickets} tone={tickets ? "warn" : undefined} />
       </div>

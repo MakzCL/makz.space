@@ -266,7 +266,8 @@ export interface AuditEntry {
   action: "insert" | "update" | "delete";
   changes: Record<string, unknown>;
 }
-export type KimeraSection = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings";
+/** Kimera sections, plus "costs" = may see costs, stock value and margins (ADMIN-03). */
+export type KimeraSection = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings" | "costs";
 export interface KimeraAccess {
   role: Role;
   sections: KimeraSection[];
@@ -362,7 +363,8 @@ export interface StockItem {
   quantity: number;
   /** Reorder point. */
   min_quantity: number;
-  avg_cost: number;
+  /** null when this person's role may not see costs (Settings → Access → Costs). */
+  avg_cost: number | null;
   sale_price: number | null;
   supplier_id: string | null;
   supplier_code: string;
@@ -423,7 +425,8 @@ export interface PoLine {
   item_id: string;
   quantity: number;
   received: number;
-  unit_cost: number;
+  /** null when hidden from this role (needs Buy or Costs). */
+  unit_cost: number | null;
   created_at: string;
 }
 

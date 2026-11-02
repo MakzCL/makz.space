@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { SceneTabs } from "../components/Scene";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet, list } from "../components/ui";
 import { opKey, useActions } from "../lib/actions";
+import { docOf, useDocLink } from "../lib/doclink";
 import { cleanNumber, download, guessColumns, parseCsv, toCsv } from "../lib/csv";
 import { t } from "../lib/i18n";
-import { can } from "../lib/roles";
+import { can, canSeeCosts } from "../lib/roles";
 import { useStore } from "../lib/store";
 import { clock, dayLabel } from "../lib/time";
 import type { DB, ItemKind, MoveReason, StockItem } from "../lib/types";
@@ -98,6 +99,7 @@ export function Inventory() {
 /* ---------------------------------------------------------------- items -- */
 export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
   const { db, me } = useStore();
+  const costs = canSeeCosts(me.role, db.kimera_access);
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<ItemKind | "all">("all");
   const allowed = (k: ItemKind) => !kinds || kinds.includes(k);
@@ -116,7 +118,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
     .filter((s) => !q || `${s.sku} ${s.name} ${s.location} ${s.category} ${s.barcode ?? ""} ${s.supplier_code}`.toLowerCase().includes(q.toLowerCase()) || refsBySku(db, q).has(s.id))
     .map((s) => {
       const committed = lv.committed.get(s.id) ?? 0, expected = lv.expected.get(s.id) ?? 0;
-      return { s, committed, expected, available: s.quantity - committed, value: s.quantity * s.avg_cost };
+      return { s, committed, expected, available: s.quantity - committed, value: s.avg_cost === null ? 0 : s.quantity * s.avg_cost };
     })
     .filter((r) => !low || (r.s.min_quantity > 0 && r.available + r.expected <= r.s.min_quantity))
     .sort((a, b) => {
@@ -136,8 +138,8 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search SKU, name, location, category…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="tb-select"><option value="">{t("All categories")}</option>{cats.map((c) => <option key={c}>{c}</option>)}</select>
         <Btn tone="soft" icon={<Download size={17} />} onClick={() => download(`stock-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(
-          ["SKU", "Name", "Type", "Category", "Location", "Unit", "In stock", "Committed", "Expected", "Available", "Reorder point", "Average cost", "Value", "Supplier"],
-          rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.s.location, r.s.unit, r.s.quantity, r.committed, r.expected, r.available, r.s.min_quantity, r.s.avg_cost, r.value.toFixed(2), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
+          ["SKU", "Name", "Type", "Category", "Location", "Unit", "In stock", "Committed", "Expected", "Available", "Reorder point", ...(costs ? ["Average cost", "Value"] : []), "Supplier"],
+          rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.s.location, r.s.unit, r.s.quantity, r.committed, r.expected, r.available, r.s.min_quantity, ...(costs ? [r.s.avg_cost ?? "", r.value.toFixed(2)] : []), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
         {can.editStock(me.role) && <Btn tone="primary" icon={<Plus size={18} />} onClick={() => setOpen("new")}>{t("New item")}</Btn>}
       </div>
       <div className="row between wrap">
@@ -145,7 +147,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
           {(["all", "product", "material", "part", "service"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 4) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
           <Chip on={low} onClick={() => setLow(!low)}>{t("To reorder")}{lowCount ? ` · ${lowCount}` : ""}</Chip>
         </div>
-        <small className="muted">{t("{n} items", { n: rows.length })} · {t("stock value")} <b>{money(total)}</b></small>
+        <small className="muted">{t("{n} items", { n: rows.length })}{costs && <> · {t("stock value")} <b>{money(total)}</b></>}</small>
       </div>
       {rows.length ? (
         <div className="tbl-wrap">
@@ -153,7 +155,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
             <thead><tr>
               {th("sku", "SKU")}{th("name", t("Name"))}<th>{t("Category")}</th><th>{t("Location")}</th>
               {th("quantity", t("In stock"), true)}<th className="num">{t("Committed")}</th><th className="num">{t("Expected")}</th>
-              {th("available", t("Available"), true)}<th className="num">{t("Reorder at")}</th><th className="num">{t("Avg cost")}</th>{th("value", t("Value"), true)}
+              {th("available", t("Available"), true)}<th className="num">{t("Reorder at")}</th>{costs && <><th className="num">{t("Avg cost")}</th>{th("value", t("Value"), true)}</>}
             </tr></thead>
             <tbody>
               {rows.slice(0, 1500).map((r) => {
@@ -168,8 +170,8 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
                     <td className="num muted">{r.expected ? fmtQty(r.expected) : ""}</td>
                     <td className={`num ${r.available < 0 ? "red-t" : ""}`}>{fmtQty(r.available)}</td>
                     <td className="num muted">{r.s.min_quantity ? fmtQty(r.s.min_quantity) : ""}</td>
-                    <td className="num muted">{money(r.s.avg_cost)}</td>
-                    <td className="num">{money(r.value)}</td>
+                    {costs && <><td className="num muted">{money(r.s.avg_cost)}</td>
+                    <td className="num">{money(r.value)}</td></>}
                   </tr>
                 );
               })}
@@ -216,7 +218,9 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
             <div className="tri">
               <div className="hl"><small>{t("In stock")}</small><b>{fmtQty(live.quantity)}</b><em>{live.unit}</em></div>
               <div><small>{t("Available")}</small><b>{fmtQty(live.quantity - (lv.committed.get(live.id) ?? 0))}</b><em>{t("{n} committed", { n: fmtQty(lv.committed.get(live.id) ?? 0) })}</em></div>
-              <div><small>{t("Value")}</small><b>{money(live.quantity * live.avg_cost)}</b><em>{t("avg {cost}", { cost: money(live.avg_cost) })}</em></div>
+              {live.avg_cost !== null
+                ? <div><small>{t("Value")}</small><b>{money(live.quantity * live.avg_cost)}</b><em>{t("avg {cost}", { cost: money(live.avg_cost) })}</em></div>
+                : <div><small>{t("Reorder at")}</small><b>{live.min_quantity ? fmtQty(live.min_quantity) : "—"}</b><em>{live.unit}</em></div>}
             </div>
             <div className="seg-full"><Segmented value={tab} onChange={setTab} options={[
               { value: "stock", label: t("Stock") }, { value: "details", label: t("Details") }, ...(live.kind !== "material" ? [{ value: "recipe" as const, label: t("Recipe") }] : []),
@@ -389,6 +393,7 @@ export function RecipeEditor({ product }: { product: StockItem }) {
 /* -------------------------------------------------------------- history -- */
 function MoveTable({ moves, showItem = true }: { moves: DB["stock_movements"]; showItem?: boolean }) {
   const { db, person } = useStore();
+  const open = useDocLink();
   const byId = new Map(db.stock_items.map((s) => [s.id, s]));
   return (
     <div className="tbl-wrap">
@@ -404,7 +409,10 @@ function MoveTable({ moves, showItem = true }: { moves: DB["stock_movements"]; s
                 <td className={`num ${m.delta < 0 ? "red-t" : "ok-t"}`}><b>{m.delta > 0 ? "+" : ""}{fmtQty(m.delta)}</b></td>
                 <td className="num muted">{fmtQty(m.after)}</td>
                 <td>{t(REASON[m.reason])}{m.note && <small className="muted"> · {m.note}</small>}</td>
-                <td className="muted">{m.ref}</td>
+                <td className="muted">{(() => {
+                  const d = open ? docOf(db, m) : null;
+                  return d ? <button type="button" className="link code" onClick={() => open!(d)} title={t("Open")}>{m.ref || d.label}</button> : m.ref;
+                })()}</td>
                 <td className="muted">{person(m.user_id)?.full_name.split(" ")[0] ?? (m.user_id ? "—" : t("System"))}</td>
               </tr>
             );

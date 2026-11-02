@@ -14,7 +14,8 @@ import { StoreProvider, useHasStore, useStore } from "../lib/store";
 import { HistoryView, ImportSheet, ItemsView, RecipesView, stockLevels } from "../screens/Inventory";
 import { Login } from "../screens/Login";
 import { ProductionSheet } from "../screens/Production";
-import { PurchasingView, SuppliersView } from "../screens/Purchasing";
+import { PoSheet, PurchasingView, SuppliersView } from "../screens/Purchasing";
+import { DocLinkProvider } from "../lib/doclink";
 import { KInsights } from "./Insights";
 import { Make, MoSheet } from "./Make";
 import { Plan } from "./Plan";
@@ -113,6 +114,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   const [importing, setImporting] = useState(false);
   const [routes, setRoutes] = useState(false);
   const [jobPeek, setJobPeek] = useState<string | null>(null);
+  const [poPeek, setPoPeek] = useState<string | null>(null);
   const main = useRef<HTMLElement>(null);
   // Section access is chosen by the owner in Settings → Access (Owner/Developer always see all).
   const allowed = kimeraSections(me.role, db.kimera_access) as Tab[];
@@ -217,10 +219,13 @@ function Shell({ signOut }: { signOut: () => void }) {
       <main ref={main} className="k-main">
         {!ready ? <FullLoader label={t("Loading Kimera…")} /> : (
           <motion.div key={cur ?? "none"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
-            <ErrorBoundary place={`kimera:${cur}`}>{screen}</ErrorBoundary>
+            <ErrorBoundary place={`kimera:${cur}`}>
+              <DocLinkProvider value={(d) => d.kind === "po" ? setPoPeek(d.id) : d.kind === "job" ? setJobPeek(d.id) : allowed.includes("sell") ? openOrder(d.id) : undefined}>{screen}</DocLinkProvider>
+            </ErrorBoundary>
           </motion.div>
         )}
       </main>
+      <PoSheet po={poPeek ? db.purchase_orders.find((p) => p.id === poPeek) ?? null : null} onClose={() => setPoPeek(null)} />
       <ImportSheet open={importing} onClose={() => setImporting(false)} />
       <ProductionSheet open={routes} onClose={() => setRoutes(false)} />
       <MoSheet job={jobPeek ? db.jobs.find((j) => j.id === jobPeek) ?? null : null} onClose={() => setJobPeek(null)} onOrder={(id) => { setJobPeek(null); setTicket(null); openOrder(id); }} />

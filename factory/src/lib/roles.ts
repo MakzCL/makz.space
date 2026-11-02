@@ -44,12 +44,12 @@ export const can = {
 };
 
 /** Kimera sections, in menu order. */
-export const KIMERA_SECTIONS: KimeraSection[] = ["sell", "make", "buy", "stock", "items", "plan", "tickets", "insights", "settings"];
+export const KIMERA_SECTIONS: KimeraSection[] = ["sell", "make", "buy", "stock", "items", "plan", "tickets", "insights", "settings", "costs"];
 /** Used until the owner saves a choice (matches the database seed). */
 export const KIMERA_DEFAULT: Record<Role, KimeraSection[]> = {
   developer: KIMERA_SECTIONS, boss: KIMERA_SECTIONS,
   manager: KIMERA_SECTIONS, office: KIMERA_SECTIONS,
-  assistant: ["sell", "make", "buy", "stock", "items", "plan", "tickets"],
+  assistant: ["sell", "make", "buy", "stock", "items", "plan", "tickets"], // no costs by default
   support: ["sell", "make", "buy", "stock", "items", "plan", "tickets"],
   operator: [],
 };
@@ -59,3 +59,5 @@ export function kimeraSections(role: Role, rows: { role: Role; sections: KimeraS
   const row = rows.find((r) => r.role === role);
   return row ? KIMERA_SECTIONS.filter((x) => row.sections.includes(x)) : KIMERA_DEFAULT[role];
 }
+/** May this role see costs, stock value and margins? (Settings → Access → Costs) */
+export const canSeeCosts = (role: Role, rows: { role: Role; sections: KimeraSection[] }[]) => kimeraSections(role, rows).includes("costs");

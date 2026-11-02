@@ -153,10 +153,12 @@ const fmt = (v: unknown) => v === null || v === undefined || v === "" ? "—" : 
 
 const SECTION_LABEL: Record<KimeraSection, string> = {
   sell: "Sell", make: "Make", buy: "Buy", stock: "Stock", items: "Items", plan: "Plan", tickets: "Tickets", insights: "Insights", settings: "Settings",
+  costs: "Costs & margins",
 };
 const SECTION_HINT: Partial<Record<KimeraSection, string>> = {
   sell: "Sales orders, quotes, customers, prices", buy: "Purchase orders and supplier prices", stock: "Stock levels and stock value",
   insights: "Revenue, profit and margins", settings: "Company, tax rates and activity log",
+  costs: "Average costs, stock value, purchase prices and margins — hidden on the server, not just on screen",
 };
 
 /** Owner dashboard: which Kimera sections each role may open (Owner and Developer: always everything). */
@@ -207,7 +209,7 @@ function Access() {
         </table>
       </div>
       {err && <p className="hint red-t">{err}</p>}
-      <p className="fine" style={{ textAlign: "left" }}>{t("Insights shows revenue, profit and margins. Hiding a section hides it in Kimera; editing rights (prices, stock, purchasing) still follow each role's permissions on the server.")}</p>
+      <p className="fine" style={{ textAlign: "left" }}>{t("Costs & margins is enforced on the server: without it, costs and stock value are never sent to that person's phone or computer. Roles with Buy still see purchase prices. Other sections hide screens in Kimera; editing rights (stock, purchasing, orders) still follow each role's permissions on the server.")}</p>
       {last && <p className="fine" style={{ textAlign: "left" }}>{t("Last change")} {new Date(last.updated_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{last.updated_by ? ` · ${person(last.updated_by)?.full_name ?? ""}` : ""}</p>}
     </div>
   );

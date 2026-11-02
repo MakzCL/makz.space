@@ -208,7 +208,7 @@ unless manual.
 | --- | --- | --- |
 | ADMIN-01 | Complete | join links + PIN + role, activate/deactivate, role changes guarded (`guard_profile_update`), tested |
 | ADMIN-02 | Partial | 6 roles; no dedicated warehouse operator |
-| ADMIN-03 | Missing | D9 |
+| ADMIN-03 | **Complete** (P2B) | server-side cost hiding + Costs & margins permission |
 | ADMIN-04 | Partial | writes gated by role in RLS + RPC checks; delete guards on posted stock; **audit_log** (admins read) — no per-area permissions yet |
 | ADMIN-05 | Missing | |
 | ADMIN-06 | Missing | |
@@ -303,6 +303,13 @@ key per intent and disables the button while it runs.
 
 - 2026-11-02 — **Phase 2 part A + Developer role published** (migrations `developer_role_enum`, `kimera_phase2_master_data_developer_role`; deploy `32285036` of `1cad042`). Restore point: `backup_20261102_phase2` + branch `backup/pre-phase2-2026-11-02`. Karol Kuklinski → Developer (same full access as Owner).
 - 2026-11-02 — **Kimera section access published** (ADMIN-02/04): Settings → Access, owner-only `set_kimera_access()`, `kimera_access` per role; nav, deep links and Create menu follow it; Kimera gate now uses it (support can open Kimera). Defaults: manager/office all; assistant/support all but Insights & Settings; operator none. Migration `kimera_section_access`, deploy of `6158a10`. Restore point: `backup_20261102_access` + branch `backup/pre-access-2026-11-02`. Note: this hides sections in the app; protecting cost/price *data* at the API is ADMIN-03 (next).
+
+- 2026-11-02 — **Phase 2 part B done locally — not yet published.**
+  - ADMIN-03 → **Complete** (core): cost columns (`stock_items.avg_cost`, `stock_movements.unit_cost`, `po_lines.unit_cost`, `item_suppliers.unit_cost`) are not readable through the API (column privileges, `apply_cost_privileges()`); `my_costs()` releases them only to roles with the new **Costs & margins** permission (Settings → Access), PO/supplier prices also to roles with Buy. UI hides cost columns, stock value, Insights stock value; import check masks cost changes.
+  - INV-04 → **Complete**: every stock movement's reference opens its purchase order, sales order or manufacturing order in Kimera (`lib/doclink.tsx`), using `source_type/source_id`, falling back to the reference text for older rows.
+  - Questions list kept in `docs/open-questions.md` + `docs/open-questions.pdf` (regenerate: `node docs/tools/md2pdf.cjs docs/open-questions.md docs/open-questions.pdf`).
+  - Tests: 280 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: Developer sees Avg cost/Value, Support does not; movement links open the source document.
+  - Still open in phase 2: Shopify VAT/currency mapping (waits for question 17). Sales-price hiding waits for question 18.
 
 ## Next steps (continuation plan)
 

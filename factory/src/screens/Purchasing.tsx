@@ -37,7 +37,7 @@ export function PurchasingView() {
 
   const createFor = async (supplierId: string | null, items: typeof suggest) => {
     const po = await a.savePo({ supplier_id: supplierId }, items.map((r) => ({
-      item_id: r.s.id, quantity: Math.max(1, Math.ceil(r.s.min_quantity * 2 - r.avail)), unit_cost: r.s.avg_cost,
+      item_id: r.s.id, quantity: Math.max(1, Math.ceil(r.s.min_quantity * 2 - r.avail)), unit_cost: r.s.avg_cost ?? 0,
     })));
     if (po) setOpen(po);
   };
@@ -58,7 +58,7 @@ export function PurchasingView() {
             <tbody>
               {pos.map((p) => {
                 const ls = db.po_lines.filter((l) => l.po_id === p.id);
-                const total = ls.reduce((x, l) => x + l.quantity * l.unit_cost, 0);
+                const total = ls.some((l) => l.unit_cost === null) ? null : ls.reduce((x, l) => x + l.quantity * (l.unit_cost ?? 0), 0);
                 const q = ls.reduce((x, l) => x + l.quantity, 0), r = ls.reduce((x, l) => x + Math.min(l.received, l.quantity), 0);
                 const late = p.expected_date && ["ordered", "partial"].includes(p.status) && new Date(p.expected_date + "T23:59") < new Date();
                 return (
@@ -103,7 +103,7 @@ export function PurchasingView() {
   );
 }
 
-function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => void }) {
+export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => void }) {
   const { db, me, person } = useStore();
   const a = useActions();
   const p = po ? db.purchase_orders.find((x) => x.id === po.id) ?? po : null;
@@ -126,7 +126,8 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
   const cur = p.currency ?? base;
   const foreign = cur !== base;
   const fmtCost = (n: number | null) => n === null ? "—" : foreign ? `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${cur}` : money(n);
-  const total = lines.reduce((x, l) => x + l.quantity * l.unit_cost, 0);
+  const hidden = lines.some((l) => l.unit_cost === null);
+  const total = hidden ? null : lines.reduce((x, l) => x + l.quantity * (l.unit_cost ?? 0), 0);
   const book = async (l: (typeof lines)[number], v: number) => {
     const left = l.quantity - l.received;
     let over = false;
@@ -178,8 +179,8 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
                   <tr key={l.id} className="static">
                     <td><span className="code">{it?.sku}</span></td><td>{it?.name}</td>
                     <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== l.quantity) a.savePo({ id: p.id }, [{ id: l.id, quantity: v }]); }} /> : fmtQty(l.quantity)} <small>{it?.unit}</small></td>
-                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.unit_cost} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== l.unit_cost) a.savePo({ id: p.id }, [{ id: l.id, unit_cost: v }]); }} /> : fmtCost(l.unit_cost)}</td>
-                    <td className="num">{fmtCost(l.quantity * l.unit_cost)}</td>
+                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.unit_cost ?? ""} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== l.unit_cost) a.savePo({ id: p.id }, [{ id: l.id, unit_cost: v }]); }} /> : fmtCost(l.unit_cost)}</td>
+                    <td className="num">{fmtCost(l.unit_cost === null ? null : l.quantity * l.unit_cost)}</td>
                     {!draft && <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.received)}
                       {editable && l.received > 0 && p.status !== "cancelled" && <button type="button" className="icon-btn subtle" disabled={!!busy} title={t("Reverse receipt")} aria-label={t("Reverse receipt")} onClick={() => reverse(l)}><Undo2 size={14} /></button>}</td>}
                     {receiving && editable && <td className="num">{left > 0 ? (
@@ -193,7 +194,7 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
               })}
               {!lines.length && <tr className="static"><td colSpan={7} className="muted">{t("No lines yet")}</td></tr>}
             </tbody>
-            {lines.length > 0 && <tfoot><tr><td colSpan={4}>{t("Total")}</td><td className="num"><b>{fmtCost(total)}</b>{foreign && <><br /><small className="muted">≈ {money(total * p.fx_rate)}</small></>}</td>{!draft && <td />}{receiving && editable && <td />}{draft && editable && <td />}</tr></tfoot>}
+            {lines.length > 0 && <tfoot><tr><td colSpan={4}>{t("Total")}</td><td className="num"><b>{fmtCost(total)}</b>{foreign && total !== null && <><br /><small className="muted">≈ {money(total * p.fx_rate)}</small></>}</td>{!draft && <td />}{receiving && editable && <td />}{draft && editable && <td />}</tr></tfoot>}
           </table>
         </div>
         {draft && editable && (

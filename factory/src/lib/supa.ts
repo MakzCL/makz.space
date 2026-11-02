@@ -11,6 +11,18 @@ const TIME_COL: Partial<Record<TableName, string>> = {
   notifications: "created_at", messages: "created_at", message_reactions: "created_at", calls: "created_at", call_participants: "created_at",
 };
 
+/**
+ * ADMIN-03: cost columns are not readable through the API. These tables are read
+ * column by column, and the costs come from my_costs() — only for roles whose
+ * Kimera access includes "Costs" (PO/supplier prices also for "Buy").
+ */
+const COST: Partial<Record<TableName, { col: string; cols: string }>> = {
+  stock_items: { col: "avg_cost", cols: "id,sku,name,location,unit,quantity,min_quantity,updated_by,updated_at,created_at,kind,category,sale_price,supplier_id,supplier_code,lead_days,notes,archived,make_min,make_batch,barcode" },
+  stock_movements: { col: "unit_cost", cols: "id,item_id,delta,after,reason,ref,note,user_id,created_at,job_id,source_type,source_id" },
+  po_lines: { col: "unit_cost", cols: "id,po_id,item_id,quantity,received,created_at" },
+  item_suppliers: { col: "unit_cost", cols: "id,item_id,supplier_id,supplier_sku,lead_days,preferred,created_at" },
+};
+
 export class SupabaseBackend implements Backend {
   sb: SupabaseClient;
 
@@ -48,22 +60,36 @@ export class SupabaseBackend implements Backend {
   async signOut() { await this.sb.auth.signOut(); }
 
   async list<T extends TableName>(table: T) {
-    let q = this.sb.from(table).select("*");
+    const cost = COST[table];
+    let q = this.sb.from(table).select(cost?.cols ?? "*");
     const col = TIME_COL[table];
-    if (col) q = q.gte(col, new Date(Date.now() - WINDOW_DAYS * 864e5).toISOString());
-    const { data, error } = await q.limit(5000);
+    const since = col ? new Date(Date.now() - WINDOW_DAYS * 864e5).toISOString() : null;
+    if (col) q = q.gte(col, since!);
+    const [{ data, error }, costs] = await Promise.all([
+      q.limit(5000),
+      cost ? this.sb.rpc("my_costs", { p_table: table, p_since: since }) : Promise.resolve(null),
+    ]);
     if (error) throw error;
-    return (data ?? []) as Row<T>[];
+    const rows = (data ?? []) as unknown as Record<string, unknown>[];
+    if (cost) {
+      const map = (costs && !costs.error ? costs.data : null) as Record<string, number> | null;
+      for (const r of rows) r[cost.col] = map ? map[r.id as string] ?? null : null;
+    }
+    return rows as unknown as Row<T>[];
   }
   async insert<T extends TableName>(table: T, row: Partial<Row<T>>) {
-    const { data, error } = await this.sb.from(table).insert(row as never).select().single();
+    const cost = COST[table];
+    const { data, error } = await this.sb.from(table).insert(row as never).select(cost?.cols ?? "*").single();
     if (error) throw error;
-    return data as Row<T>;
+    if (cost) (data as unknown as Record<string, unknown>)[cost.col] = (row as Record<string, unknown>)[cost.col] ?? null;
+    return data as unknown as Row<T>;
   }
   async update<T extends TableName>(table: T, id: string, patch: Partial<Row<T>>) {
-    const { data, error } = await this.sb.from(table).update(patch as never).eq("id", id).select().single();
+    const cost = COST[table];
+    const { data, error } = await this.sb.from(table).update(patch as never).eq("id", id).select(cost?.cols ?? "*").single();
     if (error) throw error;
-    return data as Row<T>;
+    if (cost) (data as unknown as Record<string, unknown>)[cost.col] = (patch as Record<string, unknown>)[cost.col] ?? null;
+    return data as unknown as Row<T>;
   }
   async remove(table: TableName, id: string) {
     const { error } = await this.sb.from(table).delete().eq("id", id);
