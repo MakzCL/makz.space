@@ -1,6 +1,7 @@
-import { ArrowRightLeft, Download, Factory, Plus, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { ArrowRightLeft, Download, Factory, PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge, Btn, Empty, Field, HoldButton, Segmented, Sheet } from "../components/ui";
+import { opKey } from "../lib/actions";
 import { cleanNumber, download, toCsv } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { can } from "../lib/roles";
@@ -196,7 +197,9 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
             <div className="card flat stack">
               <small className="label"><Truck size={13} /> {t("Delivery")}</small>
               <div className="seg-full"><Segmented value={o.delivery} onChange={(v) => editable && k.setDelivery(o.id, v)} options={DELIVERY.map((d) => ({ value: d.value, label: t(d.label) }))} /></div>
-              <p className="fine">{t("Items sold from stock leave stock when the order is shipped. Made-to-order items never enter stock.")}</p>
+              {o.delivery === "partially_shipped" && <p className="hint">{t("Partly shipped — the rest is still to go.")}</p>}
+              <p className="fine">{t("Stock leaves when a line ships. Made-to-order items go on stock when their manufacturing order is done and leave when their line ships. Services never touch stock.")}</p>
+              {editable && <Fulfilment info={info} />}
               <div className="row gap">
                 {field("tracking", t("Tracking number"))}
                 {field("shipping_method", t("Shipping method"))}
@@ -223,5 +226,69 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
         </div>
       )}
     </Sheet>
+  );
+}
+
+/** Ship part of an order, undo a shipment, or book a customer return — line by line. */
+function Fulfilment({ info }: { info: OrderInfo }) {
+  const k = useKimera();
+  const o = info.order;
+  const [ship, setShip] = useState<Record<string, string>>({});
+  const [ret, setRet] = useState<Record<string, string>>({});
+  const [scrap, setScrap] = useState<Record<string, boolean>>({});
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState<"" | "ship" | "return" | "undo">("");
+  const [key, setKey] = useState(opKey);
+  const lines = info.lines.map((x) => x.line);
+  const toShip = lines.filter((l) => l.quantity > l.shipped);
+  const out = lines.filter((l) => l.shipped - l.returned > 0);
+  if (!lines.length) return null;
+  const num = (v: string | undefined, d: number) => { const n = Number(cleanNumber(v ?? String(d))); return Number.isFinite(n) ? n : 0; };
+  const go = async (what: "ship" | "return" | "undo", fn: () => Promise<unknown>) => {
+    setBusy(what); const r = await fn(); setBusy("");
+    if (r !== null) { setKey(opKey()); setShip({}); setRet({}); setScrap({}); setReason(""); }
+  };
+  const shipList = toShip.map((l) => ({ line: l.id, qty: num(ship[l.id], l.quantity - l.shipped) })).filter((x) => x.qty > 0);
+  const retList = out.map((l) => ({ line: l.id, qty: num(ret[l.id], 0), restock: !scrap[l.id] })).filter((x) => x.qty > 0);
+  return (
+    <div className="stack">
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th>{t("Item")}</th><th className="num">{t("Ordered")}</th><th className="num">{t("Shipped")}</th><th className="num">{t("Returned")}</th>
+            {o.status === "open" && toShip.length > 0 && <th className="num">{t("Ship now")}</th>}{out.length > 0 && <th className="num">{t("Return")}</th>}</tr></thead>
+          <tbody>
+            {lines.map((l) => {
+              const left = l.quantity - l.shipped, back = l.shipped - l.returned;
+              return (
+                <tr key={l.id} className="static">
+                  <td>{l.name || l.sku}</td>
+                  <td className="num">{fmtQty(l.quantity)}</td>
+                  <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.shipped)}</td>
+                  <td className="num">{l.returned ? fmtQty(l.returned) : "—"}</td>
+                  {o.status === "open" && toShip.length > 0 && <td className="num">{left > 0
+                    ? <input className="cell-input" inputMode="decimal" aria-label={t("Ship now")} value={ship[l.id] ?? String(left)} onChange={(e) => setShip({ ...ship, [l.id]: e.target.value })} />
+                    : <PackageCheck size={16} className="ok-t" />}</td>}
+                  {out.length > 0 && <td className="num">{back > 0 ? (
+                    <span className="row gap-s end">
+                      <input className="cell-input" inputMode="decimal" aria-label={t("Return")} placeholder="0" value={ret[l.id] ?? ""} onChange={(e) => setRet({ ...ret, [l.id]: e.target.value })} />
+                      <label className="row gap-s fine" title={t("Not resaleable: recorded as returned without going back on stock")}>
+                        <input type="checkbox" checked={!!scrap[l.id]} onChange={(e) => setScrap({ ...scrap, [l.id]: e.target.checked })} />{t("Scrap")}</label>
+                    </span>) : "—"}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="row gap wrap">
+        {o.status === "open" && toShip.length > 0 && <Btn tone="primary" icon={<Truck size={16} />} busy={busy === "ship"} disabled={!shipList.length || !!busy}
+          onClick={() => go("ship", () => k.shipLines(o.id, shipList, key))}>{t("Ship selected")}</Btn>}
+        {out.length > 0 && <Btn tone="soft" icon={<Undo2 size={16} />} busy={busy === "return"} disabled={!retList.length || !!busy}
+          onClick={() => go("return", () => k.returnLines(o.id, retList, reason, key))}>{t("Book return")}</Btn>}
+        {out.length > 0 && !lines.some((l) => l.returned > 0) && <Btn tone="ghost" busy={busy === "undo"} disabled={!!busy}
+          onClick={() => go("undo", () => k.unshipLines(o.id, null, key))}>{t("Undo shipment")}</Btn>}
+      </div>
+      {out.length > 0 && <Field label={t("Return reason")}><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("e.g. damaged in transit")} /></Field>}
+    </div>
   );
 }

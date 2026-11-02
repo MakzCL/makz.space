@@ -49,7 +49,7 @@ export function analyse(db: DB) {
 
   // Free finished stock, handed out to orders in rank order.
   const free = new Map<string, number>();
-  for (const s of db.stock_items) free.set(s.id, s.quantity - (s.kind === "material" ? lv.committed.get(s.id) ?? 0 : 0));
+  for (const s of db.stock_items) free.set(s.id, s.quantity - (lv.committed.get(s.id) ?? 0));
   const freeExp = new Map(lv.expected);
 
   const orders = [...db.orders].sort((a, b) => (a.ordered_at ?? a.created_at).localeCompare(b.ordered_at ?? b.created_at));
@@ -67,14 +67,17 @@ export function analyse(db: DB) {
       } else {
         ingredients = S("Not applicable", "none");
         if (o.kind === "quote") sales = item ? (free.get(item.id) ?? 0) >= line.quantity ? S("In stock", "ok") : S("Not available", "bad") : S("Not tracked", "none");
-        else if (o.delivery !== "not_shipped") sales = S(o.delivery === "packed" ? "Picked" : "Sent", "ok");
+        else if (line.shipped >= line.quantity) sales = S("Sent", "ok");
+        else if (o.delivery === "packed") sales = S("Picked", "ok");
         else if (!item) sales = S("Not tracked", "none");
+        else if (item.kind === "service") sales = S("Service", "none");
         else {
+          const need = line.quantity - line.shipped;
           const f = free.get(item.id) ?? 0;
-          if (open && f >= line.quantity) { free.set(item.id, f - line.quantity); sales = S("In stock", "ok"); }
+          if (open && f >= need) { free.set(item.id, f - need); sales = S("In stock", "ok"); }
           else {
-            const short = line.quantity - Math.max(0, f);
-            if (open) free.set(item.id, Math.max(0, f) - Math.min(line.quantity, Math.max(0, f)));
+            const short = need - Math.max(0, f);
+            if (open) free.set(item.id, Math.max(0, f) - Math.min(need, Math.max(0, f)));
             const e = freeExp.get(item.id) ?? 0;
             if (e >= short) { freeExp.set(item.id, e - short); sales = S("Expected", "warn", poDate.get(item.id) ?? null); }
             else sales = S("Not available", "bad", null, item.kind !== "material" ? "make" : undefined);
@@ -104,8 +107,8 @@ export function analyse(db: DB) {
       production = S(stations.get(j.station_id ?? "") ?? "In progress", "info");
     } else production = S("Not started", "warn");
     const delivery = S(
-      { not_shipped: "Not shipped", packed: "Packed", shipped: "Shipped", delivered: "Delivered" }[o.delivery],
-      o.delivery === "delivered" || o.delivery === "shipped" ? "ok" : o.delivery === "packed" ? "info" : "none",
+      { not_shipped: "Not shipped", packed: "Packed", partially_shipped: "Partly shipped", shipped: "Shipped", delivered: "Delivered" }[o.delivery],
+      o.delivery === "delivered" || o.delivery === "shipped" ? "ok" : o.delivery === "packed" || o.delivery === "partially_shipped" ? "info" : "none",
     );
     const late = open && !!o.delivery_deadline && o.delivery_deadline < today() && o.delivery !== "delivered";
     out.set(o.id, { order: o, rank: open ? ++rank : null, lines, amount, sales, ingredients, production, delivery, late });

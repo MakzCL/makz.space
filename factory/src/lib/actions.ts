@@ -252,8 +252,9 @@ export function useActions() {
     }
 
     const stockRefresh = () => Promise.all([refresh("stock_items"), refresh("stock_movements")]);
-    async function adjustStock(item: StockItem, delta: number, note = "") {
-      try { await B.rpc("adjust_stock", { p_item: item.id, p_delta: delta, p_note: note }); await stockRefresh(); buzz(8); }
+    // key: one per user intent — a retried or double-clicked request books once (server op_keys).
+    async function adjustStock(item: StockItem, delta: number, note = "", key: string = opKey()) {
+      try { await B.rpc("adjust_stock", { p_item: item.id, p_delta: delta, p_note: note, p_key: key }); await stockRefresh(); buzz(8); }
       catch (e) { fail(e); }
     }
     async function countStock(item: StockItem, counted: number, note = "") {
@@ -311,12 +312,21 @@ export function useActions() {
     async function removePoLine(id: string) {
       try { await B.remove("po_lines", id); await refresh("po_lines"); } catch (e) { fail(e); }
     }
-    async function receive(line: PoLine, qty: number) {
+    async function receive(line: PoLine, qty: number, key: string = opKey(), over = false) {
       try {
-        const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty });
+        const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty, p_key: key, p_over: over });
         await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders")]);
         ok(t(r === "received" ? "Delivery received — PO complete" : "Delivery received"));
-      } catch (e) { fail(e); }
+        return true;
+      } catch (e) { fail(e); return false; }
+    }
+    async function reverseReceipt(line: PoLine, qty: number, key: string = opKey()) {
+      try {
+        await B.rpc<string>("reverse_po_receipt", { p_line: line.id, p_qty: qty, p_key: key });
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders")]);
+        ok(t("Receipt reversed — stock taken back out"), "info");
+        return true;
+      } catch (e) { fail(e); return false; }
     }
 
     async function requestAbsence(kind: AbsenceKind, start_date: string, end_date: string, note: string) {
@@ -429,7 +439,7 @@ export function useActions() {
       createJoinLink, revokeJoinLink, approve, removeMember,
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
       saveJob, deleteJob, reopenJob, sendBack, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
-      saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, requestAbsence,
+      saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, reverseReceipt, requestAbsence,
       decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift, endShiftFor, addShiftFor,
       setStationMember, saveStation, moveStation, deleteStation, saveProduct, deleteProduct,
     };
@@ -447,3 +457,6 @@ export function useStations() {
     return { list, byId, name: (id: string | null | undefined) => (id ? byId.get(id)?.name ?? "" : ""), crew, of };
   }, [db.stations, db.station_members]);
 }
+
+/** Idempotency key for one user action (see claim_op in schema.sql). */
+export const opKey = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);

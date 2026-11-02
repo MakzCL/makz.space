@@ -107,7 +107,7 @@ function NewMoSheet({ open, onClose, onMade }: { open: boolean; onClose: () => v
         if (id) { setItem(null); setQty("1"); setDue(""); setRoute([]); onMade(id); }
       }}>
         <p className="muted">{t("Make to stock: when the crew finishes, materials come off stock and the finished products go on.")}</p>
-        <Field label={t("Product")}><ItemPicker value={item} onChange={(id) => { setItem(id); setRoute([]); }} filter={(s) => s.kind !== "material"} placeholder={t("Type SKU or name…")} /></Field>
+        <Field label={t("Product")}><ItemPicker value={item} onChange={(id) => { setItem(id); setRoute([]); }} filter={(s) => s.kind !== "material" && s.kind !== "service"} placeholder={t("Type SKU or name…")} /></Field>
         <div className="row gap">
           <Field label={t("Quantity")}><input inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></Field>
           <Field label={t("Due")}><input type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>

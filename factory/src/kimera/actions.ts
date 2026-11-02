@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useToast } from "../components/Toast";
 import { t } from "../lib/i18n";
+import { opKey } from "../lib/actions";
 import { useStore } from "../lib/store";
 import type { DeliveryState, Issue, Job, Order, OrderLine, TableName } from "../lib/types";
 
@@ -32,7 +33,14 @@ export function useKimera() {
         run(() => B.rpc<string>("create_mo", { p_sku: null, p_title: null, p_qty: null, p_due: null, p_line: lineId, p_route: null }), ["jobs"], t("Manufacturing order created")),
       createMo: (sku: string, title: string, qty: number, due: string | null, route: string[] | null) =>
         run(() => B.rpc<string>("create_mo", { p_sku: sku, p_title: title, p_qty: qty, p_due: due, p_line: null, p_route: route?.length ? route : null }), ["jobs"], t("Manufacturing order created")),
-      setDelivery: (id: string, s: DeliveryState) => run(() => B.rpc<string>("set_delivery", { p_order: id, p_state: s }), ["orders", "stock_items", "stock_movements"]),
+      setDelivery: (id: string, s: DeliveryState) => run(() => B.rpc<string>("set_delivery", { p_order: id, p_state: s }), ["orders", "order_lines", "stock_items", "stock_movements"]),
+      /** lines = [{ line, qty }] or null for everything still to ship. */
+      shipLines: (id: string, lines: { line: string; qty: number }[] | null, key = opKey()) =>
+        run(() => B.rpc<string>("ship_lines", { p_order: id, p_lines: lines, p_key: key }), ["orders", "order_lines", "stock_items", "stock_movements"], t("Shipment booked")),
+      unshipLines: (id: string, lines: { line: string; qty: number }[] | null, key = opKey()) =>
+        run(() => B.rpc<string>("unship_lines", { p_order: id, p_lines: lines, p_key: key }), ["orders", "order_lines", "stock_items", "stock_movements"], t("Shipment undone — stock returned")),
+      returnLines: (id: string, lines: { line: string; qty: number; restock: boolean }[], reason: string, key = opKey()) =>
+        run(() => B.rpc<number>("return_lines", { p_order: id, p_lines: lines, p_reason: reason, p_key: key }), ["orders", "order_lines", "order_returns", "stock_items", "stock_movements"], t("Return booked")),
       convertQuote: (id: string) => run(() => B.rpc<string>("convert_quote", { p_order: id }), ["orders"], t("Quote turned into a sales order")),
       updateJob: (id: string, patch: Partial<Job>) => run(() => B.update("jobs", id, patch), ["jobs"]),
       deleteJob: (id: string) => run(() => B.remove("jobs", id), ["jobs"], t("Deleted")),

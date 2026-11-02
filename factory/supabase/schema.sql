@@ -1207,7 +1207,7 @@ begin
     end loop;
     if new.order_id is not null then
       for u in select id from public.profiles where active and role in ('boss','manager') and not (id = any(coalesce(new.assignees, '{}'))) loop
-        perform public.notify(u, 'job_new', 'New order ' || new.code, new.title || ' ×' || coalesce(new.quantity, 1), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
+        perform public.notify(u, 'job_new', 'New order ' || new.code, new.title || ' ×' || trim_scale(coalesce(new.quantity, 1)::numeric), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
       end loop;
     end if;
   elsif new.status <> 'done' then
@@ -2235,3 +2235,639 @@ revoke all on function public.complete_mo(uuid) from public, anon;
 revoke all on function public.reopen_mo(uuid) from public, anon;
 grant execute on function public.complete_mo(uuid) to authenticated;
 grant execute on function public.reopen_mo(uuid) to authenticated;
+
+-- ============================================================================
+-- KIMERA phase 1 — ledger foundations (docs/kimera-coverage.md, defects D1–D7)
+--  * company settings: base currency every cost and value is kept in
+--  * service items (never stocked)
+--  * the ledger keeps its history (no cascade delete), every movement records
+--    the cost it moved at and the document it came from (source_type/source_id)
+--  * manufacturing output is costed from the materials it consumed; make-to-order
+--    output goes on stock and leaves again when the order line ships
+--  * per-line shipping (partial fulfilment), undo and customer returns
+--  * idempotency keys: a retried / double-clicked receive or adjustment books once
+--  * purchase orders in a supplier currency carry an exchange rate to base
+--  * fractional manufacturing quantities (no silent rounding up)
+--  * audit log: who changed which business record, when, from → to
+--  * posted stock is never deleted silently: reverse first
+-- ============================================================================
+
+-- ---------------------------------------------------------------- settings
+create table if not exists public.company_settings (
+  id int primary key default 1 check (id = 1),
+  base_currency text not null default 'GBP' check (base_currency ~ '^[A-Z]{3}$'),
+  default_lead_days int not null default 14 check (default_lead_days >= 0),
+  updated_at timestamptz not null default now()
+);
+insert into public.company_settings (id) values (1) on conflict (id) do nothing;
+alter table public.company_settings enable row level security;
+drop policy if exists "staff read settings" on public.company_settings;
+drop policy if exists "office edit settings" on public.company_settings;
+create policy "staff read settings" on public.company_settings for select to authenticated using (true);
+create policy "office edit settings" on public.company_settings for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ---------------------------------------------------------------- service items
+alter table public.stock_items drop constraint if exists stock_items_kind_check;
+alter table public.stock_items add constraint stock_items_kind_check check (kind in ('material','product','part','service'));
+
+-- ---------------------------------------------------------------- ledger
+alter table public.stock_movements add column if not exists source_type text;
+alter table public.stock_movements add column if not exists source_id uuid;
+create index if not exists stock_movements_source_idx on public.stock_movements (source_type, source_id);
+alter table public.stock_movements drop constraint if exists stock_movements_reason_check;
+alter table public.stock_movements add constraint stock_movements_reason_check
+  check (reason in ('adjust','count','receive','consume','produce','import','opening','ship','return'));
+-- D1: deleting an item must never erase its posted history.
+alter table public.stock_movements drop constraint if exists stock_movements_item_id_fkey;
+alter table public.stock_movements add constraint stock_movements_item_id_fkey
+  foreign key (item_id) references public.stock_items(id) on delete restrict;
+
+create or replace function public.guard_item_delete() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if exists (select 1 from public.stock_movements where item_id = old.id) then
+    raise exception 'This item has stock history — archive it instead of deleting it';
+  end if;
+  return old;
+end $$;
+drop trigger if exists guard_item_delete on public.stock_items;
+create trigger guard_item_delete before delete on public.stock_items for each row execute function public.guard_item_delete();
+
+-- Which document the next movements belong to (transaction-local).
+create or replace function public.stock_source(p_type text, p_id uuid) returns void
+language plpgsql set search_path = public as $$
+begin
+  perform set_config('app.stock_src_type', coalesce(p_type, ''), true);
+  perform set_config('app.stock_src_id', coalesce(p_id::text, ''), true);
+end $$;
+revoke all on function public.stock_source(text, uuid) from public, anon, authenticated;
+
+-- Core ledger write. Moving-average costing:
+--  * in with a cost (receipt, production output, reversal of a consumption) → average moves
+--  * out with an explicit cost (reversal of a receipt / output) → average is unwound exactly
+--  * anything else moves at the current average, which it does not change
+-- Every movement stores the unit cost it moved at, so value = Σ delta × unit_cost.
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+  a numeric;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  if s.kind = 'service' then raise exception 'Services are not kept in stock'; end if;
+  q := s.quantity + p_delta;
+  a := case
+         when p_cost is null then s.avg_cost
+         when p_delta > 0 and q > 0 then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+         when p_delta > 0 then p_cost
+         when p_delta < 0 and q > 0 and s.quantity > 0 then greatest(round((s.quantity * s.avg_cost + p_delta * p_cost) / q, 4), 0)
+         else s.avg_cost end;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q, avg_cost = a,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id, job_id, source_type, source_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), coalesce(p_cost, s.avg_cost), auth.uid(),
+          nullif(current_setting('app.stock_job', true), '')::uuid,
+          nullif(current_setting('app.stock_src_type', true), ''),
+          nullif(current_setting('app.stock_src_id', true), '')::uuid);
+  return q;
+end $$;
+revoke all on function public.move_stock(uuid, numeric, text, text, text, numeric) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------- idempotency
+create table if not exists public.op_keys (
+  key text primary key,
+  user_id uuid,
+  result text,
+  created_at timestamptz not null default now()
+);
+alter table public.op_keys enable row level security; -- no policies: functions only
+
+-- Returns null the first time a key is seen (go ahead), else the earlier result.
+-- A concurrent second call waits on the first one's row, then sees its result.
+create or replace function public.claim_op(p_fn text, p_key text) returns text
+language plpgsql security definer set search_path = public as $$
+declare r text;
+begin
+  if coalesce(p_key, '') = '' then return null; end if;
+  insert into public.op_keys (key, user_id) values (p_fn || ':' || p_key, auth.uid()) on conflict (key) do nothing;
+  if found then return null; end if;
+  select coalesce(result, 'done') into r from public.op_keys where key = p_fn || ':' || p_key;
+  return r;
+end $$;
+create or replace function public.finish_op(p_fn text, p_key text, p_result text) returns text
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(p_key, '') <> '' then update public.op_keys set result = p_result where key = p_fn || ':' || p_key; end if;
+  return p_result;
+end $$;
+revoke all on function public.claim_op(text, text) from public, anon, authenticated;
+revoke all on function public.finish_op(text, text, text) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------- adjustments
+drop function if exists public.adjust_stock(uuid, numeric, text);
+create or replace function public.adjust_stock(p_item uuid, p_delta numeric, p_note text default '', p_key text default null) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare prev text; q numeric;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change stock'; end if;
+  if p_delta = 0 then raise exception 'Nothing to change'; end if;
+  prev := public.claim_op('adjust_stock', p_key);
+  if prev is not null then return prev::numeric; end if;
+  perform public.stock_source('adjustment', null);
+  q := public.move_stock(p_item, p_delta, 'adjust', '', p_note);
+  perform public.finish_op('adjust_stock', p_key, q::text);
+  return q;
+end $$;
+revoke all on function public.adjust_stock(uuid, numeric, text, text) from public, anon;
+grant execute on function public.adjust_stock(uuid, numeric, text, text) to authenticated;
+
+-- ---------------------------------------------------------------- purchasing
+alter table public.purchase_orders add column if not exists currency text check (currency ~ '^[A-Z]{3}$');
+alter table public.purchase_orders add column if not exists fx_rate numeric(18,8) not null default 1 check (fx_rate > 0);
+comment on column public.purchase_orders.fx_rate is 'Base-currency value of 1 unit of the PO currency, fixed when ordered';
+alter table public.po_lines drop constraint if exists po_lines_received_check;
+alter table public.po_lines add constraint po_lines_received_check check (received >= 0);
+
+create or replace function public.guard_po_delete() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if tg_table_name = 'purchase_orders' and exists (select 1 from public.po_lines where po_id = old.id and received > 0) then
+    raise exception 'Goods were received on this purchase order — reverse the receipt or cancel it instead';
+  end if;
+  if tg_table_name = 'po_lines' and old.received > 0 and exists (select 1 from public.purchase_orders where id = old.po_id) then
+    raise exception 'This line has been received — reverse the receipt first';
+  end if;
+  return old;
+end $$;
+drop trigger if exists guard_po_delete on public.purchase_orders;
+create trigger guard_po_delete before delete on public.purchase_orders for each row execute function public.guard_po_delete();
+drop trigger if exists guard_po_line_delete on public.po_lines;
+create trigger guard_po_line_delete before delete on public.po_lines for each row execute function public.guard_po_delete();
+
+create or replace function public.po_status_after(p_po uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare open_left numeric; got numeric; st text;
+begin
+  select coalesce(sum(greatest(quantity - received, 0)), 0), coalesce(sum(received), 0) into open_left, got from public.po_lines where po_id = p_po;
+  st := case when open_left = 0 then 'received' when got > 0 then 'partial' else 'ordered' end;
+  update public.purchase_orders set status = st,
+    received_at = case when st = 'received' then coalesce(received_at, now()) else null end,
+    ordered_at = coalesce(ordered_at, now())
+  where id = p_po;
+  return st;
+end $$;
+revoke all on function public.po_status_after(uuid) from public, anon, authenticated;
+
+drop function if exists public.receive_po_line(uuid, numeric);
+create or replace function public.receive_po_line(p_line uuid, p_qty numeric, p_key text default null, p_over boolean default false) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.po_lines;
+  po public.purchase_orders;
+  prev text; st text;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can receive deliveries'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Receive at least one'; end if;
+  prev := public.claim_op('receive_po_line', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'draft' then raise exception 'Mark the purchase order as ordered first'; end if;
+  if po.status in ('cancelled','received') then raise exception 'This purchase order is closed'; end if;
+  if l.received + p_qty > l.quantity and not p_over then
+    raise exception 'That is more than ordered — % still to come', trim_scale(l.quantity - l.received);
+  end if;
+  update public.po_lines set received = received + p_qty where id = l.id;
+  perform public.stock_source('po_line', l.id);
+  perform public.move_stock(l.item_id, p_qty, 'receive', po.number, '', round(l.unit_cost * po.fx_rate, 4));
+  st := public.po_status_after(po.id);
+  return public.finish_op('receive_po_line', p_key, st);
+end $$;
+revoke all on function public.receive_po_line(uuid, numeric, text, boolean) from public, anon;
+grant execute on function public.receive_po_line(uuid, numeric, text, boolean) to authenticated;
+
+-- Wrong delivery booked: take it back out at the cost it came in at.
+create or replace function public.reverse_po_receipt(p_line uuid, p_qty numeric, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare l public.po_lines; po public.purchase_orders; prev text; st text;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can change receipts'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Reverse at least one'; end if;
+  prev := public.claim_op('reverse_po_receipt', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  if p_qty > l.received then raise exception 'Only % was received on this line', trim_scale(l.received); end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'cancelled' then raise exception 'This purchase order is cancelled'; end if;
+  update public.po_lines set received = received - p_qty where id = l.id;
+  perform public.stock_source('po_line', l.id);
+  perform public.move_stock(l.item_id, -p_qty, 'receive', po.number, 'Receipt reversed', round(l.unit_cost * po.fx_rate, 4));
+  st := public.po_status_after(po.id);
+  return public.finish_op('reverse_po_receipt', p_key, st);
+end $$;
+revoke all on function public.reverse_po_receipt(uuid, numeric, text) from public, anon;
+grant execute on function public.reverse_po_receipt(uuid, numeric, text) to authenticated;
+
+-- ---------------------------------------------------------------- manufacturing
+alter table public.jobs alter column quantity type numeric(14,3);
+alter table public.jobs drop constraint if exists jobs_quantity_check;
+alter table public.jobs add constraint jobs_quantity_check check (quantity is null or quantity > 0);
+
+create or replace function public.guard_job_delete() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if old.stock_booked then
+    raise exception 'This manufacturing order has booked stock — reopen it first so its stock is reversed';
+  end if;
+  return old;
+end $$;
+drop trigger if exists guard_job_delete on public.jobs;
+create trigger guard_job_delete before delete on public.jobs for each row execute function public.guard_job_delete();
+
+-- Finishing an MO: consume recipe × quantity at the materials' average cost, then
+-- put the output on stock (make-to-stock AND make-to-order) at the consumed cost
+-- per unit. Reopening reverses exactly what was booked, at the cost it was booked at.
+create or replace function public.book_job_stock() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  prod public.stock_items;
+  b record;
+  m record;
+  qty numeric := coalesce(new.quantity, 1);
+  has_bom boolean := false;
+  total numeric;
+begin
+  if old.status = 'done' and new.status <> 'done' and old.stock_booked then
+    perform set_config('app.stock_job', new.id::text, true);
+    perform public.stock_source('job', new.id);
+    for m in select item_id, reason, sum(delta) as net,
+                    case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end as cost
+               from public.stock_movements
+              where job_id = new.id and reason in ('consume', 'produce') group by item_id, reason having sum(delta) <> 0
+              order by reason desc loop  -- take the output back before returning materials
+      perform public.move_stock(m.item_id, -m.net, m.reason, new.code, 'Reopened — reversed', m.cost);
+    end loop;
+    perform set_config('app.stock_job', '', true);
+    new.stock_booked := false;
+    return new;
+  end if;
+  if new.status <> 'done' or old.status = 'done' or new.stock_booked or new.sku is null then return new; end if;
+  select * into prod from public.stock_items where sku = new.sku and kind not in ('material', 'service') limit 1;
+  if prod.id is null then select * into prod from public.stock_items where sku = new.sku and kind <> 'service' limit 1; end if;
+  if prod.id is null then return new; end if;
+  perform set_config('app.stock_job', new.id::text, true);
+  perform public.stock_source('job', new.id);
+  for b in select bl.material_id, bl.quantity from public.bom_lines bl join public.stock_items si on si.id = bl.material_id
+            where bl.product_id = prod.id and si.kind <> 'service' loop
+    has_bom := true;
+    perform public.move_stock(b.material_id, -(b.quantity * qty), 'consume', new.code, '');
+  end loop;
+  -- net cost of what this MO has consumed (earlier reopened cycles net to zero)
+  select coalesce(sum(-delta * coalesce(unit_cost, 0)), 0) into total
+    from public.stock_movements where job_id = new.id and reason = 'consume';
+  perform public.move_stock(prod.id, qty, 'produce', new.code, '', case when has_bom then round(total / qty, 4) end);
+  perform set_config('app.stock_job', '', true);
+  new.stock_booked := true;
+  return new;
+end $$;
+drop trigger if exists book_job_stock on public.jobs;
+create trigger book_job_stock before update of status on public.jobs
+  for each row execute function public.book_job_stock();
+
+-- create_mo / replenish without rounding the quantity up.
+create or replace function public.create_mo(p_sku text, p_title text, p_qty numeric, p_due date default null, p_line uuid default null, p_route uuid[] default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  l public.order_lines; o public.orders; r uuid[]; code text; jid uuid; idx int; n int; pr public.products;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can plan production'; end if;
+  if p_line is not null then
+    select * into l from public.order_lines where id = p_line;
+    if l.id is null then raise exception 'Order line not found'; end if;
+    if exists (select 1 from public.jobs where order_line_id = l.id) then raise exception 'This line already has a manufacturing order'; end if;
+    select * into o from public.orders where id = l.order_id;
+    if o.kind = 'quote' then raise exception 'Turn the quote into a sales order first'; end if;
+    select count(*), count(*) filter (where ol.sort < l.sort or (ol.sort = l.sort and ol.created_at <= l.created_at))
+      into n, idx from public.order_lines ol where ol.order_id = o.id;
+    code := case when n > 1 then o.order_number || '-' || idx else o.order_number end;
+    p_sku := coalesce(nullif(p_sku, ''), nullif(l.sku, '')); p_title := coalesce(nullif(p_title, ''), l.name);
+    p_qty := coalesce(p_qty, l.quantity - l.shipped);
+    p_due := coalesce(p_due, o.delivery_deadline);
+  else
+    code := 'STK-' || nextval('public.mo_seq');
+  end if;
+  if coalesce(p_qty, 0) <= 0 then raise exception 'Quantity must be more than 0'; end if;
+  select * into pr from public.products where sku = p_sku;
+  r := case when coalesce(array_length(p_route, 1), 0) > 0 then p_route
+            when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+  insert into public.jobs (code, title, customer, priority, status, assignees, quantity, estimate_minutes, due_date, created_by,
+                           order_id, order_line_id, sku, route, stage, station_id, unit_price)
+  values (code, coalesce(nullif(p_title, ''), p_sku, 'Manufacturing order'), coalesce(o.customer, ''), 3, 'open', public.station_assignees(r[1]),
+          p_qty, pr.estimate_minutes, p_due, auth.uid(), o.id, l.id, nullif(p_sku, ''), r, 0, r[1], l.unit_price)
+  returning id into jid;
+  return jid;
+end $$;
+
+create or replace function public.replenish(p_item uuid default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare s public.stock_items; busy numeric; q numeric; r uuid[]; pr public.products; n int := 0;
+begin
+  for s in select * from public.stock_items where make_min > 0 and not archived and (p_item is null or id = p_item) loop
+    select coalesce(sum(quantity), 0) into busy from public.jobs
+     where sku = s.sku and order_id is null and status <> 'done';
+    if s.quantity + busy >= s.make_min then continue; end if;
+    q := greatest(s.make_batch, s.make_min - s.quantity - busy);
+    select * into pr from public.products where sku = s.sku;
+    r := case when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+    insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity, estimate_minutes,
+                             sku, route, stage, station_id)
+    values ('STK-' || nextval('public.mo_seq'), 'Restock: ' || s.name,
+            'Keep ' || trim(to_char(s.make_min, 'FM999990.###')) || ' ready' || coalesce(' (' || nullif(s.location, '') || ')', '') || ' — raised automatically.',
+            '', 3, 'open', public.station_assignees(r[1]), q, pr.estimate_minutes, s.sku, r, 0, r[1]);
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.replenish(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------- sales fulfilment
+alter table public.order_lines add column if not exists shipped numeric(14,3) not null default 0;
+alter table public.order_lines add column if not exists returned numeric(14,3) not null default 0;
+-- Orders shipped under the old whole-order rule: their lines count as shipped.
+update public.order_lines ol set shipped = ol.quantity
+  from public.orders o where o.id = ol.order_id and o.stock_out and ol.shipped = 0;
+-- …and their ship movements get linked to the line they came from.
+update public.stock_movements m set source_type = 'order_line', source_id = ol.id
+  from public.order_lines ol join public.orders o on o.id = ol.order_id
+ where m.reason = 'ship' and m.source_id is null and m.ref = o.order_number and m.item_id = ol.item_id;
+alter table public.order_lines drop constraint if exists order_lines_fulfil_check;
+alter table public.order_lines add constraint order_lines_fulfil_check
+  check (shipped >= 0 and returned >= 0 and returned <= shipped and shipped <= quantity);
+
+alter table public.orders drop constraint if exists orders_delivery_check;
+alter table public.orders add constraint orders_delivery_check
+  check (delivery in ('not_shipped','packed','partially_shipped','shipped','delivered'));
+
+create or replace function public.guard_order_change() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if tg_table_name = 'orders' then
+    if tg_op = 'DELETE' and exists (select 1 from public.order_lines where order_id = old.id and shipped > 0) then
+      raise exception 'Goods were shipped on this order — undo the shipment or cancel it instead';
+    end if;
+    if tg_op = 'UPDATE' and new.status = 'cancelled' and old.status <> 'cancelled'
+       and exists (select 1 from public.order_lines where order_id = new.id and shipped - returned > 0) then
+      raise exception 'Shipped goods are still with the customer — undo the shipment or book a return first';
+    end if;
+  elsif tg_op = 'DELETE' and old.shipped > 0 and exists (select 1 from public.orders where id = old.order_id) then
+    raise exception 'This line has been shipped — undo the shipment first';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+drop trigger if exists guard_order_change on public.orders;
+create trigger guard_order_change before update of status or delete on public.orders for each row execute function public.guard_order_change();
+drop trigger if exists guard_order_line_delete on public.order_lines;
+create trigger guard_order_line_delete before delete on public.order_lines for each row execute function public.guard_order_change();
+
+-- Recompute an order's delivery state from its lines (after shipping / undo).
+create or replace function public.order_delivery_after(p_order uuid, p_state text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare any_out boolean; all_out boolean; st text; o public.orders;
+begin
+  select * into o from public.orders where id = p_order;
+  select coalesce(bool_or(shipped > 0), false), coalesce(bool_and(shipped >= quantity), false)
+    into any_out, all_out from public.order_lines where order_id = p_order;
+  st := case when all_out and p_state = 'delivered' then 'delivered'
+             when all_out and any_out then case when o.delivery = 'delivered' and p_state is null then 'delivered' else 'shipped' end
+             when any_out then 'partially_shipped'
+             when p_state = 'packed' then 'packed'
+             else 'not_shipped' end;
+  if not exists (select 1 from public.order_lines where order_id = p_order) then st := coalesce(p_state, o.delivery); any_out := st in ('shipped','delivered'); end if;
+  update public.orders set delivery = st, stock_out = any_out,
+    packed_at = case when st = 'not_shipped' then null else coalesce(packed_at, now()) end,
+    shipped_at = case when st in ('shipped','delivered') then coalesce(shipped_at, now()) when any_out then shipped_at else null end,
+    delivered_at = case when st = 'delivered' then coalesce(delivered_at, now()) else null end,
+    status = case when st = 'delivered' then 'done' when status = 'done' then 'open' else status end
+  where id = p_order;
+  return st;
+end $$;
+revoke all on function public.order_delivery_after(uuid, text) from public, anon, authenticated;
+
+-- Ship order lines. p_lines = [{"line": uuid, "qty": n}]; null = everything still to ship.
+-- Stocked lines leave stock at the current average cost; services just count as shipped.
+create or replace function public.ship_lines(p_order uuid, p_lines jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; kind text;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can ship orders'; end if;
+  prev := public.claim_op('ship_lines', p_key);
+  if prev is not null then return prev; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  if o.kind = 'quote' then raise exception 'Quotes are not delivered'; end if;
+  if o.status = 'cancelled' then raise exception 'This order is cancelled'; end if;
+  for l in select * from public.order_lines where order_id = o.id order by sort, created_at for update loop
+    if p_lines is null then q := l.quantity - l.shipped;
+    else
+      select x into r from jsonb_array_elements(p_lines) x where (x->>'line')::uuid = l.id;
+      q := coalesce((r->>'qty')::numeric, 0);
+    end if;
+    continue when q = 0;
+    if q < 0 then raise exception 'Ship a positive quantity'; end if;
+    if l.shipped + q > l.quantity then
+      raise exception '% — only % left to ship', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.quantity - l.shipped);
+    end if;
+    select si.kind into kind from public.stock_items si where si.id = l.item_id;
+    if l.item_id is not null and kind is distinct from 'service' then
+      perform public.stock_source('order_line', l.id);
+      perform public.move_stock(l.item_id, -q, 'ship', o.order_number, '');
+    end if;
+    update public.order_lines set shipped = shipped + q where id = l.id;
+  end loop;
+  return public.finish_op('ship_lines', p_key, public.order_delivery_after(o.id));
+end $$;
+revoke all on function public.ship_lines(uuid, jsonb, text) from public, anon;
+grant execute on function public.ship_lines(uuid, jsonb, text) to authenticated;
+
+-- Undo a shipment (booked by mistake): stock comes back at the cost it left at.
+create or replace function public.unship_lines(p_order uuid, p_lines jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; c numeric;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can change shipments'; end if;
+  prev := public.claim_op('unship_lines', p_key);
+  if prev is not null then return prev; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  for l in select * from public.order_lines where order_id = o.id order by sort, created_at for update loop
+    if p_lines is null then q := l.shipped - l.returned;
+    else
+      select x into r from jsonb_array_elements(p_lines) x where (x->>'line')::uuid = l.id;
+      q := coalesce((r->>'qty')::numeric, 0);
+    end if;
+    continue when q = 0;
+    if q < 0 or q > l.shipped - l.returned then
+      raise exception '% — only % shipped and not returned', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.shipped - l.returned);
+    end if;
+    select case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end into c
+      from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
+    if exists (select 1 from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship') then
+      perform public.stock_source('order_line', l.id);
+      perform public.move_stock(l.item_id, q, 'ship', o.order_number, 'Shipment undone', c);
+    end if;
+    update public.order_lines set shipped = shipped - q where id = l.id;
+  end loop;
+  return public.finish_op('unship_lines', p_key, public.order_delivery_after(o.id));
+end $$;
+revoke all on function public.unship_lines(uuid, jsonb, text) from public, anon;
+grant execute on function public.unship_lines(uuid, jsonb, text) to authenticated;
+
+-- Customer return. p_lines = [{"line": uuid, "qty": n, "restock": true|false}].
+-- restock → back on stock at the cost it was shipped at; otherwise recorded as
+-- returned but not resaleable (no stock change; scrap stays visible on the line).
+create table if not exists public.order_returns (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete restrict,
+  order_line_id uuid not null references public.order_lines(id) on delete restrict,
+  quantity numeric(14,3) not null check (quantity > 0),
+  restock boolean not null,
+  reason text not null default '',
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.order_returns enable row level security;
+drop policy if exists "staff read returns" on public.order_returns;
+create policy "staff read returns" on public.order_returns for select to authenticated using (true);
+
+create or replace function public.return_lines(p_order uuid, p_lines jsonb, p_reason text default '', p_key text default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; c numeric; n int := 0; rid uuid; kind text;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can book returns'; end if;
+  prev := public.claim_op('return_lines', p_key);
+  if prev is not null then return prev::int; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  for r in select * from jsonb_array_elements(coalesce(p_lines, '[]'::jsonb)) loop
+    select * into l from public.order_lines where id = (r->>'line')::uuid and order_id = o.id for update;
+    if l.id is null then raise exception 'Order line not found'; end if;
+    q := coalesce((r->>'qty')::numeric, 0);
+    continue when q = 0;
+    if q < 0 or q > l.shipped - l.returned then
+      raise exception '% — only % can be returned', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.shipped - l.returned);
+    end if;
+    insert into public.order_returns (order_id, order_line_id, quantity, restock, reason, created_by)
+    values (o.id, l.id, q, coalesce((r->>'restock')::boolean, true), coalesce(p_reason, ''), auth.uid()) returning id into rid;
+    select si.kind into kind from public.stock_items si where si.id = l.item_id;
+    if coalesce((r->>'restock')::boolean, true) and l.item_id is not null and kind is distinct from 'service' then
+      select case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end into c
+        from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
+      perform public.stock_source('return', rid);
+      perform public.move_stock(l.item_id, q, 'return', o.order_number, coalesce(nullif(p_reason, ''), 'Customer return'), c);
+    end if;
+    update public.order_lines set returned = returned + q where id = l.id;
+    n := n + 1;
+  end loop;
+  if n = 0 then raise exception 'Nothing to return'; end if;
+  perform public.finish_op('return_lines', p_key, n::text);
+  return n;
+end $$;
+revoke all on function public.return_lines(uuid, jsonb, text, text) from public, anon;
+grant execute on function public.return_lines(uuid, jsonb, text, text) to authenticated;
+
+-- Delivery buttons keep working: shipped/delivered ship what is left, not shipped/packed undo.
+create or replace function public.set_delivery(p_order uuid, p_state text) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can change delivery'; end if;
+  if p_state not in ('not_shipped','packed','shipped','delivered') then raise exception 'Unknown delivery state'; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  if o.kind = 'quote' then raise exception 'Quotes are not delivered'; end if;
+  if p_state in ('shipped','delivered') then
+    if exists (select 1 from public.order_lines where order_id = o.id and shipped < quantity) then perform public.ship_lines(o.id, null); end if;
+  elsif exists (select 1 from public.order_lines where order_id = o.id and shipped > 0) then
+    if exists (select 1 from public.order_lines where order_id = o.id and returned > 0) then
+      raise exception 'Part of this order was returned — undo shipments line by line';
+    end if;
+    perform public.unship_lines(o.id, null);
+  end if;
+  return public.order_delivery_after(o.id, p_state);
+end $$;
+revoke all on function public.set_delivery(uuid, text) from public, anon;
+grant execute on function public.set_delivery(uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------- audit log
+create table if not exists public.audit_log (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  user_id uuid,
+  table_name text not null,
+  row_id text,
+  action text not null check (action in ('insert','update','delete')),
+  changes jsonb not null default '{}'
+);
+create index if not exists audit_log_row_idx on public.audit_log (table_name, row_id, at desc);
+create index if not exists audit_log_at_idx on public.audit_log (at desc);
+alter table public.audit_log enable row level security;
+drop policy if exists "office reads audit" on public.audit_log;
+create policy "office reads audit" on public.audit_log for select to authenticated using (public.is_admin());
+
+-- Trigger args = column names not worth logging (noise or covered by the ledger).
+create or replace function public.audit_row() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare o jsonb; n jsonb; d jsonb := '{}'; k text; skip text[] := coalesce(tg_argv, '{}'::text[]) || array['updated_at','updated_by'];
+begin
+  if tg_op = 'INSERT' then n := to_jsonb(new); d := n;
+  elsif tg_op = 'DELETE' then o := to_jsonb(old); d := o;
+  else
+    o := to_jsonb(old); n := to_jsonb(new);
+    for k in select jsonb_object_keys(n) loop
+      continue when k = any(skip);
+      if (o->k) is distinct from (n->k) then d := d || jsonb_build_object(k, jsonb_build_array(o->k, n->k)); end if;
+    end loop;
+    if d = '{}'::jsonb then return null; end if;
+  end if;
+  insert into public.audit_log (user_id, table_name, row_id, action, changes)
+  values (auth.uid(), tg_table_name, coalesce(n->>'id', o->>'id'), lower(tg_op), d);
+  return null;
+end $$;
+
+do $$
+declare t text[];
+begin
+  foreach t slice 1 in array array[
+    array['orders', ''], array['order_lines', ''], array['purchase_orders', ''], array['po_lines', ''],
+    array['bom_lines', ''], array['suppliers', ''], array['company_settings', ''],
+    array['stock_items', 'quantity,avg_cost'], array['jobs', 'assignees'],
+    array['profiles', 'last_seen_at,status,status_note,avatar_url']] loop
+    execute format('drop trigger if exists audit_row on public.%I', t[1]);
+    if t[2] = '' then
+      execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t[1]);
+    else
+      execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row(%s)',
+                     t[1], (select string_agg(quote_literal(x), ',') from unnest(string_to_array(t[2], ',')) x));
+    end if;
+  end loop;
+end $$;
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['company_settings', 'order_returns'] loop
+      if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;

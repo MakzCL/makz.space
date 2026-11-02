@@ -3,7 +3,7 @@ import { Boxes, ClipboardCheck, Download, History, Minus, Plus, Search, Trash2, 
 import { useMemo, useState } from "react";
 import { SceneTabs } from "../components/Scene";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet, list } from "../components/ui";
-import { useActions } from "../lib/actions";
+import { opKey, useActions } from "../lib/actions";
 import { cleanNumber, download, guessColumns, parseCsv, toCsv } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { can } from "../lib/roles";
@@ -15,13 +15,20 @@ import { PurchasingView, SuppliersView } from "./Purchasing";
 /* ------------------------------------------------------------- helpers -- */
 export const fmtQty = (n: number) => (Math.round(n * 1000) / 1000).toLocaleString("en-GB", { maximumFractionDigits: 3 });
 export const money = (n: number | null | undefined) => n === null || n === undefined ? "—" : `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const KIND: Record<ItemKind, string> = { product: "Product", material: "Material", part: "Part" };
+const KIND: Record<ItemKind, string> = { product: "Product", material: "Material", part: "Part", service: "Service" };
 export const kindLabel = (k: ItemKind) => t(KIND[k]);
 const REASON: Record<MoveReason, string> = {
   adjust: "Adjustment", count: "Stocktake", receive: "Received", consume: "Used in job", produce: "Made", import: "Import", opening: "Opening stock",
+  ship: "Shipped", return: "Returned",
 };
 
-/** Committed = materials needed by unfinished jobs; expected = still to arrive on open POs. */
+/**
+ * On hand   = what the ledger says is physically here (stock_items.quantity).
+ * Committed = ingredients still needed by unfinished manufacturing orders
+ *             + made-to-order output waiting to ship on its sales line.
+ * Expected  = still to arrive on ordered / part-received purchase orders.
+ * Available = on hand − committed (open sales lines are allocated on top of this by rank).
+ */
 export function stockLevels(db: DB) {
   const committed = new Map<string, number>();
   const expected = new Map<string, number>();
@@ -33,6 +40,10 @@ export function stockLevels(db: DB) {
     for (const b of db.bom_lines) if (b.product_id === prod.id)
       committed.set(b.material_id, (committed.get(b.material_id) ?? 0) + b.quantity * (j.quantity ?? 1));
   }
+  const doneMoLine = new Set(db.jobs.filter((j) => j.order_line_id && j.stock_booked).map((j) => j.order_line_id));
+  const openOrder = new Set(db.orders.filter((o) => o.kind === "order" && o.status === "open").map((o) => o.id));
+  for (const l of db.order_lines) if (l.item_id && openOrder.has(l.order_id) && doneMoLine.has(l.id) && l.quantity > l.shipped)
+    committed.set(l.item_id, (committed.get(l.item_id) ?? 0) + l.quantity - l.shipped);
   const openPo = new Set(db.purchase_orders.filter((p) => p.status === "ordered" || p.status === "partial").map((p) => p.id));
   for (const l of db.po_lines) if (openPo.has(l.po_id))
     expected.set(l.item_id, (expected.get(l.item_id) ?? 0) + Math.max(0, l.quantity - l.received));
@@ -179,6 +190,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
   const [f, setF] = useState<Partial<StockItem>>({});
   const [open0, setOpen0] = useState({ qty: "", cost: "" });
   const [delta, setDelta] = useState("");
+  const [adjKey, setAdjKey] = useState(opKey);
   const [count, setCount] = useState("");
   const [note, setNote] = useState("");
   const [key, setKey] = useState<string | null>(null);
@@ -224,7 +236,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                 <Field label={t("Stocktake — counted quantity")}><input inputMode="decimal" value={count} onChange={(e) => setCount(e.target.value)} placeholder={fmtQty(live.quantity)} /></Field>
                 <Field label={t("Reason / note")}><input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Optional")} /></Field>
                 <div className="row gap">
-                  <Btn tone="soft" wide disabled={!Number(cleanNumber(delta))} onClick={async () => { await a.adjustStock(live, Number(cleanNumber(delta)), note); setDelta(""); setNote(""); }}>{t("Apply change")}</Btn>
+                  <Btn tone="soft" wide disabled={!Number(cleanNumber(delta))} onClick={async () => { await a.adjustStock(live, Number(cleanNumber(delta)), note, adjKey); setDelta(""); setNote(""); setAdjKey(opKey()); }}>{t("Apply change")}</Btn>
                   <Btn tone="primary" wide icon={<ClipboardCheck size={17} />} disabled={cleanNumber(count) === ""} onClick={async () => { await a.countStock(live, Number(cleanNumber(count)), note); setCount(""); setNote(""); }}>{t("Save count")}</Btn>
                 </div>
               </div>
@@ -241,7 +253,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
             <div className="row gap">
               <Field label="SKU"><input required value={f.sku ?? ""} onChange={(e) => setF({ ...f, sku: e.target.value })} disabled={!editable} /></Field>
               <Field label={t("Type")}><select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as ItemKind })} disabled={!editable}>
-                {(["material", "product", "part"] as const).map((x) => <option key={x} value={x}>{kindLabel(x)}</option>)}</select></Field>
+                {(["material", "product", "part", "service"] as const).map((x) => <option key={x} value={x}>{kindLabel(x)}</option>)}</select></Field>
             </div>
             <Field label={t("Name")}><input required value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} disabled={!editable} /></Field>
             <div className="row gap">

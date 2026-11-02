@@ -124,7 +124,7 @@ function Shell({ signOut }: { signOut: () => void }) {
 
   const lv = stockLevels(db);
   const badges: Partial<Record<Tab, number>> = {
-    sell: db.orders.filter((o) => o.kind === "order" && o.status === "open" && o.delivery === "not_shipped").length,
+    sell: db.orders.filter((o) => o.kind === "order" && o.status === "open" && (o.delivery === "not_shipped" || o.delivery === "partially_shipped")).length,
     tickets: db.issues.filter((i) => i.status === "open").length,
     stock: db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity - (lv.committed.get(s.id) ?? 0) + (lv.expected.get(s.id) ?? 0) <= s.min_quantity).length,
   };
@@ -154,7 +154,7 @@ function Shell({ signOut }: { signOut: () => void }) {
           <div className="k-head"><div><h1>{t("Items")}</h1><p className="muted">{t("Products you sell, materials you buy, their recipes and production routes.")}</p></div>
             <div className="k-subtabs"><SubTabs value={itemsView} onChange={setItemsView} tabs={[{ value: "products", label: t("Products") }, { value: "materials", label: t("Materials") }, { value: "recipes", label: t("Recipes") }]} /></div>
             {admin && <div className="row gap"><Btn tone="soft" icon={<Wrench size={16} />} onClick={() => setRoutes(true)}>{t("Stations & routes")}</Btn></div>}</div>
-          {itemsView === "products" ? <ItemsView key="p" kinds={["product", "part"]} /> : itemsView === "materials" ? <ItemsView key="m" kinds={["material"]} /> : <RecipesView />}
+          {itemsView === "products" ? <ItemsView key="p" kinds={["product", "part", "service"]} /> : itemsView === "materials" ? <ItemsView key="m" kinds={["material"]} /> : <RecipesView />}
         </div>
       );
       case "plan": return <Plan onOrder={openOrder} onBuy={() => { setBuyView("pos"); go("buy"); }} />;

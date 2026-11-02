@@ -247,14 +247,14 @@ update public.jobs set status = 'open', completed_at = null, stock_booked = fals
 update public.jobs set status = 'done' where shopify_line_id = 9001;
 select pg_temp.check((select quantity = 25 from public.stock_items where sku = 'AL-SHEET'), 'finished job uses 1.5 m2 × 2');
 select pg_temp.check((select quantity = 92 from public.stock_items where sku = 'LED-AMB'), 'finished job uses 4 LEDs × 2');
-select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'SK-0123'), 'customer order does not add finished stock');
+select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'SK-0123'), 'make-to-order output goes on stock until its line ships');
 update public.jobs set status = 'paused' where shopify_line_id = 9001;
 update public.jobs set status = 'done' where shopify_line_id = 9001;
 select pg_temp.check((select quantity = 25 from public.stock_items where sku = 'AL-SHEET'), 'stock is booked only once per job');
 -- Make-to-stock job adds finished product
 insert into public.jobs (code, title, sku, quantity, status) values ('SK-2401', 'Build 3 pedestals for stock', 'SK-0123', 3, 'open');
 update public.jobs set status = 'done' where code = 'SK-2401';
-select pg_temp.check((select quantity = 4 from public.stock_items where sku = 'SK-0123'), 'make-to-stock job adds finished products');
+select pg_temp.check((select quantity = 6 from public.stock_items where sku = 'SK-0123'), 'make-to-stock job adds finished products');
 select pg_temp.check((select count(*) from public.stock_movements where reason = 'consume' and ref = 'SK-2401') = 2, 'consumption is in the history with the job code');
 -- operators cannot touch stock
 update public.profiles set role = 'operator' where id = :'A2';
@@ -345,11 +345,11 @@ select pg_temp.check((select code = 'SO-90001-2' and quantity = 2 and order_id i
   from public.jobs where order_line_id = (select id from public.order_lines where name = 'Custom sign')), 'make-to-order MO for a sales line');
 select pg_temp.expect_fail($$select public.create_mo(null, null, null, null, (select id from public.order_lines where name = 'Custom sign'))$$, 'second MO for the same line');
 select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'shipped');
-select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'SK-0123'), 'shipping takes stock lines off stock (MO lines do not)');
+select pg_temp.check((select quantity = 5 from public.stock_items where sku = 'SK-0123'), 'shipping takes the stocked line off stock (untracked line does not)');
 select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'shipped');
-select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'SK-0123'), 'shipping twice takes stock once');
+select pg_temp.check((select quantity = 5 from public.stock_items where sku = 'SK-0123'), 'shipping twice takes stock once');
 select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'not_shipped');
-select pg_temp.check((select quantity = 4 from public.stock_items where sku = 'SK-0123'), 'undoing the shipment returns stock');
+select pg_temp.check((select quantity = 6 from public.stock_items where sku = 'SK-0123'), 'undoing the shipment returns stock');
 select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'delivered');
 select pg_temp.check((select status = 'done' and delivered_at is not null and shipped_at is not null from public.orders where customer = 'Acme Ltd'), 'delivered order is done');
 insert into public.orders (order_number, customer, kind) values ('', 'Quote Co', 'quote');
@@ -481,6 +481,122 @@ select public.complete_mo((select id from public.jobs where sku = 'PED-FRAME' li
 select pg_temp.check((select quantity = 40 from public.stock_items where sku = 'SCR-M4x12') and (select quantity = 1 from public.stock_items where sku = 'PED-FRAME'), 'completing again books the current recipe once');
 select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.complete_mo((select id from public.jobs where sku = 'PED' limit 1))$$, 'operator completes MOs from Kimera');
+
+-- ============================================================================
+-- KIMERA phase 1 acceptance (numerical fixtures; docs/kimera-coverage.md)
+-- ============================================================================
+select pg_temp.become(:'B');
+select pg_temp.check((select base_currency = 'GBP' from public.company_settings), 'base currency defaults to GBP');
+insert into public.suppliers (name, currency) values ('K1 Screws Ltd', 'GBP'), ('K1 EuroParts', 'EUR');
+insert into public.stock_items (sku, name, kind, unit) values
+  ('K1-SCREW', 'K1 screw', 'material', 'pcs'), ('K1-PANEL', 'K1 panel', 'material', 'pcs'),
+  ('K1-SUB', 'K1 sub-assembly', 'part', 'pcs'), ('K1-UNIT', 'K1 unit', 'product', 'pcs'),
+  ('K1-SVC', 'K1 installation', 'service', 'h');
+insert into public.bom_lines (product_id, material_id, quantity)
+  select p.id, m.id, v.q from (values ('K1-SUB', 'K1-SCREW', 4), ('K1-SUB', 'K1-PANEL', 1), ('K1-UNIT', 'K1-SUB', 1), ('K1-UNIT', 'K1-SCREW', 2)) v(p, m, q)
+  join public.stock_items p on p.sku = v.p join public.stock_items m on m.sku = v.m;
+
+-- Scenario 1: partial receipt (GBP) — 100 screws @ 0.10, 10 panels @ 5.00
+insert into public.purchase_orders (supplier_id, status) select id, 'draft' from public.suppliers where name = 'K1 Screws Ltd';
+select id as k1po from public.purchase_orders where supplier_id = (select id from public.suppliers where name = 'K1 Screws Ltd') \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) select :'k1po', id, 100, 0.10 from public.stock_items where sku = 'K1-SCREW';
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) select :'k1po', id, 10, 5.00 from public.stock_items where sku = 'K1-PANEL';
+select l.id as screwline from public.po_lines l join public.stock_items s on s.id = l.item_id where s.sku = 'K1-SCREW' \gset
+select l.id as panelline from public.po_lines l join public.stock_items s on s.id = l.item_id where s.sku = 'K1-PANEL' and l.po_id = :'k1po' \gset
+select pg_temp.expect_fail($$select public.receive_po_line(:'screwline', 10)$$, 'receiving a draft PO');
+update public.purchase_orders set status = 'ordered' where id = :'k1po';
+select pg_temp.check(public.receive_po_line(:'screwline', 60, 'rcv-1') = 'partial', 'S1 receive 60 of 100 → partial');
+select pg_temp.check(public.receive_po_line(:'screwline', 60, 'rcv-1') = 'partial', 'S9 same key replayed → same answer');
+select pg_temp.check((select received = 60 and quantity - received = 40 from public.po_lines where id = :'screwline'), 'S1 received 60, outstanding 40');
+select pg_temp.check((select quantity = 60 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW'), 'S1 on hand 60 @ 0.10');
+select pg_temp.check((select count(*) = 1 from public.stock_movements where source_type = 'po_line' and source_id = :'screwline'), 'S9 replay posts no second movement');
+select pg_temp.expect_fail($$select public.receive_po_line(:'screwline', 50)$$, 'receiving more than outstanding without confirming');
+select pg_temp.check(public.receive_po_line(:'screwline', 40) = 'partial', 'rest of the screws in, panels still due');
+select pg_temp.check(public.receive_po_line(:'panelline', 10) = 'received', 'panels in → PO received');
+select pg_temp.check(public.reverse_po_receipt(:'panelline', 2) = 'partial', 'reversing 2 panels reopens the PO');
+select pg_temp.check((select quantity = 8 and avg_cost = 5 from public.stock_items where sku = 'K1-PANEL'), 'reversal takes 2 panels out at their receipt cost');
+select pg_temp.check(public.receive_po_line(:'panelline', 2) = 'received', 'panels re-received');
+select pg_temp.expect_fail($$delete from public.purchase_orders where id = '$$ || :'k1po' || $$'$$, 'deleting a PO with receipts');
+
+-- Multicurrency: 10 panels @ 10.00 EUR, rate 0.85 → 8.50 GBP; average (10×5 + 10×8.5)/20 = 6.75
+insert into public.purchase_orders (supplier_id, status, currency, fx_rate) select id, 'ordered', 'EUR', 0.85 from public.suppliers where name = 'K1 EuroParts';
+insert into public.po_lines (po_id, item_id, quantity, unit_cost)
+  select (select id from public.purchase_orders where currency = 'EUR'), id, 10, 10 from public.stock_items where sku = 'K1-PANEL';
+select public.receive_po_line((select l.id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where p.currency = 'EUR'), 10);
+select pg_temp.check((select quantity = 20 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL'), 'EUR receipt converted to GBP before averaging (avg 6.75)');
+select pg_temp.check((select unit_cost = 8.5 from public.stock_movements m join public.purchase_orders p on p.number = m.ref where p.currency = 'EUR'), 'movement keeps the base-currency cost 8.50');
+
+-- Scenario 4: sub-assembly. 2 × SUB = 8 screws (0.80) + 2 panels (13.50) → 7.15 each
+select public.create_mo('K1-SUB', 'K1 sub', 2);
+select public.complete_mo((select id from public.jobs where sku = 'K1-SUB' and status <> 'done'));
+select pg_temp.check((select quantity = 92 from public.stock_items where sku = 'K1-SCREW') and (select quantity = 18 from public.stock_items where sku = 'K1-PANEL'), 'S4 SUB MO consumes 8 screws + 2 panels');
+select pg_temp.check((select quantity = 2 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'S4 SUB output costed at consumed materials: 7.15');
+
+-- Scenario 3: make-to-order unit + a service line on one sales order
+insert into public.orders (order_number, customer, kind) values ('', 'K1 Customer', 'order');
+select id as k1so from public.orders where customer = 'K1 Customer' \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort)
+  select :'k1so', id, sku, name, 1, 50, 0 from public.stock_items where sku = 'K1-UNIT';
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort)
+  select :'k1so', id, sku, name, 2, 30, 1 from public.stock_items where sku = 'K1-SVC';
+select id as unitline from public.order_lines where order_id = :'k1so' and sku = 'K1-UNIT' \gset
+select id as svcline from public.order_lines where order_id = :'k1so' and sku = 'K1-SVC' \gset
+select public.create_mo(null, null, null, null, :'unitline');
+select public.complete_mo((select id from public.jobs where order_line_id = :'unitline'));
+select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'K1-SUB') and (select quantity = 90 from public.stock_items where sku = 'K1-SCREW'), 'S4 unit uses 1 SUB + 2 screws — screws inside the SUB are not counted again');
+select pg_temp.check((select quantity = 1 and avg_cost = 7.35 from public.stock_items where sku = 'K1-UNIT'), 'S3 MTO output on stock at 7.15 + 0.20 = 7.35');
+select pg_temp.check(public.ship_lines(:'k1so', jsonb_build_array(jsonb_build_object('line', :'svcline', 'qty', 2))) = 'partially_shipped', 'S3 service line ships first → partially shipped');
+select pg_temp.check((select count(*) = 0 from public.stock_movements where source_id = :'svcline'), 'services never move stock');
+select pg_temp.check(public.ship_lines(:'k1so', null, 'ship-1') = 'shipped', 'S3 rest ships → shipped');
+select pg_temp.check(public.ship_lines(:'k1so', null, 'ship-1') = 'shipped', 'S9 replayed ship is a no-op');
+select pg_temp.check((select quantity = 0 from public.stock_items where sku = 'K1-UNIT'), 'S3 unit left stock once');
+select pg_temp.check((select unit_cost = 7.35 and source_type = 'order_line' from public.stock_movements where source_id = :'unitline'), 'S3 shipment linked to its line at cost 7.35');
+select pg_temp.expect_fail($$delete from public.orders where id = '$$ || :'k1so' || $$'$$, 'deleting a shipped order');
+select pg_temp.expect_fail($$delete from public.jobs where order_line_id = '$$ || :'unitline' || $$'$$, 'deleting an MO with booked stock');
+
+-- Scenario 8: partial fulfilment + return. Sell 5 screws, ship 3, return 1 restock + 1 scrap.
+insert into public.orders (order_number, customer, kind) values ('', 'K1 Returns', 'order');
+select id as k1so2 from public.orders where customer = 'K1 Returns' \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort)
+  select :'k1so2', id, sku, name, 5, 1, 0 from public.stock_items where sku = 'K1-SCREW';
+select id as rline from public.order_lines where order_id = :'k1so2' \gset
+select pg_temp.check(public.ship_lines(:'k1so2', jsonb_build_array(jsonb_build_object('line', :'rline', 'qty', 3))) = 'partially_shipped', 'S8 ship 3 of 5');
+select pg_temp.check((select quantity = 87 from public.stock_items where sku = 'K1-SCREW') and (select quantity - shipped = 2 from public.order_lines where id = :'rline'), 'S8 on hand 87, 2 left to ship');
+select pg_temp.expect_fail($$select public.ship_lines('$$ || :'k1so2' || $$', jsonb_build_array(jsonb_build_object('line', '$$ || :'rline' || $$', 'qty', 3)))$$, 'shipping more than is left');
+select pg_temp.check(public.return_lines(:'k1so2', jsonb_build_array(jsonb_build_object('line', :'rline', 'qty', 1, 'restock', true), jsonb_build_object('line', :'rline', 'qty', 1, 'restock', false)), 'damaged') = 2, 'S8 return 1 to stock, 1 scrapped');
+select pg_temp.check((select quantity = 88 from public.stock_items where sku = 'K1-SCREW'), 'S8 only the restocked screw comes back');
+select pg_temp.check((select returned = 2 from public.order_lines where id = :'rline') and (select count(*) = 2 from public.order_returns where order_line_id = :'rline'), 'S8 both returns recorded on the line');
+select pg_temp.expect_fail($$select public.return_lines('$$ || :'k1so2' || $$', jsonb_build_array(jsonb_build_object('line', '$$ || :'rline' || $$', 'qty', 2)))$$, 'returning more than shipped');
+select pg_temp.expect_fail($$update public.orders set status = 'cancelled' where id = '$$ || :'k1so2' || $$'$$, 'cancelling while goods are still with the customer');
+
+-- Reopen restores at booked cost; fractional MO quantity
+select public.create_mo('K1-SUB', 'K1 sub again', 1);
+select public.complete_mo((select id from public.jobs where title = 'K1 sub again'));
+select public.reopen_mo((select id from public.jobs where title = 'K1 sub again'));
+select pg_temp.check((select quantity = 88 and avg_cost = 0.10 from public.stock_items where sku = 'K1-SCREW') and (select quantity = 18 and avg_cost = 6.75 from public.stock_items where sku = 'K1-PANEL')
+  and (select quantity = 1 and avg_cost = 7.15 from public.stock_items where sku = 'K1-SUB'), 'reopen puts everything back at the cost it was booked at');
+select pg_temp.check((select quantity = 0.5 from public.jobs where id = public.create_mo('K1-SUB', 'Half', 0.5)), 'fractional MO quantity kept (no rounding up)');
+select pg_temp.expect_fail($$select public.adjust_stock((select id from public.stock_items where sku = 'K1-SVC'), 1, '')$$, 'stocking a service');
+select pg_temp.check(public.adjust_stock((select id from public.stock_items where sku = 'K1-SCREW'), -8, 'lost', 'adj-1') = 80
+  and public.adjust_stock((select id from public.stock_items where sku = 'K1-SCREW'), -8, 'lost', 'adj-1') = 80, 'S9 double-clicked adjustment books once');
+select pg_temp.expect_fail($$delete from public.stock_items where sku = 'K1-SCREW'$$, 'deleting an item with stock history');
+
+-- Scenario 12: valuation reconciles to the ledger, item by item
+select pg_temp.check((select bool_and(abs(s.quantity * s.avg_cost - v.val) < 0.01) from public.stock_items s
+  join (select item_id, sum(delta * unit_cost) val from public.stock_movements group by item_id) v on v.item_id = s.id
+  where s.sku like 'K1-%'), 'S12 stock value = Σ movement delta × unit cost for every item');
+select pg_temp.check((select abs(sum(-delta * unit_cost) - 7.35) < 0.001 from public.stock_movements where job_id = (select id from public.jobs where order_line_id = :'unitline') and reason = 'consume'), 'S12 unit MO cost = 7.35 from its consumption');
+
+-- Scenario 10: restricted actions (API level; the UI hides/disables the same buttons)
+select pg_temp.check((select count(*) > 0 from public.audit_log where table_name = 'order_lines' and row_id = :'rline'), 'audit log records order line changes');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.ship_lines('$$ || :'k1so2' || $$', null)$$, 'operator ships');
+select pg_temp.expect_fail($$select public.return_lines('$$ || :'k1so2' || $$', '[]')$$, 'operator books returns');
+select pg_temp.expect_fail($$select public.receive_po_line('$$ || :'screwline' || $$', 1, null, true)$$, 'operator receives');
+select pg_temp.expect_fail($$select public.reverse_po_receipt('$$ || :'screwline' || $$', 1)$$, 'operator reverses receipts');
+select pg_temp.check((select count(*) = 0 from public.audit_log), 'operators cannot read the audit log');
+update public.company_settings set base_currency = 'USD';
+select pg_temp.check((select base_currency = 'GBP' from public.company_settings), 'operator cannot change the base currency (RLS: 0 rows)');
 
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');

@@ -195,7 +195,7 @@ export interface Order {
   created_by: string | null;
   created_at: string;
 }
-export type DeliveryState = "not_shipped" | "packed" | "shipped" | "delivered";
+export type DeliveryState = "not_shipped" | "packed" | "partially_shipped" | "shipped" | "delivered";
 export interface OrderLine {
   id: string;
   order_id: string;
@@ -206,7 +206,26 @@ export interface OrderLine {
   unit_price: number | null;
   sort: number;
   shopify_line_id: number | null;
+  /** Quantity that has left (ship_lines) and come back (return_lines). */
+  shipped: number;
+  returned: number;
   created_at: string;
+}
+export interface OrderReturn {
+  id: string;
+  order_id: string;
+  order_line_id: string;
+  quantity: number;
+  restock: boolean;
+  reason: string;
+  created_by: string | null;
+  created_at: string;
+}
+export interface CompanySettings {
+  id: number;
+  base_currency: string;
+  default_lead_days: number;
+  updated_at: string;
 }
 export interface IssueComment {
   id: string;
@@ -277,7 +296,7 @@ export interface Issue {
   created_at: string;
 }
 
-export type ItemKind = "material" | "product" | "part";
+export type ItemKind = "material" | "product" | "part" | "service";
 
 export interface StockItem {
   id: string;
@@ -334,6 +353,9 @@ export interface PurchaseOrder {
   number: string;
   supplier_id: string | null;
   status: PoStatus;
+  /** Supplier currency (null = base currency) and its value in base currency, fixed when ordered. */
+  currency: string | null;
+  fx_rate: number;
   expected_date: string | null;
   ordered_at: string | null;
   received_at: string | null;
@@ -352,7 +374,7 @@ export interface PoLine {
   created_at: string;
 }
 
-export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening";
+export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return";
 
 export interface StockMovement {
   id: string;
@@ -366,6 +388,9 @@ export interface StockMovement {
   user_id: string | null;
   /** Manufacturing order that booked this movement (consume / produce). */
   job_id: string | null;
+  /** Document the movement came from: po_line / order_line / job / return / adjustment. */
+  source_type: string | null;
+  source_id: string | null;
   created_at: string;
 }
 
@@ -425,6 +450,8 @@ export interface Tables {
   products: Product;
   orders: Order;
   order_lines: OrderLine;
+  order_returns: OrderReturn;
+  company_settings: CompanySettings;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -448,7 +475,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

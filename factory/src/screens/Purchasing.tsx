@@ -1,7 +1,7 @@
-import { PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2, Users } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { Badge, Btn, Chip, Empty, Field, Sheet } from "../components/ui";
-import { useActions } from "../lib/actions";
+import { opKey, useActions } from "../lib/actions";
 import { cleanNumber } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { can } from "../lib/roles";
@@ -117,20 +117,55 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
   const [cost, setCost] = useState("");
   const [pk, setPk] = useState(0);
   const [recv, setRecv] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState("");
+  // One idempotency key per line until that receipt succeeds: a double click or retry books once.
+  const keys = useRef(new Map<string, string>());
+  const keyOf = (id: string) => { let k = keys.current.get(id); if (!k) { k = opKey(); keys.current.set(id, k); } return k; };
   if (!p) return <Sheet open={false} onClose={onClose}>{null}</Sheet>;
+  const base = db.company_settings[0]?.base_currency ?? "GBP";
+  const cur = p.currency ?? base;
+  const foreign = cur !== base;
+  const fmtCost = (n: number | null) => n === null ? "—" : foreign ? `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${cur}` : money(n);
   const total = lines.reduce((x, l) => x + l.quantity * l.unit_cost, 0);
-  const receiveAll = async () => { for (const l of lines) if (l.quantity > l.received) await a.receive(l, l.quantity - l.received); };
+  const book = async (l: (typeof lines)[number], v: number) => {
+    const left = l.quantity - l.received;
+    let over = false;
+    if (v > left) {
+      if (!window.confirm(t("That is {n} more than ordered. Receive it anyway?", { n: fmtQty(v - left) }))) return;
+      over = true;
+    }
+    setBusy(l.id);
+    if (await a.receive(l, v, keyOf(l.id), over)) { keys.current.delete(l.id); setRecv((r) => { const n = { ...r }; delete n[l.id]; return n; }); }
+    setBusy("");
+  };
+  const receiveAll = async () => { setBusy("all"); for (const l of lines) if (l.quantity > l.received && await a.receive(l, l.quantity - l.received, keyOf(l.id))) keys.current.delete(l.id); setBusy(""); };
+  const reverse = async (l: (typeof lines)[number]) => {
+    const v = Number(cleanNumber(window.prompt(t("Take how many back out? (received {n})", { n: fmtQty(l.received) }), String(l.received)) ?? ""));
+    if (!(v > 0)) return;
+    setBusy(l.id); await a.reverseReceipt(l, v); setBusy("");
+  };
   return (
     <Sheet open={!!po} onClose={onClose} tall title={<span className="row gap-s"><span className="code">{p.number}</span><Badge tone={PO_STATUS[p.status].tone}>{t(PO_STATUS[p.status].label)}</Badge></span>}>
       <div className="stack">
         <div className="row gap">
           <Field label={t("Supplier")}>
-            <select value={p.supplier_id ?? ""} disabled={!editable || !draft} onChange={(e) => a.savePo({ id: p.id, supplier_id: e.target.value || null })}>
+            <select value={p.supplier_id ?? ""} disabled={!editable || !draft} onChange={(e) => { const sup = db.suppliers.find((s) => s.id === e.target.value); const c = sup?.currency && sup.currency !== base ? sup.currency : null; a.savePo({ id: p.id, supplier_id: e.target.value || null, ...(c !== p.currency ? { currency: c, fx_rate: 1 } : {}) }); }}>
               <option value="">—</option>{[...db.suppliers].sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
           <Field label={t("Expected delivery")}><input type="date" value={p.expected_date ?? ""} disabled={!editable} onChange={(e) => a.savePo({ id: p.id, expected_date: e.target.value || null })} /></Field>
         </div>
+        <div className="row gap">
+          <Field label={t("Currency")}>
+            <input value={cur} maxLength={3} disabled={!editable || !draft} key={`cur-${cur}`}
+              onBlur={(e) => { const v = e.target.value.trim().toUpperCase(); if (/^[A-Z]{3}$/.test(v) && v !== cur) a.savePo({ id: p.id, currency: v === base ? null : v, fx_rate: 1 }); }} />
+          </Field>
+          {foreign && <Field label={t("1 {c} = ? {b}", { c: cur, b: base })}>
+            <input inputMode="decimal" defaultValue={p.fx_rate} key={`fx-${p.fx_rate}`} disabled={!editable || !draft}
+              onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== p.fx_rate) a.savePo({ id: p.id, fx_rate: v }); }} />
+          </Field>}
+        </div>
+        {foreign && <p className="fine">{t("Prices are in {c}. Received goods are costed in {b} at this rate (fixed once ordered).", { c: cur, b: base })}</p>}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>SKU</th><th>{t("Item")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Unit cost")}</th><th className="num">{t("Total")}</th>
@@ -143,13 +178,14 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
                   <tr key={l.id} className="static">
                     <td><span className="code">{it?.sku}</span></td><td>{it?.name}</td>
                     <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== l.quantity) a.savePo({ id: p.id }, [{ id: l.id, quantity: v }]); }} /> : fmtQty(l.quantity)} <small>{it?.unit}</small></td>
-                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.unit_cost} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== l.unit_cost) a.savePo({ id: p.id }, [{ id: l.id, unit_cost: v }]); }} /> : money(l.unit_cost)}</td>
-                    <td className="num">{money(l.quantity * l.unit_cost)}</td>
-                    {!draft && <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.received)}</td>}
+                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.unit_cost} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== l.unit_cost) a.savePo({ id: p.id }, [{ id: l.id, unit_cost: v }]); }} /> : fmtCost(l.unit_cost)}</td>
+                    <td className="num">{fmtCost(l.quantity * l.unit_cost)}</td>
+                    {!draft && <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.received)}
+                      {editable && l.received > 0 && p.status !== "cancelled" && <button type="button" className="icon-btn subtle" disabled={!!busy} title={t("Reverse receipt")} aria-label={t("Reverse receipt")} onClick={() => reverse(l)}><Undo2 size={14} /></button>}</td>}
                     {receiving && editable && <td className="num">{left > 0 ? (
                       <span className="row gap-s end">
                         <input className="cell-input" inputMode="decimal" value={recv[l.id] ?? String(left)} onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
-                        <Btn small tone="soft" onClick={() => { const v = Number(cleanNumber(recv[l.id] ?? String(left))); if (v > 0) a.receive(l, v); }}>{t("Book in")}</Btn>
+                        <Btn small tone="soft" busy={busy === l.id} disabled={!!busy} onClick={() => { const v = Number(cleanNumber(recv[l.id] ?? String(left))); if (v > 0) book(l, v); }}>{t("Book in")}</Btn>
                       </span>) : <PackageCheck size={17} className="ok-t" />}</td>}
                     {draft && editable && <td><button type="button" className="icon-btn subtle" onClick={() => a.removePoLine(l.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
                   </tr>
@@ -157,14 +193,14 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
               })}
               {!lines.length && <tr className="static"><td colSpan={7} className="muted">{t("No lines yet")}</td></tr>}
             </tbody>
-            {lines.length > 0 && <tfoot><tr><td colSpan={4}>{t("Total")}</td><td className="num"><b>{money(total)}</b></td>{!draft && <td />}{receiving && editable && <td />}{draft && editable && <td />}</tr></tfoot>}
+            {lines.length > 0 && <tfoot><tr><td colSpan={4}>{t("Total")}</td><td className="num"><b>{fmtCost(total)}</b>{foreign && <><br /><small className="muted">≈ {money(total * p.fx_rate)}</small></>}</td>{!draft && <td />}{receiving && editable && <td />}{draft && editable && <td />}</tr></tfoot>}
           </table>
         </div>
         {draft && editable && (
           <div className="row gap">
             <div className="grow" key={pk}><ItemPicker value={item} onChange={(id) => { setItem(id); const it = db.stock_items.find((s) => s.id === id); if (it) setCost(String(it.avg_cost || "")); }} placeholder={t("Add item — type SKU or name…")} /></div>
             <input className="qty-input" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t("Quantity")} />
-            <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="£" aria-label={t("Unit cost")} />
+            <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={foreign ? cur : "£"} aria-label={t("Unit cost")} />
             <Btn tone="primary" icon={<Plus size={17} />} disabled={!item || !(Number(cleanNumber(qty)) > 0)} onClick={async () => {
               await a.savePo({ id: p.id }, [{ item_id: item!, quantity: Number(cleanNumber(qty)), unit_cost: Number(cleanNumber(cost) || 0) }]);
               setItem(null); setQty("1"); setCost(""); setPk((x) => x + 1);
@@ -175,7 +211,7 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
         {editable && (
           <div className="row gap">
             {draft && <Btn tone="primary" wide disabled={!lines.length || !p.supplier_id} icon={<ShoppingCart size={17} />} onClick={() => a.savePo({ id: p.id, status: "ordered", ordered_at: new Date().toISOString() })}>{t("Mark as ordered")}</Btn>}
-            {receiving && <Btn tone="primary" wide icon={<PackageCheck size={17} />} onClick={receiveAll}>{t("Receive everything")}</Btn>}
+            {receiving && <Btn tone="primary" wide icon={<PackageCheck size={17} />} busy={busy === "all"} disabled={!!busy} onClick={receiveAll}>{t("Receive everything")}</Btn>}
             {(draft || p.status === "ordered") && <Btn tone="ghost" onClick={() => a.savePo({ id: p.id, status: "cancelled" })}>{t("Cancel PO")}</Btn>}
           </div>
         )}
