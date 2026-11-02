@@ -91,7 +91,7 @@ WEB-HOME-USER-LICENSE-31,HOME USER License — X-Plane 12 · IniBuilds,product,S
 033X-3102.A,A33X - OEMRLine MCDU — AMBER · FO,product,Pedestal,pcs,Finished goods,2,696,,DEMO · imported from skalarki-electronics.com
 033X-3103.A,A33X - OEMRLine MCDU — AMBER · STBY,product,Pedestal,pcs,Finished goods,2,696,,DEMO · imported from skalarki-electronics.com
 032X-1330,A32X - PROLine Circuit Breaker Rear Wall Set,product,Other,pcs,Finished goods,3,2640,,DEMO · imported from skalarki-electronics.com
-032X-1228,A32X - HOMELine AFT Overhead Box,part,Frames (built downstairs),pcs,Upstairs,0,540,1,DEMO · imported from skalarki-electronics.com
+032X-1228,A32X - HOMELine AFT Overhead Box,part,Frames (built downstairs),pcs,Upstairs,1,540,1,DEMO · imported from skalarki-electronics.com
 032X-1211,A32X - HOMELine FWD Overhead Box,part,Frames (built downstairs),pcs,Upstairs,1,540,1,DEMO · imported from skalarki-electronics.com
 032X-1112.A,A32X - HOMELine Pedestal FO — AMBER · Version V1,product,Pedestal,pcs,Finished goods,1,4752,,DEMO · imported from skalarki-electronics.com
 032X-1132.A,A32X - HOMELine Pedestal FO — AMBER · Version V2,product,Pedestal,pcs,Finished goods,1,4752,,DEMO · imported from skalarki-electronics.com
@@ -279,7 +279,7 @@ PC-02,SKALARKI - HOMELine HQ PC,product,"Electronics, PCs & spares",pcs,Finished
 032X-1424,"16.1"" LCD screen - FO Side",part,"Electronics, PCs & spares",pcs,Panel store,0,288,,DEMO · imported from skalarki-electronics.com
 032X-1017,A32X - HOMELine Dual MIP & Glare,product,MIP & glareshield,pcs,Finished goods,2,4282.8,,DEMO · imported from skalarki-electronics.com
 032X-1116,A32X - HOMELine Single MIP & Glare,product,MIP & glareshield,pcs,Finished goods,1,3538.8,,DEMO · imported from skalarki-electronics.com
-032X-1112,A32X - HOMELine Pedestal Box,part,Frames (built downstairs),pcs,Upstairs,0,1020,1,DEMO · imported from skalarki-electronics.com
+032X-1112,A32X - HOMELine Pedestal Box,part,Frames (built downstairs),pcs,Upstairs,1,1020,1,DEMO · imported from skalarki-electronics.com
 032X-1002.A,A32X - HOMELine Glare Wing CS — AMBER,part,MIP & glareshield,pcs,Panel store,2,162,,DEMO · imported from skalarki-electronics.com
 032X-1002.WW,A32X - HOMELine Glare Wing CS — WARM WHITE,part,MIP & glareshield,pcs,Panel store,1,162,,DEMO · imported from skalarki-electronics.com
 032X-1423,CONSOLE/FLOOR Lights Controller - Dual,product,"Electronics, PCs & spares",pcs,Finished goods,2,100.8,,DEMO · imported from skalarki-electronics.com
