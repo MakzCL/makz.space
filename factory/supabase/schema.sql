@@ -4475,7 +4475,7 @@ revoke all on function public.trace_lot(uuid) from public, anon;
 grant execute on function public.trace_lot(uuid) to authenticated;
 
 -- ============================================================================
--- Phase 5 — outsourced manufacturing (OUT-01..06).
+-- Phase 4d — outsourced manufacturing (OUT-01..06).
 -- A contract manufacturer is a supplier with a partner location that holds
 -- our stock. An outsourced PO buys the finished product from them; each line
 -- carries the materials they use (copied from the recipe, editable). We send
@@ -4740,7 +4740,7 @@ begin
       left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = b.material_id
       left join public.orders o on o.id = j.order_id
      where j.status <> 'done' and not j.stock_booked and j.sku is not null;
-  -- draft transfers reserve at their source
+  -- materials an outsourced PO needs at the contractor
   insert into av_demand
     select 'ingredient', p.id, p.id, p.number, pm.item_id, p.partner_location_id,
            sum(pm.quantity_per * (l.quantity - l.received)), false, null, p.expected_date, p.created_at
@@ -4748,6 +4748,7 @@ begin
       join public.po_materials pm on pm.po_line_id = l.id
      where p.kind = 'outsourced' and p.status in ('ordered', 'partial') and p.partner_location_id is not null and l.quantity > l.received
      group by p.id, pm.item_id;
+  -- draft transfers reserve at their source
   insert into av_demand
     select 'transfer', tl2.id, t.id, t.number, tl2.item_id, t.from_location, tl2.quantity, false,
            extract(epoch from t.created_at), t.expected_date, t.created_at

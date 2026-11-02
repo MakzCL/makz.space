@@ -155,7 +155,7 @@ advisory lock per item, so concurrent requests serialise.
 | MFG-17 | Partial | tasks, stage progress, time | No consumption/output entry | Extend |
 | MFG-18 | Missing | — | — | Implement |
 
-## G. Outsourced manufacturing — OUT-01 … OUT-06: **Complete (core), phase 5 — not yet published**
+## G. Outsourced manufacturing — OUT-01 … OUT-06: **Complete (core), phase 4d**
 
 | ID | Status | Evidence |
 |---|---|---|
@@ -336,7 +336,7 @@ key per intent and disables the button while it runs.
   - Tests: 350 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: MO production panel, Cost card, batches + trace — no errors.
   - Not done in phase 4: outsourced manufacturing (OUT-01..06) — next.
 - 2026-11-02 — **Phase 4 published.** Migration `kimera_phase4_production_costs_lots_a` → deploy of `aa64aa5` → `_b` (`apply_cost_privileges()` hides station £/h and operation fixed costs). The app went in between so the old app never lost a column it selects. Restore point: `backup_20261102_phase4` + branch `backup/pre-phase4-2026-11-02` (fa69c28). Live check: WIP location present, lot_id/tracking visible, avg_cost/cost_per_hour/fixed_cost hidden from the API, 0 stock mismatches.
-- 2026-11-03 — **Phase 5 — outsourced manufacturing (OUT-01..06) done locally — not yet published.** See section G. Also: `move_by_source_lots` now returns untracked stock to the location of the original movement (needed for contractor returns; same result for existing callers). Tests: 371 schema checks ALL PASSED (21 new), concurrency PASSED, tsc clean, build ok, browser smoke of the outsourced PO sheet (desktop + phone) — no errors.
+- 2026-11-02 — **Phase 4d — outsourced manufacturing (OUT-01..06) built** (part of phase 4 in the plan). See section G. Also: `move_by_source_lots` now returns untracked stock to the location of the original movement (needed for contractor returns; same result for existing callers). Tests: 371 schema checks ALL PASSED (21 new), concurrency PASSED, tsc clean, build ok, browser smoke of the outsourced PO sheet (desktop + phone) — no errors.
 - 2026-11-02 — Fix (not yet published): Kimera "Create" menu opened to the right and went off-screen; it now opens leftwards from the button and is capped to the screen width.
 
 ## Next steps (continuation plan)
