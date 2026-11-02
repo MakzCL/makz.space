@@ -3,7 +3,7 @@ import typescript from "eslint-config-next/typescript";
 
 /** Flat config. Next 16 ships its shareable configs as flat arrays. */
 const config = [
-  { ignores: [".next/**", "node_modules/**", "next-env.d.ts", "supabase/**"] },
+  { ignores: [".next/**", "node_modules/**", "next-env.d.ts", "supabase/**", "factory/**"] },
   ...coreWebVitals,
   ...typescript,
   {
