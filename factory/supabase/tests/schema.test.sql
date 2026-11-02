@@ -755,6 +755,54 @@ select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.post_transfer('$$ || :'tr' || $$', 'cancel')$$, 'operator posts transfers');
 select pg_temp.expect_fail($$insert into public.locations (name) values ('Sneaky')$$, 'operator adds locations');
 
+-- ============================================================================
+-- KIMERA phase 3b: priority allocation (scenario 2), no over-shipping
+-- ============================================================================
+select pg_temp.become(:'B');
+insert into public.stock_items (sku, name, kind) values ('AL-W', 'Alloc widget', 'product'), ('AL-R', 'Alloc raw', 'material');
+select id as alw from public.stock_items where sku = 'AL-W' \gset
+select id as alr from public.stock_items where sku = 'AL-R' \gset
+select public.adjust_stock(:'alw', 5, 'opening');
+insert into public.orders (order_number, customer, kind, ordered_at) values ('', 'Alloc A', 'order', now() - interval '2 days');
+insert into public.orders (order_number, customer, kind, ordered_at) values ('', 'Alloc B', 'order', now() - interval '1 day');
+select id as soa, order_number as soan from public.orders where customer = 'Alloc A' \gset
+select id as sob, order_number as sobn from public.orders where customer = 'Alloc B' \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity, sort) values (:'soa', :'alw', 'AL-W', 'Widget', 4, 0);
+insert into public.order_lines (order_id, item_id, sku, name, quantity, sort) values (:'sob', :'alw', 'AL-W', 'Widget', 3, 0);
+select id as la from public.order_lines where order_id = :'soa' \gset
+select id as lb from public.order_lines where order_id = :'sob' \gset
+select public.availability() as av \gset
+select pg_temp.check((:'av'::jsonb->'lines'->:'la'->>'status') = 'in_stock' and (:'av'::jsonb->'lines'->:'la'->>'reserved')::numeric = 4, 'S2 older order A: 4 of 5 reserved, in stock');
+select pg_temp.check((:'av'::jsonb->'lines'->:'lb'->>'status') = 'not_available' and (:'av'::jsonb->'lines'->:'lb'->>'reserved')::numeric = 1
+  and (:'av'::jsonb->'lines'->:'lb'->>'short')::numeric = 2, 'S2 order B: 1 reserved, 2 short');
+select pg_temp.check((:'av'::jsonb->'lines'->:'lb'->>'why') like '%' || :'soan' || '%', 'S2 the shortage names the order holding the stock');
+select pg_temp.check((:'av'::jsonb->'items'->:'alw'->>'available')::numeric = 0, 'S2 nothing left uncommitted');
+-- B is moved ahead of A
+select public.set_rank('order', :'sob', :'soa');
+select public.availability() as av \gset
+select pg_temp.check((:'av'::jsonb->'lines'->:'lb'->>'status') = 'in_stock' and (:'av'::jsonb->'lines'->:'la'->>'status') = 'not_available'
+  and (:'av'::jsonb->'lines'->:'la'->>'reserved')::numeric = 2, 'S2 after reprioritising: B in stock, A gets the remaining 2');
+-- a PO on the way turns A into Expected with the date and PO number
+insert into public.purchase_orders (supplier_id, status, expected_date) select id, 'ordered', current_date + 5 from public.suppliers where name = 'K1 Screws Ltd';
+select id as alpo, number as alpon from public.purchase_orders where expected_date = current_date + 5 \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'alpo', :'alw', 10, 1);
+select public.availability() as av \gset
+select pg_temp.check((:'av'::jsonb->'lines'->:'la'->>'status') = 'expected' and (:'av'::jsonb->'lines'->:'la'->>'date')::date = current_date + 5
+  and (:'av'::jsonb->'lines'->:'la'->>'why') like '%' || :'alpon' || '%', 'S2 A expected on the PO date, naming the PO');
+-- an MO's ingredients compete too: MTS MO for 2 × (1 AL-R) with no AL-R anywhere → not available
+insert into public.bom_lines (product_id, material_id, quantity) values (:'alw', :'alr', 1);
+select public.create_mo('AL-W', 'Alloc build', 2) as almo \gset
+select public.availability() as av \gset
+select pg_temp.check((:'av'::jsonb->'mos'->:'almo'->>'status') = 'not_available' and jsonb_array_length(:'av'::jsonb->'mos'->:'almo'->'short') = 1, 'MO ingredient shortage shown on the MO');
+select pg_temp.check((:'av'::jsonb->'lines'->:'la'->>'status') = 'expected', 'the MO output also counts as expected supply');
+-- no over-shipping: B ships its 3, A cannot ship 4 from the 2 left
+select public.ship_lines(:'sob', null);
+select pg_temp.expect_fail($$select public.ship_lines('$$ || :'soa' || $$', null)$$, 'shipping more than is on the shelf');
+select pg_temp.check((select quantity = 2 from public.stock_items where id = :'alw'), 'refused shipment left stock untouched');
+select pg_temp.expect_fail($$select public.set_rank('job', (select id from public.jobs where order_id is not null limit 1), null)$$, 'reranking an MTO MO directly (it follows its order)');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.set_rank('order', '$$ || :'soa' || $$', null)$$, 'operator changes priorities');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

@@ -3525,6 +3525,198 @@ end $$;
 revoke all on function public.post_transfer(uuid, text, text) from public, anon;
 grant execute on function public.post_transfer(uuid, text, text) to authenticated;
 
+-- ============================================================================
+-- KIMERA phase 3b — priority ranks, server-side allocation, no over-shipping
+--  (ALLOC-01..07, SALES-03/04, MFG-04; scenarios 2 and 13)
+-- Policy (deterministic, recomputed on every call, same answer for everyone):
+--  demand  = open sales lines not yet shipped (stocked items, no MO),
+--            ingredients of unfinished MOs (recipe × qty), draft transfer lines;
+--            a make-to-order line whose MO is done is pegged to that output first
+--  order   = rank (lower first; MTO MOs use their sales order's rank),
+--            then required date (none = last), then created time, then id
+--  supply  = on hand at the demand's location first, then expected supply at that
+--            location in date order: open PO lines, open MO output, transfers in transit
+--  result  = per line/MO: In stock / Expected (date + source) / Not available,
+--            with the reason and who holds the stock when it is short
+-- ============================================================================
+alter table public.orders add column if not exists rank numeric;
+alter table public.jobs add column if not exists rank numeric;
+update public.orders set rank = extract(epoch from coalesce(ordered_at, created_at)) where rank is null;
+update public.jobs set rank = extract(epoch from created_at) where rank is null;
+create or replace function public.default_rank() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.rank is null then
+    new.rank := extract(epoch from coalesce((to_jsonb(new)->>'ordered_at')::timestamptz, new.created_at, now()));
+  end if;
+  return new;
+end $$;
+drop trigger if exists default_rank on public.orders;
+create trigger default_rank before insert on public.orders for each row execute function public.default_rank();
+drop trigger if exists default_rank on public.jobs;
+create trigger default_rank before insert on public.jobs for each row execute function public.default_rank();
+
+-- Move a sales order (or make-to-stock MO) to just before another one in the queue.
+create or replace function public.set_rank(p_kind text, p_id uuid, p_before uuid) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare tgt numeric; prev numeric; r numeric;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can change priorities'; end if;
+  if p_kind = 'order' then
+    if p_before is null then select coalesce(max(rank), 0) + 1 into r from public.orders where kind = 'order' and status = 'open';
+    else
+      select rank into tgt from public.orders where id = p_before;
+      if tgt is null then raise exception 'Order not found'; end if;
+      select max(rank) into prev from public.orders where kind = 'order' and status = 'open' and rank < tgt and id <> p_id;
+      r := case when prev is null then tgt - 1 else (prev + tgt) / 2 end;
+    end if;
+    update public.orders set rank = r where id = p_id;
+  elsif p_kind = 'job' then
+    if exists (select 1 from public.jobs where id = p_id and order_id is not null) then
+      raise exception 'Make-to-order MOs follow their sales order — move the order instead';
+    end if;
+    if p_before is null then select coalesce(max(rank), 0) + 1 into r from public.jobs where status <> 'done';
+    else
+      select coalesce(j.rank, o.rank) into tgt from public.jobs j left join public.orders o on o.id = j.order_id where j.id = p_before;
+      if tgt is null then raise exception 'Manufacturing order not found'; end if;
+      select max(coalesce(j.rank, o.rank)) into prev from public.jobs j left join public.orders o on o.id = j.order_id
+       where j.status <> 'done' and coalesce(j.rank, o.rank) < tgt and j.id <> p_id;
+      r := case when prev is null then tgt - 1 else (prev + tgt) / 2 end;
+    end if;
+    update public.jobs set rank = r where id = p_id;
+  else raise exception 'Unknown kind';
+  end if;
+  return r;
+end $$;
+revoke all on function public.set_rank(text, uuid, uuid) from public, anon;
+grant execute on function public.set_rank(text, uuid, uuid) to authenticated;
+
+create or replace function public.availability() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  d record; e record; need numeric; take numeric; got numeric; exp_qty numeric; exp_date date; exp_src text;
+  holders text; tl uuid := public.transit_location(); dl uuid := public.default_location();
+  lines jsonb := '{}'; ingr jsonb := '{}'; items jsonb := '{}'; st text; why text; nm text;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  create temp table if not exists av_supply (item_id uuid, location_id uuid, qty numeric, primary key (item_id, location_id)) on commit drop;
+  create temp table if not exists av_expected (item_id uuid, location_id uuid, due date, src text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_taken (item_id uuid, location_id uuid, who text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_demand (kind text, ref_id uuid, owner_id uuid, label text, item_id uuid, location_id uuid,
+    qty numeric, pegged boolean, rank numeric, due date, created timestamptz) on commit drop;
+  truncate av_supply, av_expected, av_taken, av_demand;
+
+  insert into av_supply select item_id, location_id, quantity from public.stock_levels where location_id is distinct from tl;
+  insert into av_expected
+    select l.item_id, coalesce(p.location_id, dl), p.expected_date, p.number, l.quantity - l.received, 0
+      from public.po_lines l join public.purchase_orders p on p.id = l.po_id
+     where p.status in ('ordered', 'partial') and l.quantity > l.received
+    union all
+    select si.id, coalesce(j.location_id, dl), j.due_date, j.code, j.quantity, 0
+      from public.jobs j join lateral (select id from public.stock_items where sku = j.sku and kind not in ('material', 'service') order by created_at limit 1) si on true
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null and coalesce(j.quantity, 0) > 0
+    union all
+    select tl2.item_id, t.to_location, t.expected_date, t.number, tl2.quantity, 0
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'in_transit';
+
+  -- sales lines (stocked, not yet shipped). MTO lines with a finished MO are pegged to it.
+  insert into av_demand
+    select 'line', l.id, o.id, o.order_number, l.item_id, coalesce(o.location_id, dl), l.quantity - l.shipped,
+           (j.id is not null and j.stock_booked), o.rank, o.delivery_deadline, o.created_at
+      from public.order_lines l join public.orders o on o.id = l.order_id
+      join public.stock_items si on si.id = l.item_id and si.kind <> 'service'
+      left join public.jobs j on j.order_line_id = l.id
+     where o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+       and (j.id is null or j.stock_booked);
+  -- ingredients of unfinished MOs
+  insert into av_demand
+    select 'ingredient', j.id, j.id, j.code, b.material_id, coalesce(j.location_id, dl), b.quantity * coalesce(j.quantity, 1),
+           false, coalesce(o.rank, j.rank), j.due_date, j.created_at
+      from public.jobs j
+      join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
+      join public.bom_lines b on b.product_id = p.id
+      join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+      left join public.orders o on o.id = j.order_id
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null;
+  -- draft transfers reserve at their source
+  insert into av_demand
+    select 'transfer', tl2.id, t.id, t.number, tl2.item_id, t.from_location, tl2.quantity, false,
+           extract(epoch from t.created_at), t.expected_date, t.created_at
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'draft';
+
+  for d in select * from av_demand order by pegged desc, rank nulls last, due nulls last, created, ref_id loop
+    need := d.qty;
+    select coalesce(qty, 0) into got from av_supply where item_id = d.item_id and location_id = d.location_id;
+    got := coalesce(got, 0);
+    take := least(greatest(got, 0), need);
+    if take > 0 then
+      update av_supply set qty = qty - take where item_id = d.item_id and location_id = d.location_id;
+      insert into av_taken values (d.item_id, d.location_id, d.label, take, 0);
+    end if;
+    need := need - take;
+    exp_qty := 0; exp_date := null; exp_src := null;
+    for e in select ctid, * from av_expected where item_id = d.item_id and location_id = d.location_id and qty > 0
+              order by due nulls last, src loop
+      exit when need <= 0;
+      got := least(e.qty, need);
+      update av_expected set qty = qty - got where ctid = e.ctid;
+      need := need - got; exp_qty := exp_qty + got; exp_date := e.due;
+      exp_src := coalesce(exp_src || ', ', '') || e.src;
+    end loop;
+    if need > 0 then
+      select string_agg(distinct who, ', ') into holders from (select who from av_taken where item_id = d.item_id and location_id = d.location_id and who <> d.label limit 4) h;
+      select name into nm from public.locations where id = d.location_id;
+      st := 'not_available';
+      why := format('%s short at %s', trim_scale(need), nm)
+          || case when holders is not null then format(' — on-hand stock is promised to %s (higher priority)', holders) else ' — none on hand or on order' end;
+    elsif exp_qty > 0 then
+      st := 'expected';
+      why := format('%s reserved now, %s expected from %s', trim_scale(take), trim_scale(exp_qty), exp_src);
+    else
+      st := 'in_stock'; why := format('%s reserved from stock', trim_scale(take));
+    end if;
+    if d.kind in ('line', 'transfer') then
+      lines := lines || jsonb_build_object(d.ref_id::text, jsonb_build_object('status', st, 'reserved', take, 'expected', exp_qty,
+        'short', need, 'date', exp_date, 'why', why, 'kind', d.kind));
+    else
+      -- an MO is as available as its worst ingredient
+      ingr := jsonb_set(ingr, array[d.ref_id::text], jsonb_build_object(
+        'status', case when st = 'not_available' or ingr->d.ref_id::text->>'status' = 'not_available' then 'not_available'
+                       when st = 'expected' or ingr->d.ref_id::text->>'status' = 'expected' then 'expected' else 'in_stock' end,
+        'date', greatest((ingr->d.ref_id::text->>'date')::date, exp_date),
+        'short', coalesce(ingr->d.ref_id::text->'short', '[]'::jsonb) || case when need > 0
+             then jsonb_build_array(jsonb_build_object('item_id', d.item_id, 'short', need, 'why', why)) else '[]'::jsonb end), true);
+    end if;
+  end loop;
+
+  select coalesce(jsonb_object_agg(item_id, jsonb_build_object('on_hand', on_hand, 'reserved', reserved, 'available', on_hand - reserved)), '{}') into items
+    from (select s.item_id, sum(s.quantity) on_hand, coalesce((select sum(qty) from av_taken t where t.item_id = s.item_id), 0) reserved
+            from public.stock_levels s where s.location_id is distinct from tl group by s.item_id) x;
+  return jsonb_build_object('lines', lines, 'mos', ingr, 'items', items, 'at', now());
+end $$;
+revoke all on function public.availability() from public, anon;
+grant execute on function public.availability() to authenticated;
+
+-- Never ship or dispatch more than is physically at that location (scenario 13:
+-- two people shipping the last unit at once — the item row lock serialises them,
+-- the second one is refused).
+create or replace function public.guard_overdraw() returns trigger
+language plpgsql set search_path = public as $$
+declare lvl numeric; nm text; it text;
+begin
+  if new.delta < 0 and (new.reason = 'ship' or (new.reason = 'transfer' and new.location_id is distinct from public.transit_location())) then
+    select quantity into lvl from public.stock_levels where item_id = new.item_id and location_id = new.location_id;
+    if coalesce(lvl, 0) < 0 then
+      select name into nm from public.locations where id = new.location_id;
+      select sku into it from public.stock_items where id = new.item_id;
+      raise exception 'Not enough % at % — only % there', it, nm, trim_scale(coalesce(lvl, 0) - new.delta);
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists guard_overdraw on public.stock_movements;
+create trigger guard_overdraw after insert on public.stock_movements for each row execute function public.guard_overdraw();
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
 
