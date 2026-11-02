@@ -450,6 +450,38 @@ select pg_temp.check(not public.is_admin(), 'support has no admin rights');
 select pg_temp.become(:'A1');
 update public.profiles set role = 'operator' where id = :'A2';
 
+-- Katana 1:1: sub-assembly recipes, exact reversal on reopen, office complete/reopen
+select pg_temp.become(:'B');
+insert into public.stock_items (sku, name, kind) values ('SCR-M4x12', 'M4x12 BLACK Socket Head', 'material'), ('DOC-L', 'Left Document Holder Piece', 'material'),
+  ('DOC-R', 'Right Document Holder Piece', 'material'), ('PED-FRAME', 'Pedestal frame', 'part'), ('PED', 'A32X Pedestal', 'product');
+select public.adjust_stock(id, 100, 'opening') from public.stock_items where sku = 'SCR-M4x12';
+select public.adjust_stock(id, 5, 'opening') from public.stock_items where sku in ('DOC-L', 'DOC-R');
+insert into public.bom_lines (product_id, material_id, quantity)
+  select f.id, m.id, q from public.stock_items f, (values ('SCR-M4x12', 24), ('DOC-L', 1), ('DOC-R', 1)) v(sku, q) join public.stock_items m on m.sku = v.sku where f.sku = 'PED-FRAME';
+insert into public.bom_lines (product_id, material_id, quantity)
+  select p.id, f.id, 1 from public.stock_items p, public.stock_items f where p.sku = 'PED' and f.sku = 'PED-FRAME';
+-- build two frames (make to stock)
+select public.create_mo('PED-FRAME', 'Pedestal frame', 2);
+select public.complete_mo((select id from public.jobs where sku = 'PED-FRAME' and status <> 'done' limit 1));
+select pg_temp.check((select quantity = 52 from public.stock_items where sku = 'SCR-M4x12'), 'frame MO uses 24 screws × 2');
+select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'DOC-L') and (select quantity = 3 from public.stock_items where sku = 'DOC-R'), 'frame MO uses the left and right document holder pieces');
+select pg_temp.check((select quantity = 2 from public.stock_items where sku = 'PED-FRAME'), 'finished frames go on stock');
+-- pedestal consumes one frame
+select public.create_mo('PED', 'A32X Pedestal', 1);
+select public.complete_mo((select id from public.jobs where sku = 'PED' and status <> 'done' limit 1));
+select pg_temp.check((select quantity = 1 from public.stock_items where sku = 'PED-FRAME') and (select quantity = 1 from public.stock_items where sku = 'PED'), 'pedestal MO takes a frame and adds a pedestal');
+select pg_temp.check((select count(*) from public.stock_movements where job_id = (select id from public.jobs where sku = 'PED' limit 1)) = 2, 'movements are linked to the MO');
+-- recipe changes, then the frame MO is reopened: exactly what was booked comes back
+update public.bom_lines set quantity = 30 where material_id = (select id from public.stock_items where sku = 'SCR-M4x12');
+select public.reopen_mo((select id from public.jobs where sku = 'PED-FRAME' limit 1));
+select pg_temp.check((select quantity = 100 from public.stock_items where sku = 'SCR-M4x12') and (select quantity = 5 from public.stock_items where sku = 'DOC-L'), 'reopen returns exactly what was used (not the new recipe)');
+select pg_temp.check((select quantity = -1 from public.stock_items where sku = 'PED-FRAME'), 'reopen takes the produced frames back off');
+select pg_temp.check((select not stock_booked and status = 'open' from public.jobs where sku = 'PED-FRAME' limit 1), 'reopened MO is open again');
+select public.complete_mo((select id from public.jobs where sku = 'PED-FRAME' limit 1));
+select pg_temp.check((select quantity = 40 from public.stock_items where sku = 'SCR-M4x12') and (select quantity = 1 from public.stock_items where sku = 'PED-FRAME'), 'completing again books the current recipe once');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.complete_mo((select id from public.jobs where sku = 'PED' limit 1))$$, 'operator completes MOs from Kimera');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

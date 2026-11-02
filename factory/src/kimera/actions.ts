@@ -36,6 +36,8 @@ export function useKimera() {
       convertQuote: (id: string) => run(() => B.rpc<string>("convert_quote", { p_order: id }), ["orders"], t("Quote turned into a sales order")),
       updateJob: (id: string, patch: Partial<Job>) => run(() => B.update("jobs", id, patch), ["jobs"]),
       deleteJob: (id: string) => run(() => B.remove("jobs", id), ["jobs"], t("Deleted")),
+      completeMo: (id: string) => run(() => B.rpc<string>("complete_mo", { p_job: id }), ["jobs", "stock_items", "stock_movements"], t("Manufacturing order done — stock updated")),
+      reopenMo: (id: string) => run(() => B.rpc<string>("reopen_mo", { p_job: id }), ["jobs", "stock_items", "stock_movements"], t("Reopened — materials returned to stock")),
       updateTicket: (id: string, patch: Partial<Issue>) => run(() => B.update("issues", id, patch), ["issues", "issue_comments"]),
       comment: (issueId: string, body: string, me: string) =>
         run(() => B.insert("issue_comments", { issue_id: issueId, author_id: me, body, kind: "comment" }), ["issue_comments"]),

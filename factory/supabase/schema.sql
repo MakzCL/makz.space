@@ -2124,3 +2124,114 @@ create trigger missed_call after update of status on public.calls for each row e
 alter type public.staff_role add value if not exists 'support' before 'operator';
 drop policy if exists "admin adds shifts" on public.shifts;
 create policy "admin adds shifts" on public.shifts for insert to authenticated with check (public.is_admin());
+
+-- ============================================================================
+-- Kimera = Katana 1:1 for manufacturing stock:
+--  * every movement booked by a manufacturing order carries its job_id
+--  * finishing an MO consumes its recipe × quantity (sub-assemblies are their own
+--    MOs: building the frame consumes screws/pieces and puts the frame on stock;
+--    building the pedestal consumes the frame)
+--  * reopening a finished MO reverses exactly what it booked (even if the recipe
+--    changed since), so stock always matches reality
+--  * the office can complete / reopen an MO from Kimera
+-- ============================================================================
+alter table public.stock_movements add column if not exists job_id uuid references public.jobs(id) on delete set null;
+create index if not exists stock_movements_job_idx on public.stock_movements (job_id);
+
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  q := s.quantity + p_delta;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q,
+    avg_cost = case when p_cost is not null and p_delta > 0 and q > 0
+                    then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+                    when p_cost is not null and s.quantity <= 0 then p_cost
+                    else s.avg_cost end,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id, job_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), p_cost, auth.uid(),
+          nullif(current_setting('app.stock_job', true), '')::uuid);
+  return q;
+end $$;
+revoke all on function public.move_stock(uuid, numeric, text, text, text, numeric) from public, anon, authenticated;
+
+create or replace function public.book_job_stock() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  prod public.stock_items;
+  b record;
+  m record;
+  qty numeric := coalesce(new.quantity, 1);
+begin
+  -- Reopened: put back exactly what this MO booked (net per item, any number of cycles).
+  if old.status = 'done' and new.status <> 'done' and old.stock_booked then
+    perform set_config('app.stock_job', new.id::text, true);
+    for m in select item_id, reason, sum(delta) as net from public.stock_movements
+              where job_id = new.id and reason in ('consume', 'produce') group by item_id, reason having sum(delta) <> 0 loop
+      perform public.move_stock(m.item_id, -m.net, m.reason, new.code, 'Reopened — reversed');
+    end loop;
+    perform set_config('app.stock_job', '', true);
+    new.stock_booked := false;
+    return new;
+  end if;
+  if new.status <> 'done' or old.status = 'done' or new.stock_booked or new.sku is null then return new; end if;
+  select * into prod from public.stock_items where sku = new.sku and kind <> 'material' limit 1;
+  if prod.id is null then select * into prod from public.stock_items where sku = new.sku limit 1; end if;
+  if prod.id is null then return new; end if;
+  perform set_config('app.stock_job', new.id::text, true);
+  for b in select material_id, quantity from public.bom_lines where product_id = prod.id loop
+    perform public.move_stock(b.material_id, -(b.quantity * qty), 'consume', new.code, '');
+  end loop;
+  if new.order_id is null then
+    perform public.move_stock(prod.id, qty, 'produce', new.code, '');
+  end if;
+  perform set_config('app.stock_job', '', true);
+  new.stock_booked := true;
+  return new;
+end $$;
+drop trigger if exists book_job_stock on public.jobs;
+create trigger book_job_stock before update of status on public.jobs
+  for each row execute function public.book_job_stock();
+
+-- Office: finish or reopen a manufacturing order from Kimera.
+create or replace function public.complete_mo(p_job uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can complete manufacturing orders'; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  if j.status = 'done' then return 'done'; end if;
+  update public.work_sessions set ended_at = now() where job_id = j.id and ended_at is null;
+  update public.participants set left_at = now() where job_id = j.id and left_at is null;
+  update public.jobs set status = 'done', completed_at = now(),
+    stage = greatest(coalesce(array_length(route, 1), 1) - 1, 0) where id = j.id;
+  return 'done';
+end $$;
+create or replace function public.reopen_mo(p_job uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can reopen manufacturing orders'; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  if j.status <> 'done' then return j.status; end if;
+  update public.jobs set status = 'open', completed_at = null,
+    station_id = case when coalesce(array_length(route, 1), 0) > 0 then route[stage + 1] else station_id end,
+    assignees = case when coalesce(array_length(route, 1), 0) > 0 then public.station_assignees(route[stage + 1]) else assignees end
+  where id = j.id;
+  return 'open';
+end $$;
+revoke all on function public.complete_mo(uuid) from public, anon;
+revoke all on function public.reopen_mo(uuid) from public, anon;
+grant execute on function public.complete_mo(uuid) to authenticated;
+grant execute on function public.reopen_mo(uuid) to authenticated;

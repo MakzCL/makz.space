@@ -1,4 +1,4 @@
-import { Factory, Plus, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, Factory, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, Segmented, Sheet } from "../components/ui";
@@ -169,6 +169,10 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
           ) : <p className="muted">{t("No recipe for this product yet — add one under Items › Recipes.")}</p>}
           <small className="label">{t("Crew")}</small>
           <div className="chips">{job.assignees.length ? job.assignees.map((id) => <Badge key={id}><Avatar p={person(id)} size={18} />{person(id)?.full_name}</Badge>) : <span className="muted">{t("Nobody yet — add people to the station in Factory › Jobs › Production setup.")}</span>}</div>
+          {job.status === "done" && <UsedByMo job={job} />}
+          {editable && (job.status === "done"
+            ? <HoldButton icon={<RotateCcw size={16} />} onConfirm={() => k.reopenMo(job.id)}>{t("Hold to reopen — everything it used goes back on stock")}</HoldButton>
+            : <HoldButton tone="primary" icon={<CheckCircle2 size={16} />} onConfirm={() => k.completeMo(job.id)}>{t("Hold to complete — takes the recipe off stock")}</HoldButton>)}
           {editable && job.status !== "done" && (
             <>
               <div className="row gap">
@@ -208,5 +212,33 @@ function KeptReady() {
         })}
       </div>
     </div>
+  );
+}
+
+/** What a finished manufacturing order actually booked (net, so a reopen/complete cycle shows the latest). */
+function UsedByMo({ job }: { job: Job }) {
+  const { db } = useStore();
+  const net = new Map<string, { item: string; used: number; made: number }>();
+  for (const m of db.stock_movements) {
+    if (m.job_id !== job.id || (m.reason !== "consume" && m.reason !== "produce")) continue;
+    const r = net.get(m.item_id) ?? { item: m.item_id, used: 0, made: 0 };
+    if (m.reason === "consume") r.used -= m.delta; else r.made += m.delta;
+    net.set(m.item_id, r);
+  }
+  const rows = [...net.values()].filter((r) => r.used || r.made);
+  if (!rows.length) return <p className="fine">{t("No stock was booked (no recipe for this SKU when it was finished).")}</p>;
+  return (
+    <>
+      <small className="label">{t("Booked to stock")}</small>
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th>SKU</th><th>{t("Item")}</th><th className="num">{t("Used")}</th><th className="num">{t("Made")}</th></tr></thead>
+          <tbody>{rows.map((r) => { const it = db.stock_items.find((s) => s.id === r.item); return (
+            <tr key={r.item} className="static"><td><span className="code">{it?.sku}</span></td><td>{it?.name}</td>
+              <td className="num red-t">{r.used ? `−${fmtQty(r.used)}` : ""}</td><td className="num ok-t">{r.made ? `+${fmtQty(r.made)}` : ""}</td></tr>); })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

@@ -364,6 +364,8 @@ export interface StockMovement {
   note: string;
   unit_cost: number | null;
   user_id: string | null;
+  /** Manufacturing order that booked this movement (consume / produce). */
+  job_id: string | null;
   created_at: string;
 }
 

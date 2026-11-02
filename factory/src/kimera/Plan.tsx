@@ -26,15 +26,21 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
 
   // Materials short once every open MO has taken what it needs.
   const sup = new Map(db.suppliers.map((s) => [s.id, s]));
-  const short = db.stock_items.filter((s) => !s.archived)
+  // Made in-house = has a recipe (e.g. the pedestal frame). Those get built, not bought.
+  const hasRecipe = new Set(db.bom_lines.map((b) => b.product_id));
+  const building = new Map<string, number>();
+  for (const j of db.jobs) if (j.sku && !j.order_id && j.status !== "done") building.set(j.sku, (building.get(j.sku) ?? 0) + (j.quantity ?? 1));
+  const shortAll = db.stock_items.filter((s) => !s.archived)
     .map((s) => {
-      const committed = lv.committed.get(s.id) ?? 0, expected = lv.expected.get(s.id) ?? 0;
+      const committed = lv.committed.get(s.id) ?? 0, expected = (lv.expected.get(s.id) ?? 0) + (hasRecipe.has(s.id) ? building.get(s.sku) ?? 0 : 0);
       const after = s.quantity - committed + expected;
       // Top up to twice the reorder point (or just cover the gap when there is none).
       return { s, committed, expected, after, buy: Math.max(1, Math.ceil(s.min_quantity * 2 - after)) };
     })
     .filter((r) => r.after < 0 || (r.s.min_quantity > 0 && r.after <= r.s.min_quantity))
     .sort((x, y) => x.after - y.after);
+  const subs = shortAll.filter((r) => hasRecipe.has(r.s.id));
+  const short = shortAll.filter((r) => !hasRecipe.has(r.s.id));
   const bySup = new Map<string, typeof short>();
   for (const r of short) { const key = r.s.supplier_id ?? ""; bySup.set(key, [...(bySup.get(key) ?? []), r]); }
 
@@ -70,6 +76,25 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
           </div>
         ) : <Empty icon={<CalendarClock size={26} />} title={t("Nothing to make")} hint={t("Every open order is covered by stock or a manufacturing order.")} />}
       </Section>
+
+      {subs.length > 0 && (
+        <Section title={<span className="row gap-s"><Factory size={17} /> {t("Sub-assemblies to build")}</span>} sub={t("Short parts you make yourselves (they have a recipe) — e.g. frames. Building them takes their own materials off stock.")}>
+          <div className="tbl-wrap">
+            <table className="tbl k-tbl">
+              <thead><tr><th>SKU</th><th>{t("Part")}</th><th className="num">{t("In stock")}</th><th className="num">{t("Needed")}</th><th className="num">{t("Being built")}</th><th className="num">{t("Build")}</th><th /></tr></thead>
+              <tbody>{subs.map((r) => (
+                <tr key={r.s.id} className="static">
+                  <td><span className="code">{r.s.sku}</span></td><td>{r.s.name}</td>
+                  <td className="num">{fmtQty(r.s.quantity)}</td><td className="num muted">{fmtQty(r.committed)}</td>
+                  <td className="num muted">{fmtQty(building.get(r.s.sku) ?? 0)}</td>
+                  <td className="num"><b>{fmtQty(r.buy)}</b></td>
+                  <td>{editable && <Btn small tone="soft" busy={busy === "sub" + r.s.id} icon={<Factory size={14} />} onClick={async () => { setBusy("sub" + r.s.id); await k.createMo(r.s.sku, r.s.name, r.buy, null, null); setBusy(null); }}>{t("Make")}</Btn>}</td>
+                </tr>))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
 
       <Section title={<span className="row gap-s"><ShoppingCart size={17} /> {t("To buy")}</span>} action={<Btn small tone="soft" onClick={onBuy}>{t("Purchase orders")}</Btn>}>
         {short.length ? [...bySup.entries()].map(([sid, list]) => (
