@@ -13,7 +13,6 @@ import { STATUS_META, prepareImage, shownStatus, useConversations, useOnline, us
 import { locale, t } from "../lib/i18n";
 import { useDesktop } from "../lib/media";
 import { buzz } from "../lib/prefs";
-import { can } from "../lib/roles";
 import { useStore } from "../lib/store";
 import { ago, clock, dayLabel } from "../lib/time";
 import type { Attachment, Message, Profile } from "../lib/types";
@@ -31,40 +30,38 @@ export function PresenceDot({ p, size = 12 }: { p: Profile | undefined; size?: n
 export function ChatHub({ openConv, onOpenConv, openEvent, onOpenEvent }: {
   openConv: string | null; onOpenConv: (id: string | null) => void; openEvent: string | null; onOpenEvent: (id: string | null) => void;
 }) {
-  const [view, setView] = useState<"chats" | "channels" | "calendar">(openEvent ? "calendar" : "chats");
+  const [view, setView] = useState<"chats" | "calendar">(openEvent ? "calendar" : "chats");
   useEffect(() => { if (openEvent) setView("calendar"); }, [openEvent]);
   useEffect(() => { if (openConv) setView((v) => (v === "calendar" ? "chats" : v)); }, [openConv]);
   const desktop = useDesktop();
   const convs = useConversations();
-  const unreadChats = convs.filter((v) => v.c.kind !== "channel").reduce((n, v) => n + v.unread, 0);
-  const unreadCh = convs.filter((v) => v.c.kind === "channel").reduce((n, v) => n + v.unread, 0);
+  const unreadChats = convs.reduce((n, v) => n + v.unread, 0);
   return (
     <motion.div className="page chat-page" initial="hidden" animate="show" variants={list}>
       <SceneTabs kind="town" height={desktop ? 150 : 160} value={view} onChange={setView} title={t("Chat")} sub={t("Messages, calls and meetings")}
         tabs={[
           { value: "chats", label: t("Chats") + (unreadChats ? ` · ${unreadChats}` : "") },
-          { value: "channels", label: t("Channels") + (unreadCh ? ` · ${unreadCh}` : "") },
           { value: "calendar", label: t("Calendar") },
         ]} />
       {view === "calendar" ? <CalendarView openEvent={openEvent} onOpenEvent={onOpenEvent} />
-        : <ChatsView channels={view === "channels"} convs={convs} openConv={openConv} onOpenConv={onOpenConv} />}
+        : <ChatsView convs={convs} openConv={openConv} onOpenConv={onOpenConv} />}
     </motion.div>
   );
 }
 
-function ChatsView({ channels, convs, openConv, onOpenConv }: { channels: boolean; convs: ConvView[]; openConv: string | null; onOpenConv: (id: string | null) => void }) {
-  const { me } = useStore();
+function ChatsView({ convs, openConv, onOpenConv }: { convs: ConvView[]; openConv: string | null; onOpenConv: (id: string | null) => void }) {
+  const channels = false;
   const desktop = useDesktop();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const shown = convs.filter((v) => (channels ? v.c.kind === "channel" : v.c.kind !== "channel"))
+  const shown = convs
     .filter((v) => !q || v.title.toLowerCase().includes(q.toLowerCase()));
   const current = convs.find((v) => v.c.id === openConv);
   const listEl = (
     <div className="stack">
       <div className="row gap">
         <div className="searchbar grow"><Search size={18} /><input placeholder={channels ? t("Search channels…") : t("Search chats…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        {(!channels || can.admin(me.role)) && <button className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={channels ? t("New channel") : t("New chat")}><MessageSquarePlus size={20} /></button>}
+        {<button className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={channels ? t("New channel") : t("New chat")}><MessageSquarePlus size={20} /></button>}
       </div>
       <div className="conv-list">
         {shown.map((v) => <ConvRow key={v.c.id} v={v} on={v.c.id === openConv} onClick={() => onOpenConv(v.c.id)} />)}

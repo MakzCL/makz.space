@@ -64,7 +64,7 @@ export function useConversations() {
       if (mem && m.sender_id !== me.id && m.kind !== "system" && m.created_at > mem.last_read_at) unread.set(m.conversation_id, (unread.get(m.conversation_id) ?? 0) + 1);
     }
     return db.conversations
-      .filter((c) => mine.has(c.id) || c.kind === "channel")
+      .filter((c) => mine.has(c.id) && c.kind !== "channel")
       .map((c) => {
         const members = db.conversation_members.filter((m) => m.conversation_id === c.id).map((m) => m.user_id);
         const other = c.kind === "direct" ? person(members.find((u) => u !== me.id)) : undefined;
@@ -85,7 +85,7 @@ export function useConversations() {
   return list;
 }
 
-export const totalUnread = (list: ConvView[]) => list.filter((v) => v.c.kind !== "channel" || v.unread).reduce((n, v) => n + v.unread, 0);
+export const totalUnread = (list: ConvView[]) => list.reduce((n, v) => n + v.unread, 0);
 
 /* -------------------------------------------------------------- storage -- */
 const urlCache = new Map<string, { url: string; at: number }>();

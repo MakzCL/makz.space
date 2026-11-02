@@ -1285,7 +1285,7 @@ declare cid uuid; u uuid;
 begin
   if not public.is_active() then raise exception 'Not allowed'; end if;
   if p_kind not in ('group','channel') then raise exception 'Unknown chat type'; end if;
-  if p_kind = 'channel' and not public.is_admin() then raise exception 'Only boss, manager or office can create channels'; end if;
+  if p_kind = 'channel' then raise exception 'Channels are turned off — start a group chat instead'; end if;
   insert into public.conversations (kind, name, created_by) values (p_kind, coalesce(nullif(trim(p_name), ''), 'Group'), auth.uid()) returning id into cid;
   insert into public.conversation_members (conversation_id, user_id, role) values (cid, auth.uid(), 'owner');
   foreach u in array coalesce(p_members, '{}') loop
@@ -1574,12 +1574,7 @@ begin
   end if;
 end $$;
 
--- Starter channel everyone can join.
-insert into public.conversations (kind, name, topic)
-select 'channel', 'General', 'Everyone at Skalarki' where not exists (select 1 from public.conversations where kind = 'channel');
-insert into public.conversation_members (conversation_id, user_id)
-select c.id, p.id from public.conversations c cross join public.profiles p where c.kind = 'channel' and c.name = 'General' and p.active
-on conflict do nothing;
+-- No channels: chats are 1:1 and groups only (channels felt too much like Discord).
 
 -- New starters land in every channel once their account is active.
 create or replace function public.join_channels() returns trigger language plpgsql security definer set search_path = public as $$

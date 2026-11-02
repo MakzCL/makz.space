@@ -261,7 +261,7 @@ select pg_temp.check((select count(*) from public.notifications n join public.pr
 select pg_temp.check((select count(*) from public.notifications where user_id = :'A2' and kind = 'job_new') >= 1, 'new Shopify job notifies the station crew');
 select pg_temp.check((select count(*) from public.notifications where user_id = :'A2' and kind = 'invite') = 1, 'team invite notifies the helper');
 select pg_temp.check((select count(*) from public.notifications where kind = 'job_given' and user_id = :'A1') >= 1, 'job reaching your station notifies you');
-select pg_temp.check((select count(*) from public.conversation_members m join public.conversations c on c.id = m.conversation_id where c.name = 'General') = 3, 'everyone active is in the General channel');
+select pg_temp.check((select count(*) from public.conversations where kind = 'channel') = 0, 'no channels');
 
 select pg_temp.become(:'A1');
 select public.open_direct(:'B') as dm \gset
@@ -276,8 +276,9 @@ select pg_temp.become(:'A2');
 select pg_temp.check((select count(*) from public.messages where conversation_id = :'dm') = 0, 'others cannot read a private chat');
 select pg_temp.expect_fail(format($$insert into public.messages (conversation_id, sender_id, body) values (%L, auth.uid(), 'hi')$$, :'dm'), 'posting into someone else''s chat');
 select pg_temp.check((select count(*) from public.notifications where user_id = :'B') = 0, 'notifications are private');
-select pg_temp.expect_fail($$select public.create_conversation('channel', 'Ops', '{}')$$, 'operator creates a channel');
-insert into public.messages (conversation_id, sender_id, body) select id, auth.uid(), 'Morning all' from public.conversations where name = 'General';
+select pg_temp.expect_fail($$select public.create_conversation('channel', 'Ops', '{}')$$, 'creating a channel');
+select public.create_conversation('group', 'Floor', array['00000000-0000-0000-0000-00000000000b'::uuid, '00000000-0000-0000-0000-0000000000a1'::uuid]) as floor \gset
+insert into public.messages (conversation_id, sender_id, body) values (:'floor', auth.uid(), 'Morning all');
 select pg_temp.become(:'A1');
 update public.messages set body = 'Hacked' where body = 'Morning all';
 select pg_temp.check((select body = 'Morning all' from public.messages where body in ('Morning all', 'Hacked')), 'cannot edit other people''s messages');
