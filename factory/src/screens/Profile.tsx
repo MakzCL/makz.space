@@ -257,7 +257,7 @@ function AbsenceForm({ kind, title }: { kind: AbsenceKind; title: string }) {
   const [note, setNote] = useState("");
   const n = to >= from ? daysBetween(from, to) : 0;
   return (
-    <motion.div className={`card absence k-${kind} ${open ? "open" : ""}`} variants={item} layout>
+    <motion.div className={`card absence k-${kind} ${open ? "open" : ""}`} variants={item} initial="hidden" animate="show" layout>
       <button type="button" className="absence-head" onClick={() => setOpen(!open)}>
         <span><small className="label">{t("Absence")}</small><b>{title}</b></span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="absence-chev"><ChevronDown size={20} /></motion.span>
