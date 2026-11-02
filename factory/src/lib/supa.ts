@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Backend, Row } from "./backend";
-import { TABLES, type TableName } from "./types";
+import type { Backend, JoinInfo, Row } from "./backend";
+import { TABLES, type JoinLink, type Role, type TableName } from "./types";
 
 /** History older than this is not loaded into the app (keeps phones fast). */
 const WINDOW_DAYS = 120;
@@ -81,5 +81,28 @@ export class SupabaseBackend implements Backend {
     });
     if (error) throw error;
     return this.sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+  }
+
+  async createJoinLink(role: Role, pin: string, hours: number, maxUses: number | null) {
+    const { data, error } = await this.sb.rpc("create_join_link", { p_role: role, p_pin: pin, p_hours: hours, p_max_uses: maxUses });
+    if (error) throw error;
+    return data as JoinLink;
+  }
+  async joinInfo(code: string) {
+    const { data, error } = await this.sb.rpc("join_link_info", { p_code: code });
+    if (error) throw error;
+    const r = (Array.isArray(data) ? data[0] : data) as JoinInfo | undefined;
+    return r ?? { valid: false, reason: "not_found", role: "operator", inviter: "" };
+  }
+  async checkJoinPin(code: string, pin: string) {
+    const { data, error } = await this.sb.rpc("check_join_pin", { p_code: code, p_pin: pin });
+    if (error) throw error;
+    return data === true;
+  }
+  async redeemJoin(code: string, pin: string) {
+    const { data, error } = await this.sb.rpc("redeem_join_link", { p_code: code, p_pin: pin });
+    if (error) throw error;
+    if (data === "wrong_pin") throw new Error("Wrong PIN");
+    if (data !== "ok") throw new Error("This invite link is no longer valid");
   }
 }

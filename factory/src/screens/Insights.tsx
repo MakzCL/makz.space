@@ -2,8 +2,10 @@ import { motion } from "motion/react";
 import { Clock3, Gauge, Layers, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarStack } from "../components/Avatar";
-import { Badge, Count, Empty, Section, Segmented, item, list } from "../components/ui";
+import { Badge, Count, Empty, Section, item, list } from "../components/ui";
 import { useNow, useStore } from "../lib/store";
+import { t } from "../lib/i18n";
+import { SceneTabs } from "../components/Scene";
 import { dailyTotals, hm, human, participantMs, sessionMs, splitOvertime, startOfDay } from "../lib/time";
 import type { Job } from "../lib/types";
 
@@ -53,39 +55,42 @@ export function Insights({ onOpenJob }: { onOpenJob: (j: Job) => void }) {
   const maxW = Math.max(1, ...d.staff.map((s) => s.worked));
   return (
     <motion.div className="page" initial="hidden" animate="show" variants={list}>
-      <Section title="Insights" sub="Where the hours go — and who teams up" action={<Segmented size="s" value={range} onChange={setRange} options={[{ value: "week", label: "7 days" }, { value: "month", label: "30 days" }]} />}>
-        <motion.div className="kpis" variants={list}>
-          <motion.div className="kpi c-blue" variants={item}><span className="kpi-ic"><Clock3 size={18} /></span><b><Count value={d.personMs / 36e5} format={(v) => hm(v * 36e5)} /></b><small>Person-hours on jobs</small></motion.div>
-          <motion.div className="kpi c-green" variants={item}><span className="kpi-ic"><Gauge size={18} /></span><b><Count value={d.wall / 36e5} format={(v) => hm(v * 36e5)} /></b><small>Job clock time</small></motion.div>
-          <motion.div className="kpi c-violet" variants={item}><span className="kpi-ic"><Users size={18} /></span><b><Count value={d.teamShare * 100} format={(v) => `${Math.round(v)}%`} /></b><small>Hours worked in teams</small></motion.div>
-          <motion.div className="kpi c-amber" variants={item}><span className="kpi-ic"><Layers size={18} /></span><b><Count value={d.done} /></b><small>Jobs completed · est. {d.est ? `${Math.round(d.est * 100)}%` : "—"}</small></motion.div>
-        </motion.div>
-      </Section>
+      <SceneTabs kind="chart" title={t("Insights")} sub={t("Where the hours go, and who teams up")} value={range} onChange={setRange}
+        tabs={[{ value: "week", label: t("7 days") }, { value: "month", label: t("30 days") }]} />
+      <motion.div className="awards" variants={item}>
+        <div className="award red"><span className="medal"><Clock3 size={22} /></span><b><Count value={d.personMs / 36e5} format={(v) => hm(v * 36e5)} /></b><small>{t("Person-hours on jobs")}</small></div>
+        <div className="award blue"><span className="medal"><Users size={22} /></span><b><Count value={d.teamShare * 100} format={(v) => `${Math.round(v)}%`} /></b><small>{t("Hours worked in teams")}</small></div>
+      </motion.div>
+      <motion.div className="stat-list card" variants={item}>
+        <div className="stat-line"><span><Gauge size={16} /> {t("Job clock time")}</span><b><Count value={d.wall / 36e5} format={(v) => hm(v * 36e5)} /></b></div>
+        <div className="stat-line"><span><Layers size={16} /> {t("Jobs completed")}</span><b><Count value={d.done} /></b></div>
+        <div className="stat-line"><span><Gauge size={16} /> {t("Time used vs estimate")}</span><b>{d.est ? `${Math.round(d.est * 100)}%` : "—"}</b></div>
+      </motion.div>
 
-      <Section title="Jobs by effort" sub="Job time vs person-hours. Team jobs use more hands than the clock shows.">
+      <Section title={t("Jobs by effort")} sub={t("Job time vs person-hours. Team jobs use more hands than the clock shows.")}>
         <motion.div className="stack" variants={list} initial="hidden" animate="show" key={range}>
           {d.jobs.slice(0, 10).map(({ job, wall, person: pm, crew, people, teamSessions }) => (
             <motion.button key={job!.id} variants={item} className="card effort" onClick={() => onOpenJob(job!)} whileTap={{ scale: 0.985 }}>
-              <div className="row between"><span className="code">{job!.code}</span>{crew >= 2 && <Badge tone="violet"><Users size={12} /> up to ×{crew} · {teamSessions} team run{teamSessions > 1 ? "s" : ""}</Badge>}</div>
+              <div className="row between"><span className="code">{job!.code}</span>{crew >= 2 && <Badge tone="blue"><Users size={12} /> ×{crew} · {t("{n} team run(s)", { n: teamSessions })}</Badge>}</div>
               <b>{job!.title}</b>
               <div className="dual">
-                <div><small>Job time</small><div className="bar"><motion.i initial={{ width: 0 }} animate={{ width: `${(wall / Math.max(1, d.jobs[0]!.person)) * 100}%` }} /></div><span className="mono">{human(wall)}</span></div>
-                <div><small>Person-hours</small><div className="bar violet"><motion.i initial={{ width: 0 }} animate={{ width: `${(pm / Math.max(1, d.jobs[0]!.person)) * 100}%` }} /></div><span className="mono">{human(pm)}</span></div>
+                <div><small>{t("Job time")}</small><div className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${(wall / Math.max(1, d.jobs[0]!.person)) * 100}%` }} /></div><span>{human(wall)}</span></div>
+                <div><small>{t("Person-hours")}</small><div className="thin red"><motion.i initial={{ width: 0 }} animate={{ width: `${(pm / Math.max(1, d.jobs[0]!.person)) * 100}%` }} /></div><span>{human(pm)}</span></div>
               </div>
               <AvatarStack people={[...people].map(person)} size={22} max={6} />
             </motion.button>
           ))}
-          {!d.jobs.length && <Empty icon={<Layers size={28} />} title="No job time yet" hint="Once people start jobs, the effort shows up here." />}
+          {!d.jobs.length && <Empty icon={<Layers size={28} />} title={t("No job time yet")} hint={t("Once people start jobs, the effort shows up here.")} />}
         </motion.div>
       </Section>
 
-      <Section title="Hours by person" sub="Shift time, with the part spent on jobs">
+      <Section title={t("Hours by person")} sub={t("Shift time, with the part spent on jobs")}>
         <motion.div className="card flat" variants={item}>
           {d.staff.map(({ p, worked, over, onJobs }, i) => (
             <div key={p.id} className="hbar">
               <Avatar p={p} size={28} />
               <div className="grow">
-                <div className="row between"><span>{p.full_name}</span><span className="mono">{hm(worked)}{over ? <em className="violet-t"> +{hm(over)}</em> : null}</span></div>
+                <div className="row between"><span>{p.full_name}</span><span>{hm(worked)}{over ? <em className="red-t"> +{hm(over)}</em> : null}</span></div>
                 <div className="bar stacked">
                   <motion.i initial={{ width: 0 }} animate={{ width: `${(worked / maxW) * 100}%` }} transition={{ delay: i * 0.03 }} />
                   <motion.b initial={{ width: 0 }} animate={{ width: `${(Math.min(onJobs, worked) / maxW) * 100}%` }} transition={{ delay: 0.2 + i * 0.03 }} />
@@ -93,7 +98,7 @@ export function Insights({ onOpenJob }: { onOpenJob: (j: Job) => void }) {
               </div>
             </div>
           ))}
-          <div className="legend"><span><i className="a" />Shift</span><span><i className="b" />On jobs</span></div>
+          <div className="legend"><span><i className="a" />{t("Shift")}</span><span><i className="b" />{t("On jobs")}</span></div>
         </motion.div>
       </Section>
     </motion.div>

@@ -2,7 +2,8 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { buzz } from "../lib/prefs";
+import { t } from "../lib/i18n";
+import { buzz, setPrefs, usePrefs } from "../lib/prefs";
 import { Spinner } from "./Loader";
 
 export const spring = { type: "spring" as const, stiffness: 380, damping: 32 };
@@ -31,7 +32,7 @@ export function Sheet({ open, onClose, title, children, tall }: {
             <SheetHandle />
             <div className="sheet-head">
               <h3>{title}</h3>
-              <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
+              <button className="icon-btn round" onClick={onClose} aria-label={t("Close")}><X size={20} /></button>
             </div>
             <div className="sheet-body">{children}</div>
           </motion.div>
@@ -108,7 +109,7 @@ export function HoldButton({ children, onConfirm, icon, ms = 900, tone = "ghost"
       onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) start(); }} onKeyUp={stop}
       onContextMenu={(e) => e.preventDefault()}>
       <motion.i className="hold-fill" style={{ width }} />
-      {icon}<span>{hint ? "Hold to confirm" : children}</span>
+      {icon}<span>{hint ? t("Hold to confirm") : children}</span>
     </button>
   );
 }
@@ -137,14 +138,14 @@ export function Chip({ on, children, onClick, color }: { on?: boolean; children:
   );
 }
 
-export function Badge({ children, tone = "muted" }: { children: ReactNode; tone?: string }) {
-  return <span className={`badge ${tone}`}>{children}</span>;
+export function Badge({ children, tone = "muted", dot }: { children: ReactNode; tone?: string; dot?: boolean }) {
+  return <span className={`badge ${tone}`}>{dot && <i className="badge-dot" />}{children}</span>;
 }
 
 export function Empty({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: string; children?: ReactNode }) {
   return (
     <motion.div className="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-      <motion.div className="empty-icon" animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>{icon}</motion.div>
+      <div className="empty-icon">{icon}</div>
       <b>{title}</b>{hint && <p>{hint}</p>}{children}
     </motion.div>
   );
@@ -195,7 +196,7 @@ export function Ring({ value, size = 120, stroke = 10, color = "var(--brand)", c
 export function Section({ title, action, children, sub }: { title: ReactNode; action?: ReactNode; children: ReactNode; sub?: ReactNode }) {
   return (
     <section className="section">
-      <div className="section-head"><div><h2>{title}</h2>{sub && <p>{sub}</p>}</div>{action}</div>
+      {(title || action) && <div className="section-head"><div>{title && <h2>{title}</h2>}{sub && <p>{sub}</p>}</div>{action}</div>}
       {children}
     </section>
   );
@@ -207,3 +208,47 @@ export const item = {
   hidden: { opacity: 0, y: 14, scale: 0.98 },
   show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 380, damping: 30 } },
 };
+
+/** Big round button you press and hold — the red "play" button of the app. */
+export function HoldCircle({ onConfirm, icon, label, size = 84, ms = 900 }: {
+  onConfirm: () => unknown; icon: ReactNode; label: string; size?: number; ms?: number;
+}) {
+  const p = useMotionValue(0);
+  const r = size / 2 + 6, circ = 2 * Math.PI * r;
+  const dash = useTransform(p, (v) => circ * (1 - v));
+  const ctl = useRef<ReturnType<typeof animate> | null>(null);
+  const start = () => { buzz(6); ctl.current = animate(p, 1, { duration: (ms / 1000) * (1 - p.get()), ease: "linear", onComplete: () => { buzz([10, 30, 20]); onConfirm(); p.set(0); } }); };
+  const stop = () => { ctl.current?.stop(); animate(p, 0, { duration: 0.25 }); };
+  return (
+    <div className="hold-circle" style={{ width: size + 16, height: size + 16 }}>
+      <svg width={size + 16} height={size + 16}>
+        <motion.circle cx={size / 2 + 8} cy={size / 2 + 8} r={r} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"
+          strokeDasharray={circ} style={{ strokeDashoffset: dash, rotate: -90, transformOrigin: "50% 50%" }} />
+      </svg>
+      <button aria-label={label} style={{ width: size, height: size }}
+        onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) start(); }} onKeyUp={stop}
+        onContextMenu={(e) => e.preventDefault()}>{icon}</button>
+    </div>
+  );
+}
+
+export function RoundBtn({ children, onClick, label, active }: { children: ReactNode; onClick?: () => void; label: string; active?: boolean }) {
+  return (
+    <motion.button whileTap={{ scale: 0.9 }} className={`round-btn ${active ? "on" : ""}`} aria-label={label} title={label}
+      onClick={() => { buzz(6); onClick?.(); }}>{children}</motion.button>
+  );
+}
+
+/** EN | PL slider. */
+export function LangSwitch() {
+  const { lang } = usePrefs();
+  return (
+    <button className={`lang-switch ${lang}`} role="switch" aria-checked={lang === "pl"} aria-label="Language / Język"
+      onClick={() => { buzz(8); setPrefs({ lang: lang === "en" ? "pl" : "en" }); }}>
+      <motion.i layout transition={spring} className="lang-knob" />
+      <span className={lang === "en" ? "on" : ""}>EN</span>
+      <span className={lang === "pl" ? "on" : ""}>PL</span>
+    </button>
+  );
+}

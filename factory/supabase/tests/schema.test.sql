@@ -33,8 +33,42 @@ select pg_temp.check((select role from public.profiles where id = '00000000-0000
 select pg_temp.check((select role from public.profiles where id = '00000000-0000-0000-0000-0000000000a1') = 'operator', 'later accounts start as operator');
 select pg_temp.check((select count(distinct employee_code) from public.profiles) = 3, 'unique employee codes');
 
+-- Pending accounts: no access until they join with link + PIN
+select pg_temp.check((select active from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'first account is active');
+select pg_temp.check(not (select active from public.profiles where id = '00000000-0000-0000-0000-0000000000a1'), 'later sign-ups start pending');
+select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.check((select count(*) from public.profiles) = 1, 'pending account sees only itself');
+select pg_temp.expect_fail($$insert into public.shifts (user_id) values (auth.uid())$$, 'pending account clocks in');
+select pg_temp.expect_fail($$update public.profiles set active = true where id = auth.uid()$$, 'pending account activates itself');
+select pg_temp.expect_fail($$select public.create_join_link('operator', '1111', 24, null)$$, 'pending account creates a link');
+
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select code as link from public.create_join_link('operator', '4321', 24, 5) \gset
+select code as bosslink from public.create_join_link('manager', '9999', 24, 1) \gset
+select pg_temp.check((select count(*) from public.join_links) = 2, 'boss creates invite links');
+select pg_temp.expect_fail($$select public.create_join_link('operator', '12', 24, null)$$, 'PIN shorter than 4 digits');
+
+select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.check((select valid and role = 'operator' and inviter = 'Bo' from public.join_link_info(:'link')), 'link info is public and minimal');
+select pg_temp.check(not public.check_join_pin(:'link', '0000'), 'wrong PIN rejected');
+select pg_temp.check(public.redeem_join_link(:'link', '0000') = 'wrong_pin', 'redeem with wrong PIN refused');
+select pg_temp.check(not (select active from public.profiles where id = auth.uid()), 'still pending after wrong PIN');
+select pg_temp.check(public.check_join_pin(:'link', '4321'), 'right PIN accepted');
+select pg_temp.check(public.redeem_join_link(:'link', '4321') = 'ok', 'redeem with right PIN');
+select pg_temp.check((select active and role = 'operator' from public.profiles where id = auth.uid()), 'link + PIN activates the account');
+select pg_temp.become('00000000-0000-0000-0000-0000000000a2');
+select public.redeem_join_link(:'link', '4321');
+select pg_temp.become(null);
+select pg_temp.check((select uses = 2 and failed = 2 from public.join_links where code = :'link'), 'uses and failed attempts counted');
+-- Ten wrong guesses lock the manager link
+select public.check_join_pin(:'bosslink', '0000') from generate_series(1, 10);
+select pg_temp.check((select reason = 'locked' from public.join_link_info(:'bosslink')), 'link locks after 10 wrong PINs');
+select pg_temp.check(not public.check_join_pin(:'bosslink', '9999'), 'locked link refuses the right PIN');
+
 -- Operator 1
 select pg_temp.become('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.expect_fail($$select public.create_join_link('operator', '1111', 24, null)$$, 'operator creates a link');
+select pg_temp.check((select count(*) from public.join_links) = 0, 'operator cannot see invite links');
 select pg_temp.expect_fail($$update public.profiles set role = 'boss' where id = auth.uid()$$, 'operator promotes self');
 update public.profiles set full_name = 'Olly Uno' where id = auth.uid();
 select pg_temp.check((select full_name from public.profiles where id = auth.uid()) = 'Olly Uno', 'operator edits own name');

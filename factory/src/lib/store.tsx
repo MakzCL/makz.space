@@ -4,7 +4,7 @@ import { TABLES, type DB, type Profile, type TableName } from "./types";
 
 const EMPTY: DB = {
   profiles: [], shifts: [], breaks: [], jobs: [], work_sessions: [], participants: [], invites: [],
-  issues: [], stock_items: [], absences: [], announcements: [],
+  issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
 };
 
 interface Ctx {

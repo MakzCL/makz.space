@@ -36,7 +36,7 @@ export function seedDB(): DB {
   const today = new Date(now); today.setHours(0, 0, 0, 0);
 
   const profiles: Profile[] = STAFF.map(([full_name, role, employee_code], i) => ({
-    id: uid(), full_name, role, employee_code, avatar_url: null, holiday_allowance: 28,
+    id: uid(), full_name, role, employee_code, avatar_url: null, holiday_allowance: 28, active: true,
     created_at: iso(new Date(now.getTime() - (400 - i * 20) * 864e5)),
   }));
   const P = (name: string) => profiles.find((p) => p.full_name.startsWith(name))!.id;
@@ -44,7 +44,7 @@ export function seedDB(): DB {
 
   const db: DB = {
     profiles, shifts: [], breaks: [], jobs: [], work_sessions: [], participants: [], invites: [],
-    issues: [], stock_items: [], absences: [], announcements: [],
+    issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
   };
 
   // Jobs: first six are live, the rest finished across the last weeks.
@@ -152,5 +152,9 @@ export function seedDB(): DB {
     { id: uid(), author_id: P("Adam"), body: "Great month everyone — on-time delivery hit 98%. Pizza Friday is on me 🍕", pinned: true, created_at: iso(new Date(now.getTime() - 2 * 864e5)) },
     { id: uid(), author_id: P("Sarah"), body: "Aerotek audit Thursday 10:00. Keep benches tidy and ESD straps on.", pinned: false, created_at: iso(new Date(now.getTime() - 5 * 3600e3)) },
   ];
+  db.join_links = [{
+    id: uid(), code: "LINE2026", pin: "1234", role: "operator", created_by: P("Priya"), max_uses: 10, uses: 2, failed: 0,
+    revoked: false, expires_at: iso(new Date(now.getTime() + 6 * 864e5)), created_at: iso(new Date(now.getTime() - 864e5)),
+  }];
   return db;
 }

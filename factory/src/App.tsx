@@ -7,6 +7,7 @@ import { Splash } from "./components/Splash";
 import { ToastProvider, useToast } from "./components/Toast";
 import { createBackend, type Backend } from "./lib/backend";
 import { useMine } from "./lib/actions";
+import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
 import { TABS_FOR, type Tab } from "./lib/roles";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
@@ -15,6 +16,7 @@ import { Home } from "./screens/Home";
 import { Insights } from "./screens/Insights";
 import { Issues } from "./screens/Issues";
 import { JobEditor, JobSheet, Jobs } from "./screens/Jobs";
+import { Join, Pending } from "./screens/Join";
 import { Login } from "./screens/Login";
 import { Profile } from "./screens/Profile";
 import { Requests } from "./screens/Requests";
@@ -28,6 +30,8 @@ export function App() {
   const [backend, setBackend] = useState<Backend | null>(null);
   const [user, setUser] = useState<string | null | undefined>(undefined);
   const endSplash = useCallback(() => { sessionStorage.setItem("skf-splashed", "1"); setSplash(false); }, []);
+  const [joinCode, setJoinCode] = useState<string | null>(() => new URLSearchParams(location.search).get("join")?.toUpperCase() ?? null);
+  const clearJoin = useCallback(() => { setJoinCode(null); history.replaceState(null, "", location.pathname); }, []);
 
   useEffect(() => { createBackend().then(setBackend); }, []);
   const check = useCallback(async () => { if (backend) setUser(await backend.currentUser()); }, [backend]);
@@ -39,15 +43,17 @@ export function App() {
         <Background />
         <AnimatePresence mode="wait">
           {splash ? <Splash key="splash" onDone={endSplash} />
-            : !backend || user === undefined ? <motion.div key="load" exit={{ opacity: 0 }}><FullLoader label="Starting up…" /></motion.div>
+            : !backend || user === undefined ? <motion.div key="load" exit={{ opacity: 0 }}><FullLoader label={t("Starting up…")} /></motion.div>
               : user === null ? (
-                <motion.div key="login" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                  <Login backend={backend} onIn={check} />
+                <motion.div key={joinCode ? "join" : "login"} className="fill" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                  {joinCode
+                    ? <Join backend={backend} code={joinCode} onIn={() => { clearJoin(); check(); }} onCancel={clearJoin} />
+                    : <Login backend={backend} onIn={check} />}
                 </motion.div>
               ) : (
-                <motion.div key={"app" + user} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                <motion.div key={"app" + user} className="fill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <StoreProvider backend={backend} userId={user} onMissingProfile={async () => { await backend.signOut(); check(); }}>
-                    <Gate signOut={async () => { await backend.signOut(); setUser(null); }} />
+                    <Gate joinCode={joinCode} clearJoin={clearJoin} signOut={async () => { await backend.signOut(); setUser(null); }} />
                   </StoreProvider>
                 </motion.div>
               )}
@@ -57,9 +63,16 @@ export function App() {
   );
 }
 
-function Gate({ signOut }: { signOut: () => void }) {
+function Gate({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCode: string | null; clearJoin: () => void }) {
   const has = useHasStore();
-  if (!has) return <FullLoader />;
+  if (!has) return <FullLoader label={t("Syncing the floor…")} />;
+  return <Member signOut={signOut} joinCode={joinCode} clearJoin={clearJoin} />;
+}
+
+function Member({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCode: string | null; clearJoin: () => void }) {
+  const { me, backend, refresh } = useStore();
+  useEffect(() => { if (me.active && joinCode) clearJoin(); }, [me.active, joinCode, clearJoin]);
+  if (!me.active) return <Pending backend={backend} name={me.full_name} code={joinCode} onSignOut={signOut} onActive={() => { clearJoin(); refresh(); }} />;
   return <Main signOut={signOut} />;
 }
 
@@ -91,7 +104,7 @@ function Main({ signOut }: { signOut: () => void }) {
     for (const i of mine.invites) {
       if (seen.current.has(i.id)) continue;
       seen.current.add(i.id);
-      if (ready) { buzz([40, 60, 40]); toast("New team invite — check Home 🤝", "info"); }
+      if (ready) { buzz([40, 60, 40]); toast(t("New team invite — check Home"), "info"); }
     }
   }, [mine.invites, ready, toast]);
 
@@ -104,7 +117,7 @@ function Main({ signOut }: { signOut: () => void }) {
 
   const badges = useMemo(() => ({
     home: mine.invites.length,
-    requests: db.absences.filter((a) => a.status === "pending").length,
+    requests: db.absences.filter((a) => a.status === "pending").length + db.profiles.filter((p) => !p.active).length,
     issues: db.issues.filter((i) => i.status === "open").length,
     stock: tabs.includes("stock") && me.role !== "operator" ? db.stock_items.filter((s) => s.quantity <= s.min_quantity).length : 0,
   }), [db, mine.invites, tabs, me.role]);
@@ -122,7 +135,7 @@ function Main({ signOut }: { signOut: () => void }) {
   const screen = (() => {
     if (profile) return <Profile onSignOut={signOut} />;
     switch (tab) {
-      case "home": return <Home onOpenJob={setJob} go={go} onPerson={setPersonId} />;
+      case "home": return <Home onOpenJob={setJob} go={go} onPerson={setPersonId} onReport={(j) => { setReportFor(j); go("issues"); }} />;
       case "jobs": return <Jobs onOpenJob={setJob} onNew={() => setEditJob({ job: null })} />;
       case "time": return <TimeScreen />;
       case "team": return <Team onPerson={setPersonId} />;
@@ -138,14 +151,14 @@ function Main({ signOut }: { signOut: () => void }) {
       <OfflineBar online={online} />
       <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} />
       <main ref={scroller} className="scroller" onScroll={(e) => setScrolled((e.target as HTMLElement).scrollTop > 24)}>
-        {!ready ? <FullLoader /> : (
+        {!ready ? <FullLoader label={t("Syncing the floor…")} /> : (
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>
             <motion.div key={page} custom={dir}
-              initial={{ opacity: 0, x: profile ? 0 : dir * 40, y: profile ? 30 : 0, filter: "blur(4px)" }}
-              animate={{ opacity: 1, x: 0, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, x: profile ? 0 : dir * -40, filter: "blur(4px)" }}
+              initial={{ opacity: 0, x: profile ? 0 : dir * 36, y: profile ? 24 : 0 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: profile ? 0 : dir * -36 }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}>
-              {profile && <button className="back" onClick={() => setProfile(false)}><ArrowLeft size={18} /> Back</button>}
+              {profile && <button className="back" onClick={() => setProfile(false)}><ArrowLeft size={18} /> {t("Back")}</button>}
               {screen}
             </motion.div>
           </AnimatePresence>

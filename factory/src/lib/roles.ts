@@ -26,4 +26,6 @@ export const can = {
   editStock: (r: Role) => r !== "operator",
   changeRoles: (r: Role) => r === "boss",
   postNews: (r: Role) => r === "boss" || r === "manager" || r === "office",
+  /** Which roles this person may hand out through an invite link. */
+  linkRoles: (r: Role): Role[] => r === "boss" ? ["operator", "assistant", "office", "manager", "boss"] : r === "manager" || r === "office" ? ["operator", "assistant"] : [],
 };

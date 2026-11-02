@@ -1,7 +1,9 @@
 import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight, Coffee, Download, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SceneTabs } from "../components/Scene";
 import { Btn, Count, Empty, Field, Segmented, Sheet, item, list } from "../components/ui";
+import { locale, t } from "../lib/i18n";
 import { useActions } from "../lib/actions";
 import { can } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
@@ -49,10 +51,11 @@ export function TimeSheet({ userId }: { userId?: string }) {
   if (range !== "day") for (let d = new Date(a); d < b; d.setDate(d.getDate() + 1)) days.push(new Date(d));
   const maxDay = Math.max(DAY_TARGET * 1.25, ...perDay.values());
 
-  const title = range === "day" ? dayLabel(a) : range === "week" ? `${dayLabel(a)} – ${dayLabel(new Date(b.getTime() - 1))}` : a.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const opts = [{ value: "day" as Range, label: t("Day") }, { value: "week" as Range, label: t("Week") }, { value: "month" as Range, label: t("Month") }];
+  const title = range === "day" ? dayLabel(a) : range === "week" ? `${dayLabel(a)} – ${dayLabel(new Date(b.getTime() - 1))}` : a.toLocaleDateString(locale(), { month: "long", year: "numeric" });
 
   function exportCsv() {
-    const rows = [["Employee", "Code", "Date", "Clock in", "Clock out", "Breaks (min)", "Worked (h)"]];
+    const rows = [[t("Employee"), t("Code"), t("Date"), t("Clock in"), t("Clock out"), t("Breaks (min)"), t("Worked (h)")]];
     for (const s of [...shifts].reverse()) {
       const br = db.breaks.filter((x) => x.shift_id === s.id).reduce((t, x) => t + ((x.ended_at ? new Date(x.ended_at).getTime() : now) - new Date(x.started_at).getTime()), 0);
       rows.push([person(uid)?.full_name ?? "", person(uid)?.employee_code ?? "", ymd(new Date(s.clock_in)), clock(s.clock_in), s.clock_out ? clock(s.clock_out) : "", String(Math.round(br / 60000)), (shiftWorked(s, db.breaks, now) / HOUR).toFixed(2)]);
@@ -66,24 +69,25 @@ export function TimeSheet({ userId }: { userId?: string }) {
 
   return (
     <>
-      {!userId && <motion.h2 className="page-title" variants={item}>Electronic time sheet</motion.h2>}
-      <motion.div variants={item}><Segmented value={range} onChange={(v) => { setRange(v); setOff(0); }} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month" }]} /></motion.div>
+      {!userId
+        ? <SceneTabs kind="clock" title={t("Time sheet")} sub={t("Your hours, breaks and overtime")} value={range} onChange={(v) => { setRange(v); setOff(0); }} tabs={opts} />
+        : <motion.div variants={item}><Segmented value={range} onChange={(v) => { setRange(v); setOff(0); }} options={opts} /></motion.div>}
       <motion.div className="date-nav" variants={item}>
-        <button className="icon-btn" onClick={() => setOff(off - 1)} aria-label="Previous"><ChevronLeft size={20} /></button>
+        <button className="icon-btn" onClick={() => setOff(off - 1)} aria-label={t("Previous")}><ChevronLeft size={20} /></button>
         <motion.b key={title} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>{title}</motion.b>
-        <button className="icon-btn" onClick={() => setOff(Math.min(0, off + 1))} disabled={off >= 0} aria-label="Next"><ChevronRight size={20} /></button>
+        <button className="icon-btn" onClick={() => setOff(Math.min(0, off + 1))} disabled={off >= 0} aria-label={t("Next")}><ChevronRight size={20} /></button>
       </motion.div>
 
       <motion.div className="card totals" variants={item}>
-        <div><small>Total</small><b className="mono"><Count value={normal + over} format={hm} /></b></div>
-        <div><small>Normal</small><b className="mono"><Count value={normal} format={hm} /></b></div>
-        <div><small>Overtime</small><b className={`mono ${over ? "violet-t" : ""}`}><Count value={over} format={hm} /></b></div>
-        <div><small>Days</small><b className="mono">{perDay.size}</b></div>
+        <div className="big"><small>{t("Total")}</small><b><Count value={normal + over} format={hm} /></b></div>
+        <div><small>{t("Normal hours")}</small><b><Count value={normal} format={hm} /></b></div>
+        <div><small>{t("Overtime")}</small><b className={over ? "red-t" : ""}><Count value={over} format={hm} /></b></div>
+        <div><small>{t("Days")}</small><b>{perDay.size}</b></div>
       </motion.div>
 
       {range !== "day" && (
         <motion.div className={`card bars ${range}`} variants={item}>
-          <div className="target" style={{ bottom: `${(DAY_TARGET / maxDay) * 100}%` }}><span>8h</span></div>
+          <div className="target" style={{ bottom: `calc(${(DAY_TARGET / maxDay) * 100}% * 0.78 + 2.2rem)` }}><span>8h</span></div>
           {days.map((d, i) => {
             const v = perDay.get(ymd(d)) ?? 0;
             return (
@@ -91,7 +95,7 @@ export function TimeSheet({ userId }: { userId?: string }) {
                 <div className="bar-track">
                   <motion.i initial={{ height: 0 }} animate={{ height: `${(v / maxDay) * 100}%` }} transition={{ delay: i * 0.02, type: "spring", stiffness: 140, damping: 18 }} className={v > DAY_TARGET ? "ot" : ""} />
                 </div>
-                <small>{range === "week" ? weekday(d)[0] : d.getDate() % 5 === 1 ? d.getDate() : ""}</small>
+                <small>{range === "week" ? weekday(d).slice(0, 2) : d.getDate() % 5 === 1 ? d.getDate() : ""}</small>
               </div>
             );
           })}
@@ -101,25 +105,25 @@ export function TimeSheet({ userId }: { userId?: string }) {
       <motion.div className="stack" variants={list} initial="hidden" animate="show" key={range + off}>
         {[...byDay.entries()].map(([day, ss]) => (
           <motion.div key={day} className="card day" variants={item}>
-            <div className="day-head"><b>{weekday(day)} {dayLabel(day)}</b><span className="muted mono">{hm(perDay.get(day) ?? 0)} total</span></div>
+            <div className="day-head"><b>{weekday(day)} {dayLabel(day)}</b><span className="muted">{hm(perDay.get(day) ?? 0)}</span></div>
             {ss.map((s) => {
               const br = db.breaks.filter((x) => x.shift_id === s.id);
               return (
                 <div key={s.id} className="shift-row">
                   <div className="grow">
-                    <div className="mono big">{clock(s.clock_in)} – {s.clock_out ? clock(s.clock_out) : <span className="green-t">now</span>}</div>
+                    <div className="big">{clock(s.clock_in)} – {s.clock_out ? clock(s.clock_out) : <span className="red-t">{t("now")}</span>}</div>
                     {br.length > 0 && <small className="muted"><Coffee size={12} /> {br.map((x) => `${clock(x.started_at)} (${human((x.ended_at ? new Date(x.ended_at).getTime() : now) - new Date(x.started_at).getTime())})`).join(" · ")}</small>}
                   </div>
-                  <b className="mono">{hm(shiftWorked(s, db.breaks, now))}</b>
-                  {can.admin(me.role) && <button className="icon-btn subtle" onClick={() => setEdit(s)} aria-label="Correct shift"><Pencil size={15} /></button>}
+                  <b>{hm(shiftWorked(s, db.breaks, now))}</b>
+                  {can.admin(me.role) && <button className="icon-btn subtle" onClick={() => setEdit(s)} aria-label={t("Correct shift")}><Pencil size={15} /></button>}
                 </div>
               );
             })}
           </motion.div>
         ))}
-        {!shifts.length && <Empty icon={<Coffee size={28} />} title="No shifts" hint="Nothing recorded in this period." />}
+        {!shifts.length && <Empty icon={<Coffee size={28} />} title={t("No shifts")} hint={t("Nothing recorded in this period.")} />}
       </motion.div>
-      {shifts.length > 0 && <Btn tone="ghost" wide icon={<Download size={18} />} onClick={exportCsv}>Export CSV</Btn>}
+      {shifts.length > 0 && <Btn tone="ghost" wide icon={<Download size={18} />} onClick={exportCsv}>{t("Export CSV")}</Btn>}
       <ShiftEditor shift={edit} onClose={() => setEdit(null)} />
     </>
   );
@@ -132,14 +136,14 @@ function ShiftEditor({ shift, onClose }: { shift: Shift | null; onClose: () => v
   const [key, setKey] = useState<string | null>(null);
   if (shift && key !== shift.id) { setKey(shift.id); setIn(toLocal(shift.clock_in)); setOut(shift.clock_out ? toLocal(shift.clock_out) : ""); }
   return (
-    <Sheet open={!!shift} onClose={() => { onClose(); setKey(null); }} title="Correct shift">
+    <Sheet open={!!shift} onClose={() => { onClose(); setKey(null); }} title={t("Correct shift")}>
       <div className="stack">
-        <Field label="Clock in"><input type="datetime-local" value={cin} onChange={(e) => setIn(e.target.value)} /></Field>
-        <Field label="Clock out" hint="Leave empty if still on shift"><input type="datetime-local" value={cout} onChange={(e) => setOut(e.target.value)} /></Field>
+        <Field label={t("Clock in")}><input type="datetime-local" value={cin} onChange={(e) => setIn(e.target.value)} /></Field>
+        <Field label={t("Clock out")} hint={t("Leave empty if still on shift")}><input type="datetime-local" value={cout} onChange={(e) => setOut(e.target.value)} /></Field>
         <Btn tone="primary" wide onClick={async () => {
           await a.editShift(shift!.id, { clock_in: new Date(cin).toISOString(), clock_out: cout ? new Date(cout).toISOString() : null });
           onClose(); setKey(null);
-        }}>Save correction</Btn>
+        }}>{t("Save correction")}</Btn>
       </div>
     </Sheet>
   );

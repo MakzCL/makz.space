@@ -1,10 +1,11 @@
+import { locale, t } from "./i18n";
 import type { Break, DB, Participant, Shift, WorkSession } from "./types";
 
 export const MIN = 60_000;
 export const HOUR = 60 * MIN;
 export const DAY_TARGET = 8 * HOUR;
 
-const t = (s: string | null | undefined, now: number) => (s ? new Date(s).getTime() : now);
+const tsOf = (s: string | null | undefined, now: number) => (s ? new Date(s).getTime() : now);
 
 export function hm(ms: number) {
   const neg = ms < 0;
@@ -22,21 +23,26 @@ export function human(ms: number) {
   const h = Math.floor(m / 60), r = m % 60;
   return r ? `${h}h ${r}m` : `${h}h`;
 }
-export const clock = (s: string) => new Date(s).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+/** "7hr 16" style used on the dials. */
+export function hrMin(ms: number) {
+  const m = Math.max(0, Math.floor(ms / MIN));
+  return { h: Math.floor(m / 60), m: String(m % 60).padStart(2, "0") };
+}
+export const clock = (s: string) => new Date(s).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 export const dayLabel = (d: Date | string) =>
-  new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-export const longDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-export const weekday = (d: Date | string) => new Date(d).toLocaleDateString("en-GB", { weekday: "short" });
+  new Date(d).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" });
+export const longDate = (d: Date) => d.toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
+export const weekday = (d: Date | string) => new Date(d).toLocaleDateString(locale(), { weekday: "short" });
 export const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export function ago(s: string, now = Date.now()) {
   const d = now - new Date(s).getTime();
-  if (d < MIN) return "just now";
-  if (d < HOUR) return `${Math.floor(d / MIN)}m ago`;
-  if (d < 24 * HOUR) return `${Math.floor(d / HOUR)}h ago`;
+  if (d < MIN) return t("just now");
+  if (d < HOUR) return t("{n}m ago", { n: Math.floor(d / MIN) });
+  if (d < 24 * HOUR) return t("{n}h ago", { n: Math.floor(d / HOUR) });
   const days = Math.floor(d / (24 * HOUR));
-  return days === 1 ? "yesterday" : days < 7 ? `${days}d ago` : dayLabel(s);
+  return days === 1 ? t("yesterday") : days < 7 ? t("{n}d ago", { n: days }) : dayLabel(s);
 }
 
 export function startOfDay(d = new Date()) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
@@ -45,10 +51,10 @@ export function startOfWeek(d = new Date()) {
 }
 export function startOfMonth(d = new Date()) { const x = startOfDay(d); x.setDate(1); return x; }
 
-export function breakMs(b: Break, now: number) { return t(b.ended_at, now) - t(b.started_at, now); }
+export function breakMs(b: Break, now: number) { return tsOf(b.ended_at, now) - tsOf(b.started_at, now); }
 
 export function shiftWorked(s: Shift, breaks: Break[], now: number) {
-  const gross = t(s.clock_out, now) - t(s.clock_in, now);
+  const gross = tsOf(s.clock_out, now) - tsOf(s.clock_in, now);
   const br = breaks.filter((b) => b.shift_id === s.id).reduce((a, b) => a + breakMs(b, now), 0);
   return Math.max(0, gross - br);
 }
@@ -68,8 +74,8 @@ export function splitOvertime(totalPerDay: Iterable<number>) {
   return { normal, over };
 }
 
-export function participantMs(p: Participant, now: number) { return t(p.left_at, now) - t(p.joined_at, now); }
-export function sessionMs(s: WorkSession, now: number) { return t(s.ended_at, now) - t(s.started_at, now); }
+export function participantMs(p: Participant, now: number) { return tsOf(p.left_at, now) - tsOf(p.joined_at, now); }
+export function sessionMs(s: WorkSession, now: number) { return tsOf(s.ended_at, now) - tsOf(s.started_at, now); }
 
 /** Wall time vs person-hours for a job — the heart of the "team job" view. */
 export function jobStats(db: DB, jobId: string, now: number) {
@@ -90,10 +96,10 @@ export function jobStats(db: DB, jobId: string, now: number) {
 
 export function greeting(d = new Date()) {
   const h = d.getHours();
-  if (h < 5) return "Burning the midnight oil";
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
+  if (h < 5) return t("Night shift");
+  if (h < 12) return t("Good morning");
+  if (h < 17) return t("Good afternoon");
+  return t("Good evening");
 }
 
 export function daysBetween(a: string, b: string) {

@@ -3,48 +3,43 @@ import {
   AlertTriangle, BarChart3, Boxes, Briefcase, CalendarCheck, Clock3, Home, Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { t } from "../lib/i18n";
 import { buzz } from "../lib/prefs";
 import { ROLE_META, type Tab } from "../lib/roles";
 import { useStore } from "../lib/store";
 import { Avatar } from "./Avatar";
 import { Logo } from "./Logo";
-import { spring } from "./ui";
 
-export const TAB_META: Record<Tab, { label: string; icon: ReactNode }> = {
-  home: { label: "Home", icon: <Home size={22} /> },
-  jobs: { label: "Jobs", icon: <Briefcase size={22} /> },
-  time: { label: "Time", icon: <Clock3 size={22} /> },
-  team: { label: "Team", icon: <Users size={22} /> },
-  requests: { label: "Requests", icon: <CalendarCheck size={22} /> },
-  insights: { label: "Insights", icon: <BarChart3 size={22} /> },
-  issues: { label: "Issues", icon: <AlertTriangle size={22} /> },
-  stock: { label: "Stock", icon: <Boxes size={22} /> },
+const ICON: Record<Tab, ReactNode> = {
+  home: <Home size={21} strokeWidth={1.8} />,
+  jobs: <Briefcase size={21} strokeWidth={1.8} />,
+  time: <Clock3 size={21} strokeWidth={1.8} />,
+  team: <Users size={21} strokeWidth={1.8} />,
+  requests: <CalendarCheck size={21} strokeWidth={1.8} />,
+  insights: <BarChart3 size={21} strokeWidth={1.8} />,
+  issues: <AlertTriangle size={21} strokeWidth={1.8} />,
+  stock: <Boxes size={21} strokeWidth={1.8} />,
 };
+const LABEL: Record<Tab, string> = {
+  home: "Home", jobs: "Jobs", time: "Time", team: "Team", requests: "Requests", insights: "Insights", issues: "Issues", stock: "Stock",
+};
+export const tabLabel = (tab: Tab) => t(LABEL[tab]);
 
-export function Background() {
-  return (
-    <div className="bg" aria-hidden>
-      <i className="blob b1" /><i className="blob b2" /><i className="blob b3" />
-      <div className="grid" />
-      <div className="noise" />
-    </div>
-  );
-}
+export function Background() { return <div className="bg" aria-hidden />; }
 
 export function Header({ onProfile, scrolled }: { onProfile: () => void; scrolled: boolean }) {
   const { me, backend } = useStore();
-  const meta = ROLE_META[me.role];
   return (
     <header className={`top ${scrolled ? "scrolled" : ""}`}>
-      <motion.div className="brand" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-        <Logo size={scrolled ? 24 : 30} />
+      <div className="brand">
+        <Logo size={22} />
         <div className="brand-txt">
-          <b>FACTORY<span>·</span><em>APP</em></b>
-          <small>{meta.gateway} gateway{backend.mode === "demo" && <span className="demo-pill">demo</span>}</small>
+          <b>Factory</b>
+          <small>{t(ROLE_META[me.role].label)}{backend.mode === "demo" && <span className="demo-pill">demo</span>}</small>
         </div>
-      </motion.div>
-      <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label="Profile">
-        <Avatar p={me} size={scrolled ? 34 : 40} ring />
+      </div>
+      <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>
+        <Avatar p={me} size={38} />
       </motion.button>
     </header>
   );
@@ -55,22 +50,22 @@ export function BottomNav({ tabs, tab, onTab, badges }: {
 }) {
   return (
     <nav className="nav" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
-      {tabs.map((t) => {
-        const on = t === tab;
+      {tabs.map((x) => {
+        const on = x === tab;
         return (
-          <button key={t} className={on ? "on" : ""} onClick={() => { if (!on) buzz(7); onTab(t); }} aria-current={on ? "page" : undefined}>
-            {on && <motion.i layoutId="nav-pill" className="nav-pill" transition={spring} />}
-            <motion.span className="nav-ic" animate={{ y: on ? -2 : 0, scale: on ? 1.08 : 1 }} transition={spring}>
-              {TAB_META[t].icon}
+          <button key={x} className={on ? "on" : ""} onClick={() => { if (!on) buzz(7); onTab(x); }} aria-current={on ? "page" : undefined}>
+            <span className="nav-ic">
+              {ICON[x]}
               <AnimatePresence>
-                {!!badges[t] && (
-                  <motion.b className="nav-badge" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={spring}>
-                    {badges[t]! > 9 ? "9+" : badges[t]}
+                {!!badges[x] && (
+                  <motion.b className="nav-badge" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    {badges[x]! > 9 ? "9+" : badges[x]}
                   </motion.b>
                 )}
               </AnimatePresence>
-            </motion.span>
-            <span className="nav-lbl">{TAB_META[t].label}</span>
+            </span>
+            <span className="nav-lbl">{tabLabel(x)}</span>
+            {on && <motion.i layoutId="nav-dot" className="nav-dot" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
           </button>
         );
       })}
@@ -83,7 +78,7 @@ export function OfflineBar({ online }: { online: boolean }) {
     <AnimatePresence>
       {!online && (
         <motion.div className="offline" initial={{ y: -40 }} animate={{ y: 0 }} exit={{ y: -40 }}>
-          You're offline — changes will sync when you reconnect
+          {t("You're offline — changes will sync when you reconnect")}
         </motion.div>
       )}
     </AnimatePresence>

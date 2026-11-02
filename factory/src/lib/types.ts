@@ -7,6 +7,8 @@ export interface Profile {
   role: Role;
   avatar_url: string | null;
   holiday_allowance: number;
+  /** False until approved by an admin or joined through an invite link. */
+  active: boolean;
   created_at: string;
 }
 
@@ -125,6 +127,22 @@ export interface Announcement {
   created_at: string;
 }
 
+export type JobLinkRole = Role;
+
+export interface JoinLink {
+  id: string;
+  code: string;
+  pin: string;
+  role: Role;
+  created_by: string;
+  expires_at: string;
+  max_uses: number | null;
+  uses: number;
+  failed: number;
+  revoked: boolean;
+  created_at: string;
+}
+
 export interface Tables {
   profiles: Profile;
   shifts: Shift;
@@ -137,13 +155,14 @@ export interface Tables {
   stock_items: StockItem;
   absences: Absence;
   announcements: Announcement;
+  join_links: JoinLink;
 }
 
 export type TableName = keyof Tables;
 
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
-  "invites", "issues", "stock_items", "absences", "announcements",
+  "invites", "issues", "stock_items", "absences", "announcements", "join_links",
 ];
 
 export type DB = { [K in TableName]: Tables[K][] };

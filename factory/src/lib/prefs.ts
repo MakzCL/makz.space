@@ -7,13 +7,19 @@ export interface Prefs {
   haptics: boolean;
   scale: "s" | "m" | "l";
   sounds: boolean;
-  theme: "midnight" | "carbon" | "aurora";
+  theme: "night" | "deep";
+  lang: "en" | "pl";
 }
-const DEF: Prefs = { startTab: "home", reduceMotion: false, haptics: true, scale: "m", sounds: false, theme: "midnight" };
+const DEF: Prefs = { startTab: "home", reduceMotion: false, haptics: true, scale: "m", sounds: false, theme: "night",
+  lang: typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("pl") ? "pl" : "en" };
 const KEY = "skf-prefs";
 
 function read(): Prefs {
-  try { return { ...DEF, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; } catch { return DEF; }
+  try {
+    const p = { ...DEF, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") } as Prefs;
+    if (p.theme !== "night" && p.theme !== "deep") p.theme = "night";
+    return p;
+  } catch { return DEF; }
 }
 let current = read();
 const subs = new Set<(p: Prefs) => void>();
@@ -35,6 +41,7 @@ export function apply() {
   r.dataset.scale = current.scale;
   r.dataset.theme = current.theme;
   r.dataset.motion = current.reduceMotion ? "reduce" : "full";
+  r.lang = current.lang === "pl" ? "pl" : "en-GB";
 }
 
 export function buzz(pattern: number | number[] = 12) {

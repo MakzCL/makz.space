@@ -1,82 +1,87 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Check, Coffee, LogIn, LogOut, Megaphone, Pause, Pin, Play, Send, Trash2, UserPlus, Users, X,
+  Check, ChevronRight, Coffee, LogOut, Megaphone, Pause, Pin, Play, Send, Sun, Trash2, UserPlus, Users, X,
 } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarStack } from "../components/Avatar";
-import { Badge, Btn, Chip, HoldButton, Ring, Section, Sheet, item, list } from "../components/ui";
+import { Dial } from "../components/Dial";
+import { Scene } from "../components/Scene";
+import { Badge, Btn, Chip, HoldButton, HoldCircle, RoundBtn, Section, Sheet, item, list } from "../components/ui";
 import { useActions, useMine, usePresence } from "../lib/actions";
+import { locale, t } from "../lib/i18n";
 import { can } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
-import { DAY_TARGET, ago, clock, hm, hms, human, jobStats, longDate, shiftWorked } from "../lib/time";
+import { DAY_TARGET, ago, clock, hm, hms, hrMin, human, jobStats, longDate, shiftWorked } from "../lib/time";
 import type { Invite, Job } from "../lib/types";
 
 export const STATUS: Record<Job["status"], { label: string; tone: string }> = {
-  open: { label: "Open", tone: "blue" },
-  in_progress: { label: "In progress", tone: "green" },
-  paused: { label: "Paused", tone: "amber" },
-  blocked: { label: "Blocked", tone: "red" },
+  open: { label: "Open", tone: "white" },
+  in_progress: { label: "In progress", tone: "red" },
+  paused: { label: "Paused", tone: "moon" },
+  blocked: { label: "Blocked", tone: "alert" },
   done: { label: "Done", tone: "muted" },
 };
-export const PRIORITY = ["", "P1 · Urgent", "P2 · High", "P3 · Normal", "P4 · Low", "P5 · Backlog"];
+export const statusLabel = (s: Job["status"]) => t(STATUS[s].label);
+const PRI = ["", "Urgent", "High", "Normal", "Low", "Backlog"];
+export const priorityLabel = (p: number) => `P${p} · ${t(PRI[p] ?? "")}`;
+
+const hashSeed = (s: string) => [...s].reduce((a, c) => a + c.charCodeAt(0), 0);
 
 export function ShiftCard() {
   const { db } = useStore();
   const now = useNow(1000);
   const { shift, brk } = useMine();
   const a = useActions();
-  const worked = shift ? shiftWorked(shift, db.breaks, now) : 0;
-  const state = !shift ? "off" : brk ? "break" : "on";
-  const brkTotal = shift ? db.breaks.filter((b) => b.shift_id === shift.id).reduce((x, b) => x + ((b.ended_at ? new Date(b.ended_at).getTime() : now) - new Date(b.started_at).getTime()), 0) : 0;
+  const d = new Date(now);
 
+  if (!shift) {
+    return (
+      <motion.div className="card shift-off" variants={item} layout>
+        <div className="shift-off-top">
+          <div><small className="label">{t("Today")}</small><b className="date">{longDate(d)}</b></div>
+          <span className="time-now">{d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="big-start">
+          <i className="halo h1" /><i className="halo h2" />
+          <motion.button onClick={() => a.clockIn()} whileTap={{ scale: 0.94 }}>
+            <b>{t("Clock in")}</b><small>{t("Start your shift")}</small>
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const worked = shiftWorked(shift, db.breaks, now);
+  const brkTotal = db.breaks.filter((b) => b.shift_id === shift.id).reduce((x, b) => x + ((b.ended_at ? new Date(b.ended_at).getTime() : now) - new Date(b.started_at).getTime()), 0);
+  const finish = new Date(new Date(shift.clock_in).getTime() + DAY_TARGET + Math.max(brkTotal, 30 * 60000));
+  const w = hrMin(worked);
   return (
-    <motion.div className={`card shift ${state}`} layout variants={item}>
-      <div className="shift-glow" />
+    <motion.div className={`card shift-on ${brk ? "on-break" : ""}`} variants={item} layout>
       <div className="row between">
-        <div>
-          <small className="eyebrow">Today's shift</small>
-          <div className="shift-date">{longDate(new Date(now))}</div>
-        </div>
-        <motion.span key={state} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className={`badge ${state === "on" ? "green" : state === "break" ? "amber" : "muted"} live`}>
-          {state !== "off" && <i className="pulse" />}{state === "on" ? "Clocked in" : state === "break" ? "On break" : "Not clocked in"}
-        </motion.span>
+        <div><small className="label">{t("Today's shift")}</small><b className="date">{longDate(d)}</b></div>
+        <Badge tone={brk ? "moon" : "red"} dot>{brk ? t("On break") : t("Clocked in")}</Badge>
       </div>
-
-      <AnimatePresence mode="wait" initial={false}>
-        {!shift ? (
-          <motion.div key="off" className="shift-off" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <div className="big-clock">{new Date(now).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}<span>{String(new Date(now).getSeconds()).padStart(2, "0")}</span></div>
-            <motion.button className="clock-in" onClick={() => a.clockIn()} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}>
-              <i className="clock-in-ripple" /><LogIn size={22} /> Clock in
-            </motion.button>
-          </motion.div>
-        ) : (
-          <motion.div key="on" className="shift-on" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <Ring value={worked / DAY_TARGET} size={128} stroke={11} color={brk ? "var(--amber)" : worked > DAY_TARGET ? "var(--violet)" : "var(--green)"}>
-              <b className="mono">{hm(worked)}</b><small>{worked > DAY_TARGET ? `+${hm(worked - DAY_TARGET)} OT` : `of 08:00`}</small>
-            </Ring>
-            <div className="shift-facts">
-              <div><small>Started</small><b className="mono">{clock(shift.clock_in)}</b></div>
-              <div><small>{brk ? "Break" : "Breaks"}</small><b className="mono">{brk ? hms(now - new Date(brk.started_at).getTime()) : human(brkTotal)}</b></div>
-              <div><small>Finish ~</small><b className="mono">{clock(new Date(new Date(shift.clock_in).getTime() + DAY_TARGET + Math.max(brkTotal, 30 * 60000)).toISOString())}</b></div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {shift && (
-        <div className="row gap">
-          <Btn tone={brk ? "primary" : "soft"} icon={brk ? <Play size={18} /> : <Coffee size={18} />} onClick={a.toggleBreak} wide>{brk ? "End break" : "Break"}</Btn>
-          <HoldButton icon={<LogOut size={18} />} onConfirm={a.clockOut}>Hold to clock out</HoldButton>
-        </div>
-      )}
+      <div className="dial-wrap">
+        <Dial from={new Date(shift.clock_in)} to={d} tone={brk ? "moon" : "red"} startIcon={<Sun size={13} />} endIcon={brk ? <Coffee size={13} /> : <i className="knob-dot" />}>
+          <span className="dial-big">{w.h}<small>hr</small> {w.m}</span>
+          <span className="dial-sub">{brk ? `${t("Break")} ${hms(now - new Date(brk.started_at).getTime())}` : worked > DAY_TARGET ? `+${hm(worked - DAY_TARGET)} ${t("overtime")}` : t("worked today")}</span>
+        </Dial>
+      </div>
+      <div className="pair">
+        <div className="mini sun"><i className="mini-art" /><small>{t("Started")}</small><b>{clock(shift.clock_in)}</b></div>
+        <div className="mini moon"><i className="mini-art" /><small>{t("Finish around")}</small><b>{clock(finish.toISOString())}</b></div>
+      </div>
+      <div className="row gap">
+        <Btn tone={brk ? "primary" : "soft"} icon={brk ? <Play size={18} /> : <Coffee size={18} />} onClick={a.toggleBreak} wide>{brk ? t("End break") : t("Break")}</Btn>
+        <HoldButton icon={<LogOut size={18} />} onConfirm={a.clockOut}>{t("Hold to clock out")}</HoldButton>
+      </div>
+      {brkTotal > 0 && !brk && <p className="fine">{t("Breaks today")}: {human(brkTotal)}</p>}
     </motion.div>
   );
 }
 
-/** The job I am working on right now — big live timer, crew, invite. */
-export function LiveJobCard({ onOpen }: { onOpen: (j: Job) => void }) {
+/** The job I am working on — laid out like a music player. */
+export function LiveJobCard({ onOpen, onReport }: { onOpen: (j: Job) => void; onReport?: (j: Job) => void }) {
   const { db, person } = useStore();
   const now = useNow(1000);
   const { part, session, job } = useMine();
@@ -86,41 +91,47 @@ export function LiveJobCard({ onOpen }: { onOpen: (j: Job) => void }) {
   const crew = db.participants.filter((p) => p.session_id === session.id && !p.left_at);
   const st = jobStats(db, job.id, now);
   const pending = db.invites.filter((i) => i.session_id === session.id && i.status === "pending");
+  const est = job.estimate_minutes ? job.estimate_minutes * 60000 : 0;
+  const pct = est ? Math.min(1, st.wall / est) : 0;
   return (
-    <motion.div className="card live-job" layout variants={item} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
-      <div className="live-sheen" />
-      <div className="row between">
-        <small className="eyebrow"><i className="pulse red" /> Working now</small>
-        <button className="link" onClick={() => onOpen(job)}>Details</button>
+    <motion.div className="card player" layout variants={item}>
+      <div className="cover" onClick={() => onOpen(job)}>
+        <Scene kind="line" height={170} seed={hashSeed(job.code)} />
+        <div className="cover-title"><span className="code">{job.code}</span><b>{job.title}</b></div>
+        <span className="live-chip"><i />{t("Live")}</span>
       </div>
-      <h3 className="live-title"><span className="code">{job.code}</span> {job.title}</h3>
-      <div className="live-timer mono">{hms(now - new Date(part.joined_at).getTime())}</div>
-      <div className="live-stats">
-        <div><small>Crew now</small><b>{crew.length} {crew.length > 1 ? "people" : "person"}</b></div>
-        <div><small>Job time</small><b className="mono">{hm(st.wall)}</b></div>
-        <div><small>Person-hours</small><b className="mono">{hm(st.person)}</b></div>
-      </div>
-      <div className="crew-row">
-        {crew.map((c) => (
-          <motion.div key={c.id} className="crew" layout initial={{ scale: 0 }} animate={{ scale: 1 }}>
-            <Avatar p={person(c.user_id)} size={36} status="working" />
-            <small>{person(c.user_id)?.full_name.split(" ")[0]}</small>
-          </motion.div>
-        ))}
-        {pending.map((i) => (
-          <motion.div key={i.id} className="crew pending" layout initial={{ scale: 0 }} animate={{ scale: 1 }}>
-            <Avatar p={person(i.to_user)} size={36} />
-            <small>invited…</small>
-            <button className="mini-x" onClick={() => a.cancelInvite(i)} aria-label="Cancel invite"><X size={12} /></button>
-          </motion.div>
-        ))}
-        <motion.button className="crew add" onClick={() => setInviting(true)} whileTap={{ scale: 0.9 }}>
-          <span><UserPlus size={18} /></span><small>Invite</small>
-        </motion.button>
-      </div>
-      <div className="row gap wrap">
-        <Btn small tone="soft" icon={<Pause size={16} />} onClick={() => crew.length > 1 ? a.leaveSession() : a.stopJob(job, "paused")}>{crew.length > 1 ? "Leave" : "Pause"}</Btn>
-        <HoldButton tone="primary" icon={<Check size={18} />} onConfirm={() => a.stopJob(job, "done")}>Hold to complete</HoldButton>
+      <div className="player-body">
+        <div className="track"><motion.i animate={{ width: `${pct * 100}%` }} /></div>
+        <div className="row between track-times"><span>{hm(st.wall)}</span><span>{est ? hm(est) : t("no estimate")}</span></div>
+        <div className="player-ctrl">
+          <RoundBtn label={t("Invite a helper")} onClick={() => setInviting(true)}><UserPlus size={20} /></RoundBtn>
+          <RoundBtn label={crew.length > 1 ? t("Leave job") : t("Pause")} onClick={() => (crew.length > 1 ? a.leaveSession() : a.stopJob(job, "paused"))}><Pause size={20} /></RoundBtn>
+          <HoldCircle label={t("Hold to complete")} icon={<Check size={34} strokeWidth={2.6} />} onConfirm={() => a.stopJob(job, "done")} />
+          <RoundBtn label={t("Details")} onClick={() => onOpen(job)}><ChevronRight size={22} /></RoundBtn>
+          <RoundBtn label={t("Report issue")} onClick={() => onReport?.(job)}><span className="excl">!</span></RoundBtn>
+        </div>
+        <p className="hint center">{t("Hold the red button to complete")}</p>
+        <div className="timer-row">
+          <div><small>{t("You")}</small><b>{hms(now - new Date(part.joined_at).getTime())}</b></div>
+          <div><small>{t("Crew")}</small><b>{crew.length}</b></div>
+          <div><small>{t("Person-hours")}</small><b>{hm(st.person)}</b></div>
+        </div>
+        <div className="crew-row">
+          {crew.map((c) => (
+            <motion.div key={c.id} className="crew" layout initial={{ scale: 0 }} animate={{ scale: 1 }}>
+              <Avatar p={person(c.user_id)} size={38} status="working" />
+              <small>{person(c.user_id)?.full_name.split(" ")[0]}</small>
+            </motion.div>
+          ))}
+          {pending.map((i) => (
+            <motion.div key={i.id} className="crew pending" layout initial={{ scale: 0 }} animate={{ scale: 1 }}>
+              <Avatar p={person(i.to_user)} size={38} />
+              <small>{t("invited")}</small>
+              <button className="mini-x" onClick={() => a.cancelInvite(i)} aria-label={t("Cancel invite")}><X size={12} /></button>
+            </motion.div>
+          ))}
+          <button className="crew add" onClick={() => setInviting(true)}><span><UserPlus size={18} /></span><small>{t("Invite")}</small></button>
+        </div>
       </div>
       <InviteSheet open={inviting} onClose={() => setInviting(false)} jobId={job.id} sessionId={session.id} />
     </motion.div>
@@ -138,12 +149,12 @@ export function InviteSheet({ open, onClose, jobId, sessionId }: { open: boolean
   const job = db.jobs.find((j) => j.id === jobId);
   const rank = (id: string) => { const s = presence.get(id)?.state; return s === "on" ? 0 : s === "break" ? 1 : s === "working" ? 2 : 3; };
   const people = db.profiles
-    .filter((p) => p.id !== me.id && !inSession.has(p.id) && p.full_name.toLowerCase().includes(q.toLowerCase()))
+    .filter((p) => p.active && p.id !== me.id && !inSession.has(p.id) && p.full_name.toLowerCase().includes(q.toLowerCase()))
     .sort((x, y) => rank(x.id) - rank(y.id) || Number(job?.assignees.includes(y.id)) - Number(job?.assignees.includes(x.id)));
   return (
-    <Sheet open={open} onClose={() => { onClose(); setSel([]); }} title="Invite a helper" tall>
-      <p className="muted">They get a live invite. Once they accept, the job timer counts every person — the boss sees the real crew size and person-hours.</p>
-      <input className="search" placeholder="Search staff…" value={q} onChange={(e) => setQ(e.target.value)} />
+    <Sheet open={open} onClose={() => { onClose(); setSel([]); }} title={t("Invite a helper")} tall>
+      <p className="muted">{t("They get an invite on their phone. Once they join, everyone's time is counted, so the boss sees the real crew size and person-hours.")}</p>
+      <input className="search" placeholder={t("Search staff…")} value={q} onChange={(e) => setQ(e.target.value)} />
       <motion.div className="stack" variants={list} initial="hidden" animate="show">
         {people.map((p) => {
           const pr = presence.get(p.id)!;
@@ -152,9 +163,9 @@ export function InviteSheet({ open, onClose, jobId, sessionId }: { open: boolean
           return (
             <motion.button key={p.id} variants={item} className={`person-row select ${on ? "on" : ""}`} disabled={invited.has(p.id)}
               onClick={() => setSel(on ? sel.filter((x) => x !== p.id) : [...sel, p.id])}>
-              <Avatar p={p} size={40} status={pr.state} />
+              <Avatar p={p} size={42} status={pr.state} />
               <span><b>{p.full_name}</b>
-                <small>{invited.has(p.id) ? "Invite pending" : pr.state === "working" ? `On ${busyJob?.code ?? "a job"}` : pr.state === "on" ? "Available · on shift" : pr.state === "break" ? "On break" : "Off shift"}</small>
+                <small>{invited.has(p.id) ? t("Invite pending") : pr.state === "working" ? t("On {code}", { code: busyJob?.code ?? "" }) : pr.state === "on" ? t("Free · on shift") : pr.state === "break" ? t("On break") : t("Off shift")}</small>
               </span>
               <i className="check">{on && <Check size={16} />}</i>
             </motion.button>
@@ -164,7 +175,7 @@ export function InviteSheet({ open, onClose, jobId, sessionId }: { open: boolean
       <div className="sheet-foot">
         <Btn tone="primary" wide disabled={!sel.length} icon={<Send size={18} />}
           onClick={async () => { await a.invite(db.profiles.filter((p) => sel.includes(p.id))); setSel([]); onClose(); }}>
-          {sel.length ? `Send ${sel.length} invite${sel.length > 1 ? "s" : ""}` : "Pick someone"}
+          {sel.length ? t("Send {n} invite(s)", { n: sel.length }) : t("Pick someone")}
         </Btn>
       </div>
     </Sheet>
@@ -177,19 +188,18 @@ export function InviteCard({ inv }: { inv: Invite }) {
   const job = db.jobs.find((j) => j.id === inv.job_id);
   const from = person(inv.from_user);
   return (
-    <motion.div className="card invite" layout initial={{ opacity: 0, y: -16, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, x: 80 }}>
-      <div className="invite-pulse" />
+    <motion.div className="card invite" layout initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 80 }}>
       <div className="row gap">
-        <Avatar p={from} size={44} ring />
+        <Avatar p={from} size={48} />
         <div className="grow">
-          <small className="eyebrow">Team invite · {ago(inv.created_at)}</small>
-          <b>{from?.full_name.split(" ")[0]} needs a hand</b>
+          <small className="label">{t("Team invite")} · {ago(inv.created_at)}</small>
+          <b className="invite-title">{t("{name} needs a hand", { name: from?.full_name.split(" ")[0] ?? "" })}</b>
           <p className="muted">{job?.code} · {job?.title}</p>
         </div>
       </div>
       <div className="row gap">
-        <Btn tone="soft" wide onClick={() => a.respond(inv, false)}>Not now</Btn>
-        <Btn tone="primary" wide icon={<Users size={18} />} onClick={() => a.respond(inv, true)}>Join job</Btn>
+        <Btn tone="soft" wide onClick={() => a.respond(inv, false)}>{t("Not now")}</Btn>
+        <Btn tone="primary" wide icon={<Users size={18} />} onClick={() => a.respond(inv, true)}>{t("Join job")}</Btn>
       </div>
     </motion.div>
   );
@@ -203,23 +213,22 @@ export function JobCard({ job, onOpen, rank }: { job: Job; onOpen: (j: Job) => v
   const pct = job.estimate_minutes ? Math.min(1, st.wall / (job.estimate_minutes * 60000)) : 0;
   const overdue = job.due_date && job.status !== "done" && new Date(job.due_date + "T23:59") < new Date();
   return (
-    <motion.button className={`job-card s-${job.status}`} variants={item} layout onClick={() => onOpen(job)} whileTap={{ scale: 0.985 }}>
-      {rank !== undefined && <span className="job-rank">{rank}</span>}
-      <div className="grow">
-        <div className="row between">
-          <span className="code">{job.code}</span>
-          <span className="row gap-s">
-            {st.team && <Badge tone="violet"><Users size={12} /> Team ×{st.maxCrew}</Badge>}
-            <Badge tone={STATUS[job.status].tone}>{st.live && <i className="pulse" />}{STATUS[job.status].label}</Badge>
-          </span>
-        </div>
+    <motion.button className={`job-row s-${job.status}`} variants={item} layout onClick={() => onOpen(job)} whileTap={{ scale: 0.985 }}>
+      <span className="job-badge">{rank ?? job.priority}</span>
+      <span className="grow">
+        <span className="row between"><span className="code">{job.code}</span>{st.team && <span className="team-tag"><Users size={12} /> ×{st.maxCrew}</span>}</span>
         <b className="job-title">{job.title}</b>
-        <div className="row between job-meta">
-          <span className="muted">{job.customer && `${job.customer} · `}{PRIORITY[job.priority]?.split(" · ")[0]}{job.due_date && <> · <span className={overdue ? "red-t" : ""}>due {new Date(job.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span></>}</span>
-          {liveCrew.length ? <AvatarStack people={liveCrew} size={24} /> : <AvatarStack people={job.assignees.map(person)} size={22} max={3} />}
-        </div>
-        {job.estimate_minutes ? <div className="bar"><motion.i initial={{ width: 0 }} animate={{ width: `${pct * 100}%` }} transition={{ duration: 0.9 }} className={pct >= 1 ? "over" : ""} /></div> : null}
-      </div>
+        <span className="job-meta">
+          <span className={`st st-${job.status}`}>{st.live && <i className="live-dot" />}{statusLabel(job.status)}</span>
+          {job.customer && <span> · {job.customer}</span>}
+          {job.due_date && <span className={overdue ? "late" : ""}> · {t("due")} {new Date(job.due_date).toLocaleDateString(locale(), { day: "numeric", month: "short" })}</span>}
+        </span>
+        {job.estimate_minutes ? <span className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${pct * 100}%` }} /></span> : null}
+      </span>
+      <span className="job-side">
+        {liveCrew.length ? <AvatarStack people={liveCrew} size={24} /> : <AvatarStack people={job.assignees.map(person)} size={22} max={3} />}
+        <span className="go"><Play size={14} fill="currentColor" /></span>
+      </span>
     </motion.button>
   );
 }
@@ -232,13 +241,13 @@ export function NewsFeed() {
   const news = [...db.announcements].sort((x, y) => Number(y.pinned) - Number(x.pinned) || y.created_at.localeCompare(x.created_at)).slice(0, 6);
   if (!news.length && !can.postNews(me.role)) return null;
   return (
-    <Section title="Noticeboard" sub="From the office and management">
+    <Section title={t("Noticeboard")}>
       {can.postNews(me.role) && (
         <div className="card composer">
-          <textarea placeholder="Share an update with everyone…" value={txt} onChange={(e) => setTxt(e.target.value)} rows={2} />
+          <textarea placeholder={t("Share an update with everyone…")} value={txt} onChange={(e) => setTxt(e.target.value)} rows={2} />
           <div className="row between">
-            <Chip on={pin} onClick={() => setPin(!pin)}><Pin size={14} /> Pin</Chip>
-            <Btn small tone="primary" icon={<Megaphone size={16} />} disabled={!txt.trim()} onClick={async () => { await a.post(txt.trim(), pin); setTxt(""); setPin(false); }}>Post</Btn>
+            <Chip on={pin} onClick={() => setPin(!pin)}><Pin size={14} /> {t("Pin")}</Chip>
+            <Btn small tone="primary" icon={<Megaphone size={16} />} disabled={!txt.trim()} onClick={async () => { await a.post(txt.trim(), pin); setTxt(""); setPin(false); }}>{t("Post")}</Btn>
           </div>
         </div>
       )}
@@ -246,12 +255,12 @@ export function NewsFeed() {
         <AnimatePresence initial={false}>
           {news.map((n) => (
             <motion.div key={n.id} className={`card news ${n.pinned ? "pinned" : ""}`} variants={item} layout exit={{ opacity: 0, height: 0 }}>
-              <Avatar p={person(n.author_id)} size={34} />
+              <Avatar p={person(n.author_id)} size={36} />
               <div className="grow">
-                <div className="row between"><b>{person(n.author_id)?.full_name ?? "Office"}</b><small className="muted">{n.pinned && <Pin size={12} />} {ago(n.created_at)}</small></div>
+                <div className="row between"><b>{person(n.author_id)?.full_name ?? t("Office")}</b><small className="muted">{n.pinned && <Pin size={12} />} {ago(n.created_at)}</small></div>
                 <p>{n.body}</p>
               </div>
-              {can.postNews(me.role) && <button className="icon-btn subtle" onClick={() => a.unpost(n.id)} aria-label="Delete"><Trash2 size={16} /></button>}
+              {can.postNews(me.role) && <button className="icon-btn subtle" onClick={() => a.unpost(n.id)} aria-label={t("Delete")}><Trash2 size={16} /></button>}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -265,16 +274,16 @@ export function OnShiftRow({ onPerson }: { onPerson?: (id: string) => void }) {
   const presence = usePresence();
   const on = db.profiles.filter((p) => presence.get(p.id)!.state !== "off");
   return (
-    <Section title="On the floor" sub={`${on.length} clocked in now`}>
+    <Section title={t("On the floor")} action={<span className="count-pill">{on.length}</span>}>
       <div className="hscroll">
-        {on.length === 0 && <p className="muted">Nobody yet — first one in gets the good coffee ☕</p>}
+        {on.length === 0 && <p className="muted">{t("Nobody has clocked in yet.")}</p>}
         {on.map((p) => {
           const pr = presence.get(p.id)!;
           return (
-            <motion.button key={p.id} className="floor-person" onClick={() => onPerson?.(p.id)} whileTap={{ scale: 0.93 }} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}>
-              <Avatar p={p} size={50} status={pr.state} ring />
+            <motion.button key={p.id} className="floor-person" onClick={() => onPerson?.(p.id)} whileTap={{ scale: 0.93 }}>
+              <Avatar p={p} size={54} status={pr.state} />
               <small>{p.full_name.split(" ")[0]}</small>
-              <em className={pr.state}>{pr.state === "working" ? db.jobs.find((j) => j.id === pr.jobId)?.code : pr.state === "break" ? "break" : "free"}</em>
+              <em className={pr.state}>{pr.state === "working" ? db.jobs.find((j) => j.id === pr.jobId)?.code : pr.state === "break" ? t("break") : t("free")}</em>
             </motion.button>
           );
         })}
@@ -282,3 +291,4 @@ export function OnShiftRow({ onPerson }: { onPerson?: (id: string) => void }) {
     </Section>
   );
 }
+

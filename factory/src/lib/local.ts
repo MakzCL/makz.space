@@ -1,8 +1,8 @@
-import type { Backend, Row } from "./backend";
+import type { Backend, JoinInfo, Row } from "./backend";
 import { seedDB } from "./seed";
-import type { DB, Profile, TableName } from "./types";
+import type { DB, JoinLink, Profile, Role, TableName } from "./types";
 
-const KEY = "skf-demo-db-v2";
+const KEY = "skf-demo-db-v3";
 const USER = "skf-demo-user";
 const chan = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("skf-demo") : null;
 
@@ -71,7 +71,7 @@ export class LocalBackend implements Backend {
     const n = this.db.profiles.length + 20;
     const p: Profile = {
       id: crypto.randomUUID(), full_name: fullName || "New starter", employee_code: `OP-0${n}`,
-      role: "operator", avatar_url: null, holiday_allowance: 28, created_at: new Date().toISOString(),
+      role: "operator", avatar_url: null, holiday_allowance: 28, active: false, created_at: new Date().toISOString(),
     };
     this.db.profiles.push(p);
     this.changed("profiles");
@@ -109,6 +109,50 @@ export class LocalBackend implements Backend {
   }
   subscribe(cb: (t: TableName) => void) { this.listeners.add(cb); return () => { this.listeners.delete(cb); }; }
   onAuthChange(cb: () => void) { this.authListeners.add(cb); return () => { this.authListeners.delete(cb); }; }
+  private link(code: string) { return this.db.join_links.find((l) => l.code === code.trim().toUpperCase()); }
+  private status(l: JoinLink | undefined): JoinInfo["reason"] {
+    if (!l) return "not_found";
+    if (l.revoked) return "revoked";
+    if (new Date(l.expires_at).getTime() < Date.now()) return "expired";
+    if (l.max_uses !== null && l.uses >= l.max_uses) return "used_up";
+    if (l.failed >= 10) return "locked";
+    return "ok";
+  }
+  async createJoinLink(role: Role, pin: string, hours: number, maxUses: number | null) {
+    const me = await this.currentUser();
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join("");
+    const l: JoinLink = {
+      id: crypto.randomUUID(), code, pin, role, created_by: me!, max_uses: maxUses, uses: 0, failed: 0, revoked: false,
+      expires_at: new Date(Date.now() + hours * 3600e3).toISOString(), created_at: new Date().toISOString(),
+    };
+    this.db.join_links.push(l);
+    this.changed("join_links");
+    return structuredClone(l);
+  }
+  async joinInfo(code: string): Promise<JoinInfo> {
+    await wait(250);
+    const l = this.link(code);
+    const reason = this.status(l);
+    return { valid: reason === "ok", reason, role: l?.role ?? "operator", inviter: this.db.profiles.find((p) => p.id === l?.created_by)?.full_name ?? "" };
+  }
+  async checkJoinPin(code: string, pin: string) {
+    await wait(300);
+    const l = this.link(code);
+    if (this.status(l) !== "ok") return false;
+    if (l!.pin !== pin) { l!.failed++; this.changed("join_links"); return false; }
+    return true;
+  }
+  async redeemJoin(code: string, pin: string) {
+    const me = await this.currentUser();
+    const l = this.link(code);
+    if (!me || this.status(l) !== "ok") throw new Error("This invite link is no longer valid");
+    if (l!.pin !== pin) { l!.failed++; this.changed("join_links"); throw new Error("Wrong PIN"); }
+    const p = this.db.profiles.find((x) => x.id === me)!;
+    if (!p.active) { p.active = true; p.role = l!.role; }
+    l!.uses++;
+    this.changed("join_links"); this.changed("profiles");
+  }
+
   async uploadAvatar(_id: string, blob: Blob) {
     return await new Promise<string>((res, rej) => {
       const fr = new FileReader();

@@ -1,4 +1,6 @@
-import type { Profile, TableName, Tables } from "./types";
+import type { JoinLink, Profile, Role, TableName, Tables } from "./types";
+
+export interface JoinInfo { valid: boolean; reason: "ok" | "expired" | "revoked" | "used_up" | "locked" | "not_found"; role: Role; inviter: string }
 
 export type Row<T extends TableName> = Tables[T];
 
@@ -23,6 +25,13 @@ export interface Backend {
   subscribe(onChange: (table: TableName) => void): () => void;
   onAuthChange(cb: () => void): () => void;
   uploadAvatar(userId: string, blob: Blob): Promise<string>;
+
+  /** Invite links: an admin sets a PIN, a new starter needs link + PIN. */
+  createJoinLink(role: Role, pin: string, hours: number, maxUses: number | null): Promise<JoinLink>;
+  joinInfo(code: string): Promise<JoinInfo>;
+  checkJoinPin(code: string, pin: string): Promise<boolean>;
+  /** Activates the signed-in (pending) account with the link's role. */
+  redeemJoin(code: string, pin: string): Promise<void>;
 }
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;

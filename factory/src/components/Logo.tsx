@@ -31,16 +31,12 @@ export function AssemblingLogo({ size = 96, delay = 0 }: { size?: number; delay?
       <defs>
         <linearGradient id="sk-shine" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#fff" stopOpacity="0.85" />
+          <stop offset="0.5" stopColor="#fff" stopOpacity="0.55" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <clipPath id="sk-clip">{SK_PATHS.map((d) => <path key={d} d={d} />)}</clipPath>
-        <filter id="sk-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="18" result="b" />
-          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
       </defs>
-      <g filter="url(#sk-glow)">
+      <g>
         {SK_PATHS.map((d, i) => (
           <motion.path
             key={d} d={d} fill="var(--brand)"

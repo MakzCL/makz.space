@@ -17,6 +17,33 @@ Live (once deployed): **https://skalarki-factory.pages.dev**
 | **Assistant** | Home · Jobs · Time · Issues · Stock | Run jobs, keep stock |
 | **Operator** | Home · Jobs · Time · Issues · Stock | Clock in/out, breaks, run jobs, invite helpers, report issues |
 
+## Look & language
+
+Night-blue surfaces, the logo red and white; flat illustrated scenes for every
+screen (factory, line, clock tower, lighthouse, warehouse, town, peaks) that
+follow the time of day, folder tabs cut into the illustrations, a 12-hour dial
+for the shift, a big round clock-in button, a player-style card for the live
+job and award tiles in the profile.
+
+**English / Polski** — slider in Profile → Settings and on the sign-in screen.
+All text lives in `src/lib/pl.ts` (English is the key); dates follow the language.
+
+## Invite links with PIN
+
+Boss, Manager and Office create a link from **Team → Invite new starters**:
+choose the role (managers/office: Operator or Assistant; the boss: any), a
+4–8 digit PIN, how long it works and how many people can use it. They get a QR
+code and link to share; the PIN is passed on in person.
+
+New starters open the link, enter the PIN on a keypad, and create their
+account — they are active straight away with that role. Anyone who signs up
+*without* a link waits on an approval screen until an admin approves them
+(Team / Requests) or they enter a link + PIN. Ten wrong PINs lock a link.
+All of this is enforced in the database (`create_join_link`,
+`check_join_pin`, `redeem_join_link`, restrictive RLS for pending accounts).
+
+Demo: open `/?join=LINE2026`, PIN `1234`.
+
 ## Team jobs — how the boss sees "2 people did this"
 
 1. Operator taps a job → **Start job** (auto clocks in if needed).

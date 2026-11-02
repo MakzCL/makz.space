@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useToast } from "../components/Toast";
+import { t } from "./i18n";
 import { blip, buzz } from "./prefs";
 import { useStore } from "./store";
-import type { AbsenceKind, Invite, Issue, Job, JobStatus, Profile, StockItem } from "./types";
+import type { AbsenceKind, Invite, Issue, Job, JobLinkRole, JobStatus, Profile, StockItem } from "./types";
 
 const nowIso = () => new Date().toISOString();
 
@@ -41,7 +42,7 @@ export function useActions() {
   return useMemo(() => {
     const fail = (e: unknown) => {
       buzz([30, 40, 30]);
-      toast(e instanceof Error ? e.message : "Something went wrong", "error");
+      toast(e instanceof Error ? t(e.message) : t("Something went wrong"), "error");
       throw e;
     };
     const ok = (msg: string, tone: "ok" | "info" = "ok") => { buzz(14); blip(tone === "ok" ? 990 : 660); toast(msg, tone); };
@@ -51,7 +52,7 @@ export function useActions() {
       try {
         const s = await B.insert("shifts", { user_id: me.id, clock_in: nowIso(), clock_out: null });
         await refresh("shifts");
-        if (!silent) ok("Clocked in — have a great shift");
+        if (!silent) ok(t("Clocked in — have a good shift"));
         return s;
       } catch (e) { return fail(e); }
     }
@@ -73,7 +74,7 @@ export function useActions() {
         await B.update("participants", mine.part.id, { left_at: nowIso() });
         await endSessionIfEmpty(mine.session.id, mine.part.job_id, true);
         await Promise.all([refresh("participants"), refresh("work_sessions"), refresh("jobs"), refresh("invites")]);
-        if (!quiet) ok("You left the job — time saved", "info");
+        if (!quiet) ok(t("You left the job — your time is saved"), "info");
       } catch (e) { fail(e); }
     }
 
@@ -84,7 +85,7 @@ export function useActions() {
         if (mine.part) await leaveSession(true);
         await B.update("shifts", mine.shift.id, { clock_out: nowIso() });
         await Promise.all([refresh("shifts"), refresh("breaks")]);
-        ok("Clocked out — see you next time 👋");
+        ok(t("Clocked out — see you next time"));
       } catch (e) { fail(e); }
     }
 
@@ -93,10 +94,10 @@ export function useActions() {
       try {
         if (mine.brk) {
           await B.update("breaks", mine.brk.id, { ended_at: nowIso() });
-          ok("Welcome back", "info");
+          ok(t("Welcome back"), "info");
         } else {
           await B.insert("breaks", { shift_id: mine.shift.id, user_id: me.id, started_at: nowIso(), ended_at: null });
-          ok("Enjoy your break ☕", "info");
+          ok(t("Enjoy your break"), "info");
         }
         await refresh("breaks");
       } catch (e) { fail(e); }
@@ -119,25 +120,25 @@ export function useActions() {
           assignees: job.assignees.includes(me.id) ? job.assignees : [...job.assignees, me.id],
         });
         await refresh();
-        ok(`${job.code} started — timer running`);
+        ok(t("{code} started — timer running", { code: job.code }));
       } catch (e) { fail(e); }
     }
 
     async function stopJob(job: Job, outcome: Exclude<JobStatus, "open" | "in_progress">) {
       const live = db.work_sessions.find((s) => s.job_id === job.id && !s.ended_at);
       try {
-        const t = nowIso();
+        const ts = nowIso();
         if (live) {
           for (const p of db.participants.filter((x) => x.session_id === live.id && !x.left_at))
-            await B.update("participants", p.id, { left_at: t });
-          await B.update("work_sessions", live.id, { ended_at: t });
+            await B.update("participants", p.id, { left_at: ts });
+          await B.update("work_sessions", live.id, { ended_at: ts });
           for (const i of db.invites.filter((x) => x.session_id === live.id && x.status === "pending"))
             await B.update("invites", i.id, { status: "cancelled" });
         }
-        await B.update("jobs", job.id, { status: outcome, completed_at: outcome === "done" ? t : null });
+        await B.update("jobs", job.id, { status: outcome, completed_at: outcome === "done" ? ts : null });
         await refresh();
-        if (outcome === "done") { buzz([20, 60, 20, 60, 40]); toast(`${job.code} complete — nice work! 🎉`, "ok"); blip(1320, 0.15); }
-        else ok(outcome === "paused" ? `${job.code} paused` : `${job.code} marked blocked`, "info");
+        if (outcome === "done") { buzz([20, 60, 20, 60, 40]); toast(t("{code} complete — nice work", { code: job.code }), "ok"); blip(1320, 0.15); }
+        else ok(t(outcome === "paused" ? "{code} paused" : "{code} marked blocked", { code: job.code }), "info");
       } catch (e) { fail(e); }
     }
 
@@ -151,7 +152,7 @@ export function useActions() {
           });
         }
         await refresh("invites");
-        ok(to.length === 1 ? `Invite sent to ${to[0]!.full_name.split(" ")[0]}` : `${to.length} invites sent`);
+        ok(to.length === 1 ? t("Invite sent to {name}", { name: to[0]!.full_name.split(" ")[0]! }) : t("{n} invites sent", { n: to.length }));
       } catch (e) { fail(e); }
     }
 
@@ -165,7 +166,7 @@ export function useActions() {
         if (accept && (!session || session.ended_at)) {
           await B.update("invites", inv.id, { status: "cancelled" });
           await refresh("invites");
-          toast("That job has already stopped", "info");
+          toast(t("That job has already stopped"), "info");
           return;
         }
         if (accept) {
@@ -178,8 +179,8 @@ export function useActions() {
         }
         await B.update("invites", inv.id, { status: accept ? "accepted" : "declined" });
         await refresh();
-        if (accept) ok(`Joined ${person(inv.from_user)?.full_name.split(" ")[0] ?? "the team"} — team timer running 🤝`);
-        else toast("Invite declined", "info");
+        if (accept) ok(t("Joined {name} — team timer running", { name: person(inv.from_user)?.full_name.split(" ")[0] ?? "" }));
+        else toast(t("Invite declined"), "info");
       } catch (e) { fail(e); }
     }
 
@@ -191,14 +192,14 @@ export function useActions() {
           await B.insert("jobs", { code: `SK-${n}`, status: "open", assignees: [], description: "", customer: "", priority: 3, created_by: me.id, ...job });
         }
         await refresh("jobs");
-        ok(job.id ? "Job updated" : "Job created");
+        ok(t(job.id ? "Job updated" : "Job created"));
       } catch (e) { fail(e); }
     }
     async function deleteJob(job: Job) {
-      try { await B.remove("jobs", job.id); await refresh(); ok(`${job.code} deleted`, "info"); } catch (e) { fail(e); }
+      try { await B.remove("jobs", job.id); await refresh(); ok(t("{code} deleted", { code: job.code }), "info"); } catch (e) { fail(e); }
     }
     async function reopenJob(job: Job) {
-      try { await B.update("jobs", job.id, { status: "open", completed_at: null }); await refresh("jobs"); ok(`${job.code} reopened`, "info"); } catch (e) { fail(e); }
+      try { await B.update("jobs", job.id, { status: "open", completed_at: null }); await refresh("jobs"); ok(t("{code} reopened", { code: job.code }), "info"); } catch (e) { fail(e); }
     }
 
     async function reportIssue(i: Pick<Issue, "job_id" | "category" | "severity" | "title" | "description">, blockJob: boolean) {
@@ -209,7 +210,7 @@ export function useActions() {
           if (job) await stopJob(job, "blocked");
         }
         await refresh("issues");
-        ok("Issue reported — the team has been notified");
+        ok(t("Issue reported — the team has been notified"));
       } catch (e) { fail(e); }
     }
     async function setIssue(i: Issue, status: Issue["status"]) {
@@ -221,7 +222,7 @@ export function useActions() {
           if (job?.status === "blocked" && !stillOpen) await B.update("jobs", job.id, { status: "paused" });
         }
         await refresh("issues"); await refresh("jobs");
-        ok(status === "resolved" ? "Issue resolved ✓" : "Issue acknowledged", "info");
+        ok(t(status === "resolved" ? "Issue resolved" : "Issue acknowledged"), "info");
       } catch (e) { fail(e); }
     }
 
@@ -237,7 +238,7 @@ export function useActions() {
         if (item.id) await B.update("stock_items", item.id, { ...item, updated_by: me.id, updated_at: nowIso() });
         else await B.insert("stock_items", { ...item, updated_by: me.id, updated_at: nowIso() });
         await refresh("stock_items");
-        ok(item.id ? "Stock updated" : "Item added");
+        ok(t(item.id ? "Stock updated" : "Item added"));
       } catch (e) { fail(e); }
     }
 
@@ -245,19 +246,19 @@ export function useActions() {
       try {
         await B.insert("absences", { user_id: me.id, kind, start_date, end_date, note, status: "pending", decided_by: null });
         await refresh("absences");
-        ok(kind === "sick" ? "Get well soon — your manager has been told" : "Request sent for approval");
+        ok(t(kind === "sick" ? "Get well soon — your manager has been told" : "Request sent for approval"));
       } catch (e) { fail(e); }
     }
     async function decideAbsence(id: string, status: "approved" | "rejected" | "cancelled") {
       try {
         await B.update("absences", id, { status, decided_by: status === "cancelled" ? null : me.id });
         await refresh("absences");
-        ok(status === "approved" ? "Approved ✓" : status === "rejected" ? "Rejected" : "Request cancelled", "info");
+        ok(t(status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Request cancelled"), "info");
       } catch (e) { fail(e); }
     }
 
     async function post(body: string, pinned: boolean) {
-      try { await B.insert("announcements", { author_id: me.id, body, pinned }); await refresh("announcements"); ok("Posted to everyone 📣"); }
+      try { await B.insert("announcements", { author_id: me.id, body, pinned }); await refresh("announcements"); ok(t("Posted to everyone")); }
       catch (e) { fail(e); }
     }
     async function unpost(id: string) {
@@ -265,21 +266,36 @@ export function useActions() {
     }
 
     async function updateProfile(id: string, patch: Partial<Profile>) {
-      try { await B.update("profiles", id, patch); await refresh("profiles"); ok("Saved"); } catch (e) { fail(e); }
+      try { await B.update("profiles", id, patch); await refresh("profiles"); ok(t("Saved")); } catch (e) { fail(e); }
     }
     async function uploadAvatar(blob: Blob) {
       try {
         const url = await B.uploadAvatar(me.id, blob);
         await B.update("profiles", me.id, { avatar_url: url });
         await refresh("profiles");
-        ok("Looking good! New photo saved 📸");
+        ok(t("New photo saved"));
       } catch (e) { fail(e); }
     }
     async function editShift(id: string, patch: { clock_in?: string; clock_out?: string | null }) {
-      try { await B.update("shifts", id, patch); await refresh("shifts"); ok("Shift corrected"); } catch (e) { fail(e); }
+      try { await B.update("shifts", id, patch); await refresh("shifts"); ok(t("Shift corrected")); } catch (e) { fail(e); }
+    }
+
+    async function createJoinLink(role: JobLinkRole, pin: string, hours: number, maxUses: number | null) {
+      try { const l = await B.createJoinLink(role, pin, hours, maxUses); await refresh("join_links"); ok(t("Invite link ready")); return l; }
+      catch (e) { return fail(e); }
+    }
+    async function revokeJoinLink(id: string) {
+      try { await B.update("join_links", id, { revoked: true }); await refresh("join_links"); ok(t("Link switched off"), "info"); } catch (e) { fail(e); }
+    }
+    async function approve(p: Profile) {
+      try { await B.update("profiles", p.id, { active: true }); await refresh("profiles"); ok(t("{name} can now use the app", { name: p.full_name.split(" ")[0]! })); } catch (e) { fail(e); }
+    }
+    async function removeMember(p: Profile) {
+      try { await B.remove("profiles", p.id); await refresh("profiles"); ok(t("Account removed"), "info"); } catch (e) { fail(e); }
     }
 
     return {
+      createJoinLink, revokeJoinLink, approve, removeMember,
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
       saveJob, deleteJob, reopenJob, reportIssue, setIssue, adjustStock, saveStock, requestAbsence,
       decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift,
