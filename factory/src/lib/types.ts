@@ -46,6 +46,64 @@ export interface Job {
   created_by: string | null;
   completed_at: string | null;
   created_at: string;
+  /** Shopify order this job came from (one job per order line). */
+  order_id: string | null;
+  sku: string | null;
+  /** Stations the job passes through, in order; empty = a plain job. */
+  route: string[];
+  /** Index into route of the station working on it now. */
+  stage: number;
+  station_id: string | null;
+  shopify_line_id: number | null;
+}
+
+export interface Station {
+  id: string;
+  name: string;
+  sort: number;
+  in_default: boolean;
+  created_at: string;
+}
+
+export interface StationMember {
+  id: string;
+  station_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  route: string[];
+  estimate_minutes: number | null;
+  created_at: string;
+}
+
+export interface Order {
+  id: string;
+  shopify_id: number | null;
+  order_number: string;
+  customer: string;
+  company: string;
+  email: string;
+  phone: string;
+  ship_to: string;
+  shipping_method: string;
+  note: string;
+  ordered_at: string | null;
+  created_at: string;
+}
+
+export interface JobStep {
+  id: string;
+  job_id: string;
+  station_id: string | null;
+  stage: number;
+  completed_by: string | null;
+  completed_at: string;
+  created_at: string;
 }
 
 export interface WorkSession {
@@ -156,6 +214,11 @@ export interface Tables {
   absences: Absence;
   announcements: Announcement;
   join_links: JoinLink;
+  stations: Station;
+  station_members: StationMember;
+  products: Product;
+  orders: Order;
+  job_steps: JobStep;
 }
 
 export type TableName = keyof Tables;
@@ -163,6 +226,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
+  "stations", "station_members", "products", "orders", "job_steps",
 ];
 
 export type DB = { [K in TableName]: Tables[K][] };

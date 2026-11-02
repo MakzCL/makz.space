@@ -247,8 +247,35 @@ export function LangSwitch() {
     <button className={`lang-switch ${lang}`} role="switch" aria-checked={lang === "pl"} aria-label="Language / Język"
       onClick={() => { buzz(8); setPrefs({ lang: lang === "en" ? "pl" : "en" }); }}>
       <motion.i layout transition={spring} className="lang-knob" />
-      <span className={lang === "en" ? "on" : ""}>EN</span>
-      <span className={lang === "pl" ? "on" : ""}>PL</span>
+      <span className={lang === "en" ? "on" : ""} title="English"><FlagGB /></span>
+      <span className={lang === "pl" ? "on" : ""} title="Polski"><FlagPL /></span>
     </button>
+  );
+}
+
+/** Round flags for the language switch (drawn inline so they work offline). */
+function FlagGB() {
+  return (
+    <svg className="flag-ic" viewBox="0 0 60 60" aria-hidden>
+      <defs><clipPath id="fgb"><circle cx="30" cy="30" r="30" /></clipPath></defs>
+      <g clipPath="url(#fgb)">
+        <rect width="60" height="60" fill="#012169" />
+        <path d="M-10 -10 70 70 M70 -10 -10 70" stroke="#fff" strokeWidth="12" />
+        <path d="M-10 -10 30 30 M70 -10 30 30 M-10 70 30 30 M70 70 30 30" stroke="#C8102E" strokeWidth="4" transform="translate(2 -2)" />
+        <path d="M30 -5v70M-5 30h70" stroke="#fff" strokeWidth="18" />
+        <path d="M30 -5v70M-5 30h70" stroke="#C8102E" strokeWidth="10" />
+      </g>
+    </svg>
+  );
+}
+function FlagPL() {
+  return (
+    <svg className="flag-ic" viewBox="0 0 60 60" aria-hidden>
+      <defs><clipPath id="fpl"><circle cx="30" cy="30" r="30" /></clipPath></defs>
+      <g clipPath="url(#fpl)">
+        <rect width="60" height="30" fill="#ffffff" />
+        <rect y="30" width="60" height="30" fill="#DC143C" />
+      </g>
+    </svg>
   );
 }

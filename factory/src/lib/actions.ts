@@ -3,7 +3,7 @@ import { useToast } from "../components/Toast";
 import { t } from "./i18n";
 import { blip, buzz } from "./prefs";
 import { useStore } from "./store";
-import type { AbsenceKind, Invite, Issue, Job, JobLinkRole, JobStatus, Profile, StockItem } from "./types";
+import type { AbsenceKind, Invite, Issue, Job, JobLinkRole, JobStatus, Product, Profile, Station, StockItem } from "./types";
 
 const nowIso = () => new Date().toISOString();
 
@@ -135,6 +135,15 @@ export function useActions() {
           for (const i of db.invites.filter((x) => x.session_id === live.id && x.status === "pending"))
             await B.update("invites", i.id, { status: "cancelled" });
         }
+        // A routed (Shopify) job finishing at one station moves on to the next one.
+        if (outcome === "done" && job.route?.length) {
+          const r = await B.completeStage(job.id);
+          await refresh();
+          buzz([20, 60, 20, 60, 40]); blip(1320, 0.15);
+          const next = db.stations.find((s) => s.id === job.route[job.stage + 1]);
+          toast(r === "done" || !next ? t("{code} complete — nice work", { code: job.code }) : t("{code} done here — passed to {station}", { code: job.code, station: next.name }), "ok");
+          return;
+        }
         await B.update("jobs", job.id, { status: outcome, completed_at: outcome === "done" ? ts : null });
         await refresh();
         if (outcome === "done") { buzz([20, 60, 20, 60, 40]); toast(t("{code} complete — nice work", { code: job.code }), "ok"); blip(1320, 0.15); }
@@ -184,11 +193,20 @@ export function useActions() {
       } catch (e) { fail(e); }
     }
 
+    const crewOf = (stationId: string | undefined) => db.station_members.filter((m) => m.station_id === stationId).map((m) => m.user_id);
+
     async function saveJob(job: Partial<Job> & { id?: string }) {
       try {
+        const old = job.id ? db.jobs.find((j) => j.id === job.id) : undefined;
+        // A new or changed route starts again at its first station, with that station's crew.
+        if (job.route && (!old || job.route.join() !== old.route.join())) {
+          const first = job.route[0];
+          job = { ...job, stage: 0, station_id: first ?? null, assignees: [...new Set([...(job.assignees ?? []), ...crewOf(first)])] };
+          if (old && old.status === "done" && first) job.status = "open";
+        }
         if (job.id) await B.update("jobs", job.id, job);
         else {
-          const n = db.jobs.reduce((m, j) => Math.max(m, parseInt(j.code.replace(/\D/g, "")) || 0), 2400) + 1;
+          const n = db.jobs.reduce((m, j) => Math.max(m, j.code.startsWith("SK-") ? parseInt(j.code.slice(3)) || 0 : 0), 2400) + 1;
           await B.insert("jobs", { code: `SK-${n}`, status: "open", assignees: [], description: "", customer: "", priority: 3, created_by: me.id, ...job });
         }
         await refresh("jobs");
@@ -265,6 +283,47 @@ export function useActions() {
       try { await B.remove("announcements", id); await refresh("announcements"); } catch (e) { fail(e); }
     }
 
+    async function setStationMember(stationId: string, userId: string, on: boolean) {
+      try {
+        const row = db.station_members.find((m) => m.station_id === stationId && m.user_id === userId);
+        if (on && !row) await B.insert("station_members", { station_id: stationId, user_id: userId });
+        if (!on && row) await B.remove("station_members", row.id);
+        await Promise.all([refresh("station_members"), refresh("jobs")]);
+        buzz(8);
+      } catch (e) { fail(e); }
+    }
+    async function saveStation(s: Partial<Station>) {
+      try {
+        if (s.id) await B.update("stations", s.id, s);
+        else await B.insert("stations", { name: s.name ?? "", sort: (db.stations.reduce((m, x) => Math.max(m, x.sort), 0) + 1), in_default: true, ...s });
+        await refresh("stations");
+      } catch (e) { fail(e); }
+    }
+    async function moveStation(s: Station, dir: -1 | 1) {
+      const list = [...db.stations].sort((x, y) => x.sort - y.sort);
+      const i = list.findIndex((x) => x.id === s.id), j = i + dir;
+      if (j < 0 || j >= list.length) return;
+      try {
+        await B.update("stations", list[i]!.id, { sort: list[j]!.sort === list[i]!.sort ? list[i]!.sort + dir : list[j]!.sort });
+        await B.update("stations", list[j]!.id, { sort: list[i]!.sort });
+        await refresh("stations");
+      } catch (e) { fail(e); }
+    }
+    async function deleteStation(s: Station) {
+      try { await B.remove("stations", s.id); await refresh(); ok(t("Station removed"), "info"); } catch (e) { fail(e); }
+    }
+    async function saveProduct(p: Partial<Product>) {
+      try {
+        if (p.id) await B.update("products", p.id, p);
+        else await B.insert("products", { name: "", route: [], estimate_minutes: null, ...p });
+        await refresh("products");
+        ok(t("Product saved"));
+      } catch (e) { fail(e); }
+    }
+    async function deleteProduct(p: Product) {
+      try { await B.remove("products", p.id); await refresh("products"); ok(t("Product removed"), "info"); } catch (e) { fail(e); }
+    }
+
     async function updateProfile(id: string, patch: Partial<Profile>) {
       try { await B.update("profiles", id, patch); await refresh("profiles"); ok(t("Saved")); } catch (e) { fail(e); }
     }
@@ -299,6 +358,19 @@ export function useActions() {
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
       saveJob, deleteJob, reopenJob, reportIssue, setIssue, adjustStock, saveStock, requestAbsence,
       decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift,
+      setStationMember, saveStation, moveStation, deleteStation, saveProduct, deleteProduct,
     };
   }, [B, db, me.id, mine, refresh, person, toast]);
+}
+
+/** Stations in route order, with quick lookups. */
+export function useStations() {
+  const { db } = useStore();
+  return useMemo(() => {
+    const list = [...db.stations].sort((a, b) => a.sort - b.sort || a.created_at.localeCompare(b.created_at));
+    const byId = new Map(list.map((s) => [s.id, s]));
+    const crew = (id: string) => db.station_members.filter((m) => m.station_id === id).map((m) => m.user_id);
+    const of = (userId: string) => db.station_members.filter((m) => m.user_id === userId).map((m) => m.station_id);
+    return { list, byId, name: (id: string | null | undefined) => (id ? byId.get(id)?.name ?? "" : ""), crew, of };
+  }, [db.stations, db.station_members]);
 }

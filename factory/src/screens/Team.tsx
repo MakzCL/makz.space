@@ -5,7 +5,7 @@ import { Avatar } from "../components/Avatar";
 import { Scene } from "../components/Scene";
 import { useToast } from "../components/Toast";
 import { Badge, Btn, Chip, Field, RoundBtn, Section, Sheet, item, list } from "../components/ui";
-import { useActions, usePresence } from "../lib/actions";
+import { useActions, usePresence, useStations } from "../lib/actions";
 import { JOIN_PIN } from "../lib/backend";
 import { plural, t } from "../lib/i18n";
 import { can, ROLE_META, ROLE_ORDER } from "../lib/roles";
@@ -191,6 +191,8 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
   const used = db.absences.filter((x) => x.user_id === p.id && x.kind === "holiday" && x.status === "approved" && x.start_date.startsWith(String(new Date().getFullYear())))
     .reduce((tt, x) => tt + (new Date(x.end_date).getTime() - new Date(x.start_date).getTime()) / 864e5 + 1, 0);
   const isAdmin = can.admin(me.role);
+  const stations = useStations();
+  const myStations = stations.of(p.id);
   return (
     <Sheet open={!!id} onClose={onClose} tall title={t("Team member")}>
       <div className="stack">
@@ -208,6 +210,15 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
         {can.changeRoles(me.role) && p.id !== me.id && (
           <Field label={t("Role")}>
             <div className="chips">{ROLE_ORDER.map((r) => <Chip key={r} on={p.role === r} onClick={() => a.updateProfile(p.id, { role: r })}><ShieldCheck size={14} />{roleLabel(r)}</Chip>)}</div>
+          </Field>
+        )}
+        {(can.manageJobs(me.role) ? stations.list.length > 0 : myStations.length > 0) && (
+          <Field label={t("Stations")} hint={can.manageJobs(me.role) ? t("Jobs at these stations land on their Jobs tab.") : undefined}>
+            <div className="chips">
+              {(can.manageJobs(me.role) ? stations.list : stations.list.filter((s) => myStations.includes(s.id))).map((s) => (
+                <Chip key={s.id} on={myStations.includes(s.id)} onClick={can.manageJobs(me.role) ? () => a.setStationMember(s.id, p.id, !myStations.includes(s.id)) : undefined}>{s.name}</Chip>
+              ))}
+            </div>
           </Field>
         )}
         {isAdmin && (

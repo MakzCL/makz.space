@@ -144,6 +144,62 @@ select pg_temp.check((select count(*) from public.stock_items) = 1, 'assistant m
 select pg_temp.expect_fail($$insert into public.announcements (author_id, body) values (auth.uid(), 'spam')$$, 'assistant posts news');
 select pg_temp.check((select count(*) from public.shifts where user_id <> auth.uid() and clock_out is not null) = 0, 'no access to others'' shift history');
 
+-- ------------------------------------------------ production flow (Shopify)
+\set A1 '00000000-0000-0000-0000-0000000000a1'
+\set A2 '00000000-0000-0000-0000-0000000000a2'
+select pg_temp.become(null);
+select pg_temp.check((select count(*) from public.stations) = 4, 'starter stations exist');
+insert into public.station_members (station_id, user_id) select id, :'A2' from public.stations where name = 'Metal works';
+insert into public.station_members (station_id, user_id) select id, :'A1' from public.stations where name = 'Quality check';
+select public.ingest_shopify_order($j${
+  "id": 5550001, "name": "#1043", "order_number": 1043, "email": "buyer@x.test", "created_at": "2026-11-02T10:00:00Z",
+  "note": "Deliver to loading bay",
+  "shipping_address": {"first_name": "Ann", "last_name": "Pilot", "company": "Sim Co", "address1": "1 Runway Rd",
+                       "city": "Leeds", "zip": "LS1 1AA", "country": "United Kingdom", "phone": "0113 000"},
+  "shipping_lines": [{"title": "DPD Next Day"}],
+  "line_items": [
+    {"id": 9001, "title": "A32X Pedestal", "variant_title": "Amber LED / CS & FO sides", "sku": "SK-0123", "quantity": 2,
+     "properties": [{"name": "Engraving", "value": "N123AB"}, {"name": "_hidden", "value": "x"}]},
+    {"id": 9002, "title": "Throttle quadrant", "variant_title": null, "sku": "SK-0200", "quantity": 1},
+    {"id": 9003, "title": "Gift card", "sku": "", "quantity": 1, "gift_card": true}
+  ]}$j$::jsonb) as made \gset
+select pg_temp.check(:made = 2, 'Shopify order → one job per product line (gift cards skipped)');
+select id as job1 from public.jobs where shopify_line_id = 9001 \gset
+select pg_temp.check((select code = '#1043-1' and title = 'A32X Pedestal - Amber LED - CS & FO sides' and quantity = 2
+  and customer = 'Ann Pilot' and sku = 'SK-0123' and description like 'Engraving: N123AB%' and description not like '%_hidden%'
+  from public.jobs where id = :'job1'), 'job filled from the order line');
+select pg_temp.check((select o.order_number = '#1043' and o.company = 'Sim Co' and o.ship_to like '1 Runway Rd, Leeds%' and o.shipping_method = 'DPD Next Day'
+  from public.orders o join public.jobs j on j.order_id = o.id where j.id = :'job1'), 'order keeps customer, ship-to and delivery');
+select pg_temp.check((select s.name = 'Metal works' and j.assignees = array[:'A2'::uuid] from public.jobs j join public.stations s on s.id = j.station_id where j.id = :'job1'),
+  'job starts at the first station, assigned to its crew');
+select pg_temp.check((select cardinality(route) = 4 from public.products where sku = 'SK-0123'), 'unknown SKU is registered with the default route');
+select pg_temp.check(public.ingest_shopify_order((select jsonb_build_object('id', 5550001, 'name', '#1043', 'line_items',
+  jsonb_build_array(jsonb_build_object('id', 9001, 'title', 'A32X Pedestal', 'sku', 'SK-0123', 'quantity', 2))))) = 0, 'same order twice makes no duplicates');
+
+-- Metal works (assistant a2) finishes → panel fitting (nobody there yet)
+select pg_temp.become(:'A2');
+select pg_temp.check(public.complete_stage(:'job1') = 'next', 'metal works completes its stage');
+select pg_temp.check((select s.name = 'Panel fitting' and j.status = 'open' and j.assignees = '{}' from public.jobs j join public.stations s on s.id = j.station_id where j.id = :'job1'),
+  'job moves up to panel fitting');
+select pg_temp.expect_fail($$select public.complete_stage((select id from public.jobs where shopify_line_id = 9001))$$, 'completing a stage at someone else''s station');
+select pg_temp.expect_fail($$insert into public.stations (name) values ('Hack')$$, 'non-lead edits stations');
+-- Manager a1 can push it on; a1 is in quality check so it lands with them
+select pg_temp.become(:'A1');
+select public.complete_stage(:'job1');
+select pg_temp.check((select s.name = 'Quality check' and j.assignees = array[:'A1'::uuid] from public.jobs j join public.stations s on s.id = j.station_id where j.id = :'job1'),
+  'quality check gets the job');
+select public.complete_stage(:'job1');
+select pg_temp.check(public.complete_stage(:'job1') = 'done', 'packing is the last stage');
+select pg_temp.check((select status = 'done' and completed_at is not null from public.jobs where id = :'job1'), 'job is done after the last station');
+select pg_temp.check((select count(*) = 4 and count(distinct stage) = 4 from public.job_steps where job_id = :'job1'), 'every station''s completion is recorded');
+select pg_temp.expect_fail($$select public.ingest_shopify_order('{}'::jsonb)$$, 'app users cannot inject orders');
+-- New station member picks up open jobs waiting there
+select pg_temp.become(null);
+insert into public.station_members (station_id, user_id) select id, :'A1' from public.stations where name = 'Metal works';
+select pg_temp.check((select assignees @> array[:'A1'::uuid, :'A2'::uuid] from public.jobs where shopify_line_id = 9002), 'joining a station picks up its waiting jobs');
+delete from public.station_members where user_id = :'A2';
+select pg_temp.check((select not (:'A2'::uuid = any(assignees)) from public.jobs where shopify_line_id = 9002), 'leaving a station drops its waiting jobs');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

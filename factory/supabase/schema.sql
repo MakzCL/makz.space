@@ -481,3 +481,259 @@ begin
       using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
   end if;
 end $$;
+
+-- =========================================================================
+-- Production flow: Shopify orders → jobs that move station to station
+--   stations        Metal works → Panel fitting → Quality check → Packing …
+--   station_members who works at each station (jobs auto-assign to them)
+--   products        Shopify SKU → route (ordered list of stations)
+--   orders          one row per Shopify order (number, customer, ship-to)
+--   jobs            one per order line; route/stage/station_id track progress
+--   job_steps       who completed each station and when
+-- =========================================================================
+create table if not exists public.stations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  sort int not null default 0,
+  in_default boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.station_members (
+  id uuid primary key default gen_random_uuid(),
+  station_id uuid not null references public.stations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (station_id, user_id)
+);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  sku text not null unique,
+  name text not null default '',
+  route uuid[] not null default '{}',
+  estimate_minutes int,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  shopify_id bigint unique,
+  order_number text not null,
+  customer text not null default '',
+  company text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  ship_to text not null default '',
+  shipping_method text not null default '',
+  note text not null default '',
+  ordered_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.jobs add column if not exists order_id uuid references public.orders(id) on delete set null;
+alter table public.jobs add column if not exists sku text;
+alter table public.jobs add column if not exists route uuid[] not null default '{}';
+alter table public.jobs add column if not exists stage int not null default 0;
+alter table public.jobs add column if not exists station_id uuid references public.stations(id) on delete set null;
+alter table public.jobs add column if not exists shopify_line_id bigint unique;
+
+create table if not exists public.job_steps (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs(id) on delete cascade,
+  station_id uuid references public.stations(id) on delete set null,
+  stage int not null,
+  completed_by uuid references public.profiles(id) on delete set null,
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists job_steps_job_idx on public.job_steps (job_id);
+create index if not exists jobs_station_idx on public.jobs (station_id) where status <> 'done';
+
+alter table public.stations        enable row level security;
+alter table public.station_members enable row level security;
+alter table public.products        enable row level security;
+alter table public.orders          enable row level security;
+alter table public.job_steps       enable row level security;
+
+drop policy if exists "staff read stations" on public.stations;
+drop policy if exists "leads edit stations" on public.stations;
+drop policy if exists "staff read station members" on public.station_members;
+drop policy if exists "leads edit station members" on public.station_members;
+drop policy if exists "staff read products" on public.products;
+drop policy if exists "leads edit products" on public.products;
+drop policy if exists "staff read orders" on public.orders;
+drop policy if exists "leads edit orders" on public.orders;
+drop policy if exists "staff read job steps" on public.job_steps;
+drop policy if exists "active staff only" on public.stations;
+drop policy if exists "active staff only" on public.station_members;
+drop policy if exists "active staff only" on public.products;
+drop policy if exists "active staff only" on public.orders;
+drop policy if exists "active staff only" on public.job_steps;
+
+create policy "staff read stations" on public.stations for select to authenticated using (true);
+create policy "leads edit stations" on public.stations for all to authenticated using (public.is_lead()) with check (public.is_lead());
+create policy "staff read station members" on public.station_members for select to authenticated using (true);
+create policy "leads edit station members" on public.station_members for all to authenticated using (public.is_lead()) with check (public.is_lead());
+create policy "staff read products" on public.products for select to authenticated using (true);
+create policy "leads edit products" on public.products for all to authenticated using (public.is_lead()) with check (public.is_lead());
+create policy "staff read orders" on public.orders for select to authenticated using (true);
+create policy "leads edit orders" on public.orders for all to authenticated using (public.is_lead()) with check (public.is_lead());
+-- job_steps are written only by complete_stage()
+create policy "staff read job steps" on public.job_steps for select to authenticated using (true);
+do $$
+declare t text;
+begin
+  foreach t in array array['stations','station_members','products','orders','job_steps'] loop
+    execute format('create policy "active staff only" on public.%I as restrictive for all to authenticated using (public.is_active()) with check (public.is_active())', t);
+  end loop;
+end $$;
+
+-- Everyone who works at a station.
+create or replace function public.station_assignees(st uuid) returns uuid[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(m.user_id order by m.created_at), '{}') from public.station_members m where m.station_id = st
+$$;
+
+-- Route used for products nobody has set up yet: every default station in order.
+create or replace function public.default_route() returns uuid[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(id order by sort, created_at), '{}') from public.stations where in_default
+$$;
+
+-- People joining/leaving a station pick up/drop the open jobs waiting there.
+create or replace function public.sync_station_jobs() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    update public.jobs set assignees = array_append(assignees, new.user_id)
+      where station_id = new.station_id and status <> 'done' and not (new.user_id = any(assignees));
+    return new;
+  else
+    update public.jobs set assignees = array_remove(assignees, old.user_id)
+      where station_id = old.station_id and status <> 'done';
+    return old;
+  end if;
+end $$;
+drop trigger if exists sync_station_jobs on public.station_members;
+create trigger sync_station_jobs after insert or delete on public.station_members
+  for each row execute function public.sync_station_jobs();
+
+-- The crew at the current station is done → record it and pass the job on.
+-- Returns 'next' (moved to the next station) or 'done' (last station finished).
+create or replace function public.complete_stage(p_job uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  j public.jobs;
+  nxt int;
+begin
+  if not public.is_active() then raise exception 'Not allowed'; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Job not found'; end if;
+  if j.status = 'done' then return 'done'; end if;
+  if not (public.is_lead() or auth.uid() = any(j.assignees)
+          or exists (select 1 from public.station_members m where m.station_id = j.station_id and m.user_id = auth.uid())) then
+    raise exception 'This job is not at your station';
+  end if;
+  insert into public.job_steps (job_id, station_id, stage, completed_by) values (j.id, j.station_id, j.stage, auth.uid());
+  nxt := j.stage + 1;
+  if nxt >= coalesce(array_length(j.route, 1), 0) then
+    update public.jobs set status = 'done', completed_at = now() where id = j.id;
+    return 'done';
+  end if;
+  update public.jobs set stage = nxt, station_id = j.route[nxt + 1], status = 'open', completed_at = null,
+    assignees = public.station_assignees(j.route[nxt + 1])
+  where id = j.id;
+  return 'next';
+end $$;
+
+-- Shopify order JSON (orders/create webhook) → order + one job per line item.
+-- Safe to call twice for the same order: nothing is duplicated.
+create or replace function public.ingest_shopify_order(o jsonb) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  addr jsonb := coalesce(nullif(o->'shipping_address', 'null'::jsonb), nullif(o->'billing_address', 'null'::jsonb), '{}'::jsonb);
+  cust text;
+  oid uuid;
+  li jsonb;
+  p public.products;
+  r uuid[];
+  lines int;
+  idx int := 0;
+  made int := 0;
+  props text;
+  jid uuid;
+  oname text := coalesce(nullif(o->>'name', ''), '#' || (o->>'order_number'), '#' || (o->>'id'));
+begin
+  cust := coalesce(nullif(trim(concat_ws(' ', addr->>'first_name', addr->>'last_name')), ''),
+                   nullif(trim(concat_ws(' ', o->'customer'->>'first_name', o->'customer'->>'last_name')), ''),
+                   nullif(o->>'email', ''), '');
+  insert into public.orders (shopify_id, order_number, customer, company, email, phone, ship_to, shipping_method, note, ordered_at)
+  values ((o->>'id')::bigint, oname, cust, coalesce(addr->>'company', ''), coalesce(o->>'email', ''),
+          coalesce(nullif(addr->>'phone', ''), nullif(o->>'phone', ''), ''),
+          concat_ws(', ', nullif(addr->>'address1', ''), nullif(addr->>'address2', ''), nullif(addr->>'city', ''),
+                    nullif(addr->>'province', ''), nullif(addr->>'zip', ''), nullif(addr->>'country', '')),
+          coalesce((select string_agg(s->>'title', ', ') from jsonb_array_elements(coalesce(o->'shipping_lines', '[]'::jsonb)) s), ''),
+          coalesce(o->>'note', ''), (o->>'created_at')::timestamptz)
+  on conflict (shopify_id) do update set customer = excluded.customer, company = excluded.company, email = excluded.email,
+    phone = excluded.phone, ship_to = excluded.ship_to, shipping_method = excluded.shipping_method, note = excluded.note
+  returning id into oid;
+
+  select count(*) into lines from jsonb_array_elements(coalesce(o->'line_items', '[]'::jsonb)) x
+   where coalesce((x->>'gift_card')::boolean, false) = false;
+
+  for li in select * from jsonb_array_elements(coalesce(o->'line_items', '[]'::jsonb)) loop
+    continue when coalesce((li->>'gift_card')::boolean, false);
+    idx := idx + 1;
+    p := null;
+    if nullif(trim(li->>'sku'), '') is not null then
+      select * into p from public.products where sku = trim(li->>'sku');
+      if p.id is null then
+        insert into public.products (sku, name, route) values (trim(li->>'sku'), coalesce(li->>'title', ''), public.default_route())
+        on conflict (sku) do nothing;
+        select * into p from public.products where sku = trim(li->>'sku');
+      end if;
+    end if;
+    r := case when coalesce(array_length(p.route, 1), 0) > 0 then p.route else public.default_route() end;
+    select string_agg((pr->>'name') || ': ' || (pr->>'value'), E'\n') into props
+      from jsonb_array_elements(coalesce(li->'properties', '[]'::jsonb)) pr where left(pr->>'name', 1) <> '_';
+    insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity,
+                             estimate_minutes, order_id, sku, route, stage, station_id, shopify_line_id)
+    values (case when lines > 1 then oname || '-' || idx else oname end,
+            concat_ws(' - ', li->>'title', nullif(replace(li->>'variant_title', ' / ', ' - '), '')),
+            concat_ws(E'\n', props, nullif(o->>'note', '')),
+            cust, 3, 'open', public.station_assignees(r[1]), coalesce((li->>'quantity')::int, 1),
+            p.estimate_minutes, oid, nullif(trim(li->>'sku'), ''), r, 0, r[1], (li->>'id')::bigint)
+    on conflict (shopify_line_id) do nothing
+    returning id into jid;
+    if jid is not null then made := made + 1; end if;
+    jid := null;
+  end loop;
+  return made;
+end $$;
+
+revoke all on function public.ingest_shopify_order(jsonb) from public, anon, authenticated;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.ingest_shopify_order(jsonb) to service_role;
+  end if;
+end $$;
+revoke all on function public.complete_stage(uuid) from public, anon;
+grant execute on function public.complete_stage(uuid) to authenticated;
+
+-- Starter stations (only on a fresh database).
+insert into public.stations (name, sort)
+select v.name, v.sort from (values ('Metal works', 1), ('Panel fitting', 2), ('Quality check', 3), ('Packing', 4)) v(name, sort)
+where not exists (select 1 from public.stations);
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['stations','station_members','products','orders','job_steps'] loop
+      begin
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      exception when duplicate_object then null; end;
+    end loop;
+  end if;
+end $$;

@@ -194,8 +194,8 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
         <div className="set"><span><b>{t("Language")}</b><small>English / Polski</small></span><LangSwitch /></div>
         <div className="set"><span><b>{t("Text & layout size")}</b><small>{t("Bigger for gloves and tablets")}</small></span>
           <Segmented size="s" value={prefs.scale} onChange={(v) => setPrefs({ scale: v })} options={[{ value: "s", label: "S" }, { value: "m", label: "M" }, { value: "l", label: "L" }]} /></div>
-        <div className="set"><span><b>{t("Background")}</b><small>{t("Night blue or deeper")}</small></span>
-          <Segmented size="s" value={prefs.theme} onChange={(v) => setPrefs({ theme: v })} options={[{ value: "night", label: t("Night") }, { value: "deep", label: t("Deep") }]} /></div>
+        <div className="set"><span><b>{t("Appearance")}</b><small>{t("Light, night blue or deeper")}</small></span>
+          <Segmented size="s" value={prefs.theme} onChange={(v) => setPrefs({ theme: v })} options={[{ value: "light", label: t("Light") }, { value: "night", label: t("Night") }, { value: "deep", label: t("Deep") }]} /></div>
         <div className="set col"><span><b>{t("Start screen")}</b><small>{t("Tab shown when the app opens")}</small></span>
           <Segmented size="s" value={TABS_FOR[me.role].includes(prefs.startTab) ? prefs.startTab : "home"} onChange={(v: Tab) => setPrefs({ startTab: v })}
             options={TABS_FOR[me.role].slice(0, 4).map((x) => ({ value: x, label: tabLabel(x) }))} /></div>

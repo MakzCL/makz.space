@@ -21,6 +21,9 @@ export interface Backend {
   onAuthChange(cb: () => void): () => void;
   uploadAvatar(userId: string, blob: Blob): Promise<string>;
 
+  /** Routed (Shopify) job: the current station is finished — pass it on. */
+  completeStage(jobId: string): Promise<"next" | "done">;
+
   /** Invite links: the boss makes one unique link per person; every link uses the same PIN. */
   createJoinLink(role: Role, pin: string, hours: number, maxUses: number | null): Promise<JoinLink>;
   joinInfo(code: string): Promise<JoinInfo>;

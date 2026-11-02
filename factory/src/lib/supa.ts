@@ -7,6 +7,7 @@ const WINDOW_DAYS = 120;
 const TIME_COL: Partial<Record<TableName, string>> = {
   shifts: "clock_in", breaks: "started_at", work_sessions: "started_at",
   participants: "joined_at", invites: "created_at", announcements: "created_at",
+  orders: "created_at", job_steps: "completed_at",
 };
 
 export class SupabaseBackend implements Backend {
@@ -80,6 +81,12 @@ export class SupabaseBackend implements Backend {
     });
     if (error) throw error;
     return this.sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+  }
+
+  async completeStage(jobId: string) {
+    const { data, error } = await this.sb.rpc("complete_stage", { p_job: jobId });
+    if (error) throw error;
+    return data as "next" | "done";
   }
 
   async createJoinLink(role: Role, pin: string, hours: number, maxUses: number | null) {

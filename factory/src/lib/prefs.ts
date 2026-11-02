@@ -7,7 +7,7 @@ export interface Prefs {
   haptics: boolean;
   scale: "s" | "m" | "l";
   sounds: boolean;
-  theme: "night" | "deep";
+  theme: "night" | "deep" | "light";
   lang: "en" | "pl";
 }
 const DEF: Prefs = { startTab: "home", reduceMotion: false, haptics: true, scale: "m", sounds: false, theme: "night",
@@ -17,7 +17,7 @@ const KEY = "skf-prefs";
 function read(): Prefs {
   try {
     const p = { ...DEF, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") } as Prefs;
-    if (p.theme !== "night" && p.theme !== "deep") p.theme = "night";
+    if (p.theme !== "night" && p.theme !== "deep" && p.theme !== "light") p.theme = "night";
     return p;
   } catch { return DEF; }
 }
@@ -40,6 +40,7 @@ export function apply() {
   const r = document.documentElement;
   r.dataset.scale = current.scale;
   r.dataset.theme = current.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", current.theme === "light" ? "#f3f4fa" : current.theme === "deep" ? "#060920" : "#0b1033");
   r.dataset.motion = current.reduceMotion ? "reduce" : "full";
   r.lang = current.lang === "pl" ? "pl" : "en-GB";
 }

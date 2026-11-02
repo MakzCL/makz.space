@@ -7,7 +7,7 @@ import { Avatar, AvatarStack } from "../components/Avatar";
 import { Dial } from "../components/Dial";
 import { Scene } from "../components/Scene";
 import { Badge, Btn, Chip, HoldButton, HoldCircle, RoundBtn, Section, Sheet, item, list } from "../components/ui";
-import { useActions, useMine, usePresence } from "../lib/actions";
+import { useActions, useMine, usePresence, useStations } from "../lib/actions";
 import { locale, t } from "../lib/i18n";
 import { can } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
@@ -86,6 +86,7 @@ export function LiveJobCard({ onOpen, onReport }: { onOpen: (j: Job) => void; on
   const now = useNow(1000);
   const { part, session, job } = useMine();
   const a = useActions();
+  const { name: stationName } = useStations();
   const [inviting, setInviting] = useState(false);
   if (!part || !session || !job) return null;
   const crew = db.participants.filter((p) => p.session_id === session.id && !p.left_at);
@@ -110,7 +111,9 @@ export function LiveJobCard({ onOpen, onReport }: { onOpen: (j: Job) => void; on
           <RoundBtn label={t("Details")} onClick={() => onOpen(job)}><ChevronRight size={22} /></RoundBtn>
           <RoundBtn label={t("Report issue")} onClick={() => onReport?.(job)}><span className="excl">!</span></RoundBtn>
         </div>
-        <p className="hint center">{t("Hold the red button to complete")}</p>
+        <p className="hint center">{job.route?.length && job.stage + 1 < job.route.length
+          ? t("Hold the red button when {station} is done — it goes to {next}", { station: stationName(job.station_id), next: stationName(job.route[job.stage + 1]) })
+          : t("Hold the red button to complete")}</p>
         <div className="timer-row">
           <div><small>{t("You")}</small><b>{hms(now - new Date(part.joined_at).getTime())}</b></div>
           <div><small>{t("Crew")}</small><b>{crew.length}</b></div>
@@ -205,8 +208,20 @@ export function InviteCard({ inv }: { inv: Invite }) {
   );
 }
 
-export function JobCard({ job, onOpen, rank }: { job: Job; onOpen: (j: Job) => void; rank?: number }) {
+/** Little segments showing how far a routed job has travelled. */
+export function RouteDots({ job }: { job: Job }) {
+  if (!job.route?.length) return null;
+  return (
+    <span className="route-dots" aria-label={t("Stage {n} of {total}", { n: Math.min(job.stage + 1, job.route.length), total: job.route.length })}>
+      {job.route.map((id, i) => <i key={id + i} className={job.status === "done" || i < job.stage ? "done" : i === job.stage ? "now" : ""} />)}
+    </span>
+  );
+}
+
+export function JobCard({ job, onOpen, rank, passed }: { job: Job; onOpen: (j: Job) => void; rank?: number; passed?: boolean }) {
   const { db, person } = useStore();
+  const stations = useStations();
+  const order = job.order_id ? db.orders.find((o) => o.id === job.order_id) : undefined;
   const now = useNow(30000);
   const st = jobStats(db, job.id, now);
   const liveCrew = st.live ? db.participants.filter((p) => p.session_id === st.live!.id && !p.left_at).map((p) => person(p.user_id)) : [];
@@ -216,14 +231,16 @@ export function JobCard({ job, onOpen, rank }: { job: Job; onOpen: (j: Job) => v
     <motion.button className={`job-row s-${job.status}`} variants={item} layout onClick={() => onOpen(job)} whileTap={{ scale: 0.985 }}>
       <span className="job-badge">{rank ?? job.priority}</span>
       <span className="grow">
-        <span className="row between"><span className="code">{job.code}</span>{st.team && <span className="team-tag"><Users size={12} /> ×{st.maxCrew}</span>}</span>
+        <span className="row between"><span className="code">{job.code}{job.quantity && job.route?.length ? <span className="qty-tag"> ×{job.quantity}</span> : null}</span>{st.team && <span className="team-tag"><Users size={12} /> ×{st.maxCrew}</span>}</span>
         <b className="job-title">{job.title}</b>
+        {job.station_id && job.status !== "done" && !passed && <span className="station-tag">{stations.name(job.station_id)}</span>}
+        {passed && <span className="station-tag passed"><Check size={12} /> {job.status === "done" ? t("Finished") : t("Passed to {station}", { station: stations.name(job.station_id) })}</span>}
         <span className="job-meta">
           <span className={`st st-${job.status}`}>{st.live && <i className="live-dot" />}{statusLabel(job.status)}</span>
-          {job.customer && <span> · {job.customer}</span>}
+          {(order?.company || job.customer) && <span> · {order?.company || job.customer}</span>}
           {job.due_date && <span className={overdue ? "late" : ""}> · {t("due")} {new Date(job.due_date).toLocaleDateString(locale(), { day: "numeric", month: "short" })}</span>}
         </span>
-        {job.estimate_minutes ? <span className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${pct * 100}%` }} /></span> : null}
+        {job.route?.length ? <RouteDots job={job} /> : job.estimate_minutes ? <span className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${pct * 100}%` }} /></span> : null}
       </span>
       <span className="job-side">
         {liveCrew.length ? <AvatarStack people={liveCrew} size={24} /> : <AvatarStack people={job.assignees.map(person)} size={22} max={3} />}
