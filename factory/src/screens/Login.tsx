@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, KeyRound, Mail, User } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Logo } from "../components/Logo";
 import { Scene } from "../components/Scene";
 import { useToast } from "../components/Toast";
@@ -8,7 +8,7 @@ import { Btn, LangSwitch, Segmented } from "../components/ui";
 import type { Backend } from "../lib/backend";
 import { t } from "../lib/i18n";
 
-export function Login({ backend, onIn }: { backend: Backend; onIn: () => void }) {
+export function Login({ backend, onIn, brand }: { backend: Backend; onIn: () => void; brand?: { name: string; sub: string; logo: ReactNode } }) {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -37,14 +37,14 @@ export function Login({ backend, onIn }: { backend: Backend; onIn: () => void })
       <div className="login-top"><LangSwitch /></div>
       <motion.div className="login-hero" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <Scene kind="factory" height={250}>
-          <div className="login-brand"><Logo size={40} /><div><b>Factory</b><small>Skalarki Electronics Ltd</small></div></div>
+          <div className="login-brand">{brand ? brand.logo : <Logo size={40} />}<div><b>{brand?.name ?? "Factory"}</b><small>{brand?.sub ?? "Skalarki Electronics Ltd"}</small></div></div>
         </Scene>
       </motion.div>
 
       <motion.form className="card login-card" onSubmit={(e) => { e.preventDefault(); submit(); }}
         initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 24 }}>
-        <Segmented value={mode} onChange={(v) => { setMode(v); setErr(null); }}
-          options={[{ value: "in", label: t("Sign in") }, { value: "up", label: t("New starter") }]} />
+        {!brand && <Segmented value={mode} onChange={(v) => { setMode(v); setErr(null); }}
+          options={[{ value: "in", label: t("Sign in") }, { value: "up", label: t("New starter") }]} />}
         <AnimatePresence initial={false}>
           {mode === "up" && (
             <motion.label className="input-ic" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>

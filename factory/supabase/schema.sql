@@ -1646,3 +1646,329 @@ alter table public.client_errors enable row level security;
 drop policy if exists "report errors" on public.client_errors;
 create policy "report errors" on public.client_errors for insert to anon, authenticated
   with check ((user_id is null or user_id = auth.uid()) and length(message) <= 500 and length(stack) <= 4000);
+
+-- ============================================================================
+-- Kimera (back office): sales orders + quotes, order lines, manufacturing
+-- orders, delivery, and a ticket system on top of worker issues.
+-- ============================================================================
+create sequence if not exists public.so_seq start 90001;
+create sequence if not exists public.qt_seq start 1001;
+create sequence if not exists public.mo_seq start 1001;
+create sequence if not exists public.tk_seq start 1;
+
+alter table public.orders add column if not exists kind text not null default 'order' check (kind in ('quote','order'));
+alter table public.orders add column if not exists status text not null default 'open' check (status in ('open','done','cancelled'));
+alter table public.orders add column if not exists delivery text not null default 'not_shipped' check (delivery in ('not_shipped','packed','shipped','delivered'));
+alter table public.orders add column if not exists delivery_deadline date;
+alter table public.orders add column if not exists source text not null default 'manual' check (source in ('shopify','manual'));
+alter table public.orders add column if not exists stock_out boolean not null default false;
+alter table public.orders add column if not exists tracking text not null default '';
+alter table public.orders add column if not exists packed_at timestamptz;
+alter table public.orders add column if not exists shipped_at timestamptz;
+alter table public.orders add column if not exists delivered_at timestamptz;
+alter table public.orders add column if not exists created_by uuid references public.profiles(id) on delete set null;
+update public.orders set source = 'shopify' where shopify_id is not null and source <> 'shopify';
+
+-- New quotes / sales orders get their number here (Shopify orders bring their own).
+create or replace function public.number_order() returns trigger language plpgsql set search_path = public as $$
+begin
+  if coalesce(new.order_number, '') = '' then
+    new.order_number := case when new.kind = 'quote' then 'QT-' || nextval('public.qt_seq') else 'SO-' || nextval('public.so_seq') end;
+  end if;
+  if new.created_by is null then new.created_by := auth.uid(); end if;
+  return new;
+end $$;
+drop trigger if exists number_order on public.orders;
+create trigger number_order before insert on public.orders for each row execute function public.number_order();
+
+create table if not exists public.order_lines (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  item_id uuid references public.stock_items(id) on delete set null,
+  sku text not null default '',
+  name text not null default '',
+  quantity numeric(14,3) not null default 1 check (quantity > 0),
+  unit_price numeric(12,2),
+  sort int not null default 0,
+  shopify_line_id bigint unique,
+  created_at timestamptz not null default now()
+);
+create index if not exists order_lines_order_idx on public.order_lines (order_id);
+alter table public.jobs add column if not exists order_line_id uuid references public.order_lines(id) on delete set null;
+alter table public.order_lines enable row level security;
+drop policy if exists "staff read order lines" on public.order_lines;
+drop policy if exists "office edit order lines" on public.order_lines;
+create policy "staff read order lines" on public.order_lines for select to authenticated using (true);
+create policy "office edit order lines" on public.order_lines for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "leads edit orders" on public.orders;
+drop policy if exists "office edit orders" on public.orders;
+create policy "office edit orders" on public.orders for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Existing Shopify jobs → order lines (one per job), linked back.
+do $$
+declare j record; lid uuid;
+begin
+  for j in select * from public.jobs where order_id is not null and order_line_id is null order by created_at loop
+    insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort, shopify_line_id)
+    values (j.order_id, (select id from public.stock_items where sku = j.sku order by (kind = 'material') limit 1),
+            coalesce(j.sku, ''), j.title, coalesce(j.quantity, 1), j.unit_price,
+            (select count(*) from public.order_lines where order_id = j.order_id), j.shopify_line_id)
+    on conflict (shopify_line_id) do nothing
+    returning id into lid;
+    if lid is null and j.shopify_line_id is not null then select id into lid from public.order_lines where shopify_line_id = j.shopify_line_id; end if;
+    update public.jobs set order_line_id = lid where id = j.id;
+  end loop;
+end $$;
+
+-- Stock leaves when an order ships.
+alter table public.stock_movements drop constraint if exists stock_movements_reason_check;
+alter table public.stock_movements add constraint stock_movements_reason_check
+  check (reason in ('adjust','count','receive','consume','produce','import','opening','ship'));
+
+-- Manufacturing order: for a sales order line (make to order) or for stock.
+create or replace function public.create_mo(p_sku text, p_title text, p_qty numeric, p_due date default null, p_line uuid default null, p_route uuid[] default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  l public.order_lines; o public.orders; r uuid[]; code text; jid uuid; idx int; n int; pr public.products;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can plan production'; end if;
+  if p_line is not null then
+    select * into l from public.order_lines where id = p_line;
+    if l.id is null then raise exception 'Order line not found'; end if;
+    if exists (select 1 from public.jobs where order_line_id = l.id) then raise exception 'This line already has a manufacturing order'; end if;
+    select * into o from public.orders where id = l.order_id;
+    if o.kind = 'quote' then raise exception 'Turn the quote into a sales order first'; end if;
+    select count(*), count(*) filter (where ol.sort < l.sort or (ol.sort = l.sort and ol.created_at <= l.created_at))
+      into n, idx from public.order_lines ol where ol.order_id = o.id;
+    code := case when n > 1 then o.order_number || '-' || idx else o.order_number end;
+    p_sku := coalesce(nullif(p_sku, ''), nullif(l.sku, '')); p_title := coalesce(nullif(p_title, ''), l.name); p_qty := coalesce(p_qty, l.quantity);
+    p_due := coalesce(p_due, o.delivery_deadline);
+  else
+    code := 'STK-' || nextval('public.mo_seq');
+  end if;
+  if coalesce(p_qty, 0) <= 0 then raise exception 'Quantity must be more than 0'; end if;
+  select * into pr from public.products where sku = p_sku;
+  r := case when coalesce(array_length(p_route, 1), 0) > 0 then p_route
+            when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+  insert into public.jobs (code, title, customer, priority, status, assignees, quantity, estimate_minutes, due_date, created_by,
+                           order_id, order_line_id, sku, route, stage, station_id, unit_price)
+  values (code, coalesce(nullif(p_title, ''), p_sku, 'Manufacturing order'), coalesce(o.customer, ''), 3, 'open', public.station_assignees(r[1]),
+          ceil(p_qty)::int, pr.estimate_minutes, p_due, auth.uid(), o.id, l.id, nullif(p_sku, ''), r, 0, r[1], l.unit_price)
+  returning id into jid;
+  return jid;
+end $$;
+revoke all on function public.create_mo(text, text, numeric, date, uuid, uuid[]) from public, anon;
+grant execute on function public.create_mo(text, text, numeric, date, uuid, uuid[]) to authenticated;
+
+-- Pack / ship / deliver. Lines sold from stock (no manufacturing order) leave stock on ship.
+create or replace function public.set_delivery(p_order uuid, p_state text) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l record; out_states text[] := array['shipped','delivered'];
+begin
+  if not public.is_admin() then raise exception 'Only the office team can change delivery'; end if;
+  if p_state not in ('not_shipped','packed','shipped','delivered') then raise exception 'Unknown delivery state'; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  if o.kind = 'quote' then raise exception 'Quotes are not delivered'; end if;
+  if p_state = any(out_states) and not o.stock_out then
+    for l in select * from public.order_lines ol where ol.order_id = o.id and ol.item_id is not null
+               and not exists (select 1 from public.jobs j where j.order_line_id = ol.id) loop
+      perform public.move_stock(l.item_id, -l.quantity, 'ship', o.order_number, '');
+    end loop;
+    o.stock_out := true;
+  elsif not (p_state = any(out_states)) and o.stock_out then
+    for l in select * from public.order_lines ol where ol.order_id = o.id and ol.item_id is not null
+               and not exists (select 1 from public.jobs j where j.order_line_id = ol.id) loop
+      perform public.move_stock(l.item_id, l.quantity, 'ship', o.order_number, 'Shipment undone');
+    end loop;
+    o.stock_out := false;
+  end if;
+  update public.orders set delivery = p_state, stock_out = o.stock_out,
+    packed_at = case when p_state = 'not_shipped' then null when p_state = 'packed' then coalesce(packed_at, now()) else coalesce(packed_at, now()) end,
+    shipped_at = case when p_state = any(out_states) then coalesce(shipped_at, now()) else null end,
+    delivered_at = case when p_state = 'delivered' then coalesce(delivered_at, now()) else null end,
+    status = case when p_state = 'delivered' then 'done' when status = 'done' then 'open' else status end
+  where id = o.id;
+  return p_state;
+end $$;
+revoke all on function public.set_delivery(uuid, text) from public, anon;
+grant execute on function public.set_delivery(uuid, text) to authenticated;
+
+-- Quote → sales order (gets an SO number).
+create or replace function public.convert_quote(p_order uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare num text;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can do this'; end if;
+  num := 'SO-' || nextval('public.so_seq');
+  update public.orders set kind = 'order', order_number = num, status = 'open', ordered_at = coalesce(ordered_at, now())
+   where id = p_order and kind = 'quote';
+  if not found then raise exception 'Quote not found'; end if;
+  return num;
+end $$;
+revoke all on function public.convert_quote(uuid) from public, anon;
+grant execute on function public.convert_quote(uuid) to authenticated;
+
+-- Shopify: also keep order lines (jobs link to them).
+create or replace function public.ingest_shopify_order(o jsonb) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  addr jsonb := coalesce(nullif(o->'shipping_address', 'null'::jsonb), nullif(o->'billing_address', 'null'::jsonb), '{}'::jsonb);
+  cust text; oid uuid; li jsonb; p public.products; r uuid[]; lines int; idx int := 0; made int := 0; props text; jid uuid; lid uuid;
+  oname text := coalesce(nullif(o->>'name', ''), '#' || (o->>'order_number'), '#' || (o->>'id'));
+begin
+  cust := coalesce(nullif(trim(concat_ws(' ', addr->>'first_name', addr->>'last_name')), ''),
+                   nullif(trim(concat_ws(' ', o->'customer'->>'first_name', o->'customer'->>'last_name')), ''),
+                   nullif(o->>'email', ''), '');
+  insert into public.orders (shopify_id, order_number, customer, company, email, phone, ship_to, shipping_method, note, ordered_at, total_price, currency, source, kind)
+  values ((o->>'id')::bigint, oname, cust, coalesce(addr->>'company', ''), coalesce(o->>'email', ''),
+          coalesce(nullif(addr->>'phone', ''), nullif(o->>'phone', ''), ''),
+          concat_ws(', ', nullif(addr->>'address1', ''), nullif(addr->>'address2', ''), nullif(addr->>'city', ''),
+                    nullif(addr->>'province', ''), nullif(addr->>'zip', ''), nullif(addr->>'country', '')),
+          coalesce((select string_agg(s->>'title', ', ') from jsonb_array_elements(coalesce(o->'shipping_lines', '[]'::jsonb)) s), ''),
+          coalesce(o->>'note', ''), (o->>'created_at')::timestamptz,
+          case when o->>'total_price' ~ '^[0-9]+(\.[0-9]+)?$' then (o->>'total_price')::numeric end, coalesce(nullif(o->>'currency', ''), 'GBP'),
+          'shopify', 'order')
+  on conflict (shopify_id) do update set customer = excluded.customer, company = excluded.company, email = excluded.email,
+    phone = excluded.phone, ship_to = excluded.ship_to, shipping_method = excluded.shipping_method, note = excluded.note,
+    total_price = coalesce(excluded.total_price, orders.total_price), currency = excluded.currency
+  returning id into oid;
+
+  select count(*) into lines from jsonb_array_elements(coalesce(o->'line_items', '[]'::jsonb)) x
+   where coalesce((x->>'gift_card')::boolean, false) = false;
+
+  for li in select * from jsonb_array_elements(coalesce(o->'line_items', '[]'::jsonb)) loop
+    continue when coalesce((li->>'gift_card')::boolean, false);
+    idx := idx + 1;
+    p := null;
+    if nullif(trim(li->>'sku'), '') is not null then
+      select * into p from public.products where sku = trim(li->>'sku');
+      if p.id is null then
+        insert into public.products (sku, name, route) values (trim(li->>'sku'), coalesce(li->>'title', ''), public.default_route())
+        on conflict (sku) do nothing;
+        select * into p from public.products where sku = trim(li->>'sku');
+      end if;
+    end if;
+    lid := null;
+    insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort, shopify_line_id)
+    values (oid, (select id from public.stock_items where sku = nullif(trim(li->>'sku'), '') order by (kind = 'material') limit 1),
+            coalesce(trim(li->>'sku'), ''), concat_ws(' - ', li->>'title', nullif(replace(li->>'variant_title', ' / ', ' - '), '')),
+            greatest(coalesce((li->>'quantity')::numeric, 1), 1), case when li->>'price' ~ '^[0-9]+(\.[0-9]+)?$' then (li->>'price')::numeric end,
+            idx, (li->>'id')::bigint)
+    on conflict (shopify_line_id) do nothing
+    returning id into lid;
+    if lid is null then select id into lid from public.order_lines where shopify_line_id = (li->>'id')::bigint; end if;
+    r := case when coalesce(array_length(p.route, 1), 0) > 0 then p.route else public.default_route() end;
+    select string_agg((pr->>'name') || ': ' || (pr->>'value'), E'\n') into props
+      from jsonb_array_elements(coalesce(li->'properties', '[]'::jsonb)) pr where left(pr->>'name', 1) <> '_';
+    insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity,
+                             estimate_minutes, order_id, order_line_id, sku, route, stage, station_id, shopify_line_id, unit_price)
+    values (case when lines > 1 then oname || '-' || idx else oname end,
+            concat_ws(' - ', li->>'title', nullif(replace(li->>'variant_title', ' / ', ' - '), '')),
+            concat_ws(E'\n', props, nullif(o->>'note', '')),
+            cust, 3, 'open', public.station_assignees(r[1]), coalesce((li->>'quantity')::int, 1),
+            p.estimate_minutes, oid, lid, nullif(trim(li->>'sku'), ''), r, 0, r[1], (li->>'id')::bigint,
+            case when li->>'price' ~ '^[0-9]+(\.[0-9]+)?$' then (li->>'price')::numeric end)
+    on conflict (shopify_line_id) do nothing
+    returning id into jid;
+    if jid is not null then made := made + 1; end if;
+    jid := null;
+  end loop;
+  return made;
+end $$;
+revoke all on function public.ingest_shopify_order(jsonb) from public, anon, authenticated;
+grant execute on function public.ingest_shopify_order(jsonb) to service_role;
+
+-- Tickets: worker issues get a number, an owner, a thread and history.
+alter table public.issues add column if not exists number int not null default nextval('public.tk_seq');
+alter table public.issues add column if not exists assignee_id uuid references public.profiles(id) on delete set null;
+alter table public.issues add column if not exists updated_at timestamptz not null default now();
+alter table public.issues add column if not exists resolved_at timestamptz;
+drop policy if exists "triage issue" on public.issues;
+create policy "triage issue" on public.issues for update to authenticated
+  using (reported_by = auth.uid() or assignee_id = auth.uid() or public.is_admin());
+
+create table if not exists public.issue_comments (
+  id uuid primary key default gen_random_uuid(),
+  issue_id uuid not null references public.issues(id) on delete cascade,
+  author_id uuid references public.profiles(id) on delete set null default auth.uid(),
+  body text not null check (length(body) between 1 and 4000),
+  kind text not null default 'comment' check (kind in ('comment','event')),
+  created_at timestamptz not null default now()
+);
+create index if not exists issue_comments_issue_idx on public.issue_comments (issue_id, created_at);
+alter table public.issue_comments enable row level security;
+drop policy if exists "staff read ticket comments" on public.issue_comments;
+drop policy if exists "add ticket comment" on public.issue_comments;
+create policy "staff read ticket comments" on public.issue_comments for select to authenticated using (true);
+create policy "add ticket comment" on public.issue_comments for insert to authenticated
+  with check (author_id = auth.uid() and kind = 'comment' and exists (
+    select 1 from public.issues i where i.id = issue_id and (i.reported_by = auth.uid() or i.assignee_id = auth.uid() or public.is_admin())));
+
+create or replace function public.ticket_changed() returns trigger language plpgsql security definer set search_path = public as $$
+declare who text := coalesce(public.first_name(auth.uid()), 'Someone'); tag text := 'TK-' || new.number || ' · ' || new.title;
+  lbl jsonb := '{"open":"Open","acknowledged":"In progress","resolved":"Resolved"}';
+begin
+  new.updated_at := now();
+  if new.status = 'resolved' and old.status <> 'resolved' then new.resolved_at := now(); new.resolved_by := coalesce(new.resolved_by, auth.uid());
+  elsif new.status <> 'resolved' then new.resolved_at := null; end if;
+  if new.status is distinct from old.status then
+    insert into public.issue_comments (issue_id, author_id, body, kind) values (new.id, auth.uid(), 'status:' || new.status, 'event');
+    if new.reported_by is distinct from auth.uid() then
+      perform public.notify(new.reported_by, 'ticket', tag, who || ' set it to ' || coalesce(lbl->>new.status, new.status), '{"tab":"issues"}');
+    end if;
+  end if;
+  if new.assignee_id is distinct from old.assignee_id then
+    insert into public.issue_comments (issue_id, author_id, body, kind) values (new.id, auth.uid(), 'assign:' || coalesce(new.assignee_id::text, ''), 'event');
+    if new.assignee_id is not null and new.assignee_id is distinct from auth.uid() then
+      perform public.notify(new.assignee_id, 'ticket', 'Ticket given to you', tag, '{"tab":"issues"}');
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists ticket_changed on public.issues;
+create trigger ticket_changed before update on public.issues for each row execute function public.ticket_changed();
+
+create or replace function public.ticket_comment() returns trigger language plpgsql security definer set search_path = public as $$
+declare i public.issues; u uuid;
+begin
+  if new.kind <> 'comment' then return new; end if;
+  select * into i from public.issues where id = new.issue_id;
+  for u in select distinct x from unnest(array[i.reported_by, i.assignee_id]) x where x is not null and x is distinct from new.author_id loop
+    perform public.notify(u, 'ticket', 'TK-' || i.number || ' · ' || coalesce(public.first_name(new.author_id), 'Someone') || ' replied', new.body, '{"tab":"issues"}');
+  end loop;
+  return new;
+end $$;
+drop trigger if exists ticket_comment on public.issue_comments;
+create trigger ticket_comment after insert on public.issue_comments for each row execute function public.ticket_comment();
+
+-- New ticket → the office team (owner, managers, office).
+create or replace function public.ticket_new() returns trigger language plpgsql security definer set search_path = public as $$
+declare u uuid;
+begin
+  for u in select id from public.profiles where active and role in ('boss','manager','office') and id <> new.reported_by loop
+    perform public.notify(u, 'ticket', 'New ticket TK-' || new.number || ' · ' || new.severity, public.first_name(new.reported_by) || ': ' || new.title, '{"tab":"issues"}');
+  end loop;
+  return new;
+end $$;
+drop trigger if exists ticket_new on public.issues;
+create trigger ticket_new after insert on public.issues for each row execute function public.ticket_new();
+
+do $$ begin
+  alter publication supabase_realtime add table public.order_lines;
+exception when others then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.issue_comments;
+exception when others then null; end $$;
+grant usage, select on sequence public.so_seq, public.qt_seq, public.mo_seq, public.tk_seq to authenticated;
+
+-- Office plans production in Kimera: owner, managers and office manage jobs.
+drop policy if exists "leads create jobs" on public.jobs;
+drop policy if exists "leads or crew update jobs" on public.jobs;
+drop policy if exists "leads delete jobs" on public.jobs;
+drop policy if exists "office create jobs" on public.jobs;
+drop policy if exists "office or crew update jobs" on public.jobs;
+drop policy if exists "office delete jobs" on public.jobs;
+create policy "office create jobs" on public.jobs for insert to authenticated with check (public.is_admin());
+create policy "office or crew update jobs" on public.jobs for update to authenticated using (public.is_admin() or public.on_job(id));
+create policy "office delete jobs" on public.jobs for delete to authenticated using (public.is_admin());

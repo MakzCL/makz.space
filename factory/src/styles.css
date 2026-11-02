@@ -981,3 +981,120 @@ p { margin: 0; }
 
 .crash { display: grid; justify-items: center; gap: 0.8rem; padding: 2.5rem 1.2rem; text-align: center; }
 .crash.full { position: relative; z-index: 1; min-height: 100%; align-content: center; }
+
+/* ================================================================ Kimera
+   Back office: same tokens, violet accent, top navigation, dense tables. */
+:root.is-kimera { --k-accent: #7c5cff; --red: #7c5cff; --brand: #7c5cff; --brand-hi: #9b84ff; --k-ok: #3fcf8e; --k-warn: #f5c85c; --k-bad: #ff5d4f; --k-info: #8f9bff; }
+:root.is-kimera[data-theme="light"] { --k-accent: #6a48f0; --red: #6a48f0; --brand: #6a48f0; --k-ok: #14935a; --k-warn: #9a6400; --k-bad: #d42a25; --k-info: #3b4cca; }
+.kimera { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.kimera .fill, .kimera > .full-loader { flex: 1; overflow: auto; }
+.k-app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.k-top { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1.4rem; padding-top: calc(0.6rem + var(--safe-t)); background: var(--bg-2); border-bottom: 1px solid var(--line); position: relative; z-index: 5; }
+.k-brand { display: flex; align-items: center; gap: 0.6rem; color: var(--text); text-decoration: none; flex: none; }
+.k-brand b { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em; }
+.k-mark { flex: none; display: block; }
+.k-nav { display: flex; gap: 0.15rem; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.k-nav::-webkit-scrollbar { display: none; }
+.k-nav button { position: relative; display: flex; align-items: center; gap: 0.45rem; padding: 0.55rem 0.85rem; border-radius: 12px; color: var(--muted); font-weight: 500; font-size: 0.9rem; white-space: nowrap; transition: color 0.15s, background 0.15s; }
+.k-nav button:hover { color: var(--text); background: var(--surface); }
+.k-nav button.on { color: var(--text); }
+.k-nav button em { position: absolute; left: 0.7rem; right: 0.7rem; bottom: -0.62rem; height: 3px; border-radius: 3px 3px 0 0; background: var(--k-accent); }
+.k-nav button i { font-style: normal; font-size: 0.68rem; font-weight: 600; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--surface-3); color: var(--text-2); display: grid; place-items: center; }
+.k-right { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+.k-menu-wrap { position: relative; }
+.k-me { display: flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.4rem 0.2rem 0.2rem; border-radius: 99px; color: var(--muted); }
+.k-me:hover { background: var(--surface); }
+.k-menu { position: absolute; top: calc(100% + 8px); left: 0; min-width: 220px; padding: 0.4rem; border-radius: 16px; background: var(--surface); box-shadow: 0 12px 40px rgba(3, 5, 22, 0.35); display: flex; flex-direction: column; z-index: 30; border: 1px solid var(--line); }
+.k-menu.right { left: auto; right: 0; }
+.k-menu > button, .k-menu > a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 10px; color: var(--text); font-size: 0.9rem; text-decoration: none; text-align: left; }
+.k-menu > button:hover, .k-menu > a:hover { background: var(--surface-2); }
+.k-menu-me { display: flex; flex-direction: column; padding: 0.5rem 0.75rem 0.6rem; border-bottom: 1px solid var(--line); margin-bottom: 0.3rem; }
+.k-menu-lang { padding: 0.4rem 0.75rem; }
+.k-main { flex: 1; overflow: auto; padding: 1.4rem 1.6rem 3rem; }
+.k-main > div { max-width: 1500px; margin: 0 auto; }
+.k-page { display: flex; flex-direction: column; gap: 1rem; }
+.k-head { display: flex; align-items: flex-end; gap: 1rem 1.6rem; flex-wrap: wrap; }
+.k-head > div:first-child { flex: 1 1 260px; min-width: 0; }
+.k-head h1 { font-size: 1.6rem; font-weight: 700; line-height: 1.15; }
+.k-head p { font-size: 0.88rem; margin-top: 0.2rem; }
+.k-tabs { display: inline-flex; gap: 0.2rem; padding: 0.25rem; border-radius: 14px; background: var(--surface); }
+.k-tabs button { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.95rem; border-radius: 10px; font-weight: 500; font-size: 0.88rem; color: var(--muted); }
+.k-tabs button.on { background: var(--surface-3); color: var(--text); }
+:root[data-theme="light"] .k-tabs button.on { background: var(--k-accent); color: #fff; }
+.k-tabs i { font-style: normal; font-size: 0.7rem; padding: 0.05rem 0.4rem; border-radius: 8px; background: var(--tint); }
+.k-tbl td { white-space: nowrap; }
+.k-tbl td:has(> b) { white-space: normal; min-width: 180px; }
+.tbl tr.dim td { opacity: 0.55; }
+.kpill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.22rem 0.6rem; border-radius: 8px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; border: 0; }
+.kpill small { font-weight: 500; opacity: 0.85; color: inherit !important; }
+.kpill.ok { background: color-mix(in srgb, var(--k-ok) 18%, transparent); color: var(--k-ok); }
+.kpill.warn { background: color-mix(in srgb, var(--k-warn) 20%, transparent); color: var(--k-warn); }
+.kpill.bad { background: color-mix(in srgb, var(--k-bad) 18%, transparent); color: var(--k-bad); }
+.kpill.info { background: color-mix(in srgb, var(--k-info) 18%, transparent); color: var(--k-info); }
+.kpill.none { background: var(--tint); color: var(--muted); font-weight: 500; }
+.kpill.act { cursor: pointer; } .kpill.act:hover { filter: brightness(1.15); outline: 2px solid currentColor; outline-offset: 1px; }
+.kchan { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--tint); color: var(--muted); }
+.kchan.shop { background: rgba(63, 207, 142, 0.16); color: var(--k-ok); }
+.k-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.k-cells > span { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; padding: 0.65rem 0.75rem; border-radius: var(--r-s); background: var(--surface); }
+.k-cells small { font-size: 0.72rem; color: var(--muted); }
+.k-route { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.4rem; counter-reset: st; }
+.k-route li { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0; counter-increment: st; }
+.k-route li::before { content: counter(st); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 600; background: var(--surface-3); color: var(--muted); flex: none; }
+.k-route li.done::before { content: "✓"; background: color-mix(in srgb, var(--k-ok) 22%, transparent); color: var(--k-ok); }
+.k-route li.now::before { background: var(--k-accent); color: #fff; }
+.k-route li b { font-weight: 600; min-width: 140px; }
+.k-thread { display: flex; flex-direction: column; gap: 0.7rem; }
+.k-msg { display: flex; gap: 0.7rem; align-items: flex-start; }
+.k-msg > div { flex: 1; min-width: 0; padding: 0.65rem 0.85rem; border-radius: 4px 16px 16px 16px; background: var(--surface); }
+.k-msg.first > div { background: var(--surface-2); }
+.k-msg.me > div { background: color-mix(in srgb, var(--k-accent) 16%, var(--surface)); }
+.k-msg b { font-weight: 600; font-size: 0.88rem; }
+.k-msg p { margin-top: 0.25rem; font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+.k-evt { text-align: center; color: var(--muted); font-size: 0.8rem; }
+.k-evt b { font-weight: 600; color: var(--text-2); }
+.k-reply { display: flex; gap: 0.6rem; align-items: flex-end; }
+.k-reply textarea { flex: 1; resize: vertical; }
+.k-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 0.8rem; }
+.k-stat { display: flex; flex-direction: column; gap: 0.25rem; padding: 1rem 1.1rem; border-radius: var(--r-m); background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+.k-stat small { font-size: 0.78rem; color: var(--muted); }
+.k-stat b { font-size: 1.55rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.k-stat em { font-style: normal; font-size: 0.76rem; color: var(--dim); }
+.k-stat.bad { box-shadow: inset 4px 0 0 var(--k-bad), var(--shadow); }
+.k-stat.warn { box-shadow: inset 4px 0 0 var(--k-warn), var(--shadow); }
+.k-stat.ok { box-shadow: inset 4px 0 0 var(--k-ok), var(--shadow); }
+.k-charts { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 1rem; }
+.k-chart { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.k-chart h3 { font-size: 1rem; font-weight: 600; }
+.k-bars { position: relative; margin-top: 0.8rem; }
+.k-bars svg { width: 100%; height: auto; display: block; overflow: visible; }
+.k-grid { stroke: var(--line); stroke-width: 1; }
+.k-axis { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.k-bar { fill: var(--k-accent); opacity: 0.85; transition: opacity 0.15s; }
+.k-bar.on { opacity: 1; }
+.k-bars g:focus { outline: none; }
+.k-tip { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; padding: 0.4rem 0.7rem; border-radius: 10px; background: var(--toast-bg); color: var(--toast-t); pointer-events: none; font-size: 0.8rem; white-space: nowrap; box-shadow: 0 6px 20px rgba(3, 5, 22, 0.3); }
+.k-tip small { opacity: 0.75; font-size: 0.72rem; }
+.k-hbars { list-style: none; display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.8rem; }
+.k-hbars li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: 0.7rem; font-size: 0.84rem; }
+.k-hb-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-hb-track { height: 10px; border-radius: 0 4px 4px 0; background: var(--tint); overflow: hidden; }
+.k-hb-track i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--k-accent); }
+.k-hbars b { font-weight: 600; min-width: 2.5rem; text-align: right; }
+.k-locked { flex: 1; display: grid; justify-items: center; align-content: center; gap: 0.8rem; padding: 2rem; text-align: center; }
+.kimera .sheet { background: var(--bg-2); }
+.kimera-link { display: grid; place-items: center; }
+.card.tappable { cursor: pointer; }
+@media (min-width: 1024px) {
+  .kimera .sheet.tall { max-width: 920px; }
+}
+@media (max-width: 900px) {
+  .k-top { flex-wrap: wrap; padding: 0.5rem 0.9rem; padding-top: calc(0.5rem + var(--safe-t)); gap: 0.4rem 0.8rem; }
+  .k-nav { order: 3; flex-basis: 100%; }
+  .k-nav button em { bottom: -0.5rem; }
+  .k-right { margin-left: auto; }
+  .k-main { padding: 1rem 1rem 3rem; }
+  .k-charts { grid-template-columns: 1fr; }
+  .k-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .k-page .toolbar .searchbar { flex-basis: 100%; order: -1; }
+}

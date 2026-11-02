@@ -24,7 +24,7 @@ export const STATUS: Record<Job["status"], { label: string; tone: string }> = {
 export const statusLabel = (s: Job["status"]) => t(STATUS[s].label);
 /** Orders in production show as MO-<order number>; finished ones as the plain Shopify number. */
 export const jobCode = (j: Pick<Job, "code" | "order_id" | "route" | "status">) =>
-  j.order_id && j.route?.length && j.status !== "done" ? `MO-${j.code.replace(/^#/, "")}` : j.code;
+  j.order_id && j.route?.length && j.status !== "done" ? `MO-${j.code.replace(/^#/, "").replace(/^SO-/, "")}` : j.code;
 const PRI = ["", "Urgent", "High", "Normal", "Low", "Backlog"];
 export const priorityLabel = (p: number) => `P${p} · ${t(PRI[p] ?? "")}`;
 

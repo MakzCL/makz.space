@@ -139,6 +139,8 @@ export interface Job {
   unit_price: number | null;
   /** Materials have been taken off stock for this job. */
   stock_booked: boolean;
+  /** Sales order line this manufacturing order is for. */
+  order_line_id: string | null;
 }
 
 export interface Station {
@@ -179,6 +181,40 @@ export interface Order {
   ordered_at: string | null;
   total_price: number | null;
   currency: string;
+  /** Kimera: quote or sales order; open / done / cancelled. */
+  kind: "quote" | "order";
+  status: "open" | "done" | "cancelled";
+  delivery: DeliveryState;
+  delivery_deadline: string | null;
+  source: "shopify" | "manual";
+  stock_out: boolean;
+  tracking: string;
+  packed_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+export type DeliveryState = "not_shipped" | "packed" | "shipped" | "delivered";
+export interface OrderLine {
+  id: string;
+  order_id: string;
+  item_id: string | null;
+  sku: string;
+  name: string;
+  quantity: number;
+  unit_price: number | null;
+  sort: number;
+  shopify_line_id: number | null;
+  created_at: string;
+}
+export interface IssueComment {
+  id: string;
+  issue_id: string;
+  author_id: string | null;
+  /** Comment text, or for events "status:<s>" / "assign:<uuid>". */
+  body: string;
+  kind: "comment" | "event";
   created_at: string;
 }
 
@@ -233,6 +269,11 @@ export interface Issue {
   description: string;
   status: "open" | "acknowledged" | "resolved";
   resolved_by: string | null;
+  /** Ticket number (TK-n). */
+  number: number;
+  assignee_id: string | null;
+  updated_at: string;
+  resolved_at: string | null;
   created_at: string;
 }
 
@@ -377,6 +418,8 @@ export interface Tables {
   station_members: StationMember;
   products: Product;
   orders: Order;
+  order_lines: OrderLine;
+  issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
   bom_lines: BomLine;
@@ -399,7 +442,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

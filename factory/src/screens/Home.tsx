@@ -7,7 +7,7 @@ import { Count, Empty, RoundBtn, Section, item, list } from "../components/ui";
 import { useMine, usePresence } from "../lib/actions";
 import { useDesktop } from "../lib/media";
 import { t } from "../lib/i18n";
-import { can, ROLE_META, TABS_FOR, type Tab } from "../lib/roles";
+import { can, ROLE_META, TABS_FOR, type Tab, KIMERA_URL } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { greeting, hm, hms, jobStats, participantMs, startOfDay } from "../lib/time";
 import type { Job, Role } from "../lib/types";
@@ -121,7 +121,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
       </motion.div>
       <motion.div className="stat-list card" variants={item}>
         {small.map((s) => (
-          <button key={s.label} className="stat-line" onClick={() => go(s.tab)}>
+          <button key={s.label} className="stat-line" onClick={() => s.tab === "stock" ? location.assign(`${KIMERA_URL}/#stock`) : go(s.tab)}>
             <span>{s.label}</span><b><Count value={s.v} format={s.f} /></b><ArrowRight size={16} />
           </button>
         ))}

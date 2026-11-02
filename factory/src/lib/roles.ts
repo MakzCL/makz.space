@@ -20,10 +20,9 @@ export const TABS_FOR: Record<Role, Tab[]> = {
   operator:  ["home", "jobs", "chat", "time", "issues"],
 };
 
-/** Inventory (stock, recipes, purchasing) lives on the desktop app only. */
-export const DESKTOP_ONLY: Tab[] = ["stock"];
-export const tabsFor = (r: Role, desktop: boolean): Tab[] =>
-  desktop && can.editStock(r) ? [...TABS_FOR[r], "stock"] : TABS_FOR[r];
+/** Stock, sales, purchasing and planning moved to Kimera (kimera.makz.space). */
+export const KIMERA_URL = "https://kimera.makz.space";
+export const tabsFor = (r: Role, _desktop?: boolean): Tab[] => TABS_FOR[r];
 
 export const can = {
   manageJobs: (r: Role) => r === "boss" || r === "manager",

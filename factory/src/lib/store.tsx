@@ -5,7 +5,7 @@ import { TABLES, type DB, type Profile, type TableName } from "./types";
 const EMPTY: DB = {
   profiles: [], shifts: [], breaks: [], jobs: [], work_sessions: [], participants: [], invites: [],
   issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
-  stations: [], station_members: [], products: [], orders: [], job_steps: [],
+  stations: [], station_members: [], products: [], orders: [], order_lines: [], issue_comments: [], job_steps: [],
   suppliers: [], bom_lines: [], purchase_orders: [], po_lines: [], stock_movements: [],
   notifications: [], conversations: [], conversation_members: [], messages: [], message_reactions: [],
   events: [], event_attendees: [], calls: [], call_participants: [],
@@ -22,7 +22,7 @@ interface Ctx {
   person: (id: string | null | undefined) => Profile | undefined;
 }
 
-const INCREMENTAL = new Set<TableName>(["messages", "message_reactions", "notifications", "conversation_members", "calls", "call_participants", "conversations"]);
+const INCREMENTAL = new Set<TableName>(["messages", "message_reactions", "notifications", "conversation_members", "calls", "call_participants", "conversations", "issue_comments"]);
 
 const StoreCtx = createContext<Ctx | null>(null);
 

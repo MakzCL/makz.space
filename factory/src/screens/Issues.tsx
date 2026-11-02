@@ -11,6 +11,7 @@ import { t } from "../lib/i18n";
 import { Scene } from "../components/Scene";
 import { ago } from "../lib/time";
 import type { Issue, Job, Severity } from "../lib/types";
+import { TICKET_STATUS, TicketSheet, ticketNo } from "../kimera/Tickets";
 
 const CATS: { v: string; label: string; icon: ReactNode }[] = [
   { v: "machine", label: "Machine", icon: <Cpu size={14} /> },
@@ -31,6 +32,7 @@ export function Issues({ preset, onPresetUsed }: { preset?: Job | null; onPreset
   const a = useActions();
   const [view, setView] = useState<"open" | "resolved">("open");
   const [reporting, setReporting] = useState(false);
+  const [openT, setOpenT] = useState<Issue | null>(null);
   useEffect(() => { if (preset) setReporting(true); }, [preset]);
   const issues = db.issues
     .filter((i) => (view === "open" ? i.status !== "resolved" : i.status === "resolved"))
@@ -50,20 +52,21 @@ export function Issues({ preset, onPresetUsed }: { preset?: Job | null; onPreset
             {issues.map((i) => {
               const job = db.jobs.find((j) => j.id === i.job_id);
               return (
-                <motion.div key={i.id} className={`card issue sev-${i.severity}`} variants={item} layout exit={{ opacity: 0, x: 60 }}>
+                <motion.div key={i.id} className={`card issue sev-${i.severity} tappable`} variants={item} layout exit={{ opacity: 0, x: 60 }} onClick={() => setOpenT(i)} role="button" tabIndex={0}>
                   <div className="row between">
-                    <span className="row gap-s"><Badge tone={sevTone(i.severity)}>{t(SEV.find((x) => x.v === i.severity)!.label)}</Badge><Badge>{t(CATS.find((c) => c.v === i.category)?.label ?? i.category)}</Badge>{job && <span className="code">{job.code}</span>}</span>
+                    <span className="row gap-s"><span className="code">{ticketNo(i)}</span><Badge tone={sevTone(i.severity)}>{t(SEV.find((x) => x.v === i.severity)!.label)}</Badge><Badge>{t(CATS.find((c) => c.v === i.category)?.label ?? i.category)}</Badge>{job && <span className="code">{jobCode(job)}</span>}</span>
                     <small className="muted">{ago(i.created_at)}</small>
                   </div>
                   <b>{i.title}</b>
                   {i.description && <p className="muted">{i.description}</p>}
                   <div className="row between">
                     <span className="who"><Avatar p={person(i.reported_by)} size={20} />{person(i.reported_by)?.full_name}</span>
-                    {i.status === "acknowledged" && <Badge tone="blue">{t("Acknowledged")}</Badge>}
+                    {i.status === "acknowledged" && <Badge tone="blue">{i.assignee_id ? `${t(TICKET_STATUS.acknowledged.label)} · ${person(i.assignee_id)?.full_name.split(" ")[0] ?? ""}` : t(TICKET_STATUS.acknowledged.label)}</Badge>}
+                    {(() => { const n = db.issue_comments.filter((c) => c.issue_id === i.id && c.kind === "comment").length; return n ? <small className="muted">{t("{n} replies", { n })}</small> : null; })()}
                     {i.status === "resolved" && <Badge tone="ok">{t("Resolved by {name}", { name: person(i.resolved_by)?.full_name.split(" ")[0] ?? "" })}</Badge>}
                   </div>
                   {(triage || i.reported_by === me.id) && i.status !== "resolved" && (
-                    <div className="row gap">
+                    <div className="row gap" onClick={(e) => e.stopPropagation()}>
                       {triage && i.status === "open" && <Btn small tone="soft" icon={<Eye size={15} />} onClick={() => a.setIssue(i as Issue, "acknowledged")}>{t("On it")}</Btn>}
                       <Btn small tone="ok" icon={<CheckCircle2 size={15} />} onClick={() => a.setIssue(i as Issue, "resolved")}>{t("Resolve")}</Btn>
                     </div>
@@ -75,6 +78,7 @@ export function Issues({ preset, onPresetUsed }: { preset?: Job | null; onPreset
           {!issues.length && <Empty icon={<CheckCircle2 size={28} />} title={view === "open" ? t("No open issues") : t("Nothing resolved yet")} hint={view === "open" ? t("Smooth running. Long may it last.") : undefined} />}
         </motion.div>
       </Section>
+      <TicketSheet issue={openT} onClose={() => setOpenT(null)} />
       <ReportSheet open={reporting} preset={preset ?? null} onClose={() => { setReporting(false); onPresetUsed?.(); }} />
     </motion.div>
   );

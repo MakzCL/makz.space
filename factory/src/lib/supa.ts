@@ -7,7 +7,7 @@ const WINDOW_DAYS = 120;
 const TIME_COL: Partial<Record<TableName, string>> = {
   shifts: "clock_in", breaks: "started_at", work_sessions: "started_at",
   participants: "joined_at", invites: "created_at", announcements: "created_at",
-  orders: "created_at", job_steps: "completed_at", stock_movements: "created_at",
+  job_steps: "completed_at", stock_movements: "created_at",
   notifications: "created_at", messages: "created_at", message_reactions: "created_at", calls: "created_at", call_participants: "created_at",
 };
 

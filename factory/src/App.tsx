@@ -9,7 +9,8 @@ import { createBackend, type Backend } from "./lib/backend";
 import { useMine } from "./lib/actions";
 import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
-import { tabsFor, type Tab } from "./lib/roles";
+import { KIMERA_URL, can, tabsFor, type Tab } from "./lib/roles";
+import { KimeraMark } from "./kimera/mark";
 import { useDesktop } from "./lib/media";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
 import type { Job } from "./lib/types";
@@ -21,7 +22,6 @@ import { Join, Pending } from "./screens/Join";
 import { Login } from "./screens/Login";
 import { Profile } from "./screens/Profile";
 import { Requests } from "./screens/Requests";
-import { Inventory } from "./screens/Inventory";
 import { ChatHub } from "./screens/Chat";
 import { CallProvider } from "./components/Calls";
 import { BellButton, useNotificationToasts } from "./components/Notifications";
@@ -150,7 +150,7 @@ function Main({ signOut }: { signOut: () => void }) {
   }, [mine.invites, ready, toast]);
 
   const go = (t: Tab) => {
-    if (!tabs.includes(t)) t = t === "issues" || t === "time" || (t === "stock" && desktop) ? t : "home";
+    if (!tabs.includes(t)) t = t === "issues" || t === "time" ? t : "home";
     setDir(tabs.indexOf(t) >= tabs.indexOf(tab) ? 1 : -1);
     setProfile(false); setTab(t); setHeadHidden(false);
     scroller.current?.scrollTo({ top: 0 });
@@ -161,7 +161,6 @@ function Main({ signOut }: { signOut: () => void }) {
     chat: chatUnread,
     requests: db.absences.filter((a) => a.status === "pending").length + db.profiles.filter((p) => !p.active).length,
     issues: db.issues.filter((i) => i.status === "open").length,
-    stock: tabs.includes("stock") ? db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity <= s.min_quantity).length : 0,
   }), [db, mine.invites, tabs, me.role, chatUnread]);
 
   // Keyboard shortcuts on tablets / desktops: 1–5 switch tabs.
@@ -184,7 +183,7 @@ function Main({ signOut }: { signOut: () => void }) {
       case "requests": return <Requests />;
       case "insights": return <Insights onOpenJob={setJob} />;
       case "issues": return <Issues preset={reportFor} onPresetUsed={() => setReportFor(null)} />;
-      case "stock": return <Inventory />;
+      case "stock": return null;
       case "chat": return <ChatHub openConv={openConv} onOpenConv={setOpenConv} openEvent={openEvent} onOpenEvent={setOpenEvent} />;
     }
   })();
@@ -192,7 +191,7 @@ function Main({ signOut }: { signOut: () => void }) {
   return (
     <div className="app">
       <OfflineBar online={online} />
-      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} hidden={headHidden} extra={<BellButton onOpen={openLink} />} />
+      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} hidden={headHidden} extra={<>{can.editStock(me.role) && <a className="icon-btn kimera-link" href={KIMERA_URL} title={t("Open Kimera (back office)")} aria-label={t("Open Kimera (back office)")}><KimeraMark size={24} /></a>}<BellButton onOpen={openLink} /></>} />
       <main ref={scroller} className="scroller" onScroll={(e) => onScroll((e.target as HTMLElement).scrollTop)}>
         {!ready ? <FullLoader label={t("Syncing the floor…")} /> : (
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>

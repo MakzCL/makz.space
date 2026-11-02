@@ -84,10 +84,11 @@ export function Inventory() {
 }
 
 /* ---------------------------------------------------------------- items -- */
-function ItemsView() {
+export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
   const { db, me } = useStore();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<ItemKind | "all">("all");
+  const allowed = (k: ItemKind) => !kinds || kinds.includes(k);
   const [cat, setCat] = useState("");
   const [low, setLow] = useState(false);
   const [open, setOpen] = useState<StockItem | "new" | null>(null);
@@ -98,7 +99,7 @@ function ItemsView() {
 
   const rows = db.stock_items
     .filter((s) => !s.archived)
-    .filter((s) => kind === "all" || s.kind === kind)
+    .filter((s) => allowed(s.kind) && (kind === "all" || s.kind === kind))
     .filter((s) => !cat || s.category === cat)
     .filter((s) => !q || `${s.sku} ${s.name} ${s.location} ${s.category}`.toLowerCase().includes(q.toLowerCase()))
     .map((s) => {
@@ -129,7 +130,7 @@ function ItemsView() {
       </div>
       <div className="row between wrap">
         <div className="chips">
-          {(["all", "product", "material", "part"] as const).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
+          {(["all", "product", "material", "part"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 3) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
           <Chip on={low} onClick={() => setLow(!low)}>{t("To reorder")}{lowCount ? ` · ${lowCount}` : ""}</Chip>
         </div>
         <small className="muted">{t("{n} items", { n: rows.length })} · {t("stock value")} <b>{money(total)}</b></small>
@@ -169,7 +170,7 @@ function ItemsView() {
   );
 }
 
-function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; onClose: () => void }) {
+export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; onClose: () => void }) {
   const { db, me, person } = useStore();
   const a = useActions();
   const live = item && item !== "new" ? db.stock_items.find((s) => s.id === item.id) ?? item : null;
@@ -278,7 +279,7 @@ function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; onClose:
 }
 
 /* -------------------------------------------------------------- recipes -- */
-function RecipesView() {
+export function RecipesView() {
   const { db } = useStore();
   const [sel, setSel] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -311,7 +312,7 @@ function RecipesView() {
   );
 }
 
-function RecipeEditor({ product }: { product: StockItem }) {
+export function RecipeEditor({ product }: { product: StockItem }) {
   const { db, me } = useStore();
   const a = useActions();
   const editable = can.editStock(me.role);
@@ -389,7 +390,7 @@ function MoveTable({ moves, showItem = true }: { moves: DB["stock_movements"]; s
   );
 }
 
-function HistoryView() {
+export function HistoryView() {
   const { db } = useStore();
   const [q, setQ] = useState("");
   const [why, setWhy] = useState<MoveReason | "all">("all");
@@ -443,7 +444,7 @@ const LABELS: Record<string, string> = {
 };
 const NUMERIC = new Set(["quantity", "min_quantity", "avg_cost", "sale_price", "lead_days"]);
 
-function ImportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const a = useActions();
   const [what, setWhat] = useState<"items" | "bom">("items");
   const [kind, setKind] = useState<"column" | ItemKind>("column");

@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { lazy, Suspense } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installGlobalHandlers } from "./lib/errors";
 import { apply } from "./lib/prefs";
@@ -8,7 +8,17 @@ import "./styles.css";
 
 apply();
 installGlobalHandlers();
-createRoot(document.getElementById("root")!).render(<StrictMode><ErrorBoundary place="app" full><App /></ErrorBoundary></StrictMode>);
+/** Kimera (back office) runs from kimera.makz.space, or /kimera on any host. */
+const kimera = location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera");
+if (kimera) {
+  document.title = "Kimera";
+  document.documentElement.classList.add("is-kimera");
+  document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/kimera.webmanifest");
+  document.querySelector('link[rel="icon"]')?.setAttribute("href", "/kimera.svg");
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "Kimera");
+}
+const Root = lazy(() => kimera ? import("./kimera/KimeraApp").then((m) => ({ default: m.KimeraApp })) : import("./App").then((m) => ({ default: m.App })));
+createRoot(document.getElementById("root")!).render(<StrictMode><ErrorBoundary place="app" full><Suspense fallback={null}><Root /></Suspense></ErrorBoundary></StrictMode>);
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));

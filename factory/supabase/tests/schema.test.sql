@@ -329,6 +329,61 @@ select pg_temp.check((select status = 'ended' and ended_at is not null from publ
 update public.profiles set status = 'dnd' where id = auth.uid();
 select pg_temp.check((select status = 'dnd' from public.profiles where id = auth.uid()), 'set own presence status');
 
+-- Kimera: sales orders, quotes, delivery, manufacturing orders
+select pg_temp.become(null);
+select pg_temp.check((select count(*) from public.jobs where order_id is not null and order_line_id is null) = 0, 'every Shopify job has an order line');
+select pg_temp.check((select count(*) from public.order_lines ol join public.orders o on o.id = ol.order_id where o.source = 'shopify') >= 2, 'Shopify orders keep their lines');
+select pg_temp.become(:'B');
+insert into public.orders (order_number, customer, kind, delivery_deadline) values ('', 'Acme Ltd', 'order', current_date + 7);
+select pg_temp.check((select order_number = 'SO-90001' and source = 'manual' and created_by = auth.uid() from public.orders where customer = 'Acme Ltd'), 'manual sales order gets an SO number');
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort)
+  select o.id, s.id, s.sku, s.name, 1, 99, 0 from public.orders o, public.stock_items s where o.customer = 'Acme Ltd' and s.sku = 'SK-0123';
+insert into public.order_lines (order_id, sku, name, quantity, unit_price, sort)
+  select o.id, 'SK-0123', 'Custom sign', 2, 150, 1 from public.orders o where o.customer = 'Acme Ltd';
+select public.create_mo(null, null, null, null, (select id from public.order_lines where name = 'Custom sign'));
+select pg_temp.check((select code = 'SO-90001-2' and quantity = 2 and order_id is not null and due_date = current_date + 7 and array_length(route, 1) > 0
+  from public.jobs where order_line_id = (select id from public.order_lines where name = 'Custom sign')), 'make-to-order MO for a sales line');
+select pg_temp.expect_fail($$select public.create_mo(null, null, null, null, (select id from public.order_lines where name = 'Custom sign'))$$, 'second MO for the same line');
+select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'shipped');
+select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'SK-0123'), 'shipping takes stock lines off stock (MO lines do not)');
+select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'shipped');
+select pg_temp.check((select quantity = 3 from public.stock_items where sku = 'SK-0123'), 'shipping twice takes stock once');
+select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'not_shipped');
+select pg_temp.check((select quantity = 4 from public.stock_items where sku = 'SK-0123'), 'undoing the shipment returns stock');
+select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'delivered');
+select pg_temp.check((select status = 'done' and delivered_at is not null and shipped_at is not null from public.orders where customer = 'Acme Ltd'), 'delivered order is done');
+insert into public.orders (order_number, customer, kind) values ('', 'Quote Co', 'quote');
+select pg_temp.check((select order_number = 'QT-1001' from public.orders where customer = 'Quote Co'), 'quote gets a QT number');
+select pg_temp.expect_fail($$select public.set_delivery((select id from public.orders where customer = 'Quote Co'), 'packed')$$, 'delivering a quote');
+select pg_temp.check(public.convert_quote((select id from public.orders where customer = 'Quote Co')) = 'SO-90002', 'quote becomes a sales order');
+select pg_temp.check(public.create_mo('SK-0123', 'Stock build', 5) is not null, 'make-to-stock MO');
+select pg_temp.check((select code = 'STK-1001' and order_id is null and quantity = 5 from public.jobs where title = 'Stock build'), 'stock MO numbered STK-');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.create_mo('SK-0123', 'x', 1)$$, 'operator plans production');
+select pg_temp.expect_fail($$select public.set_delivery((select id from public.orders where customer = 'Acme Ltd'), 'packed')$$, 'operator ships orders');
+select pg_temp.expect_fail($$insert into public.orders (order_number, customer) values ('', 'Nope')$$, 'operator creates sales orders');
+-- Tickets
+insert into public.issues (reported_by, title, severity, job_id) values (auth.uid(), 'Bent panel', 'high', (select id from public.jobs where title = 'Stock build'));
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'ticket') = 1, 'office team told about a new ticket');
+select pg_temp.check((select number > 0 from public.issues where title = 'Bent panel'), 'ticket is numbered');
+update public.issues set assignee_id = :'A1', status = 'acknowledged' where title = 'Bent panel';
+select pg_temp.check((select count(*) from public.issue_comments where kind = 'event') = 2, 'status and owner changes are logged');
+select pg_temp.become(:'A1');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'ticket' and title = 'Ticket given to you') = 1, 'assignee told');
+insert into public.issue_comments (issue_id, author_id, body) select id, auth.uid(), 'New panel cut' from public.issues where title = 'Bent panel';
+update public.issues set status = 'resolved' where title = 'Bent panel';
+select pg_temp.check((select resolved_at is not null and resolved_by = auth.uid() from public.issues where title = 'Bent panel'), 'assignee resolves the ticket');
+select pg_temp.become(:'A2');
+select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'ticket') = 3, 'reporter hears about progress, reply and fix');
+insert into public.issue_comments (issue_id, author_id, body) select id, auth.uid(), 'Thanks' from public.issues where title = 'Bent panel';
+select pg_temp.check((select count(*) from public.issue_comments where kind = 'comment') = 2, 'reporter replies on the thread');
+select pg_temp.become(:'B');
+insert into public.issues (reported_by, title) values (auth.uid(), 'Office printer');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$insert into public.issue_comments (issue_id, author_id, body) select id, auth.uid(), 'x' from public.issues where title = 'Office printer'$$, 'commenting on someone else''s ticket');
+select pg_temp.expect_fail($$insert into public.issue_comments (issue_id, author_id, body, kind) select id, auth.uid(), 'status:open', 'event' from public.issues where title = 'Bent panel'$$, 'faking a history entry');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
