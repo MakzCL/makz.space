@@ -191,7 +191,7 @@ function Main({ signOut }: { signOut: () => void }) {
   return (
     <div className="app">
       <OfflineBar online={online} />
-      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} hidden={headHidden} extra={<>{can.editStock(me.role) && <a className="icon-btn kimera-link" href={KIMERA_URL} title={t("Open Kimera (back office)")} aria-label={t("Open Kimera (back office)")}><KLogo size={17} /></a>}<BellButton onOpen={openLink} /></>} />
+      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} hidden={headHidden} extra={<>{can.editStock(me.role) && <a className="icon-btn kimera-link" href={KIMERA_URL} title={t("Open Kimera (inventory)")} aria-label={t("Open Kimera (inventory)")}><KLogo size={17} /></a>}<BellButton onOpen={openLink} /></>} />
       <main ref={scroller} className="scroller" onScroll={(e) => onScroll((e.target as HTMLElement).scrollTop)}>
         {!ready ? <FullLoader label={t("Syncing the floor…")} /> : (
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>
@@ -207,7 +207,7 @@ function Main({ signOut }: { signOut: () => void }) {
         )}
       </main>
       <BottomNav tabs={tabs} tab={profile ? ("" as Tab) : tab} onTab={go} badges={badges}
-        foot={desktop && can.editStock(me.role) ? <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kimera</b><small>{t("Back office")}</small></span></a> : undefined} />
+        foot={desktop && can.editStock(me.role) ? <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kimera</b><small>{t("Inventory")}</small></span></a> : undefined} />
 
       <JobSheet job={job} onClose={() => setJob(null)}
         onEdit={(j) => { setJob(null); setEditJob({ job: j }); }}

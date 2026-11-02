@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { motion } from "motion/react";
 
 /** The Skalarki "SK" mark — four blades meeting at one point. */
@@ -20,7 +21,7 @@ export const K_VIEWBOX = "86 60 614 358";
 export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
 export interface Mark { paths: string[]; viewBox: string; ratio: number; /** viewBox height ÷ drawn mark height */ pad: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
 export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, pad: 368 / 347, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
-export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, pad: 358 / 346, fill: "url(#k-grad)", hi: "#e7a3ff", from: [], origin: "390px 240px" };
+export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, pad: 358 / 346, fill: "k-grad", hi: "#e7a3ff", from: [], origin: "390px 240px" };
 
 export function Logo({ size = 44, className = "" }: { size?: number; className?: string }) {
   return (
@@ -42,15 +43,21 @@ SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
 K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
 export const MARK = IS_KIMERA ? K_MARK : SK_MARK;
 
-/** Kimera's violet → berry sweep, continuous across the whole K. */
-export const KGrad = () => <linearGradient id="k-grad" gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="691" y2="412"><stop offset="0" stopColor="#8a6bff" /><stop offset="1" stopColor="#c7368f" /></linearGradient>;
+/** Kimera's violet → berry sweep, continuous across the whole K.
+ *  Every SVG gets its own gradient id: a shared id resolves to the first copy on the
+ *  page, and if that one sits in a hidden element the K renders invisible. */
+const useGradId = () => `k-grad-${useId().replace(/:/g, "")}`;
+/** A mark's fill: SK is a solid colour, the K points at this SVG's own gradient. */
+export const fillOf = (mark: Mark, gid: string) => (mark.fill === "k-grad" ? `url(#${gid})` : mark.fill);
+export const KGrad = ({ id }: { id: string }) => <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="691" y2="412"><stop offset="0" stopColor="#8a6bff" /><stop offset="1" stopColor="#c7368f" /></linearGradient>;
 
 /** Plain Kimera K (no tile) — for headers, the sidebar button and the notch. */
 export function KLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
+  const gid = useGradId();
   return (
     <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kimera">
-      <defs><KGrad /></defs>
-      {K_PATHS.map((d) => <path key={d} d={d} fill="url(#k-grad)" />)}
+      <defs><KGrad id={gid} /></defs>
+      {K_PATHS.map((d) => <path key={d} d={d} fill={`url(#${gid})`} />)}
     </svg>
   );
 }
@@ -61,10 +68,11 @@ export function KLogo({ size = 24, className = "" }: { size?: number; className?
  */
 export function AssemblingLogo({ size = 96, delay = 0, mark = MARK, burst = false }: { size?: number; delay?: number; mark?: Mark; burst?: boolean }) {
   const SK_PATHS = mark.paths, FROM = mark.from;
+  const gid = useGradId();
   return (
     <svg viewBox={mark.viewBox} width={size * mark.ratio} height={size} className="sk-logo" style={{ overflow: "visible" }}>
       <defs>
-        <KGrad />
+        <KGrad id={gid} />
         <linearGradient id="sk-shine" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
           <stop offset="0.5" stopColor="#fff" stopOpacity="0.55" />
@@ -75,7 +83,7 @@ export function AssemblingLogo({ size = 96, delay = 0, mark = MARK, burst = fals
       <g>
         {SK_PATHS.map((d, i) => (
           <motion.path
-            key={d} d={d} fill={mark.fill}
+            key={d} d={d} fill={fillOf(mark, gid)}
             initial={burst ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 } : { ...FROM[i], opacity: 0, scale: 0.6 }}
             animate={burst
               ? { x: [0, FROM[i]!.x * 0.16, 0], y: [0, FROM[i]!.y * 0.16, 0], rotate: [0, FROM[i]!.rotate * 0.45, 0], scale: [1, 0.9, 1] }

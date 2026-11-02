@@ -520,7 +520,7 @@ export const PL: Record<string, string> = {
   "Allow": "Zezwól",
   "Something went wrong on this screen": "Coś poszło nie tak na tym ekranie", "It has been reported automatically. Try again, or reload the app.": "Zgłoszono automatycznie. Spróbuj ponownie lub odśwież aplikację.", "Try again": "Spróbuj ponownie",
   // Kimera
-  "Open Kimera (back office)": "Otwórz Kimera (biuro)",
+  "Open Kimera (inventory)": "Otwórz Kimera (magazyn)",
   "Sales, production and stock at a glance.": "Sprzedaż, produkcja i magazyn w skrócie.",
   "Sales this month": "Sprzedaż w tym miesiącu",
   "{n} orders": "{n} zamówień",
@@ -540,7 +540,7 @@ export const PL: Record<string, string> = {
   "Units sold, last 90 days": "Sprzedane sztuki, ostatnie 90 dni",
   "No sales yet": "Brak sprzedaży",
   "Week of {d}": "Tydzień od {d}",
-  "Back office · Skalarki Electronics Ltd": "Biuro · Skalarki Electronics Ltd",
+  "Inventory · Skalarki Electronics Ltd": "Magazyn · Skalarki Electronics Ltd",
   "Loading Kimera…": "Ładowanie Kimery…",
   "Kimera is for the office team": "Kimera jest dla zespołu biurowego",
   "Your jobs, chat and clock-in live in the Factory app.": "Twoje zlecenia, czat i odbijanie karty są w aplikacji Factory.",

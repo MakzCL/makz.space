@@ -1,15 +1,17 @@
 import { motion } from "motion/react";
-import { KGrad, MARK } from "./Logo";
+import { useId } from "react";
+import { KGrad, MARK, fillOf } from "./Logo";
 
 /** Branded buffer: the four blades pulse in sequence while a stroke traces the mark. */
 export function Loader({ size = 40, label }: { size?: number; label?: string }) {
+  const gid = `k-grad-${useId().replace(/:/g, "")}`;
   return (
     <div className="loader" role="status" aria-live="polite">
       <svg viewBox={MARK.viewBox} width={size * MARK.ratio} height={size} style={{ overflow: "visible" }}>
-        <defs><KGrad /></defs>
+        <defs><KGrad id={gid} /></defs>
         {MARK.paths.map((d, i) => (
           <g key={d}>
-            <motion.path d={d} fill={MARK.fill}
+            <motion.path d={d} fill={fillOf(MARK, gid)}
               animate={{ opacity: [0.18, 1, 0.18] }}
               transition={{ duration: 1.2, repeat: Infinity, delay: i * (MARK.paths.length > 2 ? 0.15 : 0.3), ease: "easeInOut" }} />
             <motion.path d={d} fill="none" stroke={MARK.hi} strokeWidth={6}

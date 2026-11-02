@@ -8,7 +8,7 @@ import "./styles.css";
 
 apply();
 installGlobalHandlers();
-/** Kimera (back office) runs from kimera.makz.space, or /kimera on any host. */
+/** Kimera (inventory) runs from kimera.makz.space, or /kimera on any host. */
 const kimera = location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera");
 if (kimera) {
   document.title = "Kimera";

@@ -54,7 +54,7 @@ export function KimeraApp() {
         <AnimatePresence>{splash && <Splash key="splash" onDone={endSplash} />}</AnimatePresence>
         <div className="kimera">
           {!backend || user === undefined ? <FullLoader label={t("Starting up…")} />
-            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kimera", sub: t("Back office · Skalarki Electronics Ltd"), logo: <KLogo size={30} /> }} /></div>
+            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kimera", sub: t("Inventory · Skalarki Electronics Ltd"), logo: <KLogo size={30} /> }} /></div>
               : (
                 <StoreProvider key={user} backend={backend} userId={user} onMissingProfile={async () => { await backend.signOut(); check(); }}>
                   <Gate signOut={async () => { await backend.signOut(); setUser(null); }} />
