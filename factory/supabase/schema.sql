@@ -3606,15 +3606,17 @@ begin
     qty numeric, pegged boolean, rank numeric, due date, created timestamptz) on commit drop;
   truncate av_supply, av_expected, av_taken, av_demand;
 
-  insert into av_supply select item_id, location_id, quantity from public.stock_levels where location_id is distinct from tl;
+  -- in transit and on the production floor (picked for an MO) is not free stock
+  insert into av_supply select item_id, location_id, quantity from public.stock_levels
+   where location_id not in (select id from public.locations where kind in ('transit', 'wip'));
   insert into av_expected
     select l.item_id, coalesce(p.location_id, dl), p.expected_date, p.number, l.quantity - l.received, 0
       from public.po_lines l join public.purchase_orders p on p.id = l.po_id
      where p.status in ('ordered', 'partial') and l.quantity > l.received
     union all
-    select si.id, coalesce(j.location_id, dl), j.due_date, j.code, j.quantity, 0
+    select si.id, coalesce(j.location_id, dl), j.due_date, j.code, j.quantity - j.produced, 0
       from public.jobs j join lateral (select id from public.stock_items where sku = j.sku and kind not in ('material', 'service') order by created_at limit 1) si on true
-     where j.status <> 'done' and not j.stock_booked and j.sku is not null and coalesce(j.quantity, 0) > 0
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null and coalesce(j.quantity, 0) > j.produced
     union all
     select tl2.item_id, t.to_location, t.expected_date, t.number, tl2.quantity, 0
       from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'in_transit';
@@ -3630,12 +3632,15 @@ begin
        and (j.id is null or j.stock_booked);
   -- ingredients of unfinished MOs
   insert into av_demand
-    select 'ingredient', j.id, j.id, j.code, b.material_id, coalesce(j.location_id, dl), b.quantity * coalesce(j.quantity, 1),
+    -- still needed = recipe × (qty − already produced) − what is already picked for this MO
+    select 'ingredient', j.id, j.id, j.code, b.material_id, coalesce(j.location_id, dl),
+           greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0),
            false, coalesce(o.rank, j.rank), j.due_date, j.created_at
       from public.jobs j
       join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
       join public.bom_lines b on b.product_id = p.id
       join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+      left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = b.material_id
       left join public.orders o on o.id = j.order_id
      where j.status <> 'done' and not j.stock_booked and j.sku is not null;
   -- draft transfers reserve at their source
@@ -3691,7 +3696,7 @@ begin
 
   select coalesce(jsonb_object_agg(item_id, jsonb_build_object('on_hand', on_hand, 'reserved', reserved, 'available', on_hand - reserved)), '{}') into items
     from (select s.item_id, sum(s.quantity) on_hand, coalesce((select sum(qty) from av_taken t where t.item_id = s.item_id), 0) reserved
-            from public.stock_levels s where s.location_id is distinct from tl group by s.item_id) x;
+            from public.stock_levels s where s.location_id not in (select id from public.locations where kind in ('transit', 'wip')) group by s.item_id) x;
   return jsonb_build_object('lines', lines, 'mos', ingr, 'items', items, 'at', now());
 end $$;
 revoke all on function public.availability() from public, anon;
@@ -3704,7 +3709,8 @@ create or replace function public.guard_overdraw() returns trigger
 language plpgsql set search_path = public as $$
 declare lvl numeric; nm text; it text;
 begin
-  if new.delta < 0 and (new.reason = 'ship' or (new.reason = 'transfer' and new.location_id is distinct from public.transit_location())) then
+  if new.delta < 0 and (new.reason = 'ship'
+      or (new.reason in ('transfer', 'pick') and new.location_id not in (select id from public.locations where kind in ('transit', 'wip')))) then
     select quantity into lvl from public.stock_levels where item_id = new.item_id and location_id = new.location_id;
     if coalesce(lvl, 0) < 0 then
       select name into nm from public.locations where id = new.location_id;
@@ -3716,6 +3722,254 @@ begin
 end $$;
 drop trigger if exists guard_overdraw on public.stock_movements;
 create trigger guard_overdraw after insert on public.stock_movements for each row execute function public.guard_overdraw();
+
+-- ============================================================================
+-- KIMERA phase 4a — picking, partial completion, actual consumption,
+-- unused materials (MFG-10..13, MFG-14 materials; scenario 5)
+--  * pick: materials move from the MO's location to "Production floor (WIP)";
+--    they stay company stock but are no longer free for other orders
+--  * produce part of an MO: consumes recipe × qty (or the actual quantities
+--    used) — picked material first, the rest from the shelf — and puts the
+--    output on stock at the cost of what it consumed
+--  * finishing (here or when the last station is done in the Factory app)
+--    produces the rest and returns unused picked material to the shelf
+--  * reopening reverses every consumption / output at the location it came from
+-- ============================================================================
+alter table public.locations drop constraint if exists locations_kind_check;
+alter table public.locations add constraint locations_kind_check check (kind in ('warehouse','production','partner','transit','wip'));
+create unique index if not exists locations_one_wip on public.locations ((true)) where kind = 'wip';
+insert into public.locations (name, kind) select 'Production floor (WIP)', 'wip'
+  where not exists (select 1 from public.locations where kind = 'wip');
+create or replace function public.wip_location() returns uuid
+language sql stable security definer set search_path = public as $$ select id from public.locations where kind = 'wip' limit 1 $$;
+drop policy if exists "office write" on public.locations;
+create policy "office write" on public.locations for all to authenticated using (public.is_admin()) with check (public.is_admin() and kind not in ('transit', 'wip'));
+
+alter table public.jobs add column if not exists produced numeric(14,3) not null default 0 check (produced >= 0);
+alter table public.stock_movements drop constraint if exists stock_movements_reason_check;
+alter table public.stock_movements add constraint stock_movements_reason_check
+  check (reason in ('adjust','count','receive','consume','produce','import','opening','ship','return','transfer','pick'));
+
+create table if not exists public.mo_materials (
+  job_id uuid not null references public.jobs(id) on delete restrict,
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  picked numeric(14,3) not null default 0,
+  used_from_wip numeric(14,3) not null default 0,
+  returned numeric(14,3) not null default 0,
+  primary key (job_id, item_id),
+  check (picked >= 0 and used_from_wip >= 0 and returned >= 0 and used_from_wip + returned <= picked)
+);
+alter table public.mo_materials enable row level security;
+drop policy if exists "staff read" on public.mo_materials;
+create policy "staff read" on public.mo_materials for select to authenticated using (public.is_active());
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'mo_materials') then
+    alter publication supabase_realtime add table public.mo_materials;
+  end if;
+end $$;
+
+-- Who may run the floor side of an MO: stock keepers, or the crew on that job.
+create or replace function public.can_work_mo(p_job uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_active() and (public.is_stock_keeper() or public.on_job(p_job))
+$$;
+
+-- Product row an MO makes (same rule as book_job_stock).
+create or replace function public.mo_product(p_job uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select s.id from public.jobs j join public.stock_items s on s.sku = j.sku and s.kind not in ('material','service') where j.id = p_job order by s.created_at limit 1),
+    (select s.id from public.jobs j join public.stock_items s on s.sku = j.sku and s.kind <> 'service' where j.id = p_job order by s.created_at limit 1))
+$$;
+
+-- Pick materials for an MO. p_lines = [{"item": uuid, "qty": n}]; null = everything still needed.
+create or replace function public.pick_mo(p_job uuid, p_lines jsonb default null, p_key text default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prev text; r record; n int := 0; loc uuid; w uuid := public.wip_location(); prod uuid;
+begin
+  if not public.can_work_mo(p_job) then raise exception 'Only stock keepers or the crew on this job can pick materials'; end if;
+  prev := public.claim_op('pick_mo', p_key);
+  if prev is not null then return prev::int; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  if j.status = 'done' then raise exception 'This manufacturing order is finished'; end if;
+  loc := coalesce(j.location_id, public.default_location());
+  prod := public.mo_product(j.id);
+  for r in
+    select x.item_id, x.qty from (
+      select (e->>'item')::uuid item_id, (e->>'qty')::numeric qty from jsonb_array_elements(p_lines) e where p_lines is not null
+      union all
+      select b.material_id, greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0)
+        from public.bom_lines b join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+        left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = b.material_id
+       where p_lines is null and b.product_id = prod) x
+    where x.qty > 0 loop
+    perform set_config('app.stock_job', j.id::text, true);
+    perform public.stock_source('job', j.id);
+    perform public.stock_location(loc); perform public.move_stock(r.item_id, -r.qty, 'pick', j.code, 'Picked');
+    perform public.stock_location(w);   perform public.move_stock(r.item_id, r.qty, 'pick', j.code, 'On the production floor');
+    insert into public.mo_materials (job_id, item_id, picked) values (j.id, r.item_id, r.qty)
+    on conflict (job_id, item_id) do update set picked = mo_materials.picked + r.qty;
+    n := n + 1;
+  end loop;
+  perform public.stock_location(null); perform set_config('app.stock_job', '', true);
+  if n = 0 then raise exception 'Nothing left to pick'; end if;
+  perform public.finish_op('pick_mo', p_key, n::text);
+  return n;
+end $$;
+revoke all on function public.pick_mo(uuid, jsonb, text) from public, anon;
+grant execute on function public.pick_mo(uuid, jsonb, text) to authenticated;
+
+-- Put unused picked material back on the shelf. p_lines null = all of it.
+create or replace function public.return_mo_materials_core(p_job uuid, p_lines jsonb default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; mm record; q numeric; n int := 0; loc uuid; w uuid := public.wip_location();
+begin
+  select * into j from public.jobs where id = p_job;
+  loc := coalesce(j.location_id, public.default_location());
+  for mm in select * from public.mo_materials where job_id = p_job for update loop
+    q := mm.picked - mm.used_from_wip - mm.returned;
+    if p_lines is not null then
+      q := least(q, coalesce((select (e->>'qty')::numeric from jsonb_array_elements(p_lines) e where (e->>'item')::uuid = mm.item_id), 0));
+    end if;
+    continue when q <= 0;
+    perform set_config('app.stock_job', j.id::text, true);
+    perform public.stock_source('job', j.id);
+    perform public.stock_location(w);   perform public.move_stock(mm.item_id, -q, 'pick', j.code, 'Unused — back to the shelf');
+    perform public.stock_location(loc); perform public.move_stock(mm.item_id, q, 'pick', j.code, 'Unused — back to the shelf');
+    update public.mo_materials set returned = returned + q where job_id = mm.job_id and item_id = mm.item_id;
+    n := n + 1;
+  end loop;
+  perform public.stock_location(null); perform set_config('app.stock_job', '', true);
+  return n;
+end $$;
+revoke all on function public.return_mo_materials_core(uuid, jsonb) from public, anon, authenticated;
+create or replace function public.return_mo_materials(p_job uuid, p_lines jsonb default null, p_key text default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare prev text; n int;
+begin
+  if not public.can_work_mo(p_job) then raise exception 'Only stock keepers or the crew on this job can return materials'; end if;
+  prev := public.claim_op('return_mo_materials', p_key);
+  if prev is not null then return prev::int; end if;
+  perform 1 from public.jobs where id = p_job for update;
+  n := public.return_mo_materials_core(p_job, p_lines);
+  perform public.finish_op('return_mo_materials', p_key, n::text);
+  return n;
+end $$;
+revoke all on function public.return_mo_materials(uuid, jsonb, text) from public, anon;
+grant execute on function public.return_mo_materials(uuid, jsonb, text) to authenticated;
+
+-- Core: produce p_qty of an MO. p_actual = {"<item id>": qty used} overrides the recipe.
+-- Consumes picked (WIP) material first, then from the MO's location; output at consumed cost.
+create or replace function public.produce_core(p_job uuid, p_qty numeric, p_actual jsonb default null, p_bump boolean default true) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prod uuid; b record; need numeric; fromw numeric; avail numeric; total numeric := 0; c numeric;
+        loc uuid; w uuid := public.wip_location(); has_bom boolean := false;
+begin
+  select * into j from public.jobs where id = p_job;
+  prod := public.mo_product(j.id);
+  if prod is null then return 0; end if;
+  loc := coalesce(j.location_id, public.default_location());
+  perform set_config('app.stock_job', j.id::text, true);
+  perform public.stock_source('job', j.id);
+  for b in
+    select x.item_id, sum(x.qty) qty from (
+      select bl.material_id item_id, bl.quantity * p_qty qty from public.bom_lines bl join public.stock_items m on m.id = bl.material_id and m.kind <> 'service'
+       where bl.product_id = prod and (p_actual is null or not (p_actual ? bl.material_id::text))
+      union all
+      select (k)::uuid, (p_actual->>k)::numeric from jsonb_object_keys(coalesce(p_actual, '{}'::jsonb)) k) x
+    group by x.item_id loop
+    has_bom := true;
+    need := b.qty;
+    continue when need <= 0;
+    select coalesce(picked - used_from_wip - returned, 0) into avail from public.mo_materials where job_id = j.id and item_id = b.item_id for update;
+    fromw := least(greatest(coalesce(avail, 0), 0), need);
+    select avg_cost into c from public.stock_items where id = b.item_id;
+    total := total + need * coalesce(c, 0);
+    if fromw > 0 then
+      perform public.stock_location(w); perform public.move_stock(b.item_id, -fromw, 'consume', j.code, '');
+      update public.mo_materials set used_from_wip = used_from_wip + fromw where job_id = j.id and item_id = b.item_id;
+    end if;
+    if need - fromw > 0 then
+      perform public.stock_location(loc); perform public.move_stock(b.item_id, -(need - fromw), 'consume', j.code, '');
+    end if;
+  end loop;
+  perform public.stock_location(loc);
+  perform public.move_stock(prod, p_qty, 'produce', j.code, case when p_qty < coalesce(j.quantity, 1) - j.produced then 'Part completed' else '' end,
+                            case when has_bom then round(total / p_qty, 4) end);
+  perform public.stock_location(null); perform set_config('app.stock_job', '', true);
+  if p_bump then update public.jobs set produced = produced + p_qty where id = j.id; end if; -- the finishing trigger sets it itself
+  return p_qty;
+end $$;
+revoke all on function public.produce_core(uuid, numeric, jsonb, boolean) from public, anon, authenticated;
+
+-- App: complete part (or the rest) of an MO.
+create or replace function public.produce_mo(p_job uuid, p_qty numeric, p_actual jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prev text; left_qty numeric;
+begin
+  if not public.can_work_mo(p_job) then raise exception 'Only stock keepers or the crew on this job can book production'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Make at least one'; end if;
+  prev := public.claim_op('produce_mo', p_key);
+  if prev is not null then return prev; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  if j.status = 'done' then raise exception 'This manufacturing order is finished'; end if;
+  left_qty := coalesce(j.quantity, 1) - j.produced;
+  if p_qty > left_qty then raise exception 'Only % left to make on this order', trim_scale(left_qty); end if;
+  if public.mo_product(j.id) is null then raise exception 'No stock item with SKU % — add it under Items first', j.sku; end if;
+  perform public.produce_core(j.id, p_qty, p_actual);
+  if p_qty = left_qty then
+    -- finished: book it done without consuming again, then return what was not used
+    perform public.return_mo_materials_core(j.id, null);
+    update public.jobs set status = 'done', completed_at = now(), stock_booked = true,
+      stage = greatest(coalesce(array_length(route, 1), 1) - 1, 0) where id = j.id;
+    update public.work_sessions set ended_at = now() where job_id = j.id and ended_at is null;
+    update public.participants set left_at = now() where job_id = j.id and left_at is null;
+    return public.finish_op('produce_mo', p_key, 'done');
+  end if;
+  return public.finish_op('produce_mo', p_key, 'partial');
+end $$;
+revoke all on function public.produce_mo(uuid, numeric, jsonb, text) from public, anon;
+grant execute on function public.produce_mo(uuid, numeric, jsonb, text) to authenticated;
+
+-- Finishing / reopening an MO any other way (Factory app last station, Kimera Complete/Reopen).
+create or replace function public.book_job_stock() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare m record; rest numeric;
+begin
+  -- Reopened: reverse every consumption and output at the location it happened.
+  if old.status = 'done' and new.status <> 'done' and old.stock_booked then
+    perform set_config('app.stock_job', new.id::text, true);
+    perform public.stock_source('job', new.id);
+    for m in select item_id, reason, location_id, sum(delta) as net,
+                    case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end as cost
+               from public.stock_movements
+              where job_id = new.id and reason in ('consume', 'produce') group by item_id, reason, location_id having sum(delta) <> 0
+              order by reason desc loop
+      perform public.stock_location(m.location_id);
+      perform public.move_stock(m.item_id, -m.net, m.reason, new.code, 'Reopened — reversed', m.cost);
+    end loop;
+    perform public.stock_location(null);
+    perform set_config('app.stock_job', '', true);
+    update public.mo_materials set used_from_wip = 0 where job_id = new.id;
+    new.stock_booked := false;
+    new.produced := 0;
+    return new;
+  end if;
+  if new.status <> 'done' or old.status = 'done' or new.stock_booked or new.sku is null then return new; end if;
+  if public.mo_product(new.id) is null then return new; end if;
+  rest := coalesce(new.quantity, 1) - coalesce(old.produced, 0);
+  if rest > 0 then perform public.produce_core(new.id, rest, null, false); end if;
+  perform public.return_mo_materials_core(new.id, null);
+  new.produced := coalesce(new.quantity, 1);
+  new.stock_booked := true;
+  return new;
+end $$;
+drop trigger if exists book_job_stock on public.jobs;
+create trigger book_job_stock before update of status on public.jobs
+  for each row execute function public.book_job_stock();
 
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

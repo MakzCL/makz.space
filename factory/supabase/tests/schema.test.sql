@@ -803,6 +803,55 @@ select pg_temp.expect_fail($$select public.set_rank('job', (select id from publi
 select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.set_rank('order', '$$ || :'soa' || $$', null)$$, 'operator changes priorities');
 
+-- ============================================================================
+-- KIMERA phase 4a: pick, partial completion, actual use, unused returned (scenario 5)
+-- recipe P5 = 2 × M5A (£1.00) + 1 × M5B (£3.00); MO for 10
+-- ============================================================================
+select pg_temp.become(:'B');
+select public.import_items('[{"sku":"M5A","name":"Bracket","quantity":"30","avg_cost":"1.00"},{"sku":"M5B","name":"Panel","quantity":"10","avg_cost":"3.00"},{"sku":"P5","name":"Assembly","kind":"product"}]'::jsonb);
+insert into public.bom_lines (product_id, material_id, quantity)
+  select p.id, m.id, v.q from (values ('M5A', 2), ('M5B', 1)) v(sku, q) join public.stock_items m on m.sku = v.sku, public.stock_items p where p.sku = 'P5';
+select public.create_mo('P5', 'Assembly ×10', 10) as mo5 \gset
+select id as m5a from public.stock_items where sku = 'M5A' \gset
+select id as m5b from public.stock_items where sku = 'M5B' \gset
+select pg_temp.check(public.pick_mo(:'mo5', null, 'pick-1') = 2, 'S5 pick everything the recipe needs (2 materials)');
+select pg_temp.check(public.pick_mo(:'mo5', null, 'pick-1') = 2, 'S5 replayed pick is a no-op');
+select public.pick_mo(:'mo5', jsonb_build_array(jsonb_build_object('item', :'m5a', 'qty', 3)));
+select pg_temp.check((select quantity = 7 from public.stock_levels where item_id = :'m5a' and location_id = public.default_location())
+  and (select quantity = 23 from public.stock_levels where item_id = :'m5a' and location_id = public.wip_location())
+  and (select quantity = 30 from public.stock_items where id = :'m5a'), 'S5 picked 23 on the floor, 7 on the shelf, company total still 30');
+select public.availability() as av \gset
+select pg_temp.check((:'av'::jsonb->'mos'->:'mo5'->>'status') = 'in_stock', 'S5 picked material covers the MO');
+select public.create_mo('M5A-USE', 'other', 1);
+select pg_temp.check((:'av'::jsonb->'items'->:'m5a'->>'available')::numeric = 7, 'S5 picked material is no longer free for other orders');
+-- part 1: make 4 by the recipe → 8 brackets + 4 panels from the floor, output £5.00 each
+select pg_temp.check(public.produce_mo(:'mo5', 4, null, 'prod-1') = 'partial', 'S5 complete 4 of 10');
+select pg_temp.check(public.produce_mo(:'mo5', 4, null, 'prod-1') = 'partial', 'S5 replayed completion books once');
+reset role; select pg_temp.check((select quantity = 4 and avg_cost = 5 from public.stock_items where sku = 'P5'), 'S5 4 made at £5.00 (8×1 + 4×3) / 4'); set role authenticated;
+select pg_temp.check((select produced = 4 and status <> 'done' from public.jobs where id = :'mo5'), 'S5 MO shows 4 produced, still open');
+-- part 2: make 3, actually used 7 brackets (1 scrapped) and 3 panels
+select public.produce_mo(:'mo5', 3, jsonb_build_object(:'m5a', 7, :'m5b', 3));
+select pg_temp.check((select picked = 23 and used_from_wip = 15 from public.mo_materials where job_id = :'mo5' and item_id = :'m5a'), 'S5 actual use recorded (8 + 7 brackets)');
+select pg_temp.expect_fail($$select public.produce_mo('$$ || :'mo5' || $$', 4)$$, 'completing more than is left (3)');
+-- finish the rest the Factory way (status → done): 6 + 3 more, 2 unused brackets go back to the shelf
+update public.jobs set status = 'done' where id = :'mo5';
+select pg_temp.check((select quantity = 10 from public.stock_items where sku = 'P5') and (select produced = 10 and stock_booked from public.jobs where id = :'mo5'), 'S5 finished: 10 made');
+select pg_temp.check((select picked = 23 and used_from_wip = 21 and returned = 2 from public.mo_materials where job_id = :'mo5' and item_id = :'m5a'), 'S5 reconciled: picked 23 = used 21 + returned 2');
+select pg_temp.check((select quantity = 9 from public.stock_levels where item_id = :'m5a' and location_id = public.default_location())
+  and (select quantity = 0 from public.stock_levels where item_id = :'m5a' and location_id = public.wip_location())
+  and (select quantity = 0 from public.stock_levels where item_id = :'m5b' and location_id = public.wip_location()), 'S5 floor empty, unused brackets back on the shelf (9)');
+reset role;
+select pg_temp.check((select abs(quantity * avg_cost - 51) < 0.01 from public.stock_items where sku = 'P5'), 'S12 assembly value £51 = 21 brackets × £1 + 10 panels × £3');
+select pg_temp.check((select abs(sum(-delta * unit_cost) - 51) < 0.001 from public.stock_movements where job_id = :'mo5' and reason = 'consume'), 'S12 MO material cost £51 from its consumption');
+set role authenticated;
+-- reopen reverses everything at the location it happened
+select public.reopen_mo(:'mo5');
+select pg_temp.check((select quantity = 0 from public.stock_items where sku = 'P5') and (select produced = 0 from public.jobs where id = :'mo5')
+  and (select quantity = 21 from public.stock_levels where item_id = :'m5a' and location_id = public.wip_location()), 'reopen: output removed, used material back on the floor for this MO');
+reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total, 0)) from public.stock_items s left join (select item_id, sum(quantity) total from public.stock_levels group by item_id) l on l.item_id = s.id), 'every item: Σ locations = company total (after picking)'); set role authenticated;
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.pick_mo('$$ || :'mo5' || $$')$$, 'operator not on the job picks materials');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
