@@ -985,8 +985,8 @@ p { margin: 0; }
 
 /* ================================================================ Kimera
    Back office: same tokens, violet accent, top navigation, dense tables. */
-:root.is-kimera { --k-accent: #7c5cff; --red: #7c5cff; --brand: #7c5cff; --brand-hi: #9b84ff; --k-ok: #3fcf8e; --k-warn: #f5c85c; --k-bad: #ff5d4f; --k-info: #8f9bff; }
-:root.is-kimera[data-theme="light"] { --k-accent: #6a48f0; --red: #6a48f0; --brand: #6a48f0; --k-ok: #14935a; --k-warn: #9a6400; --k-bad: #d42a25; --k-info: #3b4cca; }
+:root.is-kimera { --k-accent: #8a6bff; --k-berry: #c7368f; --red: #8a6bff; --brand: #8a6bff; --brand-hi: #a58dff; --k-ok: #3fcf8e; --k-warn: #f5c85c; --k-bad: #ff5d4f; --k-info: #8f9bff; }
+:root.is-kimera[data-theme="light"] { --k-accent: #6d4ff0; --k-berry: #b0286f; --red: #6d4ff0; --brand: #6d4ff0; --k-ok: #14935a; --k-warn: #9a6400; --k-bad: #d42a25; --k-info: #3b4cca; }
 .kimera { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
 .kimera .fill { flex: 1; overflow: auto; }
 .k-app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -1115,8 +1115,8 @@ p { margin: 0; }
   .top .kimera-link { display: none; }
   .nav-foot { display: block; margin-top: auto; padding-top: 0.8rem; border-top: 1px solid var(--line); }
   .nav-kimera { display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 0.9rem; border-radius: 16px; color: var(--text); text-decoration: none;
-    background: color-mix(in srgb, #7c5cff 12%, transparent); transition: background 0.2s; }
-  .nav-kimera:hover { background: color-mix(in srgb, #7c5cff 22%, transparent); }
+    background: color-mix(in srgb, #8a6bff 12%, transparent); transition: background 0.2s; }
+  .nav-kimera:hover { background: color-mix(in srgb, #8a6bff 22%, transparent); }
   .nav-kimera .k-logo { flex: none; width: 34px; }
   .nav-kimera span { display: flex; flex-direction: column; line-height: 1.15; }
   .nav-kimera b { font-weight: 600; font-size: 0.95rem; }
@@ -1124,3 +1124,7 @@ p { margin: 0; }
 }
 .k-lockup .k-logo { display: block; flex: none; }
 .login-brand .k-logo { display: block; }
+/* Kimera shares the Skalarki navy; its violet → berry sweep echoes the SK red. */
+.is-kimera .btn.primary { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); border-color: transparent; }
+.is-kimera .k-nav button em, .is-kimera .splash-bar i { background: linear-gradient(90deg, var(--k-accent), var(--k-berry)); }
+.is-kimera .tri > div.hl { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); }

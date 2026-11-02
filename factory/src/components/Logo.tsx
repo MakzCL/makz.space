@@ -20,7 +20,7 @@ export const K_VIEWBOX = "86 60 614 358";
 export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
 export interface Mark { paths: string[]; viewBox: string; ratio: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
 export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
-export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, fill: "var(--k-accent, #7c5cff)", hi: "#b8a6ff", from: [], origin: "390px 240px" };
+export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, fill: "url(#k-grad)", hi: "#e7a3ff", from: [], origin: "390px 240px" };
 
 export function Logo({ size = 44, className = "" }: { size?: number; className?: string }) {
   return (
@@ -42,11 +42,15 @@ SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
 K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
 export const MARK = IS_KIMERA ? K_MARK : SK_MARK;
 
+/** Kimera's violet → berry sweep, continuous across the whole K. */
+export const KGrad = () => <linearGradient id="k-grad" gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="691" y2="412"><stop offset="0" stopColor="#8a6bff" /><stop offset="1" stopColor="#c7368f" /></linearGradient>;
+
 /** Plain Kimera K (no tile) — for headers, the sidebar button and the notch. */
 export function KLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
     <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kimera">
-      {K_PATHS.map((d) => <path key={d} d={d} fill={K_MARK.fill} />)}
+      <defs><KGrad /></defs>
+      {K_PATHS.map((d) => <path key={d} d={d} fill="url(#k-grad)" />)}
     </svg>
   );
 }
@@ -56,12 +60,13 @@ export function AssemblingLogo({ size = 96, delay = 0, mark = MARK }: { size?: n
   return (
     <svg viewBox={mark.viewBox} width={size * mark.ratio} height={size} className="sk-logo" style={{ overflow: "visible" }}>
       <defs>
+        <KGrad />
         <linearGradient id="sk-shine" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
           <stop offset="0.5" stopColor="#fff" stopOpacity="0.55" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
-        <clipPath id="sk-clip">{SK_PATHS.map((d) => <path key={d} d={d} />)}</clipPath>
+        <clipPath id="sk-clip">{mark.paths.map((d) => <path key={d} d={d} />)}</clipPath>
       </defs>
       <g>
         {SK_PATHS.map((d, i) => (

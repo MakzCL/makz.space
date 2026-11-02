@@ -15,6 +15,7 @@ if (kimera) {
   document.documentElement.classList.add("is-kimera");
   document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/kimera.webmanifest");
   document.querySelector('link[rel="icon"]')?.setAttribute("href", "/kimera.svg");
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", "/kimera-apple-touch.png");
   document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "Kimera");
 }
 const Root = lazy(() => kimera ? import("./kimera/KimeraApp").then((m) => ({ default: m.KimeraApp })) : import("./App").then((m) => ({ default: m.App })));

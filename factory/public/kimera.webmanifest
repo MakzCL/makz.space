@@ -8,8 +8,29 @@
   "background_color": "#0b1033",
   "theme_color": "#0b1033",
   "icons": [
-    { "src": "/kimera-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/kimera-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/kimera.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "/kimera-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/kimera-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/kimera-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/kimera.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ]
 }
