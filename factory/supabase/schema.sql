@@ -82,8 +82,12 @@ begin
   if (new.active is distinct from old.active) and not public.is_admin() then
     raise exception 'Only boss, manager or office can approve accounts';
   end if;
-  if (new.role is distinct from old.role) and public.my_role() <> 'boss' then
-    raise exception 'Only the boss can change roles';
+  if (new.role is distinct from old.role) then
+    if not public.is_admin() then raise exception 'Only the owner, managers or office can change roles'; end if;
+    if new.id = auth.uid() then raise exception 'You cannot change your own role'; end if;
+    if (new.role = 'boss' or old.role = 'boss') and public.my_role() <> 'boss' then
+      raise exception 'Only the owner can give or take away Owner';
+    end if;
   end if;
   if (new.holiday_allowance is distinct from old.holiday_allowance) and not public.is_admin() then
     raise exception 'Only boss, manager or office can change holiday allowance';
@@ -2007,7 +2011,7 @@ begin
     for u in
       select p.id from public.profiles p
        where p.active and p.role <> 'boss'
-         and (p.role in ('operator', 'assistant') or exists (select 1 from public.shifts s where s.user_id = p.id and s.clock_in > p_at - interval '30 days'))
+         and (p.role in ('operator', 'assistant', 'support') or exists (select 1 from public.shifts s where s.user_id = p.id and s.clock_in > p_at - interval '30 days'))
          and not exists (select 1 from public.shifts s where s.user_id = p.id and (s.clock_out is null or s.clock_in >= day_start))
          and not exists (select 1 from public.absences a where a.user_id = p.id and a.status = 'approved' and wday between a.start_date and a.end_date)
     loop
@@ -2112,3 +2116,11 @@ begin
 end $$;
 drop trigger if exists missed_call on public.calls;
 create trigger missed_call after update of status on public.calls for each row execute function public.missed_call();
+
+
+-- ============================================================================
+-- Support role (a position without admin rights) + admins add missed shifts.
+-- ============================================================================
+alter type public.staff_role add value if not exists 'support' before 'operator';
+drop policy if exists "admin adds shifts" on public.shifts;
+create policy "admin adds shifts" on public.shifts for insert to authenticated with check (public.is_admin());

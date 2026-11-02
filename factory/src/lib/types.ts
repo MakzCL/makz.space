@@ -1,4 +1,4 @@
-export type Role = "boss" | "manager" | "office" | "assistant" | "operator";
+export type Role = "boss" | "manager" | "office" | "assistant" | "support" | "operator";
 
 export interface Profile {
   id: string;

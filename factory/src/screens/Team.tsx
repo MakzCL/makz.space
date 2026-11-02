@@ -10,7 +10,7 @@ import { JOIN_PIN } from "../lib/backend";
 import { plural, t } from "../lib/i18n";
 import { can, ROLE_META, ROLE_ORDER } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
-import { ago, dailyTotals, dayLabel, hm, hms, jobStats, splitOvertime, startOfDay, startOfMonth, ymd } from "../lib/time";
+import { ago, clock, dailyTotals, dayLabel, hm, hms, jobStats, splitOvertime, startOfDay, startOfMonth, ymd } from "../lib/time";
 import type { JoinLink, Role } from "../lib/types";
 import { TimeSheet } from "./Time";
 
@@ -181,6 +181,8 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
   const a = useActions();
   const p = person(id);
   const [allow, setAllow] = useState<string>("");
+  const stations = useStations(); // before the early return: hooks must run on every render
+  const [missed, setMissed] = useState({ day: "", cin: "06:00", cout: "14:00" });
   if (!p) return <Sheet open={false} onClose={onClose}>{null}</Sheet>;
   const pr = presence.get(p.id)!;
   const month = startOfMonth();
@@ -191,7 +193,10 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
   const used = db.absences.filter((x) => x.user_id === p.id && x.kind === "holiday" && x.status === "approved" && x.start_date.startsWith(String(new Date().getFullYear())))
     .reduce((tt, x) => tt + (new Date(x.end_date).getTime() - new Date(x.start_date).getTime()) / 864e5 + 1, 0);
   const isAdmin = can.admin(me.role);
-  const stations = useStations();
+  const openShift = db.shifts.find((x) => x.user_id === p.id && !x.clock_out);
+  const pending = db.absences.filter((x) => x.user_id === p.id && x.status === "pending").sort((x, y) => x.start_date.localeCompare(y.start_date));
+  const roles = can.assignRoles(me.role);
+  const canRole = p.id !== me.id && roles.length > 0 && (p.role !== "boss" || me.role === "boss");
   const myStations = stations.of(p.id);
   return (
     <Sheet open={!!id} onClose={onClose} tall title={t("Team member")}>
@@ -207,9 +212,46 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
           <div><small>{t("Overtime")}</small><b>{hm(over)}</b></div>
           <div><small>{t("Team jobs")}</small><b>{teamJobs}</b></div>
         </div>
-        {can.changeRoles(me.role) && p.id !== me.id && (
-          <Field label={t("Role")}>
-            <div className="chips">{ROLE_ORDER.map((r) => <Chip key={r} on={p.role === r} onClick={() => a.updateProfile(p.id, { role: r })}><ShieldCheck size={14} />{roleLabel(r)}</Chip>)}</div>
+        {canRole && (
+          <Field label={t("Role")} hint={me.role === "boss" ? undefined : t("Only the owner can give or take away Owner.")}>
+            <div className="chips">{roles.map((r) => <Chip key={r} on={p.role === r} onClick={() => p.role !== r && a.updateProfile(p.id, { role: r })}><ShieldCheck size={14} />{roleLabel(r)}</Chip>)}</div>
+          </Field>
+        )}
+        {isAdmin && pending.length > 0 && (
+          <Field label={t("Waiting for approval")}>
+            <div className="stack">
+              {pending.map((r) => (
+                <div key={r.id} className="card flat row between wrap gap-s">
+                  <span><b>{t(r.kind === "sick" ? "Off-sick" : r.kind === "day_off" ? "Day-off" : "Holidays")}</b> <small className="muted">{dayLabel(r.start_date)}{r.end_date !== r.start_date ? ` → ${dayLabel(r.end_date)}` : ""}{r.note ? ` · ${r.note}` : ""}</small></span>
+                  <span className="row gap-s">
+                    <Btn small tone="ghost" onClick={() => a.decideAbsence(r.id, "rejected")}>{t("Decline")}</Btn>
+                    <Btn small tone="primary" onClick={() => a.decideAbsence(r.id, "approved")}>{t("Approve")}</Btn>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Field>
+        )}
+        {isAdmin && p.id !== me.id && (
+          <Field label={t("Shifts")} hint={t("Fix a forgotten clock-in or clock-out. Tap the pencil on a shift below to change its times.")}>
+            <div className="stack">
+              {openShift && (
+                <div className="row between wrap gap-s">
+                  <small className="muted">{t("Clocked in since {time}", { time: `${dayLabel(openShift.clock_in)} ${clock(openShift.clock_in)}` })}</small>
+                  <Btn small tone="primary" onClick={() => a.endShiftFor(openShift)}>{t("End shift now")}</Btn>
+                </div>
+              )}
+              <div className="row gap wrap">
+                <input type="date" value={missed.day} max={ymd(new Date())} onChange={(e) => setMissed({ ...missed, day: e.target.value })} aria-label={t("Date")} />
+                <input type="time" value={missed.cin} onChange={(e) => setMissed({ ...missed, cin: e.target.value })} aria-label={t("Clock in")} />
+                <input type="time" value={missed.cout} onChange={(e) => setMissed({ ...missed, cout: e.target.value })} aria-label={t("Clock out")} />
+                <Btn small tone="soft" disabled={!missed.day} onClick={async () => {
+                  const cin = new Date(`${missed.day}T${missed.cin}`), cout = new Date(`${missed.day}T${missed.cout}`);
+                  if (cout <= cin) cout.setDate(cout.getDate() + 1); // night shift past midnight
+                  await a.addShiftFor(p.id, cin.toISOString(), cout.toISOString()); setMissed({ ...missed, day: "" });
+                }}>{t("Add missed shift")}</Btn>
+              </div>
+            </div>
           </Field>
         )}
         {(can.manageJobs(me.role) ? stations.list.length > 0 : myStations.length > 0) && (
@@ -229,7 +271,7 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
             </div>
           </Field>
         )}
-        {(isAdmin || p.id === me.id) && <div className="card flat"><TimeSheet userId={p.id} /></div>}
+        {(isAdmin || p.id === me.id) && <motion.div className="card flat" variants={list} initial="hidden" animate="show"><TimeSheet userId={p.id} /></motion.div>}
       </div>
     </Sheet>
   );

@@ -433,6 +433,23 @@ select pg_temp.check((select count(*) from public.notifications where user_id = 
 select pg_temp.become(:'A1');
 select pg_temp.check((select count(*) from public.notifications where user_id = auth.uid() and kind = 'missed_call') = 0, 'caller gets no missed-call notice');
 
+-- Admin staff tools: roles (Owner reserved for the owner), Support role, missed shifts
+select pg_temp.become(:'A1'); -- manager
+update public.profiles set role = 'support' where id = :'A2';
+select pg_temp.check((select role = 'support' from public.profiles where id = :'A2'), 'manager changes a role (to Support)');
+select pg_temp.expect_fail($$update public.profiles set role = 'boss' where id = '00000000-0000-0000-0000-0000000000a2'$$, 'manager makes someone Owner');
+select pg_temp.expect_fail($$update public.profiles set role = 'operator' where id = '00000000-0000-0000-0000-00000000000b'$$, 'manager demotes the owner');
+select pg_temp.expect_fail($$update public.profiles set role = 'office' where id = auth.uid()$$, 'changing your own role');
+insert into public.shifts (user_id, clock_in, clock_out) values (:'A2', now() - interval '9 hours', now() - interval '1 hour');
+select pg_temp.check((select count(*) from public.shifts where user_id = :'A2' and clock_out is not null and clock_out > now() - interval '2 hours') = 1, 'admin adds a missed shift');
+select pg_temp.become(:'A2'); -- support (not admin)
+update public.profiles set role = 'operator' where id = :'A1';
+select pg_temp.check((select role = 'manager' from public.profiles where id = :'A1'), 'support cannot change anyone''s role');
+select pg_temp.expect_fail($$insert into public.shifts (user_id, clock_in) values ('00000000-0000-0000-0000-0000000000a1', now())$$, 'support adds shifts for others');
+select pg_temp.check(not public.is_admin(), 'support has no admin rights');
+select pg_temp.become(:'A1');
+update public.profiles set role = 'operator' where id = :'A2';
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

@@ -681,4 +681,13 @@ export const PL: Record<string, string> = {
   "Nobody joined": "Nikt nie dołączył",
   "Everyone else has left": "Wszyscy inni wyszli",
   "That call has ended": "To połączenie już się zakończyło",
+  "Support": "Wsparcie",
+  "Jobs, chat and shifts": "Zlecenia, czat i zmiany",
+  "Only the owner can give or take away Owner.": "Tylko właściciel może nadać lub odebrać rolę Właściciel.",
+  "Fix a forgotten clock-in or clock-out. Tap the pencil on a shift below to change its times.": "Popraw zapomniane wejście lub wyjście. Dotknij ołówka przy zmianie poniżej, aby zmienić godziny.",
+  "Clocked in since {time}": "Na zmianie od {time}",
+  "End shift now": "Zakończ zmianę teraz",
+  "Add missed shift": "Dodaj pominiętą zmianę",
+  "Shift ended": "Zmiana zakończona",
+  "Shift added": "Zmiana dodana",
 };

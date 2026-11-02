@@ -6,17 +6,19 @@ export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: st
   boss:      { label: "Owner",      gateway: "Command",    blurb: "Full control, live floor, insights",   hue: "#ff4d4a" },
   manager:   { label: "Manager",   gateway: "Floor lead", blurb: "Plan jobs, run the team, approve",      hue: "#ffb547" },
   office:    { label: "Office",    gateway: "Office",     blurb: "Timesheets, absences, stock, news",     hue: "#9b8cff" },
+  support:   { label: "Support",   gateway: "Support",    blurb: "Jobs, chat and shifts",               hue: "#5ec2b7" },
   assistant: { label: "Assistant", gateway: "Support",    blurb: "Jobs, stock keeping, help the line",    hue: "#4fd1ff" },
   operator:  { label: "Operator",  gateway: "Line",       blurb: "Clock in, run jobs, team up",           hue: "#3ddc97" },
 };
 
-export const ROLE_ORDER: Role[] = ["boss", "manager", "office", "assistant", "operator"];
+export const ROLE_ORDER: Role[] = ["boss", "manager", "office", "assistant", "support", "operator"];
 
 export const TABS_FOR: Record<Role, Tab[]> = {
   boss:      ["home", "jobs", "chat", "team", "insights", "requests"],
   manager:   ["home", "jobs", "chat", "team", "requests", "issues"],
   office:    ["home", "chat", "team", "requests", "time"],
   assistant: ["home", "jobs", "chat", "time", "issues"],
+  support:   ["home", "jobs", "chat", "time", "issues"],
   operator:  ["home", "jobs", "chat", "time", "issues"],
 };
 
@@ -27,9 +29,11 @@ export const tabsFor = (r: Role, _desktop?: boolean): Tab[] => TABS_FOR[r];
 export const can = {
   manageJobs: (r: Role) => r === "boss" || r === "manager",
   admin: (r: Role) => r === "boss" || r === "manager" || r === "office",
-  editStock: (r: Role) => r !== "operator",
+  editStock: (r: Role) => r !== "operator" && r !== "support",
   changeRoles: (r: Role) => r === "boss",
   postNews: (r: Role) => r === "boss" || r === "manager" || r === "office",
   /** Which roles this person may hand out through an invite link (only the boss makes links). */
-  linkRoles: (r: Role): Role[] => r === "boss" ? ["operator", "assistant", "office", "manager", "boss"] : [],
+  linkRoles: (r: Role): Role[] => r === "boss" ? ["operator", "support", "assistant", "office", "manager", "boss"] : [],
+  /** Roles this admin may give: owner, managers and office; only the owner hands out or takes away Owner. */
+  assignRoles: (r: Role): Role[] => r === "boss" ? ROLE_ORDER : (r === "manager" || r === "office") ? ROLE_ORDER.filter((x) => x !== "boss") : [],
 };

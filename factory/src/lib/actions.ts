@@ -394,6 +394,19 @@ export function useActions() {
         ok(t("New photo saved"));
       } catch (e) { fail(e); }
     }
+    /** Admin: end someone's open shift now (and any break still running). */
+    async function endShiftFor(shift: { id: string; user_id: string }) {
+      try {
+        const at = nowIso();
+        for (const br of db.breaks.filter((x) => x.shift_id === shift.id && !x.ended_at)) await B.update("breaks", br.id, { ended_at: at });
+        await B.update("shifts", shift.id, { clock_out: at });
+        await Promise.all([refresh("shifts"), refresh("breaks")]); ok(t("Shift ended"));
+      } catch (e) { fail(e); }
+    }
+    /** Admin: add a shift someone forgot to clock. */
+    async function addShiftFor(userId: string, clockIn: string, clockOut: string) {
+      try { await B.insert("shifts", { user_id: userId, clock_in: clockIn, clock_out: clockOut }); await refresh("shifts"); ok(t("Shift added")); } catch (e) { fail(e); }
+    }
     async function editShift(id: string, patch: { clock_in?: string; clock_out?: string | null }) {
       try { await B.update("shifts", id, patch); await refresh("shifts"); ok(t("Shift corrected")); } catch (e) { fail(e); }
     }
@@ -417,7 +430,7 @@ export function useActions() {
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
       saveJob, deleteJob, reopenJob, sendBack, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
       saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, requestAbsence,
-      decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift,
+      decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift, endShiftFor, addShiftFor,
       setStationMember, saveStation, moveStation, deleteStation, saveProduct, deleteProduct,
     };
   }, [B, db, me.id, mine, refresh, person, toast]);
