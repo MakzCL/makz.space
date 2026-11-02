@@ -3,7 +3,7 @@ import { useToast } from "../components/Toast";
 import { t } from "../lib/i18n";
 import { opKey } from "../lib/actions";
 import { useStore } from "../lib/store";
-import type { DeliveryState, Issue, Job, Order, OrderLine, TableName } from "../lib/types";
+import type { CompanySettings, Customer, DeliveryState, Issue, ItemSupplier, Job, Order, OrderLine, TableName, TaxRate } from "../lib/types";
 
 /** Back-office actions (Kimera). Every call refreshes what it touched and toasts on failure. */
 export function useKimera() {
@@ -46,9 +46,21 @@ export function useKimera() {
       deleteJob: (id: string) => run(() => B.remove("jobs", id), ["jobs"], t("Deleted")),
       completeMo: (id: string) => run(() => B.rpc<string>("complete_mo", { p_job: id }), ["jobs", "stock_items", "stock_movements"], t("Manufacturing order done — stock updated")),
       reopenMo: (id: string) => run(() => B.rpc<string>("reopen_mo", { p_job: id }), ["jobs", "stock_items", "stock_movements"], t("Reopened — materials returned to stock")),
+      saveCustomer: (c: Partial<Customer>) =>
+        run(() => c.id ? B.update("customers", c.id, c) : B.insert("customers", c), ["customers", "orders"], t("Customer saved")),
+      saveTaxRate: (r: Partial<TaxRate>) =>
+        run(() => r.id ? B.update("tax_rates", r.id, r) : B.insert("tax_rates", r), ["tax_rates"], t("Saved")),
+      saveSettings: (patch: Partial<CompanySettings>) => run(() => B.update("company_settings", 1 as unknown as string, patch), ["company_settings"], t("Saved")),
+      saveItemSupplier: (r: Partial<ItemSupplier>) =>
+        run(() => r.id ? B.update("item_suppliers", r.id, r) : B.insert("item_suppliers", r), ["item_suppliers"]),
+      removeItemSupplier: (id: string) => run(() => B.remove("item_suppliers", id), ["item_suppliers"]),
+      activity: (table?: string | null, row?: string | null) =>
+        run(() => B.rpc<AuditRow[]>("recent_activity", { p_table: table ?? null, p_row: row ?? null, p_limit: 300 }), []),
       updateTicket: (id: string, patch: Partial<Issue>) => run(() => B.update("issues", id, patch), ["issues", "issue_comments"]),
       comment: (issueId: string, body: string, me: string) =>
         run(() => B.insert("issue_comments", { issue_id: issueId, author_id: me, body, kind: "comment" }), ["issue_comments"]),
     };
   }, [B, refresh, toast]);
 }
+
+export type AuditRow = import("../lib/types").AuditEntry;

@@ -63,7 +63,8 @@ export function ItemPicker({ value, onChange, filter, placeholder }: { value: st
         onChange={(e) => {
           setTxt(e.target.value);
           const v = e.target.value.trim().toLowerCase();
-          const hit = items.find((s) => `${s.sku} — ${s.name}`.toLowerCase() === v || s.sku.toLowerCase() === v);
+          const hit = items.find((s) => `${s.sku} — ${s.name}`.toLowerCase() === v || s.sku.toLowerCase() === v || (!!s.barcode && s.barcode.toLowerCase() === v));
+          if (hit && hit.barcode?.toLowerCase() === v) setTxt(`${hit.sku} — ${hit.name}`); // scanned
           onChange(hit?.id ?? null);
         }} />
       <datalist id={id}>{items.slice(0, 2000).map((s) => <option key={s.id} value={`${s.sku} — ${s.name}`} />)}</datalist>
@@ -112,7 +113,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
     .filter((s) => !s.archived)
     .filter((s) => allowed(s.kind) && (kind === "all" || s.kind === kind))
     .filter((s) => !cat || s.category === cat)
-    .filter((s) => !q || `${s.sku} ${s.name} ${s.location} ${s.category}`.toLowerCase().includes(q.toLowerCase()))
+    .filter((s) => !q || `${s.sku} ${s.name} ${s.location} ${s.category} ${s.barcode ?? ""} ${s.supplier_code}`.toLowerCase().includes(q.toLowerCase()) || refsBySku(db, q).has(s.id))
     .map((s) => {
       const committed = lv.committed.get(s.id) ?? 0, expected = lv.expected.get(s.id) ?? 0;
       return { s, committed, expected, available: s.quantity - committed, value: s.quantity * s.avg_cost };
@@ -141,7 +142,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
       </div>
       <div className="row between wrap">
         <div className="chips">
-          {(["all", "product", "material", "part"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 3) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
+          {(["all", "product", "material", "part", "service"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 4) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
           <Chip on={low} onClick={() => setLow(!low)}>{t("To reorder")}{lowCount ? ` · ${lowCount}` : ""}</Chip>
         </div>
         <small className="muted">{t("{n} items", { n: rows.length })} · {t("stock value")} <b>{money(total)}</b></small>
@@ -272,6 +273,8 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                 <option value="">—</option>{[...db.suppliers].sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
               <Field label={t("Supplier's code")}><input value={f.supplier_code ?? ""} onChange={(e) => setF({ ...f, supplier_code: e.target.value })} disabled={!editable} /></Field>
             </div>
+            <Field label={t("Barcode")}><input value={f.barcode ?? ""} inputMode="text" placeholder={t("Scan or type (EAN, UPC, Code-128…)")} onChange={(e) => setF({ ...f, barcode: e.target.value.trim() || null })} disabled={!editable} /></Field>
+            {live && <SupplierRefs item={live} editable={editable} />}
             {!live && (
               <div className="row gap">
                 <Field label={t("Opening stock")}><input inputMode="decimal" value={open0.qty} onChange={(e) => setOpen0({ ...open0, qty: e.target.value })} placeholder="0" /></Field>
@@ -456,6 +459,7 @@ const ITEM_FIELDS = {
   notes: ["notes", "note", "description"],
   make_min: ["keep ready", "keep at least", "make min"],
   make_batch: ["build batch", "batch size", "make batch"],
+  barcode: ["barcode", "ean", "upc", "gtin"],
 };
 const BOM_FIELDS = {
   product_sku: ["product variant code", "product sku", "product code", "parent sku", "product"],
@@ -465,7 +469,7 @@ const BOM_FIELDS = {
 const LABELS: Record<string, string> = {
   sku: "SKU", name: "Name", kind: "Type", category: "Category", unit: "Unit", location: "Location", quantity: "In stock", min_quantity: "Reorder point",
   avg_cost: "Average cost", sale_price: "Sale price", supplier: "Supplier", supplier_code: "Supplier's code", lead_days: "Lead time (days)",
-  product_sku: "Product SKU", material_sku: "Material SKU", notes: "Notes", make_min: "Keep at least", make_batch: "Build in batches of",
+  product_sku: "Product SKU", material_sku: "Material SKU", notes: "Notes", make_min: "Keep at least", make_batch: "Build in batches of", barcode: "Barcode",
 };
 const NUMERIC = new Set(["quantity", "min_quantity", "avg_cost", "sale_price", "lead_days", "make_min", "make_batch"]);
 
@@ -477,6 +481,8 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [file, setFile] = useState("");
   const [map, setMap] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
+  const [check, setCheck] = useState<ImportCheck[] | null>(null);
+  const { backend: B } = useStore();
   const fields = what === "items" ? ITEM_FIELDS : BOM_FIELDS;
   const header = rows?.[0] ?? [];
   const body = rows?.slice(1) ?? [];
@@ -489,12 +495,27 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
     const o: Record<string, string> = {};
     for (const [k, i] of Object.entries(map)) if (i >= 0) o[k] = NUMERIC.has(k) ? cleanNumber(r[i]) : (r[i] ?? "").trim();
     if (what === "items" && kind !== "column") o.kind = kind;
-    if (what === "items" && o.kind) o.kind = /prod/i.test(o.kind) ? "product" : /part|semi|sub/i.test(o.kind) ? "part" : "material";
+    if (what === "items" && o.kind) o.kind = /prod/i.test(o.kind) ? "product" : /part|semi|sub/i.test(o.kind) ? "part" : /serv/i.test(o.kind) ? "service" : "material";
     return o;
   });
   const required = what === "items" ? ["sku"] : ["product_sku", "material_sku", "quantity"];
   const ready = rows && required.every((k) => (map[k] ?? -1) >= 0);
-  const reset = () => { setRows(null); setFile(""); setMap({}); };
+  const reset = () => { setRows(null); setFile(""); setMap({}); setCheck(null); };
+  // Dry run on the server: same rules as the import, nothing written (CAT-08 / ADMIN-08).
+  const runCheck = async () => {
+    setBusy(true);
+    try {
+      const all = build(); const out: ImportCheck[] = [];
+      for (let i = 0; i < all.length; i += 2000) {
+        const part = await B.rpc<ImportCheck[]>("check_import", { p_kind: what, p_rows: all.slice(i, i + 2000) });
+        out.push(...part.map((r) => ({ ...r, row: r.row + i })));
+      }
+      setCheck(out);
+    } catch (e) { setCheck(null); alert(e instanceof Error ? t(e.message) : String(e)); }
+    setBusy(false);
+  };
+  const clean = check ? build().filter((_, i) => check[i]?.action !== "error") : [];
+  const errors = check?.filter((c) => c.action === "error") ?? [];
   return (
     <Sheet open={open} onClose={() => { reset(); onClose(); }} tall title={t("Import from Katana (CSV)")}>
       <div className="stack">
@@ -511,14 +532,14 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
             {what === "items" && (
               <Field label={t("These rows are")}>
                 <div className="chips">
-                  {(["column", "material", "product", "part"] as const).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "column" ? t("Use Type column / materials") : kindLabel(k)}</Chip>)}
+                  {(["column", "material", "product", "part", "service"] as const).map((k) => <Chip key={k} on={kind === k} onClick={() => { setKind(k); setCheck(null); }}>{k === "column" ? t("Use Type column / materials") : kindLabel(k)}</Chip>)}
                 </div>
               </Field>
             )}
             <div className="map-grid">
               {Object.keys(fields).map((k) => (
                 <Field key={k} label={`${t(LABELS[k] ?? k)}${required.includes(k) ? " *" : ""}`}>
-                  <select value={map[k] ?? -1} onChange={(e) => setMap({ ...map, [k]: Number(e.target.value) })}>
+                  <select value={map[k] ?? -1} onChange={(e) => { setMap({ ...map, [k]: Number(e.target.value) }); setCheck(null); }}>
                     <option value={-1}>— {t("not in file")} —</option>
                     {header.map((h, i) => <option key={i} value={i}>{h || `#${i + 1}`}</option>)}
                   </select>
@@ -532,15 +553,120 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
                 <tbody>{build().slice(0, 6).map((o, i) => <tr key={i} className="static">{Object.keys(fields).filter((k) => (map[k] ?? -1) >= 0).map((k) => <td key={k}>{o[k]}</td>)}</tr>)}</tbody>
               </table>
             </div>
-            <Btn tone="primary" wide busy={busy} disabled={!ready} icon={<Upload size={18} />} onClick={async () => {
-              setBusy(true);
-              const n = await a.importRows(what, build()).catch(() => null);
-              setBusy(false);
-              if (n !== null) { reset(); onClose(); }
-            }}>{t("Import {n} rows", { n: body.length })}</Btn>
+            {!check ? (
+              <Btn tone="primary" wide busy={busy} disabled={!ready} icon={<ClipboardCheck size={18} />} onClick={runCheck}>{t("Check {n} rows", { n: body.length })}</Btn>
+            ) : (
+              <>
+                <div className="chips">
+                  <Badge tone="ok">{t("{n} new", { n: check.filter((c) => c.action === "create").length })}</Badge>
+                  <Badge tone="blue">{t("{n} updated", { n: check.filter((c) => c.action === "update").length })}</Badge>
+                  <Badge tone={errors.length ? "red" : "muted"}>{t("{n} with problems", { n: errors.length })}</Badge>
+                </div>
+                {(errors.length > 0 || check.some((c) => c.changes.length)) && (
+                  <div className="tbl-wrap" style={{ maxHeight: 280, overflow: "auto" }}>
+                    <table className="tbl">
+                      <thead><tr><th className="num">{t("Row")}</th><th>{t("Item")}</th><th>{t("Result")}</th><th>{t("Details")}</th></tr></thead>
+                      <tbody>
+                        {[...errors, ...check.filter((c) => c.action !== "error" && c.changes.length)].slice(0, 300).map((c) => (
+                          <tr key={c.row} className="static">
+                            <td className="num muted">{c.row + 1}</td>
+                            <td><span className="code">{c.key || "—"}</span></td>
+                            <td><Badge tone={c.action === "error" ? "red" : c.action === "create" ? "ok" : "blue"}>{t(c.action === "error" ? "Skipped" : c.action === "create" ? "New" : "Update")}</Badge></td>
+                            <td className={c.action === "error" ? "red-t fine" : "fine"}>{(c.action === "error" ? c.problems : c.changes).join(" · ")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="fine">{t("Row numbers count the header as row 1, like a spreadsheet. Rows with problems are skipped — fix them in the file and import it again.")}</p>
+                <div className="row gap">
+                  <Btn tone="ghost" onClick={() => setCheck(null)}>{t("Back")}</Btn>
+                  <Btn tone="primary" wide busy={busy} disabled={!clean.length} icon={<Upload size={18} />} onClick={async () => {
+                    setBusy(true);
+                    const n = await a.importRows(what, clean).catch(() => null);
+                    setBusy(false);
+                    if (n !== null) { reset(); onClose(); }
+                  }}>{t("Import {n} rows", { n: clean.length })}</Btn>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
     </Sheet>
   );
 }
+
+/** Items whose supplier reference matches a search (CAT-05). */
+function refsBySku(db: DB, q: string) {
+  const v = q.trim().toLowerCase();
+  return new Set(v.length < 2 ? [] : db.item_suppliers.filter((r) => r.supplier_sku.toLowerCase().includes(v)).map((r) => r.item_id));
+}
+
+/** Every supplier that sells this item, with their code, price and lead time (CAT-05). */
+function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }) {
+  const { db, backend: B, refresh } = useStore();
+  const [sup, setSup] = useState("");
+  const [code, setCode] = useState("");
+  const [cost, setCost] = useState("");
+  const [lead, setLead] = useState("");
+  const [err, setErr] = useState("");
+  const refs = db.item_suppliers.filter((r) => r.item_id === item.id);
+  const names = new Map(db.suppliers.map((s) => [s.id, s]));
+  const save = async (fn: () => Promise<unknown>) => {
+    setErr("");
+    try { await fn(); await refresh("item_suppliers"); return true; } catch (e) { setErr(e instanceof Error ? t(e.message) : String(e)); return false; }
+  };
+  return (
+    <div className="card flat stack">
+      <small className="label">{t("Suppliers for this item")}</small>
+      {refs.length ? (
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>{t("Supplier")}</th><th>{t("Their code")}</th><th className="num">{t("Price")}</th><th className="num">{t("Lead time")}</th><th /></tr></thead>
+            <tbody>
+              {refs.map((r) => {
+                const s = names.get(r.supplier_id);
+                return (
+                  <tr key={r.id} className="static">
+                    <td>{s?.name}{r.preferred && <Badge tone="ok">{t("Preferred")}</Badge>}</td>
+                    <td><span className="code">{r.supplier_sku || "—"}</span></td>
+                    <td className="num">{r.unit_cost === null ? "—" : `${r.unit_cost.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${s?.currency ?? ""}`}</td>
+                    <td className="num">{r.lead_days === null ? "—" : t("{n} d", { n: r.lead_days })}</td>
+                    <td className="nowrap">{editable && <>
+                      {!r.preferred && <Btn small tone="ghost" onClick={() => save(async () => {
+                        for (const o of refs) if (o.preferred) await B.update("item_suppliers", o.id, { preferred: false });
+                        await B.update("item_suppliers", r.id, { preferred: true });
+                      })}>{t("Preferred")}</Btn>}
+                      <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => save(() => B.remove("item_suppliers", r.id))}><Trash2 size={14} /></button>
+                    </>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="muted">{t("No supplier references yet.")}</p>}
+      {editable && (
+        <div className="row gap wrap">
+          <select value={sup} onChange={(e) => setSup(e.target.value)} aria-label={t("Supplier")}>
+            <option value="">{t("Add supplier…")}</option>
+            {[...db.suppliers].filter((s) => !refs.some((r) => r.supplier_id === s.id)).sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <input className="qty-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Their code")} aria-label={t("Their code")} />
+          <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={t("Price")} aria-label={t("Price")} />
+          <input className="qty-input" inputMode="numeric" value={lead} onChange={(e) => setLead(e.target.value)} placeholder={t("Days")} aria-label={t("Lead time")} />
+          <Btn tone="soft" small icon={<Plus size={15} />} disabled={!sup} onClick={async () => {
+            const ok = await save(() => B.insert("item_suppliers", { item_id: item.id, supplier_id: sup, supplier_sku: code.trim(),
+              unit_cost: cleanNumber(cost) ? Number(cleanNumber(cost)) : null, lead_days: /^\d+$/.test(lead.trim()) ? Number(lead.trim()) : null, preferred: !refs.length }));
+            if (ok) { setSup(""); setCode(""); setCost(""); setLead(""); }
+          }}>{t("Add")}</Btn>
+        </div>
+      )}
+      {err && <p className="hint red-t">{err}</p>}
+    </div>
+  );
+}
+
+interface ImportCheck { row: number; key: string; action: "create" | "update" | "error"; problems: string[]; changes: string[] }

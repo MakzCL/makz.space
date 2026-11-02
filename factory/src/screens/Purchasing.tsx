@@ -198,7 +198,7 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
         </div>
         {draft && editable && (
           <div className="row gap">
-            <div className="grow" key={pk}><ItemPicker value={item} onChange={(id) => { setItem(id); const it = db.stock_items.find((s) => s.id === id); if (it) setCost(String(it.avg_cost || "")); }} placeholder={t("Add item — type SKU or name…")} /></div>
+            <div className="grow" key={pk}><ItemPicker value={item} onChange={(id) => { setItem(id); const it = db.stock_items.find((s) => s.id === id); if (it) { const ref = db.item_suppliers.find((r) => r.item_id === it.id && r.supplier_id === p.supplier_id); setCost(String(ref?.unit_cost ?? (foreign ? "" : it.avg_cost || ""))); } }} placeholder={t("Add item — type SKU or name…")} /></div>
             <input className="qty-input" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t("Quantity")} />
             <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={foreign ? cur : "£"} aria-label={t("Unit cost")} />
             <Btn tone="primary" icon={<Plus size={17} />} disabled={!item || !(Number(cleanNumber(qty)) > 0)} onClick={async () => {

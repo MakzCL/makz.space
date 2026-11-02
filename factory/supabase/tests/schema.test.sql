@@ -598,6 +598,63 @@ select pg_temp.check((select count(*) = 0 from public.audit_log), 'operators can
 update public.company_settings set base_currency = 'USD';
 select pg_temp.check((select base_currency = 'GBP' from public.company_settings), 'operator cannot change the base currency (RLS: 0 rows)');
 
+-- ============================================================================
+-- KIMERA phase 2 acceptance: customers, tax, barcodes, supplier refs, import check
+-- ============================================================================
+select pg_temp.become(:'B');
+select pg_temp.check((select count(*) = 0 from public.orders where customer_id is null and coalesce(customer, '') <> ''), 'every existing order with a customer name is linked to a customer');
+select pg_temp.check((select count(*) = 1 from public.customers where name = 'Acme Ltd'), 'two Acme orders → one customer record');
+insert into public.orders (order_number, customer, company, email, kind) values ('', 'Jo Pilot', 'Sky Ltd', 'JO@sky.test', 'order');
+insert into public.orders (order_number, customer, company, email, kind) values ('', 'Joanna Pilot', '', 'jo@sky.test', 'quote');
+select pg_temp.check((select count(distinct customer_id) = 1 from public.orders where lower(email) = 'jo@sky.test'), 'same e-mail → same customer, whatever the spelling');
+select pg_temp.check((select count(*) = 2 from public.orders o join public.customers c on c.id = o.customer_id where c.email = 'jo@sky.test'), 'customer order history lists both');
+-- export customer is zero-rated: their lines take 0%, everyone else the 20% default
+update public.customers set tax_rate_id = (select id from public.tax_rates where rate = 0) where email = 'jo@sky.test';
+insert into public.order_lines (order_id, sku, name, quantity, unit_price, sort)
+  select id, 'X', 'Export line', 2, 100, 0 from public.orders where email = 'JO@sky.test';
+select pg_temp.check((select tax_rate = 0 from public.order_lines where name = 'Export line'), 'zero-rated customer → 0% on the line');
+insert into public.order_lines (order_id, sku, name, quantity, unit_price, sort)
+  select id, 'X', 'Home line', 2, 100, 0 from public.orders where customer = 'K1 Customer';
+select pg_temp.check((select tax_rate = 0.20 from public.order_lines where name = 'Home line'), 'default VAT 20% copied onto the line');
+update public.tax_rates set rate = 0.25 where is_default;
+select pg_temp.check((select tax_rate = 0.20 from public.order_lines where name = 'Home line'), 'changing the rate later does not rewrite old lines');
+update public.tax_rates set rate = 0.20 where is_default;
+select pg_temp.expect_fail($$insert into public.tax_rates (name, rate, is_default) values ('Second default', 0.05, true)$$, 'two default tax rates');
+-- picking a customer fills the order
+insert into public.customers (name, company, email, address) values ('Avia Buyer', 'Avia Sim', 'buy@avia.test', 'Hangar 3, KBFI');
+insert into public.orders (order_number, customer, kind, customer_id) select '', '', 'order', id from public.customers where email = 'buy@avia.test';
+select pg_temp.check((select customer = 'Avia Buyer' and company = 'Avia Sim' and ship_to = 'Hangar 3, KBFI' from public.orders where email = 'buy@avia.test'), 'order picks up the customer''s details');
+-- barcodes + supplier references
+update public.stock_items set barcode = '5012345678900' where sku = 'K1-SCREW';
+select pg_temp.expect_fail($$update public.stock_items set barcode = '5012345678900' where sku = 'K1-PANEL'$$, 'same barcode on two items');
+insert into public.item_suppliers (item_id, supplier_id, supplier_sku, unit_cost, lead_days)
+  select s.id, p.id, 'EP-PNL-10', 10, 21 from public.stock_items s, public.suppliers p where s.sku = 'K1-PANEL' and p.name = 'K1 EuroParts';
+select pg_temp.check((select count(*) = 1 from public.item_suppliers i join public.stock_items s on s.id = i.item_id where s.sku = 'K1-PANEL' and supplier_sku = 'EP-PNL-10'), 'item keeps a reference per supplier');
+-- import check: nothing written, every problem named
+select public.check_import('items', $j$[
+  {"sku":"K1-SCREW","name":"K1 screw","quantity":"95","avg_cost":"0.12"},
+  {"sku":"NEW-1","name":"New thing","quantity":"4"},
+  {"sku":"","name":"No sku"},
+  {"sku":"BAD-1","quantity":"lots","kind":"gizmo"},
+  {"sku":"NEW-1","name":"dup"},
+  {"sku":"BAD-2","barcode":"5012345678900"}
+]$j$::jsonb) as chk \gset
+select pg_temp.check((:'chk'::jsonb->0->>'action') = 'update' and (:'chk'::jsonb->0->'changes') ? 'stock: 80 → 95', 'check: existing item → update, shows stock change');
+select pg_temp.check((:'chk'::jsonb->1->>'action') = 'create', 'check: new SKU → create');
+select pg_temp.check((:'chk'::jsonb->2->>'action') = 'error', 'check: missing SKU → error');
+select pg_temp.check((:'chk'::jsonb->3->>'action') = 'error' and jsonb_array_length(:'chk'::jsonb->3->'problems') = 2, 'check: bad number + bad type both reported');
+select pg_temp.check((:'chk'::jsonb->4->>'action') = 'error', 'check: duplicate SKU in the file → error');
+select pg_temp.check((:'chk'::jsonb->5->>'action') = 'error', 'check: barcode used by another item → error');
+select pg_temp.check((select quantity = 80 from public.stock_items where sku = 'K1-SCREW') and not exists (select 1 from public.stock_items where sku = 'NEW-1'), 'check wrote nothing');
+select pg_temp.check((select public.check_import('bom', '[{"product_sku":"K1-UNIT","material_sku":"NOPE","quantity":"1"},{"product_sku":"K1-UNIT","material_sku":"K1-PANEL","quantity":"2"}]')->0->>'action') = 'error', 'check: unknown ingredient → error');
+select pg_temp.check(jsonb_array_length(public.recent_activity('customers')) > 0 and (public.recent_activity('customers')->0->>'action') is not null, 'office sees customer activity');
+-- base currency locked once stock has a value
+select pg_temp.expect_fail($$update public.company_settings set base_currency = 'EUR'$$, 'changing base currency after stock is valued');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.check_import('items', '[]')$$, 'operator runs an import check');
+select pg_temp.expect_fail($$select public.recent_activity()$$, 'operator reads activity');
+select pg_temp.expect_fail($$insert into public.customers (name) values ('Sneaky')$$, 'operator adds customers');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

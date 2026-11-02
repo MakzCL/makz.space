@@ -1035,7 +1035,7 @@ begin
     perform set_config('app.stock_move', 'on', true);
     insert into public.stock_items (sku, name, kind, category, unit, location, min_quantity, sale_price, supplier_id, supplier_code, lead_days, quantity, updated_at)
     values (trim(r->>'sku'), coalesce(nullif(trim(r->>'name'), ''), trim(r->>'sku')),
-            case when lower(r->>'kind') in ('product','material','part') then lower(r->>'kind') else 'material' end,
+            case when lower(r->>'kind') in ('product','material','part','service') then lower(r->>'kind') else 'material' end,
             coalesce(r->>'category', ''), coalesce(nullif(r->>'unit', ''), 'pcs'), coalesce(r->>'location', ''),
             case when r->>'min_quantity' ~ num then (r->>'min_quantity')::numeric else 0 end,
             case when r->>'sale_price' ~ num then (r->>'sale_price')::numeric end,
@@ -1057,6 +1057,7 @@ begin
     if r->>'avg_cost' ~ num then update public.stock_items set avg_cost = (r->>'avg_cost')::numeric where id = iid; end if;
     perform set_config('app.stock_move', 'off', true);
     if r ? 'notes' then update public.stock_items set notes = coalesce(r->>'notes', '') where id = iid; end if;
+    if r ? 'barcode' then update public.stock_items set barcode = nullif(trim(r->>'barcode'), '') where id = iid; end if;
     if r->>'quantity' ~ num then
       perform public.move_stock(iid, (r->>'quantity')::numeric - (select quantity from public.stock_items where id = iid), 'import', 'Katana import', '');
     end if;
@@ -2871,3 +2872,254 @@ begin
     end loop;
   end if;
 end $$;
+
+-- ============================================================================
+-- KIMERA phase 2 — master data (docs/kimera-coverage.md)
+--  * customers with order history; every order is linked to one (CAT-04)
+--  * tax rates; each order line keeps the rate it was sold at (CAT-07, SALES-02)
+--  * barcodes and per-supplier item references with their own cost/lead time (CAT-05)
+--  * import check: validates a file and shows what would change before anything is written (CAT-08, ADMIN-08)
+--  * base currency is locked once stock has been costed in it
+-- ============================================================================
+
+-- ---------------------------------------------------------------- tax rates
+create table if not exists public.tax_rates (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  rate numeric(7,4) not null check (rate >= 0 and rate <= 1),
+  is_default boolean not null default false,
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists tax_rates_one_default on public.tax_rates ((true)) where is_default;
+insert into public.tax_rates (name, rate, is_default)
+  select * from (values ('VAT 20%', 0.20, true), ('Zero-rated (export)', 0.00, false)) v(n, r, d)
+  where not exists (select 1 from public.tax_rates);
+
+-- ---------------------------------------------------------------- customers
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  company text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  address text not null default '',
+  tax_rate_id uuid references public.tax_rates(id) on delete set null,
+  notes text not null default '',
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists customers_email_key on public.customers (lower(email)) where email <> '';
+alter table public.orders add column if not exists customer_id uuid references public.customers(id) on delete set null;
+create index if not exists orders_customer_idx on public.orders (customer_id);
+alter table public.orders add column if not exists prices_include_tax boolean not null default false;
+alter table public.order_lines add column if not exists tax_rate numeric(7,4) check (tax_rate is null or (tax_rate >= 0 and tax_rate <= 1));
+
+-- Same person → same record: by e-mail, else by name + company.
+create or replace function public.find_or_create_customer(p_name text, p_company text, p_email text, p_phone text, p_address text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare cid uuid; nm text := trim(coalesce(p_name, '')); em text := lower(trim(coalesce(p_email, '')));
+begin
+  if nm = '' and em = '' then return null; end if;
+  if em <> '' then select id into cid from public.customers where lower(email) = em; end if;
+  if cid is null and nm <> '' then
+    select id into cid from public.customers
+     where lower(name) = lower(nm) and lower(company) = lower(trim(coalesce(p_company, ''))) and (email = '' or em = '')
+     order by created_at limit 1;
+  end if;
+  if cid is null then
+    insert into public.customers (name, company, email, phone, address)
+    values (coalesce(nullif(nm, ''), em), trim(coalesce(p_company, '')), em, trim(coalesce(p_phone, '')), trim(coalesce(p_address, '')))
+    returning id into cid;
+  end if;
+  return cid;
+end $$;
+revoke all on function public.find_or_create_customer(text, text, text, text, text) from public, anon, authenticated;
+
+-- Every new order (manual, quote, Shopify) is linked to a customer; picking a
+-- customer fills the order's contact fields when they are empty.
+create or replace function public.link_order_customer() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare c public.customers;
+begin
+  if new.customer_id is null then
+    new.customer_id := public.find_or_create_customer(new.customer, new.company, new.email, new.phone, new.ship_to);
+  elsif tg_op = 'INSERT' or new.customer_id is distinct from old.customer_id then
+    select * into c from public.customers where id = new.customer_id;
+    if tg_op = 'UPDATE' or coalesce(new.customer, '') = '' then
+      new.customer := c.name; new.company := c.company; new.email := c.email; new.phone := c.phone;
+      if coalesce(new.ship_to, '') = '' or tg_op = 'UPDATE' then new.ship_to := c.address; end if;
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists link_order_customer on public.orders;
+create trigger link_order_customer before insert or update of customer_id on public.orders
+  for each row execute function public.link_order_customer();
+
+-- Existing orders → customers (oldest first, so the first spelling wins).
+do $$
+declare o record;
+begin
+  for o in select * from public.orders where customer_id is null and (coalesce(customer, '') <> '' or coalesce(email, '') <> '') order by created_at loop
+    update public.orders set customer_id = public.find_or_create_customer(o.customer, o.company, o.email, o.phone, o.ship_to) where id = o.id;
+  end loop;
+end $$;
+
+-- New order lines take the customer's tax rate, else the default rate. The rate is
+-- copied onto the line, so later rate changes never rewrite old orders.
+create or replace function public.order_line_tax() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.tax_rate is null then
+    select coalesce(
+      (select t.rate from public.orders o join public.customers c on c.id = o.customer_id join public.tax_rates t on t.id = c.tax_rate_id where o.id = new.order_id),
+      (select rate from public.tax_rates where is_default and not archived limit 1)) into new.tax_rate;
+  end if;
+  return new;
+end $$;
+drop trigger if exists order_line_tax on public.order_lines;
+create trigger order_line_tax before insert on public.order_lines for each row execute function public.order_line_tax();
+
+-- ---------------------------------------------------------------- barcodes + supplier refs
+alter table public.stock_items add column if not exists barcode text;
+create unique index if not exists stock_items_barcode_key on public.stock_items (barcode) where coalesce(barcode, '') <> '';
+
+create table if not exists public.item_suppliers (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.stock_items(id) on delete cascade,
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  supplier_sku text not null default '',
+  unit_cost numeric(14,4) check (unit_cost is null or unit_cost >= 0),
+  lead_days int check (lead_days is null or lead_days >= 0),
+  preferred boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (item_id, supplier_id)
+);
+insert into public.item_suppliers (item_id, supplier_id, supplier_sku, lead_days, preferred)
+  select id, supplier_id, supplier_code, lead_days, true from public.stock_items where supplier_id is not null
+  on conflict (item_id, supplier_id) do nothing;
+
+-- ---------------------------------------------------------------- RLS
+alter table public.tax_rates enable row level security;
+alter table public.customers enable row level security;
+alter table public.item_suppliers enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['tax_rates', 'customers', 'item_suppliers'] loop
+    execute format('drop policy if exists "staff read" on public.%I', t);
+    execute format('drop policy if exists "office write" on public.%I', t);
+    execute format('drop policy if exists "keepers write" on public.%I', t);
+    execute format('create policy "staff read" on public.%I for select to authenticated using (public.is_active())', t);
+    if t = 'item_suppliers' then
+      execute format('create policy "keepers write" on public.%I for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper())', t);
+    else
+      execute format('create policy "office write" on public.%I for all to authenticated using (public.is_admin()) with check (public.is_admin())', t);
+    end if;
+    execute format('drop trigger if exists audit_row on public.%I', t);
+    execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t);
+  end loop;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['tax_rates', 'customers', 'item_suppliers'] loop
+      if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------- base currency lock
+create or replace function public.guard_base_currency() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.base_currency is distinct from old.base_currency
+     and exists (select 1 from public.stock_movements where coalesce(unit_cost, 0) <> 0) then
+    raise exception 'Stock is already valued in % — the base currency can no longer change', old.base_currency;
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists guard_base_currency on public.company_settings;
+create trigger guard_base_currency before update on public.company_settings for each row execute function public.guard_base_currency();
+
+-- ---------------------------------------------------------------- import check (dry run)
+-- Returns one entry per row: {row, key, action: create|update|error, problems[], changes[]}.
+-- Nothing is written. The app shows this before the import and only sends clean rows.
+create or replace function public.check_import(p_kind text, p_rows jsonb) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  r jsonb; i int := 0; out jsonb := '[]'::jsonb; probs text[]; chg text[]; s public.stock_items; k text; act text;
+  num text := '^-?[0-9]+(\.[0-9]+)?$'; f text; seen text[] := '{}'; codes text[] := '{}'; pid uuid; mid uuid;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can import stock'; end if;
+  if p_kind not in ('items', 'bom') then raise exception 'Unknown import kind'; end if;
+  for r in select * from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) loop
+    i := i + 1; probs := '{}'; chg := '{}';
+    if p_kind = 'items' then
+      k := nullif(trim(r->>'sku'), '');
+      if k is null then probs := probs || 'SKU is missing'::text;
+      elsif k = any(seen) then probs := probs || 'SKU appears more than once in the file'::text;
+      end if;
+      seen := seen || coalesce(k, '');
+      foreach f in array array['quantity', 'avg_cost', 'sale_price', 'min_quantity', 'make_min', 'make_batch'] loop
+        if nullif(trim(r->>f), '') is not null and not (trim(r->>f) ~ num) then probs := probs || format('%s "%s" is not a number', f, r->>f); end if;
+      end loop;
+      if nullif(trim(r->>'lead_days'), '') is not null and not (trim(r->>'lead_days') ~ '^[0-9]+$') then probs := probs || format('lead_days "%s" is not a whole number', r->>'lead_days'); end if;
+      if nullif(trim(r->>'kind'), '') is not null and lower(trim(r->>'kind')) not in ('product','material','part','service') then
+        probs := probs || format('type "%s" must be product, material, part or service', r->>'kind');
+      end if;
+      if nullif(trim(r->>'avg_cost'), '') ~ num and (r->>'avg_cost')::numeric < 0 then probs := probs || 'avg_cost cannot be negative'::text; end if;
+      if nullif(trim(r->>'barcode'), '') is not null then
+        if trim(r->>'barcode') = any(codes) then probs := probs || 'barcode appears more than once in the file'::text; end if;
+        codes := codes || trim(r->>'barcode');
+        if exists (select 1 from public.stock_items x where x.barcode = trim(r->>'barcode') and x.sku is distinct from k) then
+          probs := probs || format('barcode %s already belongs to another item', trim(r->>'barcode'));
+        end if;
+      end if;
+      select * into s from public.stock_items where sku = k;
+      act := case when cardinality(probs) > 0 then 'error' when s.id is null then 'create' else 'update' end;
+      if act = 'update' then
+        if nullif(trim(r->>'name'), '') is not null and trim(r->>'name') <> s.name then chg := chg || format('name: %s → %s', s.name, trim(r->>'name')); end if;
+        if trim(r->>'quantity') ~ num and (r->>'quantity')::numeric <> s.quantity then chg := chg || format('stock: %s → %s', trim_scale(s.quantity), trim(r->>'quantity')); end if;
+        if trim(r->>'avg_cost') ~ num and (r->>'avg_cost')::numeric <> s.avg_cost then chg := chg || format('cost: %s → %s', trim_scale(s.avg_cost), trim(r->>'avg_cost')); end if;
+        if trim(r->>'sale_price') ~ num and (r->>'sale_price')::numeric is distinct from s.sale_price then chg := chg || format('price: %s → %s', coalesce(trim_scale(s.sale_price)::text, '—'), trim(r->>'sale_price')); end if;
+      elsif act = 'create' and trim(r->>'quantity') ~ num then chg := chg || format('opening stock %s', trim(r->>'quantity'));
+      end if;
+      out := out || jsonb_build_object('row', i, 'key', coalesce(k, ''), 'action', act, 'problems', to_jsonb(probs), 'changes', to_jsonb(chg));
+    else
+      select id into pid from public.stock_items where sku = trim(r->>'product_sku');
+      select id into mid from public.stock_items where sku = trim(r->>'material_sku');
+      if nullif(trim(r->>'product_sku'), '') is null then probs := probs || 'product SKU is missing'::text;
+      elsif pid is null then probs := probs || format('product %s is not an item yet — import items first', trim(r->>'product_sku')); end if;
+      if nullif(trim(r->>'material_sku'), '') is null then probs := probs || 'ingredient SKU is missing'::text;
+      elsif mid is null then probs := probs || format('ingredient %s is not an item yet — import items first', trim(r->>'material_sku')); end if;
+      if pid is not null and pid = mid then probs := probs || 'a product cannot contain itself'::text; end if;
+      if not (coalesce(trim(r->>'quantity'), '') ~ '^[0-9]+(\.[0-9]+)?$') or (trim(r->>'quantity') ~ num and (r->>'quantity')::numeric <= 0) then
+        probs := probs || format('quantity "%s" must be a number above 0', coalesce(r->>'quantity', ''));
+      end if;
+      act := case when cardinality(probs) > 0 then 'error' when exists (select 1 from public.bom_lines where product_id = pid) then 'update' else 'create' end;
+      if act = 'update' and not (trim(r->>'product_sku') = any(seen)) then chg := chg || 'replaces this product''s current recipe'::text; end if;
+      seen := seen || coalesce(trim(r->>'product_sku'), '');
+      out := out || jsonb_build_object('row', i, 'key', coalesce(trim(r->>'product_sku'), '') || ' ← ' || coalesce(trim(r->>'material_sku'), ''),
+                                       'action', act, 'problems', to_jsonb(probs), 'changes', to_jsonb(chg));
+    end if;
+  end loop;
+  return out;
+end $$;
+revoke all on function public.check_import(text, jsonb) from public, anon;
+grant execute on function public.check_import(text, jsonb) to authenticated;
+
+-- Activity (audit log) for Kimera → Settings, newest first, with who did it.
+create or replace function public.recent_activity(p_table text default null, p_row text default null, p_limit int default 200) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Only the office team can see activity'; end if;
+  return coalesce((select jsonb_agg(x order by x.at desc) from (
+    select a.id, a.at, a.user_id, a.table_name, a.row_id, a.action, a.changes
+      from public.audit_log a
+     where (p_table is null or a.table_name = p_table) and (p_row is null or a.row_id = p_row)
+     order by a.at desc limit least(greatest(coalesce(p_limit, 200), 1), 1000)) x), '[]'::jsonb);
+end $$;
+revoke all on function public.recent_activity(text, text, int) from public, anon;
+grant execute on function public.recent_activity(text, text, int) to authenticated;

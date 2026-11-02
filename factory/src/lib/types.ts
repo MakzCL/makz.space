@@ -186,6 +186,8 @@ export interface Order {
   status: "open" | "done" | "cancelled";
   delivery: DeliveryState;
   delivery_deadline: string | null;
+  customer_id: string | null;
+  prices_include_tax: boolean;
   source: "shopify" | "manual";
   stock_out: boolean;
   tracking: string;
@@ -206,6 +208,8 @@ export interface OrderLine {
   unit_price: number | null;
   sort: number;
   shopify_line_id: number | null;
+  /** VAT rate copied onto the line when it was added (0.2 = 20 %); null = no tax. */
+  tax_rate: number | null;
   /** Quantity that has left (ship_lines) and come back (return_lines). */
   shipped: number;
   returned: number;
@@ -220,6 +224,47 @@ export interface OrderReturn {
   reason: string;
   created_by: string | null;
   created_at: string;
+}
+export interface Customer {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  address: string;
+  /** Default tax for their orders (e.g. zero-rated export); null = company default. */
+  tax_rate_id: string | null;
+  notes: string;
+  archived: boolean;
+  created_at: string;
+}
+export interface TaxRate {
+  id: string;
+  name: string;
+  /** Fraction: 0.2 = 20 %. */
+  rate: number;
+  is_default: boolean;
+  archived: boolean;
+  created_at: string;
+}
+export interface ItemSupplier {
+  id: string;
+  item_id: string;
+  supplier_id: string;
+  supplier_sku: string;
+  unit_cost: number | null;
+  lead_days: number | null;
+  preferred: boolean;
+  created_at: string;
+}
+export interface AuditEntry {
+  id: number;
+  at: string;
+  user_id: string | null;
+  table_name: string;
+  row_id: string | null;
+  action: "insert" | "update" | "delete";
+  changes: Record<string, unknown>;
 }
 export interface CompanySettings {
   id: number;
@@ -314,6 +359,7 @@ export interface StockItem {
   sale_price: number | null;
   supplier_id: string | null;
   supplier_code: string;
+  barcode: string | null;
   lead_days: number | null;
   notes: string;
   archived: boolean;
@@ -452,6 +498,9 @@ export interface Tables {
   order_lines: OrderLine;
   order_returns: OrderReturn;
   company_settings: CompanySettings;
+  customers: Customer;
+  tax_rates: TaxRate;
+  item_suppliers: ItemSupplier;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -475,7 +524,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

@@ -11,12 +11,14 @@ import { ItemPicker, fmtQty, money } from "../screens/Inventory";
 import { jobCode } from "../screens/parts";
 import { useKimera } from "./actions";
 import { Channel, PageHead, Pill, SubTabs, fullDate, shortDate } from "./kit";
-import { analyse, type OrderInfo } from "./status";
+import { CustomerPicker, CustomersView } from "./Customers";
+import { analyse, orderTotals, type OrderInfo } from "./status";
 
-type Kind = "order" | "quote";
+type Kind = "order" | "quote" | "customers";
+type OrderKind = "order" | "quote";
 
 export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
-  openId: string | null; onOpen: (id: string | null) => void; kind: Kind; setKind: (k: Kind) => void; creating: Kind | null; setCreating: (k: Kind | null) => void;
+  openId: string | null; onOpen: (id: string | null) => void; kind: Kind; setKind: (k: Kind) => void; creating: OrderKind | null; setCreating: (k: OrderKind | null) => void;
 }) {
   const { db, me } = useStore();
   const [done, setDone] = useState(false);
@@ -27,15 +29,16 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
     .filter((x) => (done ? x.order.status !== "open" : x.order.status === "open"))
     .filter((x) => !q || `${x.order.order_number} ${x.order.customer} ${x.order.company} ${x.order.email} ${x.lines.map((l) => `${l.line.sku} ${l.line.name}`).join(" ")}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => done ? (b.order.ordered_at ?? b.order.created_at).localeCompare(a.order.ordered_at ?? a.order.created_at) : (a.rank ?? 0) - (b.rank ?? 0) || b.order.created_at.localeCompare(a.order.created_at));
-  const openCount = (kk: Kind) => db.orders.filter((o) => o.kind === kk && o.status === "open").length;
+  const openCount = (kk: OrderKind) => db.orders.filter((o) => o.kind === kk && o.status === "open").length;
   const editable = can.admin(me.role);
   const total = rows.reduce((x, r) => x + (r.amount ?? 0), 0);
 
   return (
     <div className="k-page">
       <PageHead title={t("Sell")}
-        tabs={<SubTabs value={kind} onChange={setKind} tabs={[{ value: "quote", label: t("Quotes"), count: openCount("quote") }, { value: "order", label: t("Sales orders"), count: openCount("order") }]} />}
-        actions={editable && <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setCreating(kind)}>{kind === "quote" ? t("Quote") : t("Sales order")}</Btn>} />
+        tabs={<SubTabs value={kind} onChange={setKind} tabs={[{ value: "quote", label: t("Quotes"), count: openCount("quote") }, { value: "order", label: t("Sales orders"), count: openCount("order") }, { value: "customers", label: t("Customers") }]} />}
+        actions={editable && kind !== "customers" && <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setCreating(kind)}>{kind === "quote" ? t("Quote") : t("Sales order")}</Btn>} />
+      {kind === "customers" ? <CustomersView onOrder={(id) => { const o = db.orders.find((x) => x.id === id); if (o) setKind(o.kind); onOpen(id); }} /> : <>
       <div className="toolbar">
         <Segmented size="s" value={done ? "done" : "open"} onChange={(v) => setDone(v === "done")} options={[{ value: "open", label: t("Open") }, { value: "done", label: t("Done") }]} />
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search order, customer, SKU…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -79,15 +82,17 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
         </div>
       ) : <Empty icon={<ShoppingCart size={28} />} title={done ? t("Nothing done yet") : kind === "quote" ? t("No open quotes") : t("No open sales orders")}
           hint={kind === "order" && !done ? t("Shopify orders land here automatically.") : undefined} />}
+      </>}
       <NewOrderSheet kind={creating} onClose={() => setCreating(null)} onMade={(o) => { setCreating(null); onOpen(o.id); }} />
       <OrderSheet info={openId ? info.get(openId) ?? null : null} onClose={() => onOpen(null)} />
     </div>
   );
 }
 
-function NewOrderSheet({ kind, onClose, onMade }: { kind: Kind | null; onClose: () => void; onMade: (o: Order) => void }) {
+function NewOrderSheet({ kind, onClose, onMade }: { kind: OrderKind | null; onClose: () => void; onMade: (o: Order) => void }) {
   const k = useKimera();
-  const [f, setF] = useState({ customer: "", company: "", email: "", phone: "", ship_to: "", delivery_deadline: "" });
+  const blank = { customer: "", company: "", email: "", phone: "", ship_to: "", delivery_deadline: "", customer_id: null as string | null };
+  const [f, setF] = useState(blank);
   const [busy, setBusy] = useState(false);
   return (
     <Sheet open={!!kind} onClose={onClose} title={kind === "quote" ? t("New quote") : t("New sales order")}>
@@ -95,10 +100,12 @@ function NewOrderSheet({ kind, onClose, onMade }: { kind: Kind | null; onClose: 
         e.preventDefault(); setBusy(true);
         const o = await k.createOrder(kind!, { ...f, delivery_deadline: f.delivery_deadline || null });
         setBusy(false);
-        if (o) { setF({ customer: "", company: "", email: "", phone: "", ship_to: "", delivery_deadline: "" }); onMade(o); }
+        if (o) { setF(blank); onMade(o); }
       }}>
         <div className="row gap">
-          <Field label={t("Customer")}><input required autoFocus value={f.customer} onChange={(e) => setF({ ...f, customer: e.target.value })} /></Field>
+          <Field label={t("Customer")}><CustomerPicker value={f.customer}
+            onPick={(c) => setF({ ...f, customer: c.name, company: c.company, email: c.email, phone: c.phone, ship_to: c.address, customer_id: c.id })}
+            onText={(v) => setF({ ...f, customer: v, customer_id: null })} /></Field>
           <Field label={t("Company")}><input value={f.company} onChange={(e) => setF({ ...f, company: e.target.value })} /></Field>
         </div>
         <div className="row gap">
@@ -156,7 +163,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
           <small className="label">{t("Items")}</small>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>SKU</th><th>{t("Item")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Price")}</th><th className="num">{t("Total")}</th><th>{t("Availability")}</th>{o.kind === "order" && <th>{t("Manufacturing")}</th>}{editable && <th />}</tr></thead>
+              <thead><tr><th>SKU</th><th>{t("Item")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Price")}</th><th className="num">{t("VAT")}</th><th className="num">{t("Total")}</th><th>{t("Availability")}</th>{o.kind === "order" && <th>{t("Manufacturing")}</th>}{editable && <th />}</tr></thead>
               <tbody>
                 {info.lines.map(({ line, mo, sales, item: it }) => (
                   <tr key={line.id} className="static">
@@ -168,6 +175,12 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
                     <td className="num">{editable && o.status === "open"
                       ? <input className="cell-input" inputMode="decimal" defaultValue={line.unit_price ?? ""} key={String(line.unit_price)} onBlur={(e) => { const v = cleanNumber(e.target.value); const n = v === "" ? null : Number(v); if (n !== line.unit_price) k.updateLine(line.id, { unit_price: n }); }} />
                       : money(line.unit_price)}</td>
+                    <td className="num">{editable && o.status === "open" && !o.total_price
+                      ? <select className="cell-input" value={line.tax_rate ?? ""} aria-label={t("VAT")} onChange={(e) => k.updateLine(line.id, { tax_rate: e.target.value === "" ? null : Number(e.target.value) })}>
+                          <option value="">{t("None")}</option>
+                          {rateOptions(db.tax_rates, line.tax_rate).map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
+                        </select>
+                      : line.tax_rate === null ? "—" : `${Math.round(line.tax_rate * 10000) / 100}%`}</td>
                     <td className="num">{money(line.unit_price === null ? null : line.unit_price * line.quantity)}</td>
                     <td><Pill cell={sales} /></td>
                     {o.kind === "order" && <td>{mo
@@ -176,10 +189,24 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
                     {editable && <td>{!mo && o.status === "open" && o.delivery === "not_shipped" && <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => k.removeLine(line.id)}><Trash2 size={15} /></button>}</td>}
                   </tr>
                 ))}
-                {!info.lines.length && <tr className="static"><td colSpan={8} className="muted">{t("No items yet")}</td></tr>}
+                {!info.lines.length && <tr className="static"><td colSpan={9} className="muted">{t("No items yet")}</td></tr>}
               </tbody>
+              {info.lines.length > 0 && !o.total_price && (() => {
+                const tot = orderTotals(o, info.lines.map((x) => x.line));
+                return (
+                  <tfoot>
+                    <tr><td colSpan={5}>{t("Net")}</td><td className="num">{money(tot.net)}</td><td colSpan={3} /></tr>
+                    <tr><td colSpan={5}>{t("VAT")}</td><td className="num">{money(tot.tax)}</td><td colSpan={3} /></tr>
+                    <tr><td colSpan={5}><b>{t("Total")}</b>{o.prices_include_tax && <small className="muted"> · {t("Prices include VAT")}</small>}</td><td className="num"><b>{money(tot.gross)}</b></td><td colSpan={3} /></tr>
+                  </tfoot>
+                );
+              })()}
             </table>
           </div>
+          {editable && o.status === "open" && !o.total_price && info.lines.length > 0 && (
+            <label className="row gap-s fine k-check"><input type="checkbox" checked={o.prices_include_tax}
+              onChange={(e) => k.updateOrder(o.id, { prices_include_tax: e.target.checked })} />{t("Prices include VAT")}</label>
+          )}
           {editable && o.status === "open" && o.delivery === "not_shipped" && (
             <div className="row gap wrap">
               <div className="grow" key={pickKey}><ItemPicker value={item} onChange={(id) => { setItem(id); const s = db.stock_items.find((x) => x.id === id); if (s?.sale_price != null) setPrice(String(s.sale_price)); }} filter={(s) => s.kind !== "material"} placeholder={t("Add product — type SKU or name…")} /></div>
@@ -291,4 +318,12 @@ function Fulfilment({ info }: { info: OrderInfo }) {
       {out.length > 0 && <Field label={t("Return reason")}><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("e.g. damaged in transit")} /></Field>}
     </div>
   );
+}
+
+/** Active tax rates for a line's picker, plus the line's own (possibly old) rate so it stays visible. */
+function rateOptions(rates: { rate: number; name: string; archived: boolean }[], cur: number | null) {
+  const out = rates.filter((r) => !r.archived).map((r) => ({ v: String(r.rate), label: `${Math.round(r.rate * 10000) / 100}%` }));
+  if (cur !== null && !out.some((x) => Number(x.v) === cur)) out.push({ v: String(cur), label: `${Math.round(cur * 10000) / 100}%` });
+  const seen = new Set<string>();
+  return out.filter((x) => { const k = String(Number(x.v)); if (seen.has(k)) return false; seen.add(k); return true; });
 }

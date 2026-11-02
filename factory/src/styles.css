@@ -1146,3 +1146,8 @@ p { margin: 0; }
 /* Headers with folder tabs: the subtitle stays on one line so it never slides under the tabs. */
 .scene-head .scene-title p { max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scene-head:has(.scene-actions) .scene-title { right: 5.5rem; }
+.cell-input.wide { width: 100%; min-width: 160px; text-align: left; }
+.k-check { justify-content: flex-start; align-self: flex-start; }
+select.cell-input { width: 92px; padding-right: 1.7rem; text-align: left; background-position: right 0.45rem center; }
+label.k-check { display: inline-flex; align-items: center; gap: 0.5rem; width: auto; white-space: nowrap; text-align: left; }
+label.k-check input { width: auto; }

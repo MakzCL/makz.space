@@ -87,7 +87,7 @@ export function analyse(db: DB) {
       return { line, item, mo, sales, ingredients };
     });
 
-    const amount = o.total_price ?? (lines.length ? lines.reduce((x, l) => x + l.line.quantity * (l.line.unit_price ?? 0), 0) : null);
+    const amount = o.total_price ?? (lines.length ? orderTotals(o, lines.map((l) => l.line)).gross : null);
     const worst = (cells: Cell[], fallback: Cell) => {
       if (!cells.length) return fallback;
       const bad = cells.find((c) => c.tone === "bad"); if (bad) return bad;
@@ -144,4 +144,20 @@ export function moIngredients(db: DB, mo: Job) {
     const avail = m ? m.quantity - (lv.committed.get(m.id) ?? 0) : 0;
     return { m, need, inStock: m?.quantity ?? 0, avail, expected: m ? lv.expected.get(m.id) ?? 0 : 0 };
   });
+}
+
+const pennies = (n: number) => Math.round(n * 100) / 100;
+/**
+ * Net / VAT / gross of an order from its lines. Each line keeps the rate it was sold
+ * at; VAT is rounded per line. prices_include_tax = the entered prices are gross.
+ */
+export function orderTotals(o: Pick<Order, "prices_include_tax">, lines: Pick<OrderLine, "quantity" | "unit_price" | "tax_rate">[]) {
+  let net = 0, tax = 0;
+  for (const l of lines) {
+    const amt = l.quantity * (l.unit_price ?? 0), r = l.tax_rate ?? 0;
+    const n = o.prices_include_tax ? pennies(amt / (1 + r)) : pennies(amt);
+    const g = o.prices_include_tax ? pennies(amt) : pennies(amt * (1 + r));
+    net += n; tax += g - n;
+  }
+  return { net: pennies(net), tax: pennies(tax), gross: pennies(net + tax) };
 }

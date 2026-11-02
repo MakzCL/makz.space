@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { BarChart3, Boxes, CalendarClock, ChevronDown, Factory, LifeBuoy, LogOut, Moon, Package, Plus, ShoppingCart, Sun, Tag, Upload, Wrench } from "lucide-react";
+import { BarChart3, Boxes, CalendarClock, ChevronDown, Factory, LifeBuoy, LogOut, Moon, Package, Plus, Settings2, ShoppingCart, Sun, Tag, Upload, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -19,6 +19,7 @@ import { KInsights } from "./Insights";
 import { Make, MoSheet } from "./Make";
 import { Plan } from "./Plan";
 import { Sell } from "./Sell";
+import { Settings } from "./Settings";
 import { SubTabs } from "./kit";
 import { Tickets } from "./Tickets";
 import { SkKimera } from "./mark";
@@ -27,7 +28,7 @@ import { Splash } from "../components/Splash";
 
 export const FACTORY_URL = "https://factory.makz.space";
 
-type Tab = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights";
+type Tab = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings";
 const NAV: { v: Tab; label: string; icon: ReactNode }[] = [
   { v: "sell", label: "Sell", icon: <Tag size={16} /> },
   { v: "make", label: "Make", icon: <Factory size={16} /> },
@@ -37,6 +38,7 @@ const NAV: { v: Tab; label: string; icon: ReactNode }[] = [
   { v: "plan", label: "Plan", icon: <CalendarClock size={16} /> },
   { v: "tickets", label: "Tickets", icon: <LifeBuoy size={16} /> },
   { v: "insights", label: "Insights", icon: <BarChart3 size={16} /> },
+  { v: "settings", label: "Settings", icon: <Settings2 size={16} /> },
 ];
 
 export function KimeraApp() {
@@ -98,7 +100,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>(readHash);
   const [order, setOrder] = useState<string | null>(null);
-  const [sellKind, setSellKind] = useState<"order" | "quote">("order");
+  const [sellKind, setSellKind] = useState<"order" | "quote" | "customers">("order");
   const [newOrder, setNewOrder] = useState<"order" | "quote" | null>(null);
   const [mo, setMo] = useState<string | null>(null);
   const [newMo, setNewMo] = useState(false);
@@ -160,6 +162,7 @@ function Shell({ signOut }: { signOut: () => void }) {
       case "plan": return <Plan onOrder={openOrder} onBuy={() => { setBuyView("pos"); go("buy"); }} />;
       case "tickets": return <Tickets openId={ticket} onOpen={setTicket} onJob={(id) => setJobPeek(id)} />;
       case "insights": return <KInsights />;
+      case "settings": return <Settings />;
     }
   })();
 
@@ -168,7 +171,7 @@ function Shell({ signOut }: { signOut: () => void }) {
       <header className="k-top">
         <a className="k-brand" href="#sell" onClick={(e) => { e.preventDefault(); go("sell"); }}><SkKimera /></a>
         <nav className="k-nav" aria-label={t("Sections")}>
-          {NAV.map((n) => (
+          {NAV.filter((n) => n.v !== "settings" || admin).map((n) => (
             <button type="button" key={n.v} className={tab === n.v ? "on" : ""} aria-current={tab === n.v ? "page" : undefined} onClick={() => go(n.v)}>
               {n.icon}<span>{t(n.label)}</span>{badges[n.v] ? <i>{badges[n.v]}</i> : null}
               {tab === n.v && <motion.em layoutId="k-nav-on" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
