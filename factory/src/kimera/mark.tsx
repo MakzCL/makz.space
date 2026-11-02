@@ -12,7 +12,7 @@ export function KimeraMark({ size = 30 }: { size?: number }) {
     <svg className="k-mark" width={size} height={size} viewBox="0 0 512 512" aria-hidden>
       <defs><linearGradient id="kgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8366ff" /><stop offset="1" stopColor="#5a36e0" /></linearGradient></defs>
       <rect width="512" height="512" rx="112" fill="url(#kgrad)" />
-      <g transform="translate(18 108) scale(0.61)" fill="#fff">{K_PATHS.map((d) => <path key={d} d={d} />)}</g>
+      <g transform="translate(28.5 122) scale(0.56)" fill="#fff">{K_PATHS.map((d) => <path key={d} d={d} />)}</g>
     </svg>
   );
 }
