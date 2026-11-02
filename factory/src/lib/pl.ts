@@ -1,7 +1,7 @@
 /** Polish UI text. Keys are the English strings used in t(). */
 export const PL: Record<string, string> = {
   // Navigation & roles
-  "Home": "Start", "Jobs": "Zlecenia", "Time": "Czas", "Team": "Zespół", "Requests": "Wnioski", "Insights": "Analizy",
+  "Home": "Start", "Jobs": "Zlecenia", "Time": "Czas", "Shifts": "Zmiany", "Team": "Zespół", "Requests": "Wnioski", "Insights": "Analizy",
   "Issues": "Problemy", "Stock": "Magazyn", "Profile": "Profil", "Settings": "Ustawienia", "Awards": "Nagrody",
   "Boss": "Szef", "Manager": "Kierownik", "Office": "Biuro", "Assistant": "Asystent", "Operator": "Operator",
   "Full control, live floor, insights": "Pełna kontrola, hala na żywo, analizy",

@@ -23,7 +23,7 @@ const ICON: Record<Tab, ReactNode> = {
   stock: <Boxes size={21} strokeWidth={1.8} />,
 };
 const LABEL: Record<Tab, string> = {
-  home: "Home", jobs: "Jobs", chat: "Chat", time: "Time", team: "Team", requests: "Requests", insights: "Insights", issues: "Issues", stock: "Inventory",
+  home: "Home", jobs: "Jobs", chat: "Chat", time: "Shifts", team: "Team", requests: "Requests", insights: "Insights", issues: "Issues", stock: "Inventory",
 };
 export const tabLabel = (tab: Tab) => t(LABEL[tab]);
 
