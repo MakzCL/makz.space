@@ -540,6 +540,21 @@ function Tile({ stream, state, name, p }: { stream: MediaStream; state?: PeerSta
   const v = useRef<HTMLVideoElement>(null);
   const [flowing, setFlowing] = useState(false);
   const [stalled, setStalled] = useState(true);
+  // Fit: fill the tile when video and tile have the same orientation; otherwise show the
+  // whole picture (a portrait phone camera in a landscape PC tile was cropped = "zoomed").
+  const [fit, setFit] = useState<"cover" | "contain">("cover");
+  useEffect(() => {
+    const el = v.current; if (!el) return;
+    const tile = el.parentElement!;
+    const decide = () => {
+      if (!el.videoWidth || !el.videoHeight) return;
+      const videoPortrait = el.videoHeight > el.videoWidth, tilePortrait = tile.clientHeight > tile.clientWidth;
+      setFit(videoPortrait === tilePortrait ? "cover" : "contain");
+    };
+    el.addEventListener("resize", el.onloadedmetadata = decide);
+    const ro = new ResizeObserver(decide); ro.observe(tile);
+    return () => { el.removeEventListener("resize", decide); ro.disconnect(); };
+  }, []);
   useEffect(() => {
     const el = v.current;
     if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); }
@@ -569,7 +584,7 @@ function Tile({ stream, state, name, p }: { stream: MediaStream; state?: PeerSta
   const show = flowing && (state ? (state.share || (state.cam && !stalled)) : !stalled);
   return (
     <div className={`tile-v ${state?.share ? "sharing" : ""}`}>
-      <video ref={v} autoPlay playsInline muted={false} style={{ opacity: show ? 1 : 0 }} />
+      <video ref={v} autoPlay playsInline muted={false} style={{ opacity: show ? 1 : 0, objectFit: state?.share ? "contain" : fit }} />
       {!show && <div className="tile-av"><Avatar p={p} size={88} /></div>}
       <span className="tile-name">{state && !state.mic && <MicOff size={13} />}{name}</span>
     </div>
