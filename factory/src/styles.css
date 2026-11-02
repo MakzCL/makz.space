@@ -143,14 +143,18 @@ p { margin: 0; }
 
 /* ------------------------------------------------------------------ shell */
 .app { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; max-width: 720px; margin: 0 auto; }
-.top { display: flex; align-items: center; justify-content: space-between; padding: calc(0.8rem + var(--safe-t)) 1.25rem 0.7rem; transition: background 0.25s; }
-.top.scrolled { background: var(--bg); box-shadow: 0 1px 0 var(--line); }
+/* Header floats over the scroll area: hides on scroll down, returns on scroll up. */
+.app { --head-h: 66px; }
+.top { position: absolute; z-index: 15; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: calc(0.8rem + var(--safe-t)) 1.25rem 0.7rem; transition: background 0.25s, box-shadow 0.25s, transform 0.3s cubic-bezier(.2,.8,.2,1); }
+.top.scrolled { background: var(--bg); box-shadow: 0 1px 0 var(--line), 0 8px 20px rgba(3, 5, 22, 0.25); }
+.top.hide { transform: translateY(-110%); }
 .brand { display: flex; align-items: center; gap: 0.75rem; }
 .sk-logo { display: block; }
 .brand-txt b { display: block; font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
 .brand-txt small { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--muted); }
 .me-btn { border-radius: 50%; }
-.scroller { position: relative; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0.3rem 1.25rem calc(var(--nav-h) + var(--safe-b) + 1.6rem); -webkit-overflow-scrolling: touch; }
+.scroller { position: relative; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: calc(var(--head-h) + var(--safe-t)) 1.25rem calc(var(--nav-h) + var(--safe-b) + 1.6rem); -webkit-overflow-scrolling: touch; }
 .scroller::-webkit-scrollbar { width: 0; }
 .page { display: flex; flex-direction: column; gap: 1.2rem; padding-top: 0.3rem; }
 .back { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); font-weight: 500; margin: 0 0 0.7rem; }
@@ -910,9 +914,14 @@ p { margin: 0; }
 @media (min-width: 1024px) {
   :root { --rail: 248px; }
   .app { max-width: none; margin: 0; padding-left: calc(var(--rail) + 24px); }
-  .top { max-width: 1180px; width: 100%; margin: 0 auto; padding: 1.1rem 2rem 0.8rem; }
-  .top .brand { visibility: hidden; }
-  .scroller { padding: 0.3rem 2rem 3rem; }
+  /* Desktop: the header is a small notch hanging from the top-right with Activity + profile. */
+  .app { --head-h: 74px; }
+  .top { left: auto; right: 2rem; width: auto; margin: 0; padding: 0.55rem 0.65rem 0.6rem 0.75rem; background: var(--surface);
+    border-radius: 0 0 24px 24px; box-shadow: var(--shadow), 0 6px 20px rgba(3, 5, 22, 0.18); }
+  .top.scrolled { background: var(--surface); }
+  .top.hide { transform: none; }
+  .top .brand { display: none; }
+  .scroller { padding: var(--head-h) 2rem 3rem; }
   .scroller > div, .scroller > .full-loader { max-width: 1180px; margin: 0 auto; }
   .nav { left: 16px; top: 16px; bottom: 16px; right: auto; width: var(--rail); height: auto; max-width: none; margin: 0;
     display: flex; flex-direction: column; gap: 0.25rem; padding: 1.1rem 0.8rem; border-radius: 28px; box-shadow: var(--shadow); }

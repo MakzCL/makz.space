@@ -29,10 +29,10 @@ export const tabLabel = (tab: Tab) => t(LABEL[tab]);
 
 export function Background() { return <div className="bg" aria-hidden />; }
 
-export function Header({ onProfile, scrolled, extra }: { onProfile: () => void; scrolled: boolean; extra?: ReactNode }) {
+export function Header({ onProfile, scrolled, hidden, extra }: { onProfile: () => void; scrolled: boolean; hidden?: boolean; extra?: ReactNode }) {
   const { me } = useStore();
   return (
-    <header className={`top ${scrolled ? "scrolled" : ""}`}>
+    <header className={`top ${scrolled ? "scrolled" : ""} ${hidden ? "hide" : ""}`}>
       <div className="brand">
         <Logo size={22} />
         <div className="brand-txt">

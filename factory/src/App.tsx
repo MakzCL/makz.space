@@ -96,6 +96,17 @@ function Main({ signOut }: { signOut: () => void }) {
   const [personId, setPersonId] = useState<string | null>(null);
   const [reportFor, setReportFor] = useState<Job | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [headHidden, setHeadHidden] = useState(false);
+  const lastY = useRef(0);
+  // Header hides while scrolling down, comes back on any scroll up (and near the top).
+  const onScroll = (y: number) => {
+    setScrolled(y > 24);
+    const d = y - lastY.current;
+    if (y < 60) setHeadHidden(false);
+    else if (d > 6) setHeadHidden(true);
+    else if (d < -6) setHeadHidden(false);
+    lastY.current = y;
+  };
   const [online, setOnline] = useState(navigator.onLine);
   const scroller = useRef<HTMLElement>(null);
   const mine = useMine();
@@ -141,7 +152,7 @@ function Main({ signOut }: { signOut: () => void }) {
   const go = (t: Tab) => {
     if (!tabs.includes(t)) t = t === "issues" || t === "time" || (t === "stock" && desktop) ? t : "home";
     setDir(tabs.indexOf(t) >= tabs.indexOf(tab) ? 1 : -1);
-    setProfile(false); setTab(t);
+    setProfile(false); setTab(t); setHeadHidden(false);
     scroller.current?.scrollTo({ top: 0 });
   };
 
@@ -181,8 +192,8 @@ function Main({ signOut }: { signOut: () => void }) {
   return (
     <div className="app">
       <OfflineBar online={online} />
-      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} extra={<BellButton onOpen={openLink} />} />
-      <main ref={scroller} className="scroller" onScroll={(e) => setScrolled((e.target as HTMLElement).scrollTop > 24)}>
+      <Header onProfile={() => { setProfile(!profile); scroller.current?.scrollTo({ top: 0 }); }} scrolled={scrolled} hidden={headHidden} extra={<BellButton onOpen={openLink} />} />
+      <main ref={scroller} className="scroller" onScroll={(e) => onScroll((e.target as HTMLElement).scrollTop)}>
         {!ready ? <FullLoader label={t("Syncing the floor…")} /> : (
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>
             <motion.div key={page} custom={dir}
