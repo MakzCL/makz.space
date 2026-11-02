@@ -18,9 +18,9 @@ export const K_VIEWBOX = "86 60 614 358";
 
 /** Kimera runs on kimera.makz.space (or /kimera): loaders and splash use the K there. */
 export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
-export interface Mark { paths: string[]; viewBox: string; ratio: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
-export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
-export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, fill: "url(#k-grad)", hi: "#e7a3ff", from: [], origin: "390px 240px" };
+export interface Mark { paths: string[]; viewBox: string; ratio: number; /** viewBox height ÷ drawn mark height */ pad: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
+export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, pad: 368 / 347, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
+export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, pad: 358 / 346, fill: "url(#k-grad)", hi: "#e7a3ff", from: [], origin: "390px 240px" };
 
 export function Logo({ size = 44, className = "" }: { size?: number; className?: string }) {
   return (
@@ -55,7 +55,11 @@ export function KLogo({ size = 24, className = "" }: { size?: number; className?
   );
 }
 
-export function AssemblingLogo({ size = 96, delay = 0, mark = MARK }: { size?: number; delay?: number; mark?: Mark }) {
+/**
+ * The mark assembling. `burst`: it starts already assembled in place (matching the
+ * phone's launch screen), then the pieces kick out a little and lock back together.
+ */
+export function AssemblingLogo({ size = 96, delay = 0, mark = MARK, burst = false }: { size?: number; delay?: number; mark?: Mark; burst?: boolean }) {
   const SK_PATHS = mark.paths, FROM = mark.from;
   return (
     <svg viewBox={mark.viewBox} width={size * mark.ratio} height={size} className="sk-logo" style={{ overflow: "visible" }}>
@@ -72,9 +76,13 @@ export function AssemblingLogo({ size = 96, delay = 0, mark = MARK }: { size?: n
         {SK_PATHS.map((d, i) => (
           <motion.path
             key={d} d={d} fill={mark.fill}
-            initial={{ ...FROM[i], opacity: 0, scale: 0.6 }}
-            animate={{ x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 140, damping: 16, mass: 0.9, delay: delay + i * 0.09 }}
+            initial={burst ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 } : { ...FROM[i], opacity: 0, scale: 0.6 }}
+            animate={burst
+              ? { x: [0, FROM[i]!.x * 0.16, 0], y: [0, FROM[i]!.y * 0.16, 0], rotate: [0, FROM[i]!.rotate * 0.45, 0], scale: [1, 0.9, 1] }
+              : { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 }}
+            transition={burst
+              ? { duration: 0.75, times: [0, 0.42, 1], ease: [0.3, 0, 0.2, 1], delay: delay + i * 0.05 }
+              : { type: "spring", stiffness: 140, damping: 16, mass: 0.9, delay: delay + i * 0.09 }}
             style={{ transformOrigin: mark.origin }}
           />
         ))}

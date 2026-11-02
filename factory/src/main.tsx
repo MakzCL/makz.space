@@ -24,3 +24,6 @@ createRoot(document.getElementById("root")!).render(<StrictMode><ErrorBoundary p
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
+
+// If no splash runs (e.g. reopened in the same session), clear the static launch frame once the app has drawn.
+setTimeout(() => document.getElementById("boot")?.remove(), 1500);

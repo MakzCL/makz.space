@@ -1128,3 +1128,10 @@ p { margin: 0; }
 .is-kimera .btn.primary { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); border-color: transparent; }
 .is-kimera .k-nav button em, .is-kimera .splash-bar i { background: linear-gradient(90deg, var(--k-accent), var(--k-berry)); }
 .is-kimera .tri > div.hl { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); }
+/* Splash hand-off from the phone's launch screen: everything pinned to the exact centre. */
+.splash.handoff { display: block; }
+.splash.handoff .splash-disc { margin: -190px 0 0 -190px; }
+.handoff-tile { position: absolute; left: 50%; top: 50%; border-radius: 28%; z-index: 1; }
+.handoff-mark { position: absolute; left: 0; right: 0; top: 50%; display: flex; justify-content: center; }
+.splash.handoff .splash-word { position: absolute; left: 0; right: 0; text-align: center; }
+.splash.handoff .splash-bar { position: absolute; left: 0; right: 0; margin: 0 auto; }

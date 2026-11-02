@@ -16,9 +16,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>html,body{background:#0b1033;margin:0}</style>
+    <style>html,body{background:#0b1033;margin:0}
+      /* Installed phone app: hold Android's launch-screen frame (icon, 65.5% wide, centred)
+         from the very first paint until the animated splash takes over. */
+      #boot{display:none}
+      @media (display-mode: standalone) and (max-width: 699px){#boot{display:block;position:fixed;inset:0;z-index:200;background:#0b1033;pointer-events:none}
+        #boot img{position:absolute;left:50%;top:50%;width:65.5vmin;height:65.5vmin;transform:translate(-50%,-50%);border-radius:28%}}</style>
   </head>
   <body>
+    <div id="boot"><img alt="" src="/icon-maskable-512.png" /></div>
+    <script>if(/^kimera\./.test(location.hostname)||location.pathname.indexOf("/kimera")===0)document.querySelector("#boot img").src="/kimera-maskable-512.png"</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
