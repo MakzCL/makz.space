@@ -44,6 +44,12 @@ export function useKimera() {
       /** Move an order / make-to-stock MO to just before another (null = to the end). */
       setRank: (kind: "order" | "job", id: string, before: string | null) =>
         run(() => B.rpc<number>("set_rank", { p_kind: kind, p_id: id, p_before: before }), kind === "order" ? ["orders"] : ["jobs"]),
+      pickMo: (id: string, lines: { item: string; qty: number }[] | null, key = opKey()) =>
+        run(() => B.rpc<number>("pick_mo", { p_job: id, p_lines: lines, p_key: key }), ["mo_materials", "stock_levels", "stock_items", "stock_movements"], t("Materials picked")),
+      produceMo: (id: string, qty: number, actual: Record<string, number> | null, key = opKey()) =>
+        run(() => B.rpc<string>("produce_mo", { p_job: id, p_qty: qty, p_actual: actual, p_key: key }), ["jobs", "mo_materials", "stock_levels", "stock_items", "stock_movements"], t("Production booked")),
+      returnMo: (id: string, key = opKey()) =>
+        run(() => B.rpc<number>("return_mo_materials", { p_job: id, p_lines: null, p_key: key }), ["mo_materials", "stock_levels", "stock_items", "stock_movements"], t("Unused materials back on the shelf")),
       convertQuote: (id: string) => run(() => B.rpc<string>("convert_quote", { p_order: id }), ["orders"], t("Quote turned into a sales order")),
       updateJob: (id: string, patch: Partial<Job>) => run(() => B.update("jobs", id, patch), ["jobs"]),
       deleteJob: (id: string) => run(() => B.remove("jobs", id), ["jobs"], t("Deleted")),

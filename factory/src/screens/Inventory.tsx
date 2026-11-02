@@ -21,7 +21,7 @@ const KIND: Record<ItemKind, string> = { product: "Product", material: "Material
 export const kindLabel = (k: ItemKind) => t(KIND[k]);
 const REASON: Record<MoveReason, string> = {
   adjust: "Adjustment", count: "Stocktake", receive: "Received", consume: "Used in job", produce: "Made", import: "Import", opening: "Opening stock",
-  ship: "Shipped", return: "Returned", transfer: "Transfer",
+  ship: "Shipped", return: "Returned", transfer: "Transfer", pick: "Picked for production",
 };
 
 /**

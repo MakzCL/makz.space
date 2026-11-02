@@ -143,6 +143,8 @@ export interface Job {
   order_line_id: string | null;
   /** Production location (null = default). */
   location_id: string | null;
+  /** Quantity completed so far (partial completions). */
+  produced: number;
   /** Make-to-stock priority (make-to-order MOs follow their sales order). */
   rank: number | null;
 }
@@ -278,7 +280,7 @@ export interface AuditEntry {
 export interface Location {
   id: string;
   name: string;
-  kind: "warehouse" | "production" | "partner" | "transit";
+  kind: "warehouse" | "production" | "partner" | "transit" | "wip";
   address: string;
   is_default: boolean;
   archived: boolean;
@@ -311,6 +313,14 @@ export interface TransferLine {
   item_id: string;
   quantity: number;
   created_at: string;
+}
+/** Materials picked to the production floor for one MO. On floor = picked − used_from_wip − returned. */
+export interface MoMaterial {
+  job_id: string;
+  item_id: string;
+  picked: number;
+  used_from_wip: number;
+  returned: number;
 }
 export type KimeraSection = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings" | "costs";
 export interface KimeraAccess {
@@ -477,7 +487,7 @@ export interface PoLine {
   created_at: string;
 }
 
-export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return" | "transfer";
+export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return" | "transfer" | "pick";
 
 export interface StockMovement {
   id: string;
@@ -564,6 +574,7 @@ export interface Tables {
   stock_levels: StockLevel;
   stock_transfers: StockTransfer;
   transfer_lines: TransferLine;
+  mo_materials: MoMaterial;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -587,7 +598,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

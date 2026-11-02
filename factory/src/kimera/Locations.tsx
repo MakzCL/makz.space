@@ -10,7 +10,7 @@ import type { Location, StockTransfer } from "../lib/types";
 import { ItemPicker, fmtQty } from "../screens/Inventory";
 import { shortDate } from "./kit";
 
-const KIND_LABEL: Record<Location["kind"], string> = { warehouse: "Warehouse", production: "Production site", partner: "Partner / contractor", transit: "In transit" };
+const KIND_LABEL: Record<Location["kind"], string> = { warehouse: "Warehouse", production: "Production site", partner: "Partner / contractor", transit: "In transit", wip: "Production floor" };
 
 export { LocationSelect, placeList } from "../components/LocationSelect";
 import { placeList } from "../components/LocationSelect";
@@ -25,7 +25,7 @@ export function LocationsSettings() {
     setErr("");
     try { await fn(); await refresh("locations"); return true; } catch (e) { setErr(e instanceof Error ? t(e.message) : String(e)); return false; }
   };
-  const locs = db.locations.filter((l) => l.kind !== "transit").sort((a, b) => Number(a.archived) - Number(b.archived) || Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
+  const locs = db.locations.filter((l) => l.kind !== "transit" && l.kind !== "wip").sort((a, b) => Number(a.archived) - Number(b.archived) || Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
   const qtyAt = (id: string) => db.stock_levels.filter((s) => s.location_id === id && s.quantity !== 0).length;
   return (
     <div className="stack" style={{ maxWidth: 760 }}>

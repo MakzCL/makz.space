@@ -4,7 +4,7 @@ import { useStore } from "../lib/store";
 import type { Location } from "../lib/types";
 
 /** Real places stock can be (the In-transit location is internal and hidden here). */
-export const placeList = (locs: Location[]) => locs.filter((l) => l.kind !== "transit" && !l.archived).sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
+export const placeList = (locs: Location[]) => locs.filter((l) => l.kind !== "transit" && l.kind !== "wip" && !l.archived).sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
 
 /** Location select; empty value = the default location. */
 export function LocationSelect({ value, onChange, disabled, label }: { value: string | null; onChange: (id: string | null) => void; disabled?: boolean; label?: string }) {
