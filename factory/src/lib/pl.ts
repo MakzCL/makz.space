@@ -668,7 +668,7 @@ export const PL: Record<string, string> = {
   "Remove photo": "Usuń zdjęcie",
   "Without a photo your initials are shown.": "Bez zdjęcia wyświetlane są Twoje inicjały.",
   "Keep ready (automatic builds)": "Utrzymuj gotowe (automatyczna produkcja)",
-  "When fewer than this are on the shelf or being built, a make-to-stock job is raised for the crew — e.g. always one frame ready upstairs. 0 = off.": "Gdy na półce lub w produkcji jest mniej niż tyle, zespół dostaje zlecenie na magazyn — np. zawsze jedna rama gotowa na górze. 0 = wyłączone.",
+  "When fewer than this are on the shelf or being built, a make-to-stock job is raised for the crew — e.g. always one frame ready upstairs. 0 = off.": "Gdy na półce lub w produkcji jest mniej niż tyle, zespół dostaje zlecenie na magazyn — np. zawsze jedna obudowa gotowa na górze. 0 = wyłączone.",
   "Keep at least": "Utrzymuj co najmniej",
   "Build in batches of": "Produkuj partiami po",
   "Kept ready": "Utrzymywane w gotowości",
@@ -698,7 +698,7 @@ export const PL: Record<string, string> = {
   "Booked to stock": "Zaksięgowano na stanie",
   "Used": "Zużyto",
   "Sub-assemblies to build": "Podzespoły do zbudowania",
-  "Short parts you make yourselves (they have a recipe) — e.g. frames. Building them takes their own materials off stock.": "Brakujące części, które robicie sami (mają recepturę) — np. ramy. Ich budowa zdejmuje ze stanu ich własne materiały.",
+  "Short parts you make yourselves (they have a recipe) — e.g. frames. Building them takes their own materials off stock.": "Brakujące części, które robicie sami (mają recepturę) — np. obudowy. Ich budowa zdejmuje ze stanu ich własne materiały.",
   "Being built": "W budowie",
   "Build": "Zbuduj",
 };
