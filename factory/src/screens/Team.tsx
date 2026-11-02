@@ -241,7 +241,7 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
                   <Btn small tone="primary" onClick={() => a.endShiftFor(openShift)}>{t("End shift now")}</Btn>
                 </div>
               )}
-              <div className="row gap wrap">
+              <div className="row gap wrap missed-row">
                 <input type="date" value={missed.day} max={ymd(new Date())} onChange={(e) => setMissed({ ...missed, day: e.target.value })} aria-label={t("Date")} />
                 <input type="time" value={missed.cin} onChange={(e) => setMissed({ ...missed, cin: e.target.value })} aria-label={t("Clock in")} />
                 <input type="time" value={missed.cout} onChange={(e) => setMissed({ ...missed, cout: e.target.value })} aria-label={t("Clock out")} />
