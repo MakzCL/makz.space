@@ -1,4 +1,4 @@
-import type { Role } from "./types";
+import type { KimeraSection, Role } from "./types";
 
 export type Tab = "home" | "jobs" | "chat" | "time" | "team" | "requests" | "insights" | "issues" | "stock";
 
@@ -42,3 +42,20 @@ export const can = {
   /** Roles this admin may give: owner, managers and office; only the owner hands out or takes away Owner. */
   assignRoles: (r: Role): Role[] => isOwner(r) ? ROLE_ORDER : (r === "manager" || r === "office") ? ROLE_ORDER.filter((x) => !isOwner(x)) : [],
 };
+
+/** Kimera sections, in menu order. */
+export const KIMERA_SECTIONS: KimeraSection[] = ["sell", "make", "buy", "stock", "items", "plan", "tickets", "insights", "settings"];
+/** Used until the owner saves a choice (matches the database seed). */
+export const KIMERA_DEFAULT: Record<Role, KimeraSection[]> = {
+  developer: KIMERA_SECTIONS, boss: KIMERA_SECTIONS,
+  manager: KIMERA_SECTIONS, office: KIMERA_SECTIONS,
+  assistant: ["sell", "make", "buy", "stock", "items", "plan", "tickets"],
+  support: ["sell", "make", "buy", "stock", "items", "plan", "tickets"],
+  operator: [],
+};
+/** What this role may open in Kimera. Owner and Developer always see everything. */
+export function kimeraSections(role: Role, rows: { role: Role; sections: KimeraSection[] }[]): KimeraSection[] {
+  if (isOwner(role)) return KIMERA_SECTIONS;
+  const row = rows.find((r) => r.role === role);
+  return row ? KIMERA_SECTIONS.filter((x) => row.sections.includes(x)) : KIMERA_DEFAULT[role];
+}

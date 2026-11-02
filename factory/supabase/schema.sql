@@ -3125,3 +3125,67 @@ begin
 end $$;
 revoke all on function public.recent_activity(text, text, int) from public, anon;
 grant execute on function public.recent_activity(text, text, int) to authenticated;
+
+-- ============================================================================
+-- Kimera section access (Settings → Access): the owner decides which Kimera
+-- sections each role sees. Owner and Developer always see everything.
+-- ============================================================================
+create table if not exists public.kimera_access (
+  role public.staff_role primary key,
+  sections text[] not null default '{}'
+    check (sections <@ array['sell','make','buy','stock','items','plan','tickets','insights','settings']::text[]),
+  updated_by uuid,
+  updated_at timestamptz not null default now()
+);
+insert into public.kimera_access (role, sections) values
+  ('manager',   array['sell','make','buy','stock','items','plan','tickets','insights','settings']),
+  ('office',    array['sell','make','buy','stock','items','plan','tickets','insights','settings']),
+  ('assistant', array['sell','make','buy','stock','items','plan','tickets']),
+  ('support',   array['sell','make','buy','stock','items','plan','tickets']),
+  ('operator',  array[]::text[])
+on conflict (role) do nothing;
+alter table public.kimera_access enable row level security;
+drop policy if exists "staff read access" on public.kimera_access;
+drop policy if exists "owner sets access" on public.kimera_access;
+create policy "staff read access" on public.kimera_access for select to authenticated using (public.is_active());
+create policy "owner sets access" on public.kimera_access for all to authenticated
+  using (public.my_role() in ('boss','developer')) with check (public.my_role() in ('boss','developer') and role not in ('boss','developer'));
+
+create or replace function public.stamp_kimera_access() returns trigger
+language plpgsql set search_path = public as $$
+begin new.updated_by := auth.uid(); new.updated_at := now(); return new; end $$;
+drop trigger if exists stamp_kimera_access on public.kimera_access;
+create trigger stamp_kimera_access before insert or update on public.kimera_access for each row execute function public.stamp_kimera_access();
+drop trigger if exists audit_row on public.kimera_access;
+create trigger audit_row after insert or update or delete on public.kimera_access for each row execute function public.audit_row();
+
+-- Sections the signed-in person may open (owner-level: all).
+create or replace function public.my_kimera_sections() returns text[]
+language sql stable security definer set search_path = public as $$
+  select case when public.my_role() in ('boss','developer') then array['sell','make','buy','stock','items','plan','tickets','insights','settings']
+              else coalesce((select sections from public.kimera_access where role = public.my_role()), '{}') end
+$$;
+revoke all on function public.my_kimera_sections() from public, anon;
+grant execute on function public.my_kimera_sections() to authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'kimera_access') then
+    alter publication supabase_realtime add table public.kimera_access;
+  end if;
+end $$;
+
+create or replace function public.set_kimera_access(p_role public.staff_role, p_sections text[]) returns text[]
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(public.my_role() not in ('boss','developer'), true) or not public.is_active() then
+    raise exception 'Only the owner can change who sees what';
+  end if;
+  if p_role in ('boss','developer') then raise exception 'Owner and Developer always see everything'; end if;
+  insert into public.kimera_access (role, sections) values (p_role, coalesce(p_sections, '{}'))
+  on conflict (role) do update set sections = excluded.sections;
+  return p_sections;
+end $$;
+revoke all on function public.set_kimera_access(public.staff_role, text[]) from public, anon;
+grant execute on function public.set_kimera_access(public.staff_role, text[]) to authenticated;

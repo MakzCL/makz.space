@@ -669,6 +669,20 @@ select pg_temp.expect_fail($$update public.profiles set role = 'operator' where 
 select pg_temp.become(:'B');
 update public.profiles set role = :'a1role' where id = :'A1';
 
+-- Kimera section access: owner decides, others only read
+select pg_temp.become(:'B');
+select pg_temp.check('insights' = any(public.my_kimera_sections()) and cardinality(public.my_kimera_sections()) = 9, 'owner sees every Kimera section');
+select pg_temp.check((select not ('insights' = any(sections)) and 'tickets' = any(sections) from public.kimera_access where role = 'support'), 'support: everything + tickets, no insights by default');
+select public.set_kimera_access('support', array['tickets']);
+select pg_temp.check((select sections = array['tickets'] from public.kimera_access where role = 'support'), 'owner changes what support sees');
+select pg_temp.expect_fail($$update public.kimera_access set sections = array['nope'] where role = 'support'$$, 'unknown section name');
+select pg_temp.expect_fail($$insert into public.kimera_access (role, sections) values ('boss', '{}')$$, 'locking the owner out');
+select pg_temp.become(:'A2');
+update public.kimera_access set sections = array['insights'] where role = 'operator';
+select pg_temp.check((select not ('insights' = any(sections)) from public.kimera_access where role = 'operator'), 'operator cannot grant themselves insights (RLS: 0 rows)');
+select pg_temp.check(not ('insights' = any(public.my_kimera_sections())), 'operator sections come from the table');
+select pg_temp.expect_fail($$select public.set_kimera_access('operator', array['insights'])$$, 'operator changes section access');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

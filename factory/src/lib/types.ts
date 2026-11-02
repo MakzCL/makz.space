@@ -266,6 +266,13 @@ export interface AuditEntry {
   action: "insert" | "update" | "delete";
   changes: Record<string, unknown>;
 }
+export type KimeraSection = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings";
+export interface KimeraAccess {
+  role: Role;
+  sections: KimeraSection[];
+  updated_by: string | null;
+  updated_at: string;
+}
 export interface CompanySettings {
   id: number;
   base_currency: string;
@@ -501,6 +508,7 @@ export interface Tables {
   customers: Customer;
   tax_rates: TaxRate;
   item_suppliers: ItemSupplier;
+  kimera_access: KimeraAccess;
   issue_comments: IssueComment;
   job_steps: JobStep;
   suppliers: Supplier;
@@ -524,7 +532,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

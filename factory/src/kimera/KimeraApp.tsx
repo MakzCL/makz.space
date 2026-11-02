@@ -5,11 +5,11 @@ import { Avatar } from "../components/Avatar";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { FullLoader } from "../components/Loader";
 import { ToastProvider } from "../components/Toast";
-import { Btn, LangSwitch } from "../components/ui";
+import { Btn, Empty, LangSwitch } from "../components/ui";
 import { createBackend, type Backend } from "../lib/backend";
 import { t } from "../lib/i18n";
 import { setPrefs, usePrefs } from "../lib/prefs";
-import { ROLE_META, can } from "../lib/roles";
+import { ROLE_META, can, kimeraSections } from "../lib/roles";
 import { StoreProvider, useHasStore, useStore } from "../lib/store";
 import { HistoryView, ImportSheet, ItemsView, RecipesView, stockLevels } from "../screens/Inventory";
 import { Login } from "../screens/Login";
@@ -75,12 +75,13 @@ function Gate({ signOut }: { signOut: () => void }) {
 }
 
 function Access({ signOut }: { signOut: () => void }) {
-  const { me } = useStore();
-  if (!me.active || !can.editStock(me.role)) {
+  const { me, db } = useStore();
+  if (!me.active || kimeraSections(me.role, db.kimera_access).length === 0) {
     return (
       <div className="k-locked">
         <KLogo size={48} />
-        <h2>{t("Kimera is for the office team")}</h2>
+        <h2>{t("Kimera is not open for your role yet")}</h2>
+        <p className="muted">{t("The owner can give your role access in Kimera → Settings → Access.")}</p>
         <p className="muted">{t("Your jobs, chat and clock-in live in the Factory app.")}</p>
         <a className="btn primary" href={FACTORY_URL}>{t("Open Factory")}</a>
         <button type="button" className="link center" onClick={signOut}>{t("Sign out")}</button>
@@ -113,10 +114,13 @@ function Shell({ signOut }: { signOut: () => void }) {
   const [routes, setRoutes] = useState(false);
   const [jobPeek, setJobPeek] = useState<string | null>(null);
   const main = useRef<HTMLElement>(null);
+  // Section access is chosen by the owner in Settings → Access (Owner/Developer always see all).
+  const allowed = kimeraSections(me.role, db.kimera_access) as Tab[];
+  const cur: Tab | null = allowed.includes(tab) ? tab : allowed[0] ?? null;
 
   const go = (x: Tab) => { setTab(x); setMenu(null); history.replaceState(null, "", `#${x}`); main.current?.scrollTo({ top: 0 }); };
   useEffect(() => { const f = () => setTab(readHash()); window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); }, []);
-  useEffect(() => { document.title = `Kimera · ${t(NAV.find((n) => n.v === tab)!.label)}`; }, [tab]);
+  useEffect(() => { document.title = `Kimera · ${t(NAV.find((n) => n.v === (cur ?? "sell"))!.label)}`; }, [cur]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest(".k-menu-wrap")) setMenu(null); };
@@ -133,7 +137,11 @@ function Shell({ signOut }: { signOut: () => void }) {
   const admin = can.admin(me.role);
 
   const screen = (() => {
-    switch (tab) {
+    if (!cur) return (
+      <div className="k-page"><Empty icon={<Boxes size={28} />} title={t("No Kimera sections for your role yet")}
+        hint={t("Ask the owner to give your role access in Kimera → Settings → Access.")} /></div>
+    );
+    switch (cur) {
       case "sell": return <Sell openId={order} onOpen={setOrder} kind={sellKind} setKind={setSellKind} creating={newOrder} setCreating={setNewOrder} />;
       case "make": return <Make openId={mo} onOpen={setMo} onOrder={(id) => { setMo(null); openOrder(id); }} creating={newMo} setCreating={setNewMo} />;
       case "buy": return (
@@ -171,10 +179,10 @@ function Shell({ signOut }: { signOut: () => void }) {
       <header className="k-top">
         <a className="k-brand" href="#sell" onClick={(e) => { e.preventDefault(); go("sell"); }}><SkKimera /></a>
         <nav className="k-nav" aria-label={t("Sections")}>
-          {NAV.filter((n) => n.v !== "settings" || admin).map((n) => (
-            <button type="button" key={n.v} className={tab === n.v ? "on" : ""} aria-current={tab === n.v ? "page" : undefined} onClick={() => go(n.v)}>
+          {NAV.filter((n) => allowed.includes(n.v)).map((n) => (
+            <button type="button" key={n.v} className={cur === n.v ? "on" : ""} aria-current={cur === n.v ? "page" : undefined} onClick={() => go(n.v)}>
               {n.icon}<span>{t(n.label)}</span>{badges[n.v] ? <i>{badges[n.v]}</i> : null}
-              {tab === n.v && <motion.em layoutId="k-nav-on" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
+              {cur === n.v && <motion.em layoutId="k-nav-on" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
             </button>
           ))}
         </nav>
@@ -184,10 +192,10 @@ function Shell({ signOut }: { signOut: () => void }) {
               <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setMenu(menu === "create" ? null : "create")}>{t("Create")}</Btn>
               <AnimatePresence>{menu === "create" && (
                 <motion.div className="k-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
-                  <button type="button" onClick={() => { setSellKind("order"); go("sell"); setNewOrder("order"); }}><Tag size={15} />{t("Sales order")}</button>
-                  <button type="button" onClick={() => { setSellKind("quote"); go("sell"); setNewOrder("quote"); }}><Tag size={15} />{t("Quote")}</button>
-                  <button type="button" onClick={() => { go("make"); setNewMo(true); }}><Factory size={15} />{t("Manufacturing order")}</button>
-                  <button type="button" onClick={() => { setBuyView("pos"); go("buy"); }}><ShoppingCart size={15} />{t("Purchase order")}</button>
+                  {allowed.includes("sell") && <button type="button" onClick={() => { setSellKind("order"); go("sell"); setNewOrder("order"); }}><Tag size={15} />{t("Sales order")}</button>}
+                  {allowed.includes("sell") && <button type="button" onClick={() => { setSellKind("quote"); go("sell"); setNewOrder("quote"); }}><Tag size={15} />{t("Quote")}</button>}
+                  {allowed.includes("make") && <button type="button" onClick={() => { go("make"); setNewMo(true); }}><Factory size={15} />{t("Manufacturing order")}</button>}
+                  {allowed.includes("buy") && <button type="button" onClick={() => { setBuyView("pos"); go("buy"); }}><ShoppingCart size={15} />{t("Purchase order")}</button>}
                 </motion.div>
               )}</AnimatePresence>
             </div>
@@ -208,8 +216,8 @@ function Shell({ signOut }: { signOut: () => void }) {
       </header>
       <main ref={main} className="k-main">
         {!ready ? <FullLoader label={t("Loading Kimera…")} /> : (
-          <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
-            <ErrorBoundary place={`kimera:${tab}`}>{screen}</ErrorBoundary>
+          <motion.div key={cur ?? "none"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+            <ErrorBoundary place={`kimera:${cur}`}>{screen}</ErrorBoundary>
           </motion.div>
         )}
       </main>
