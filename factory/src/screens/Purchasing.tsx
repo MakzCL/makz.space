@@ -118,6 +118,7 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
   const [cost, setCost] = useState("");
   const [pk, setPk] = useState(0);
   const [recv, setRecv] = useState<Record<string, string>>({});
+  const [lotIn, setLotIn] = useState<Record<string, { code: string; expiry: string }>>({});
   const [busy, setBusy] = useState("");
   // One idempotency key per line until that receipt succeeds: a double click or retry books once.
   const keys = useRef(new Map<string, string>());
@@ -137,7 +138,8 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
       over = true;
     }
     setBusy(l.id);
-    if (await a.receive(l, v, keyOf(l.id), over)) { keys.current.delete(l.id); setRecv((r) => { const n = { ...r }; delete n[l.id]; return n; }); }
+    const li = lotIn[l.id];
+    if (await a.receive(l, v, keyOf(l.id), over, li?.code.trim() || null, li?.expiry || null)) { keys.current.delete(l.id); setRecv((r) => { const n = { ...r }; delete n[l.id]; return n; }); setLotIn((r) => { const n = { ...r }; delete n[l.id]; return n; }); }
     setBusy("");
   };
   const receiveAll = async () => { setBusy("all"); for (const l of lines) if (l.quantity > l.received && await a.receive(l, l.quantity - l.received, keyOf(l.id))) keys.current.delete(l.id); setBusy(""); };
@@ -185,11 +187,18 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
                     <td className="num">{fmtCost(l.unit_cost === null ? null : l.quantity * l.unit_cost)}</td>
                     {!draft && <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.received)}
                       {editable && l.received > 0 && p.status !== "cancelled" && <button type="button" className="icon-btn subtle" disabled={!!busy} title={t("Reverse receipt")} aria-label={t("Reverse receipt")} onClick={() => reverse(l)}><Undo2 size={14} /></button>}</td>}
-                    {receiving && editable && <td className="num">{left > 0 ? (
+                    {receiving && editable && <td className="num">{left > 0 ? (<>
                       <span className="row gap-s end">
                         <input className="cell-input" inputMode="decimal" value={recv[l.id] ?? String(left)} onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
                         <Btn small tone="soft" busy={busy === l.id} disabled={!!busy} onClick={() => { const v = Number(cleanNumber(recv[l.id] ?? String(left))); if (v > 0) book(l, v); }}>{t("Book in")}</Btn>
-                      </span>) : <PackageCheck size={17} className="ok-t" />}</td>}
+                      </span>
+                      {it && it.tracking !== "none" && (
+                        <span className="row gap-s end k-lotin">
+                          <input className="cell-input" placeholder={it.tracking === "serial" ? t("Serial prefix") : t("Batch")} title={t("Leave empty to use the PO number")} value={lotIn[l.id]?.code ?? ""}
+                            onChange={(e) => setLotIn({ ...lotIn, [l.id]: { code: e.target.value, expiry: lotIn[l.id]?.expiry ?? "" } })} />
+                          <input className="cell-input" type="date" title={t("Expiry")} value={lotIn[l.id]?.expiry ?? ""}
+                            onChange={(e) => setLotIn({ ...lotIn, [l.id]: { code: lotIn[l.id]?.code ?? "", expiry: e.target.value } })} />
+                        </span>)}</>) : <PackageCheck size={17} className="ok-t" />}</td>}
                     {draft && editable && <td><button type="button" className="icon-btn subtle" onClick={() => a.removePoLine(l.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
                   </tr>
                 );

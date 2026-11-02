@@ -71,4 +71,8 @@ default shown in brackets. Every default can be changed later.
     *(Default: £0 until you enter them in Stations & routes and Settings → Company.)*
 27. **Over-consumption:** when the crew uses more material than the recipe (scrap, mistakes), should Kimera ask for a reason, or just record it?
     *(Default: just record it; the MO shows planned vs actual.)*
+28. **Serial number format:** finished pieces currently get the MO code plus a number (e.g. MO-1043-001), and received pieces get the batch/PO code plus a number. Do you have your own serial format (e.g. SK-A32X-2026-0001), or do you print serial plates?
+    *(Default: MO/PO code + running number.)*
+29. **Expired stock:** should Kimera refuse to use or ship expired batches, or only warn?
+    *(Default: warn only; the first-to-expire batch is used first.)*
 

@@ -6,6 +6,7 @@ import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet,
 import { opKey, useActions } from "../lib/actions";
 import { docOf, useDocLink } from "../lib/doclink";
 import { LocationSelect, placeList } from "../components/LocationSelect";
+import { ItemLots } from "./Lots";
 import { cleanNumber, download, guessColumns, parseCsv, toCsv } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { can, canSeeCosts } from "../lib/roles";
@@ -262,6 +263,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
               </div>
             )}
             <ItemLocations item={live} editable={editable} />
+            <ItemLots item={live} />
             {usedIn.length > 0 && <div className="card flat"><small className="label">{t("Used in")}</small><div className="chips">{usedIn.map((p) => <Badge key={p!.id}>{p!.sku} · {p!.name}</Badge>)}</div></div>}
             <div className="card flat">
               <small className="label"><History size={13} /> {t("History")}</small>
@@ -293,6 +295,9 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                 <option value="">—</option>{[...db.suppliers].sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
               <Field label={t("Supplier's code")}><input value={f.supplier_code ?? ""} onChange={(e) => setF({ ...f, supplier_code: e.target.value })} disabled={!editable} /></Field>
             </div>
+            <Field label={t("Tracking")} hint={f.tracking === "serial" ? t("One serial number per piece, from receipt or production to the customer.") : f.tracking === "batch" ? t("Batch code and expiry on every receipt; used first-expiry-first-out.") : undefined}>
+              <select value={f.tracking ?? "none"} onChange={(e) => setF({ ...f, tracking: e.target.value as StockItem["tracking"] })} disabled={!editable}>
+                <option value="none">{t("Not tracked")}</option><option value="batch">{t("Batches / lots")}</option><option value="serial">{t("Serial numbers")}</option></select></Field>
             <Field label={t("Barcode")}><input value={f.barcode ?? ""} inputMode="text" placeholder={t("Scan or type (EAN, UPC, Code-128…)")} onChange={(e) => setF({ ...f, barcode: e.target.value.trim() || null })} disabled={!editable} /></Field>
             {live && <SupplierRefs item={live} editable={editable} />}
             {!live && (
@@ -424,7 +429,7 @@ function MoveTable({ moves, showItem = true }: { moves: DB["stock_movements"]; s
                 {showItem && <td><span className="code">{it?.sku}</span> {it?.name}</td>}
                 <td className={`num ${m.delta < 0 ? "red-t" : "ok-t"}`}><b>{m.delta > 0 ? "+" : ""}{fmtQty(m.delta)}</b></td>
                 <td className="num muted">{fmtQty(m.after)}</td>
-                <td>{t(REASON[m.reason])}{m.note && <small className="muted"> · {m.note}</small>}</td>
+                <td>{t(REASON[m.reason])}{m.lot_id && <> <span className="code">{db.lots.find((l) => l.id === m.lot_id)?.code}</span></>}{m.note && <small className="muted"> · {m.note}</small>}</td>
                 <td className="muted">{(() => {
                   const d = open ? docOf(db, m) : null;
                   return d ? <button type="button" className="link code" onClick={() => open!(d)} title={t("Open")}>{m.ref || d.label}</button> : m.ref;

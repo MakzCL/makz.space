@@ -1157,3 +1157,7 @@ label.k-check input { width: auto; }
 .k-rank { display: inline-flex; align-items: center; gap: 0.1rem; margin-right: 0.3rem; }
 .k-rank .icon-btn { width: 22px; height: 22px; }
 .k-why { display: block; max-width: 260px; font-size: 0.72rem; line-height: 1.25; margin-top: 0.2rem; white-space: normal; }
+ul.trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+ul.trace li { display: block; line-height: 1.45; }
+ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
+.k-lotin { margin-top: 0.3rem; } .k-lotin input[type=date] { width: 140px; }

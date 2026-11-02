@@ -312,10 +312,10 @@ export function useActions() {
     async function removePoLine(id: string) {
       try { await B.remove("po_lines", id); await refresh("po_lines"); } catch (e) { fail(e); }
     }
-    async function receive(line: PoLine, qty: number, key: string = opKey(), over = false) {
+    async function receive(line: PoLine, qty: number, key: string = opKey(), over = false, lot: string | null = null, expiry: string | null = null) {
       try {
-        const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty, p_key: key, p_over: over });
-        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders")]);
+        const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty, p_key: key, p_over: over, p_lot: lot, p_expiry: expiry });
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("lots"), refresh("lot_levels")]);
         ok(t(r === "received" ? "Delivery received — PO complete" : "Delivery received"));
         return true;
       } catch (e) { fail(e); return false; }
