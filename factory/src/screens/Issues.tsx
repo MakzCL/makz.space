@@ -6,6 +6,7 @@ import { Badge, Btn, Chip, Empty, Field, Section, Segmented, Sheet, Toggle, item
 import { useActions, useMine } from "../lib/actions";
 import { can } from "../lib/roles";
 import { useStore } from "../lib/store";
+import { jobCode } from "./parts";
 import { t } from "../lib/i18n";
 import { Scene } from "../components/Scene";
 import { ago } from "../lib/time";
@@ -98,7 +99,7 @@ export function ReportSheet({ open, preset, onClose }: { open: boolean; preset: 
         <Field label={t("Linked job")}>
           <select value={f.job_id} onChange={(e) => setF({ ...f, job_id: e.target.value })}>
             <option value="">{t("General (not job-specific)")}</option>
-            {jobs.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.title}</option>)}
+            {jobs.map((j) => <option key={j.id} value={j.id}>{jobCode(j)} · {j.title}</option>)}
           </select>
         </Field>
         <Field label={t("What kind?")}><div className="chips">{CATS.map((c) => <Chip key={c.v} on={f.category === c.v} onClick={() => setF({ ...f, category: c.v })}>{c.icon}{t(c.label)}</Chip>)}</div></Field>

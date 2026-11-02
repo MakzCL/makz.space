@@ -25,6 +25,7 @@ import { Inventory } from "./screens/Inventory";
 import { ChatHub } from "./screens/Chat";
 import { CallProvider } from "./components/Calls";
 import { BellButton, useNotificationToasts } from "./components/Notifications";
+import { PermissionsPrompt } from "./components/Permissions";
 import { OnlineProvider, totalUnread, useConversations } from "./lib/comms";
 import type { NotifyLink } from "./lib/types";
 import { PersonSheet, Team } from "./screens/Team";
@@ -201,6 +202,7 @@ function Main({ signOut }: { signOut: () => void }) {
         onReport={(j) => { setJob(null); setReportFor(j); go("issues"); }} />
       <JobEditor open={!!editJob} job={editJob?.job ?? null} onClose={() => setEditJob(null)} />
       <PersonSheet id={personId} onClose={() => setPersonId(null)} />
+      <PermissionsPrompt />
     </div>
   );
 }

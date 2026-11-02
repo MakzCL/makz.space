@@ -158,8 +158,9 @@ select public.ingest_shopify_order($j${
   "shipping_address": {"first_name": "Ann", "last_name": "Pilot", "company": "Sim Co", "address1": "1 Runway Rd",
                        "city": "Leeds", "zip": "LS1 1AA", "country": "United Kingdom", "phone": "0113 000"},
   "shipping_lines": [{"title": "DPD Next Day"}],
+  "total_price": "1450.00", "currency": "GBP",
   "line_items": [
-    {"id": 9001, "title": "A32X Pedestal", "variant_title": "Amber LED / CS & FO sides", "sku": "SK-0123", "quantity": 2,
+    {"id": 9001, "title": "A32X Pedestal", "variant_title": "Amber LED / CS & FO sides", "sku": "SK-0123", "quantity": 2, "price": "650.00",
      "properties": [{"name": "Engraving", "value": "N123AB"}, {"name": "_hidden", "value": "x"}]},
     {"id": 9002, "title": "Throttle quadrant", "variant_title": null, "sku": "SK-0200", "quantity": 1},
     {"id": 9003, "title": "Gift card", "sku": "", "quantity": 1, "gift_card": true}
@@ -169,7 +170,8 @@ select id as job1 from public.jobs where shopify_line_id = 9001 \gset
 select pg_temp.check((select code = '#1043-1' and title = 'A32X Pedestal - Amber LED - CS & FO sides' and quantity = 2
   and customer = 'Ann Pilot' and sku = 'SK-0123' and description like 'Engraving: N123AB%' and description not like '%_hidden%'
   from public.jobs where id = :'job1'), 'job filled from the order line');
-select pg_temp.check((select o.order_number = '#1043' and o.company = 'Sim Co' and o.ship_to like '1 Runway Rd, Leeds%' and o.shipping_method = 'DPD Next Day'
+select pg_temp.check((select unit_price = 650 from public.jobs where id = :'job1'), 'line price stored');
+select pg_temp.check((select o.order_number = '#1043' and o.total_price = 1450 and o.company = 'Sim Co' and o.ship_to like '1 Runway Rd, Leeds%' and o.shipping_method = 'DPD Next Day'
   from public.orders o join public.jobs j on j.order_id = o.id where j.id = :'job1'), 'order keeps customer, ship-to and delivery');
 select pg_temp.check((select s.name = 'Metal works' and j.assignees = array[:'A2'::uuid] from public.jobs j join public.stations s on s.id = j.station_id where j.id = :'job1'),
   'job starts at the first station, assigned to its crew');
@@ -192,7 +194,14 @@ select pg_temp.check((select s.name = 'Quality check' and j.assignees = array[:'
 select public.complete_stage(:'job1');
 select pg_temp.check(public.complete_stage(:'job1') = 'done', 'packing is the last stage');
 select pg_temp.check((select status = 'done' and completed_at is not null from public.jobs where id = :'job1'), 'job is done after the last station');
-select pg_temp.check((select count(*) = 4 and count(distinct stage) = 4 from public.job_steps where job_id = :'job1'), 'every station''s completion is recorded');
+select pg_temp.check(public.previous_stage(:'job1') = 'Packing', 'manager sends a finished job back to packing');
+select pg_temp.check(public.previous_stage(:'job1') = 'Quality check', 'and back again to quality check');
+select pg_temp.check((select status = 'open' and stage = 2 and assignees = array[:'A1'::uuid] from public.jobs where id = :'job1'), 'sent-back job lands with that station''s crew');
+select public.complete_stage(:'job1'); select public.complete_stage(:'job1');
+select pg_temp.become(:'A2');
+select pg_temp.expect_fail($$select public.previous_stage((select id from public.jobs where shopify_line_id = 9002))$$, 'non-lead sends a job back');
+select pg_temp.become(:'A1');
+select pg_temp.check((select count(distinct stage) = 4 and count(*) = 6 from public.job_steps where job_id = :'job1'), 'every station''s completion is recorded (incl. redone after send-back)');
 select pg_temp.expect_fail($$select public.ingest_shopify_order('{}'::jsonb)$$, 'app users cannot inject orders');
 -- New station member picks up open jobs waiting there
 select pg_temp.become(null);

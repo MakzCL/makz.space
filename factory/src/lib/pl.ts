@@ -35,7 +35,7 @@ export const PL: Record<string, string> = {
   "Pause": "Wstrzymaj", "Hold to complete": "Przytrzymaj, by zakończyć", "Details": "Szczegóły", "Report issue": "Zgłoś problem",
   "Hold the red button to complete": "Przytrzymaj czerwony przycisk, by zakończyć", "You": "Ty", "Crew": "Ekipa",
   "Person-hours": "Roboczogodziny", "invited": "zaproszony", "Cancel invite": "Anuluj zaproszenie", "Invite": "Zaproś",
-  "They get an invite on their phone. Once they join, everyone's time is counted, so the boss sees the real crew size and person-hours.":
+  "They get an invite on their phone. Once they join, everyone's time is counted, so the owner sees the real crew size and person-hours.":
     "Dostaną zaproszenie na telefon. Po dołączeniu liczy się czas każdej osoby, więc szef widzi faktyczną wielkość ekipy i roboczogodziny.",
   "Search staff…": "Szukaj pracownika…", "Invite pending": "Zaproszenie wysłane", "On {code}": "Przy {code}",
   "Free · on shift": "Wolny · na zmianie", "Off shift": "Poza zmianą", "Send {n} invite(s)": "Wyślij zaproszenia ({n})",
@@ -504,4 +504,18 @@ export const PL: Record<string, string> = {
   "Search people and chats…": "Szukaj osób i czatów…", "New group chat": "Nowy czat grupowy", "Everyone at Skalarki": "Wszyscy w Skalarki", "Nobody found": "Nikogo nie znaleziono",
   "Allow the microphone to join calls — tap the lock icon by the address, or Settings → Apps → your browser → Permissions": "Zezwól na mikrofon, aby dołączać do rozmów — dotknij kłódki przy adresie albo Ustawienia → Aplikacje → przeglądarka → Uprawnienia", "Missed": "Nieodebrane",
   "This is taking longer than usual.": "Trwa to dłużej niż zwykle.", "Sign out and sign in again": "Wyloguj się i zaloguj ponownie",
+  "Owner": "Właściciel", "Ask the owner for a new link.": "Poproś właściciela o nowy link.",
+  "Order": "Zamówienie", "Price": "Cena", "Ship to": "Adres dostawy", "Delivery": "Dostawa", "Parts": "Części",
+  "Hold to send back to {station}": "Przytrzymaj, aby cofnąć do: {station}", "Sent back to {station}": "Cofnięto do: {station}",
+  "Set up this device": "Skonfiguruj to urządzenie",
+  "Allow these once so you get jobs, messages and calls straight away.": "Zezwól raz, aby od razu dostawać zlecenia, wiadomości i połączenia.",
+  "Notifications": "Powiadomienia",
+  "On iPhone: add the app to your Home Screen first (Share → Add to Home Screen)": "Na iPhonie: najpierw dodaj aplikację do ekranu początkowego (Udostępnij → Do ekranu początkowego)",
+  "Jobs given to you, messages, calls, meetings": "Przydzielone zlecenia, wiadomości, połączenia, spotkania",
+  "Microphone": "Mikrofon",
+  "Voice and video calls": "Rozmowy głosowe i wideo",
+  "Camera": "Kamera",
+  "Video calls and photos in chat": "Rozmowy wideo i zdjęcia w czacie",
+  "Something is blocked: open your browser's site settings for this app and set it to Allow.": "Coś jest zablokowane: otwórz ustawienia witryny w przeglądarce i ustaw Zezwalaj.",
+  "Allow": "Zezwól",
 };

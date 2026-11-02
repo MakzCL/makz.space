@@ -3,7 +3,7 @@ import type { Role } from "./types";
 export type Tab = "home" | "jobs" | "chat" | "time" | "team" | "requests" | "insights" | "issues" | "stock";
 
 export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: string; hue: string }> = {
-  boss:      { label: "Boss",      gateway: "Command",    blurb: "Full control, live floor, insights",   hue: "#ff4d4a" },
+  boss:      { label: "Owner",      gateway: "Command",    blurb: "Full control, live floor, insights",   hue: "#ff4d4a" },
   manager:   { label: "Manager",   gateway: "Floor lead", blurb: "Plan jobs, run the team, approve",      hue: "#ffb547" },
   office:    { label: "Office",    gateway: "Office",     blurb: "Timesheets, absences, stock, news",     hue: "#9b8cff" },
   assistant: { label: "Assistant", gateway: "Support",    blurb: "Jobs, stock keeping, help the line",    hue: "#4fd1ff" },

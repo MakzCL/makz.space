@@ -165,7 +165,7 @@ function Foreground({ kind }: { kind: SceneKind }) {
 
 /** Illustration with folder tabs cut into its lower edge. */
 export function SceneTabs<T extends string>({ kind, value, tabs, onChange, height = 180, title, sub, actions }: {
-  kind: SceneKind; value: T; tabs: { value: T; label: string }[]; onChange: (v: T) => void;
+  kind: SceneKind; value: T; tabs: { value: T; label: ReactNode; aria?: string }[]; onChange: (v: T) => void;
   height?: number; title?: ReactNode; sub?: ReactNode; actions?: ReactNode;
 }) {
   return (
@@ -176,7 +176,7 @@ export function SceneTabs<T extends string>({ kind, value, tabs, onChange, heigh
       </Scene>
       <div className="folder-tabs" role="tablist">
         {tabs.map((t) => (
-          <button key={t.value} role="tab" aria-selected={value === t.value} className={value === t.value ? "on" : ""} onClick={() => onChange(t.value)}>
+          <button key={t.value} role="tab" aria-selected={value === t.value} aria-label={t.aria} title={t.aria} className={value === t.value ? "on" : ""} onClick={() => onChange(t.value)}>
             {value === t.value && <motion.i layoutId={`ft-${kind}`} className="folder-on" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
             <span>{t.label}</span>
           </button>

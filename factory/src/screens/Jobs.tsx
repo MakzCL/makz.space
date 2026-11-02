@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
-  AlertTriangle, Check, Layers, Mail, MapPin, Pause, Pencil, Phone, Play, Plus, RotateCcw, Search, Settings2, ShoppingBag, Trash2, Truck, UserPlus, Users, X,
+  AlertTriangle, Check, Layers, Undo2, Mail, MapPin, Pause, Pencil, Phone, Play, Plus, RotateCcw, Search, Settings2, ShoppingBag, Trash2, Truck, UserPlus, Users, X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
@@ -12,7 +12,7 @@ import { can } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { clock, dayLabel, hm, human, jobStats, participantMs } from "../lib/time";
 import type { Job } from "../lib/types";
-import { InviteSheet, JobCard, STATUS, priorityLabel, statusLabel } from "./parts";
+import { InviteSheet, JobCard, STATUS, jobCode, priorityLabel, statusLabel } from "./parts";
 import { ProductionSheet } from "./Production";
 
 export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew: () => void }) {
@@ -34,7 +34,7 @@ export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew:
     .filter((j) => scope === "all" || j.assignees.includes(me.id) || (view === "done" && passedOn.has(j.id)))
     .filter((j) => status === "any" || j.status === status)
     .filter((j) => station === "any" || j.station_id === station)
-    .filter((j) => !q || `${j.code} ${j.title} ${j.customer} ${j.sku ?? ""}`.toLowerCase().includes(q.toLowerCase()))
+    .filter((j) => !q || `${j.code} ${jobCode(j)} ${j.title} ${j.customer} ${j.sku ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => view === "done"
       ? (b.completed_at ?? b.created_at).localeCompare(a.completed_at ?? a.created_at)
       : a.priority - b.priority || (a.due_date ?? "9").localeCompare(b.due_date ?? "9") || a.created_at.localeCompare(b.created_at)),
@@ -94,7 +94,7 @@ export function JobSheet({ job, onClose, onEdit, onReport }: { job: Job | null; 
   const doneLabel = !routed ? t("Hold to complete") : nextStation ? t("Hold when done → {station}", { station: nextStation }) : t("Hold to finish the order line");
 
   return (
-    <Sheet open={!!job} onClose={onClose} tall title={j && <span className="row gap-s"><span className="code">{j.code}</span><Badge tone={STATUS[j.status].tone} dot>{statusLabel(j.status)}</Badge></span>}>
+    <Sheet open={!!job} onClose={onClose} tall title={j && <span className="row gap-s"><span className="code">{jobCode(j)}</span><Badge tone={STATUS[j.status].tone} dot>{statusLabel(j.status)}</Badge></span>}>
       {j && st && (() => {
         const imIn = mine.part?.job_id === j.id;
         const crew = st.live ? db.participants.filter((p) => p.session_id === st.live!.id && !p.left_at) : [];
@@ -180,7 +180,12 @@ export function JobSheet({ job, onClose, onEdit, onReport }: { job: Job | null; 
                 </div>
               </div>
             )}
-            {j.status === "done" && lead && <Btn tone="ghost" wide icon={<RotateCcw size={18} />} onClick={() => a.reopenJob(j)}>{t("Reopen job")}</Btn>}
+            {lead && routed && (j.status === "done" || j.stage > 0) && (
+              <HoldButton tone="ghost" icon={<Undo2 size={18} />} onConfirm={() => a.sendBack(j)}>
+                {t("Hold to send back to {station}", { station: stations.name(j.route[j.status === "done" ? j.route.length - 1 : j.stage - 1]) })}
+              </HoldButton>
+            )}
+            {j.status === "done" && lead && !routed && <Btn tone="ghost" wide icon={<RotateCcw size={18} />} onClick={() => a.reopenJob(j)}>{t("Reopen job")}</Btn>}
 
             {st.perPerson.size > 0 && (
               <div className="card flat">

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Check, ChevronRight, Coffee, LogOut, Megaphone, Pause, Pin, Play, Send, Sun, Trash2, UserPlus, Users, X,
+  Check, ChevronDown, ChevronRight, Coffee, LogOut, Megaphone, Pause, Pin, Play, Send, Sun, Trash2, UserPlus, Users, X,
 } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarStack } from "../components/Avatar";
@@ -22,6 +22,9 @@ export const STATUS: Record<Job["status"], { label: string; tone: string }> = {
   done: { label: "Done", tone: "muted" },
 };
 export const statusLabel = (s: Job["status"]) => t(STATUS[s].label);
+/** Orders in production show as MO-<order number>; finished ones as the plain Shopify number. */
+export const jobCode = (j: Pick<Job, "code" | "order_id" | "route" | "status">) =>
+  j.order_id && j.route?.length && j.status !== "done" ? `MO-${j.code.replace(/^#/, "")}` : j.code;
 const PRI = ["", "Urgent", "High", "Normal", "Low", "Backlog"];
 export const priorityLabel = (p: number) => `P${p} · ${t(PRI[p] ?? "")}`;
 
@@ -98,7 +101,7 @@ export function LiveJobCard({ onOpen, onReport }: { onOpen: (j: Job) => void; on
     <motion.div className="card player" layout variants={item}>
       <div className="cover" onClick={() => onOpen(job)}>
         <Scene kind="line" height={170} seed={hashSeed(job.code)} />
-        <div className="cover-title"><span className="code">{job.code}</span><b>{job.title}</b></div>
+        <div className="cover-title"><span className="code">{jobCode(job)}</span><b>{job.title}</b></div>
         <span className="live-chip"><i />{t("Live")}</span>
       </div>
       <div className="player-body">
@@ -156,7 +159,7 @@ export function InviteSheet({ open, onClose, jobId, sessionId }: { open: boolean
     .sort((x, y) => rank(x.id) - rank(y.id) || Number(job?.assignees.includes(y.id)) - Number(job?.assignees.includes(x.id)));
   return (
     <Sheet open={open} onClose={() => { onClose(); setSel([]); }} title={t("Invite a helper")} tall>
-      <p className="muted">{t("They get an invite on their phone. Once they join, everyone's time is counted, so the boss sees the real crew size and person-hours.")}</p>
+      <p className="muted">{t("They get an invite on their phone. Once they join, everyone's time is counted, so the owner sees the real crew size and person-hours.")}</p>
       <input className="search" placeholder={t("Search staff…")} value={q} onChange={(e) => setQ(e.target.value)} />
       <motion.div className="stack" variants={list} initial="hidden" animate="show">
         {people.map((p) => {
@@ -197,7 +200,7 @@ export function InviteCard({ inv }: { inv: Invite }) {
         <div className="grow">
           <small className="label">{t("Team invite")} · {ago(inv.created_at)}</small>
           <b className="invite-title">{t("{name} needs a hand", { name: from?.full_name.split(" ")[0] ?? "" })}</b>
-          <p className="muted">{job?.code} · {job?.title}</p>
+          <p className="muted">{job ? jobCode(job) : ""} · {job?.title}</p>
         </div>
       </div>
       <div className="row gap">
@@ -227,26 +230,40 @@ export function JobCard({ job, onOpen, rank, passed }: { job: Job; onOpen: (j: J
   const liveCrew = st.live ? db.participants.filter((p) => p.session_id === st.live!.id && !p.left_at).map((p) => person(p.user_id)) : [];
   const pct = job.estimate_minutes ? Math.min(1, st.wall / (job.estimate_minutes * 60000)) : 0;
   const overdue = job.due_date && job.status !== "done" && new Date(job.due_date + "T23:59") < new Date();
+  const isOrder = !!order;
+  const names = job.assignees.map((u) => person(u)?.full_name.split(" ")[0]).filter(Boolean).join(", ");
   return (
-    <motion.button className={`job-row s-${job.status}`} variants={item} layout onClick={() => onOpen(job)} whileTap={{ scale: 0.985 }}>
+    <motion.div className={`job-row s-${job.status} ${isOrder ? "order-job" : ""}`} variants={item} layout role="button" tabIndex={0}
+      onClick={() => onOpen(job)} onKeyDown={(e) => { if (e.key === "Enter") onOpen(job); }} whileTap={{ scale: 0.985 }}>
       <span className="job-badge">{rank ?? job.priority}</span>
       <span className="grow">
-        <span className="row between"><span className="code">{job.code}{job.quantity && job.route?.length ? <span className="qty-tag"> ×{job.quantity}</span> : null}</span>{st.team && <span className="team-tag"><Users size={12} /> ×{st.maxCrew}</span>}</span>
+        <span className="row between"><span className="code">{jobCode(job)}{job.quantity && job.route?.length ? <span className="qty-tag"> ×{job.quantity}</span> : null}</span>{st.team && <span className="team-tag"><Users size={12} /> ×{st.maxCrew}</span>}</span>
         <b className="job-title">{job.title}</b>
-        {job.station_id && job.status !== "done" && !passed && <span className="station-tag">{stations.name(job.station_id)}</span>}
-        {passed && <span className="station-tag passed"><Check size={12} /> {job.status === "done" ? t("Finished") : t("Passed to {station}", { station: stations.name(job.station_id) })}</span>}
-        <span className="job-meta">
-          <span className={`st st-${job.status}`}>{st.live && <i className="live-dot" />}{statusLabel(job.status)}</span>
-          {(order?.company || job.customer) && <span> · {order?.company || job.customer}</span>}
-          {job.due_date && <span className={overdue ? "late" : ""}> · {t("due")} {new Date(job.due_date).toLocaleDateString(locale(), { day: "numeric", month: "short" })}</span>}
-        </span>
+        {isOrder ? (
+          <span className="job-meta">
+            {passed ? <span className="station-tag passed"><Check size={12} /> {job.status === "done" ? t("Finished") : t("Passed to {station}", { station: stations.name(job.station_id) })}</span>
+              : <span className={`st st-${job.status}`}>{st.live && <i className="live-dot" />}{job.status === "done" ? statusLabel(job.status) : stations.name(job.station_id) || statusLabel(job.status)}</span>}
+            {names && <span> · {names}</span>}
+          </span>
+        ) : (
+          <>
+            {job.station_id && job.status !== "done" && !passed && <span className="station-tag">{stations.name(job.station_id)}</span>}
+            {passed && <span className="station-tag passed"><Check size={12} /> {job.status === "done" ? t("Finished") : t("Passed to {station}", { station: stations.name(job.station_id) })}</span>}
+            <span className="job-meta">
+              <span className={`st st-${job.status}`}>{st.live && <i className="live-dot" />}{statusLabel(job.status)}</span>
+              {job.customer && <span> · {job.customer}</span>}
+              {job.due_date && <span className={overdue ? "late" : ""}> · {t("due")} {new Date(job.due_date).toLocaleDateString(locale(), { day: "numeric", month: "short" })}</span>}
+            </span>
+          </>
+        )}
         {job.route?.length ? <RouteDots job={job} /> : job.estimate_minutes ? <span className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${pct * 100}%` }} /></span> : null}
+        {isOrder && <OrderDetails job={job} />}
       </span>
       <span className="job-side">
         {liveCrew.length ? <AvatarStack people={liveCrew} size={24} /> : <AvatarStack people={job.assignees.map(person)} size={22} max={3} />}
         <span className="go"><Play size={14} fill="currentColor" /></span>
       </span>
-    </motion.button>
+    </motion.div>
   );
 }
 
@@ -309,3 +326,43 @@ export function OnShiftRow({ onPerson }: { onPerson?: (id: string) => void }) {
   );
 }
 
+
+/** Fold-out extras on an order card: SKU, parts, destination, price. */
+function OrderDetails({ job }: { job: Job }) {
+  const { db, me } = useStore();
+  const [open, setOpen] = useState(false);
+  const order = db.orders.find((o) => o.id === job.order_id);
+  const product = job.sku ? db.stock_items.find((s) => s.sku === job.sku) : undefined;
+  const parts = product ? db.bom_lines.filter((b) => b.product_id === product.id).map((b) => ({ b, m: db.stock_items.find((s) => s.id === b.material_id) })) : [];
+  const qty = job.quantity ?? 1;
+  const money = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: order?.currency || "GBP" }).format(n);
+  return (
+    <span className="order-details" onClick={(e) => e.stopPropagation()}>
+      <button className="details-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {t("Details")} <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform .2s" }} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.span className="details-body" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+            <span className="dl">
+              {job.sku && <><small>SKU</small><b>{job.sku}</b></>}
+              <small>{t("Order")}</small><b>{order?.order_number}</b>
+              <small>{t("Qty")}</small><b>{qty}</b>
+              {can.admin(me.role) && job.unit_price != null && <><small>{t("Price")}</small><b>{money(job.unit_price)}{qty > 1 ? ` × ${qty} = ${money(job.unit_price * qty)}` : ""}</b></>}
+              {order?.customer && <><small>{t("Customer")}</small><b>{order.customer}{order.company ? ` · ${order.company}` : ""}</b></>}
+              {order?.ship_to && <><small>{t("Ship to")}</small><b>{order.ship_to}</b></>}
+              {order?.shipping_method && <><small>{t("Delivery")}</small><b>{order.shipping_method}</b></>}
+            </span>
+            {parts.length > 0 && (
+              <span className="parts">
+                <small>{t("Parts")}</small>
+                {parts.map(({ b, m }) => <span key={b.id}><span className="code">{m?.sku}</span> {m?.name} <b>× {Math.round(b.quantity * qty * 1000) / 1000} {m?.unit}</b></span>)}
+              </span>
+            )}
+            {job.description && <span className="desc-sm">{job.description}</span>}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </span>
+  );
+}

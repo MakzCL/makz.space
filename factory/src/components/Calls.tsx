@@ -3,6 +3,7 @@ import { Mic, MicOff, MonitorUp, Phone, PhoneOff, RefreshCw, Video, VideoOff } f
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { t } from "../lib/i18n";
 import { buzz } from "../lib/prefs";
+import { playEnded, playJoined, ringIncoming, ringOutgoing } from "../lib/sounds";
 import { useStore } from "../lib/store";
 import type { Call } from "../lib/types";
 import { Avatar } from "./Avatar";
@@ -107,6 +108,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const leave = useCallback(async () => {
     const l = liveRef.current;
+    if (l) playEnded();
     for (const uid of [...peers.current.keys()]) drop(uid);
     localRef.current?.getTracks().forEach((tr) => tr.stop());
     localRef.current = null;
@@ -203,22 +205,11 @@ function Incoming({ call, onAccept, onDecline }: { call: Call; onAccept: () => v
   const conv = db.conversations.find((c) => c.id === call.conversation_id);
   const ev = db.events.find((e) => e.id === call.event_id);
   useEffect(() => {
-    let ctx: AudioContext | null = null;
-    try { ctx = new AudioContext(); } catch { /* no audio */ }
-    const ring = () => {
-      buzz([400, 200, 400]);
-      if (!ctx) return;
-      [0, 0.25].forEach((d) => {
-        const o = ctx!.createOscillator(), g = ctx!.createGain();
-        o.frequency.value = d ? 660 : 880; o.connect(g).connect(ctx!.destination);
-        g.gain.setValueAtTime(0.0001, ctx!.currentTime + d); g.gain.exponentialRampToValueAtTime(0.12, ctx!.currentTime + d + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx!.currentTime + d + 0.22); o.start(ctx!.currentTime + d); o.stop(ctx!.currentTime + d + 0.24);
-      });
-    };
-    ring();
-    const i = setInterval(ring, 2000);
+    const stopRing = ringIncoming();
+    buzz([400, 200, 400]);
+    const vib = setInterval(() => buzz([400, 200, 400]), 3000);
     const stop = setTimeout(onDecline, 45000);
-    return () => { clearInterval(i); clearTimeout(stop); ctx?.close().catch(() => {}); };
+    return () => { stopRing(); clearInterval(vib); clearTimeout(stop); };
   }, [onDecline]);
   return (
     <motion.div className="incoming" initial={{ y: -120, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -120, opacity: 0 }}>
@@ -244,6 +235,15 @@ function CallScreen({ live, setLive, peers, localRef, onLeave }: {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(i); }, []);
   const ids = Object.keys(live.peers);
+  // Sounds: "connecting" tone while alone, chime when people join or leave.
+  const alone = ids.length === 0;
+  useEffect(() => { if (!alone) return; return ringOutgoing(); }, [alone]);
+  const prevCount = useRef(0);
+  useEffect(() => {
+    if (ids.length > prevCount.current) playJoined();
+    else if (ids.length < prevCount.current) playEnded();
+    prevCount.current = ids.length;
+  }, [ids.length]);
   const conv = db.conversations.find((c) => c.id === live.call.conversation_id);
   const ev = db.events.find((e) => e.id === live.call.event_id);
   const secs = Math.floor((now - live.started) / 1000);

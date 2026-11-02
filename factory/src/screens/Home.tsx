@@ -11,7 +11,7 @@ import { can, ROLE_META, TABS_FOR, type Tab } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { greeting, hm, hms, jobStats, participantMs, startOfDay } from "../lib/time";
 import type { Job, Role } from "../lib/types";
-import { InviteCard, JobCard, LiveJobCard, NewsFeed, OnShiftRow, ShiftCard } from "./parts";
+import { InviteCard, JobCard, jobCode, LiveJobCard, NewsFeed, OnShiftRow, ShiftCard } from "./parts";
 
 function Hero() {
   const { me, refresh } = useStore();
@@ -137,7 +137,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
             const st = jobStats(db, job.id, now);
             return (
               <motion.button key={s.id} variants={item} className="card floor-job" onClick={() => onOpenJob(job)} whileTap={{ scale: 0.985 }}>
-                <div className="row between"><span className="code">{job.code}</span><span className="clock-chip"><i className="live-dot" />{hms(now - new Date(s.started_at).getTime())}</span></div>
+                <div className="row between"><span className="code">{jobCode(job)}</span><span className="clock-chip"><i className="live-dot" />{hms(now - new Date(s.started_at).getTime())}</span></div>
                 <b>{job.title}</b>
                 <div className="row between">
                   <AvatarStack people={crew.map((c) => person(c.user_id))} size={30} />

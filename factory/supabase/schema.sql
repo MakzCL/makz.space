@@ -535,6 +535,9 @@ alter table public.jobs add column if not exists route uuid[] not null default '
 alter table public.jobs add column if not exists stage int not null default 0;
 alter table public.jobs add column if not exists station_id uuid references public.stations(id) on delete set null;
 alter table public.jobs add column if not exists shopify_line_id bigint unique;
+alter table public.jobs add column if not exists unit_price numeric(12,2);
+alter table public.orders add column if not exists total_price numeric(12,2);
+alter table public.orders add column if not exists currency text not null default 'GBP';
 
 create table if not exists public.job_steps (
   id uuid primary key default gen_random_uuid(),
@@ -666,15 +669,17 @@ begin
   cust := coalesce(nullif(trim(concat_ws(' ', addr->>'first_name', addr->>'last_name')), ''),
                    nullif(trim(concat_ws(' ', o->'customer'->>'first_name', o->'customer'->>'last_name')), ''),
                    nullif(o->>'email', ''), '');
-  insert into public.orders (shopify_id, order_number, customer, company, email, phone, ship_to, shipping_method, note, ordered_at)
+  insert into public.orders (shopify_id, order_number, customer, company, email, phone, ship_to, shipping_method, note, ordered_at, total_price, currency)
   values ((o->>'id')::bigint, oname, cust, coalesce(addr->>'company', ''), coalesce(o->>'email', ''),
           coalesce(nullif(addr->>'phone', ''), nullif(o->>'phone', ''), ''),
           concat_ws(', ', nullif(addr->>'address1', ''), nullif(addr->>'address2', ''), nullif(addr->>'city', ''),
                     nullif(addr->>'province', ''), nullif(addr->>'zip', ''), nullif(addr->>'country', '')),
           coalesce((select string_agg(s->>'title', ', ') from jsonb_array_elements(coalesce(o->'shipping_lines', '[]'::jsonb)) s), ''),
-          coalesce(o->>'note', ''), (o->>'created_at')::timestamptz)
+          coalesce(o->>'note', ''), (o->>'created_at')::timestamptz,
+          case when o->>'total_price' ~ '^[0-9]+(\.[0-9]+)?$' then (o->>'total_price')::numeric end, coalesce(nullif(o->>'currency', ''), 'GBP'))
   on conflict (shopify_id) do update set customer = excluded.customer, company = excluded.company, email = excluded.email,
-    phone = excluded.phone, ship_to = excluded.ship_to, shipping_method = excluded.shipping_method, note = excluded.note
+    phone = excluded.phone, ship_to = excluded.ship_to, shipping_method = excluded.shipping_method, note = excluded.note,
+    total_price = coalesce(excluded.total_price, orders.total_price), currency = excluded.currency
   returning id into oid;
 
   select count(*) into lines from jsonb_array_elements(coalesce(o->'line_items', '[]'::jsonb)) x
@@ -696,12 +701,13 @@ begin
     select string_agg((pr->>'name') || ': ' || (pr->>'value'), E'\n') into props
       from jsonb_array_elements(coalesce(li->'properties', '[]'::jsonb)) pr where left(pr->>'name', 1) <> '_';
     insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity,
-                             estimate_minutes, order_id, sku, route, stage, station_id, shopify_line_id)
+                             estimate_minutes, order_id, sku, route, stage, station_id, shopify_line_id, unit_price)
     values (case when lines > 1 then oname || '-' || idx else oname end,
             concat_ws(' - ', li->>'title', nullif(replace(li->>'variant_title', ' / ', ' - '), '')),
             concat_ws(E'\n', props, nullif(o->>'note', '')),
             cust, 3, 'open', public.station_assignees(r[1]), coalesce((li->>'quantity')::int, 1),
-            p.estimate_minutes, oid, nullif(trim(li->>'sku'), ''), r, 0, r[1], (li->>'id')::bigint)
+            p.estimate_minutes, oid, nullif(trim(li->>'sku'), ''), r, 0, r[1], (li->>'id')::bigint,
+            case when li->>'price' ~ '^[0-9]+(\.[0-9]+)?$' then (li->>'price')::numeric end)
     on conflict (shopify_line_id) do nothing
     returning id into jid;
     if jid is not null then made := made + 1; end if;
@@ -709,6 +715,26 @@ begin
   end loop;
   return made;
 end $$;
+
+-- Boss/manager: send a job back to the previous station (e.g. failed QC).
+create or replace function public.previous_stage(p_job uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prv int;
+begin
+  if not public.is_lead() or not public.is_active() then raise exception 'Only the boss or a manager can send a job back'; end if;
+  select * into j from public.jobs where id = p_job for update;
+  if j.id is null then raise exception 'Job not found'; end if;
+  if coalesce(array_length(j.route, 1), 0) = 0 then raise exception 'This job has no stations'; end if;
+  -- A finished job goes back to its last station; otherwise one station back.
+  prv := case when j.status = 'done' then array_length(j.route, 1) - 1 else j.stage - 1 end;
+  if prv < 0 then raise exception 'Already at the first station'; end if;
+  update public.jobs set stage = prv, station_id = j.route[prv + 1], status = 'open', completed_at = null,
+    assignees = public.station_assignees(j.route[prv + 1])
+  where id = j.id;
+  return (select name from public.stations where id = j.route[prv + 1]);
+end $$;
+revoke all on function public.previous_stage(uuid) from public, anon;
+grant execute on function public.previous_stage(uuid) to authenticated;
 
 revoke all on function public.ingest_shopify_order(jsonb) from public, anon, authenticated;
 do $$ begin

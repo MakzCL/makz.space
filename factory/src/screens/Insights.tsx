@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { Badge, Count, Empty, Section, item, list } from "../components/ui";
 import { useNow, useStore } from "../lib/store";
+import { jobCode } from "./parts";
 import { t } from "../lib/i18n";
 import { SceneTabs } from "../components/Scene";
 import { dailyTotals, hm, human, participantMs, sessionMs, splitOvertime, startOfDay } from "../lib/time";
@@ -71,7 +72,7 @@ export function Insights({ onOpenJob }: { onOpenJob: (j: Job) => void }) {
         <motion.div className="stack" variants={list} initial="hidden" animate="show" key={range}>
           {d.jobs.slice(0, 10).map(({ job, wall, person: pm, crew, people, teamSessions }) => (
             <motion.button key={job!.id} variants={item} className="card effort" onClick={() => onOpenJob(job!)} whileTap={{ scale: 0.985 }}>
-              <div className="row between"><span className="code">{job!.code}</span>{crew >= 2 && <Badge tone="blue"><Users size={12} /> ×{crew} · {t("{n} team run(s)", { n: teamSessions })}</Badge>}</div>
+              <div className="row between"><span className="code">{jobCode(job!)}</span>{crew >= 2 && <Badge tone="blue"><Users size={12} /> ×{crew} · {t("{n} team run(s)", { n: teamSessions })}</Badge>}</div>
               <b>{job!.title}</b>
               <div className="dual">
                 <div><small>{t("Job time")}</small><div className="thin"><motion.i initial={{ width: 0 }} animate={{ width: `${(wall / Math.max(1, d.jobs[0]!.person)) * 100}%` }} /></div><span>{human(wall)}</span></div>

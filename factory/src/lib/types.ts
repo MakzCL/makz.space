@@ -135,6 +135,8 @@ export interface Job {
   stage: number;
   station_id: string | null;
   shopify_line_id: number | null;
+  /** Shopify line price per unit. */
+  unit_price: number | null;
   /** Materials have been taken off stock for this job. */
   stock_booked: boolean;
 }
@@ -175,6 +177,8 @@ export interface Order {
   shipping_method: string;
   note: string;
   ordered_at: string | null;
+  total_price: number | null;
+  currency: string;
   created_at: string;
 }
 

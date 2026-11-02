@@ -86,7 +86,7 @@ export function Join({ backend, code, onIn, onCancel }: { backend: Backend; code
         {!info.valid ? (
           <motion.div key="bad" className="card center-card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <b>{t(REASON[info.reason])}</b>
-            <p className="muted">{t("Ask the boss for a new link.")}</p>
+            <p className="muted">{t("Ask the owner for a new link.")}</p>
             <Btn tone="soft" wide onClick={onCancel}>{t("Back to sign in")}</Btn>
           </motion.div>
         ) : step === "pin" ? (

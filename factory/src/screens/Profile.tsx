@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Award, Camera, ChevronDown, Eye, Flame, Handshake, LogOut, RefreshCw, Send, Star, Sunrise, Trash2, Trophy, X } from "lucide-react";
+import { Award, Camera, ChevronDown, Settings as SettingsIcon, UserRound, Eye, Flame, Handshake, LogOut, RefreshCw, Send, Star, Sunrise, Trash2, Trophy, X } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
 import { SceneTabs } from "../components/Scene";
@@ -39,7 +39,11 @@ export function Profile({ onSignOut }: { onSignOut: () => void }) {
     <motion.div className="page" initial="hidden" animate="show" variants={list}>
       <div className="profile-head">
         <SceneTabs kind="peaks" height={200} value={tab} onChange={setTab}
-          tabs={[{ value: "me", label: t("Profile") }, { value: "awards", label: t("Awards") }, { value: "settings", label: t("Settings") }]} />
+          tabs={[
+            { value: "me", label: <UserRound size={22} />, aria: t("Profile") },
+            { value: "awards", label: <Trophy size={22} />, aria: t("Awards") },
+            { value: "settings", label: <SettingsIcon size={22} />, aria: t("Settings") },
+          ]} />
         <div className="profile-id">
           <motion.button className="avatar-edit" whileTap={{ scale: 0.94 }} onClick={() => fileRef.current?.click()} aria-label={t("Change photo")}>
             <Avatar p={me} size={88} />

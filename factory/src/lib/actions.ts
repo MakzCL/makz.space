@@ -216,6 +216,13 @@ export function useActions() {
     async function deleteJob(job: Job) {
       try { await B.remove("jobs", job.id); await refresh(); ok(t("{code} deleted", { code: job.code }), "info"); } catch (e) { fail(e); }
     }
+    async function sendBack(job: Job) {
+      try {
+        const st = await B.rpc<string>("previous_stage", { p_job: job.id });
+        await Promise.all([refresh("jobs"), refresh("job_steps")]);
+        ok(t("Sent back to {station}", { station: st }), "info");
+      } catch (e) { fail(e); }
+    }
     async function reopenJob(job: Job) {
       try { await B.update("jobs", job.id, { status: "open", completed_at: null }); await refresh("jobs"); ok(t("{code} reopened", { code: job.code }), "info"); } catch (e) { fail(e); }
     }
@@ -408,7 +415,7 @@ export function useActions() {
     return {
       createJoinLink, revokeJoinLink, approve, removeMember,
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
-      saveJob, deleteJob, reopenJob, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
+      saveJob, deleteJob, reopenJob, sendBack, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
       saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, requestAbsence,
       decideAbsence, post, unpost, updateProfile, uploadAvatar, editShift,
       setStationMember, saveStation, moveStation, deleteStation, saveProduct, deleteProduct,
