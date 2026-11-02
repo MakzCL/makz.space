@@ -8,7 +8,7 @@ import { Badge, Btn, Chip, Field, RoundBtn, Section, Sheet, item, list } from ".
 import { useActions, usePresence, useStations } from "../lib/actions";
 import { JOIN_PIN } from "../lib/backend";
 import { plural, t } from "../lib/i18n";
-import { can, ROLE_META, ROLE_ORDER } from "../lib/roles";
+import { can, isOwner, ROLE_META, ROLE_ORDER } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { ago, clock, dailyTotals, dayLabel, hm, hms, jobStats, splitOvertime, startOfDay, startOfMonth, ymd } from "../lib/time";
 import type { JoinLink, Role } from "../lib/types";
@@ -85,7 +85,7 @@ export function PendingMembers() {
             <motion.div key={p.id} className="card person pending-card" layout exit={{ opacity: 0, height: 0 }}>
               <Avatar p={p} size={44} />
               <div className="grow"><b>{p.full_name}</b><small className="muted">{t("signed up {when}", { when: ago(p.created_at) })}</small></div>
-              {me.role === "boss" && <button type="button" className="icon-btn subtle" onClick={() => a.removeMember(p)} aria-label={t("Remove")}><X size={18} /></button>}
+              {isOwner(me.role) && <button type="button" className="icon-btn subtle" onClick={() => a.removeMember(p)} aria-label={t("Remove")}><X size={18} /></button>}
               <Btn small tone="primary" icon={<UserCheck size={16} />} onClick={() => a.approve(p)}>{t("Approve")}</Btn>
             </motion.div>
           ))}
@@ -196,7 +196,7 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
   const openShift = db.shifts.find((x) => x.user_id === p.id && !x.clock_out);
   const pending = db.absences.filter((x) => x.user_id === p.id && x.status === "pending").sort((x, y) => x.start_date.localeCompare(y.start_date));
   const roles = can.assignRoles(me.role);
-  const canRole = p.id !== me.id && roles.length > 0 && (p.role !== "boss" || me.role === "boss");
+  const canRole = p.id !== me.id && roles.length > 0 && (!isOwner(p.role) || isOwner(me.role));
   const myStations = stations.of(p.id);
   return (
     <Sheet open={!!id} onClose={onClose} tall title={t("Team member")}>
@@ -213,7 +213,7 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
           <div><small>{t("Team jobs")}</small><b>{teamJobs}</b></div>
         </div>
         {canRole && (
-          <Field label={t("Role")} hint={me.role === "boss" ? undefined : t("Only the owner can give or take away Owner.")}>
+          <Field label={t("Role")} hint={isOwner(me.role) ? undefined : t("Only the owner can give or take away Owner.")}>
             <div className="chips">{roles.map((r) => <Chip key={r} on={p.role === r} onClick={() => p.role !== r && a.updateProfile(p.id, { role: r })}><ShieldCheck size={14} />{roleLabel(r)}</Chip>)}</div>
           </Field>
         )}

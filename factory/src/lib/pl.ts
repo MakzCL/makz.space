@@ -815,4 +815,8 @@ export const PL: Record<string, string> = {
   "Customer saved": "Klient zapisany",
   "Only stock keepers can import stock": "Tylko magazynierzy mogą importować",
   "Only the office team can see activity": "Tylko biuro widzi historię zmian",
+  "Developer": "Developer",
+  "Full control — same access as the owner": "Pełna kontrola — takie same uprawnienia jak właściciel",
+  "Only the owner can give or take away Owner or Developer": "Tylko właściciel może nadać lub odebrać rolę Właściciel lub Developer",
+  "Only the owner can create invite links": "Tylko właściciel może tworzyć linki zaproszeń",
 };

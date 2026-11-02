@@ -16,6 +16,8 @@ create extension if not exists pgcrypto;
 do $$ begin
   create type public.staff_role as enum ('boss','manager','office','assistant','operator');
 exception when duplicate_object then null; end $$;
+-- Developer: full owner access (same rights as Owner/'boss'), shown as its own role.
+alter type public.staff_role add value if not exists 'developer' before 'boss';
 
 -- ------------------------------------------------------------- profiles ---
 create sequence if not exists public.employee_seq start 1;
@@ -44,7 +46,7 @@ $$;
 
 create or replace function public.is_lead() returns boolean
 language sql stable security definer set search_path = public as $$
-  select coalesce(public.my_role() in ('boss','manager'), false)
+  select coalesce(public.my_role() in ('developer','boss','manager'), false)
 $$;
 
 create or replace function public.is_active() returns boolean
@@ -54,7 +56,7 @@ $$;
 
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select coalesce(public.my_role() in ('boss','manager','office'), false)
+  select coalesce(public.my_role() in ('developer','boss','manager','office'), false)
 $$;
 
 -- New auth user → pending operator profile. An invite link activates it.
@@ -85,8 +87,8 @@ begin
   if (new.role is distinct from old.role) then
     if not public.is_admin() then raise exception 'Only the owner, managers or office can change roles'; end if;
     if new.id = auth.uid() then raise exception 'You cannot change your own role'; end if;
-    if (new.role = 'boss' or old.role = 'boss') and public.my_role() <> 'boss' then
-      raise exception 'Only the owner can give or take away Owner';
+    if (new.role in ('boss','developer') or old.role in ('boss','developer')) and public.my_role() not in ('boss','developer') then
+      raise exception 'Only the owner can give or take away Owner or Developer';
     end if;
   end if;
   if (new.holiday_allowance is distinct from old.holiday_allowance) and not public.is_admin() then
@@ -277,7 +279,7 @@ end $$;
 create policy "staff read profiles" on public.profiles for select to authenticated using (true);
 create policy "edit own or admin edits" on public.profiles for update to authenticated
   using (id = auth.uid() or public.is_admin()) with check (id = auth.uid() or public.is_admin());
-create policy "boss removes staff" on public.profiles for delete to authenticated using (public.my_role() = 'boss');
+create policy "boss removes staff" on public.profiles for delete to authenticated using (public.my_role() in ('boss','developer'));
 
 -- shifts / breaks
 create policy "own or admin read shifts" on public.shifts for select to authenticated
@@ -350,8 +352,8 @@ create policy "admins delete news" on public.announcements for delete to authent
 
 -- invite links: the boss sees and revokes; creation goes through create_join_link()
 alter table public.join_links alter column created_by drop not null;
-create policy "boss reads links" on public.join_links for select to authenticated using (public.my_role() = 'boss');
-create policy "boss revokes links" on public.join_links for update to authenticated using (public.my_role() = 'boss');
+create policy "boss reads links" on public.join_links for select to authenticated using (public.my_role() in ('boss','developer'));
+create policy "boss revokes links" on public.join_links for update to authenticated using (public.my_role() in ('boss','developer'));
 
 -- Pending accounts see nothing but their own profile. RESTRICTIVE policies are
 -- AND-ed with the permissive ones above.
@@ -391,7 +393,7 @@ declare
   b bytea := gen_random_bytes(8);
 begin
   -- p_pin is ignored: every link uses the team PIN.
-  if public.my_role() is distinct from 'boss' or not public.is_active() then raise exception 'Only the boss can create invite links'; end if;
+  if coalesce(public.my_role() not in ('boss','developer'), true) or not public.is_active() then raise exception 'Only the owner can create invite links'; end if;
   for i in 0..7 loop c := c || substr(alphabet, (get_byte(b, i) % 32) + 1, 1); end loop;
   insert into public.join_links (code, pin, role, created_by, expires_at, max_uses)
   values (c, public.join_pin(), p_role, auth.uid(), now() + make_interval(hours => greatest(1, least(p_hours, 24 * 90))), p_max_uses)
@@ -862,7 +864,7 @@ alter table public.stock_movements enable row level security;
 
 create or replace function public.is_stock_keeper() returns boolean
 language sql stable security definer set search_path = public as $$
-  select coalesce(public.my_role() in ('boss','manager','office','assistant'), false) and public.is_active()
+  select coalesce(public.my_role() in ('developer','boss','manager','office','assistant'), false) and public.is_active()
 $$;
 
 drop policy if exists "keepers add or edit items" on public.stock_items;
@@ -1207,7 +1209,7 @@ begin
       perform public.notify(u, 'job_new', 'New job ' || new.code, new.title || coalesce(' · ' || st, ''), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
     end loop;
     if new.order_id is not null then
-      for u in select id from public.profiles where active and role in ('boss','manager') and not (id = any(coalesce(new.assignees, '{}'))) loop
+      for u in select id from public.profiles where active and role in ('developer','boss','manager') and not (id = any(coalesce(new.assignees, '{}'))) loop
         perform public.notify(u, 'job_new', 'New order ' || new.code, new.title || ' ×' || trim_scale(coalesce(new.quantity, 1)::numeric), jsonb_build_object('tab', 'jobs', 'job_id', new.id));
       end loop;
     end if;
@@ -1956,7 +1958,7 @@ create trigger ticket_comment after insert on public.issue_comments for each row
 create or replace function public.ticket_new() returns trigger language plpgsql security definer set search_path = public as $$
 declare u uuid;
 begin
-  for u in select id from public.profiles where active and role in ('boss','manager','office') and id <> new.reported_by loop
+  for u in select id from public.profiles where active and role in ('developer','boss','manager','office') and id <> new.reported_by loop
     perform public.notify(u, 'ticket', 'New ticket TK-' || new.number || ' · ' || new.severity, public.first_name(new.reported_by) || ': ' || new.title, '{"tab":"issues"}');
   end loop;
   return new;
@@ -2011,7 +2013,7 @@ begin
   if hm in ('05:59', '13:59') and extract(isodow from wday) <= 5 then
     for u in
       select p.id from public.profiles p
-       where p.active and p.role <> 'boss'
+       where p.active and p.role not in ('boss','developer')
          and (p.role in ('operator', 'assistant', 'support') or exists (select 1 from public.shifts s where s.user_id = p.id and s.clock_in > p_at - interval '30 days'))
          and not exists (select 1 from public.shifts s where s.user_id = p.id and (s.clock_out is null or s.clock_in >= day_start))
          and not exists (select 1 from public.absences a where a.user_id = p.id and a.status = 'approved' and wday between a.start_date and a.end_date)

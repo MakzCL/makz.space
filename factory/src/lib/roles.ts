@@ -3,6 +3,7 @@ import type { Role } from "./types";
 export type Tab = "home" | "jobs" | "chat" | "time" | "team" | "requests" | "insights" | "issues" | "stock";
 
 export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: string; hue: string }> = {
+  developer: { label: "Developer", gateway: "Command",    blurb: "Full control — same access as the owner", hue: "#c084fc" },
   boss:      { label: "Owner",      gateway: "Command",    blurb: "Full control, live floor, insights",   hue: "#ff4d4a" },
   manager:   { label: "Manager",   gateway: "Floor lead", blurb: "Plan jobs, run the team, approve",      hue: "#ffb547" },
   office:    { label: "Office",    gateway: "Office",     blurb: "Timesheets, absences, stock, news",     hue: "#9b8cff" },
@@ -11,9 +12,13 @@ export const ROLE_META: Record<Role, { label: string; gateway: string; blurb: st
   operator:  { label: "Operator",  gateway: "Line",       blurb: "Clock in, run jobs, team up",           hue: "#3ddc97" },
 };
 
-export const ROLE_ORDER: Role[] = ["boss", "manager", "office", "assistant", "support", "operator"];
+export const ROLE_ORDER: Role[] = ["developer", "boss", "manager", "office", "assistant", "support", "operator"];
+
+/** Owner-level roles: Owner and Developer have identical, full access. */
+export const isOwner = (r: Role) => r === "boss" || r === "developer";
 
 export const TABS_FOR: Record<Role, Tab[]> = {
+  developer: ["home", "jobs", "chat", "team", "insights", "requests"],
   boss:      ["home", "jobs", "chat", "team", "insights", "requests"],
   manager:   ["home", "jobs", "chat", "team", "requests", "issues"],
   office:    ["home", "chat", "team", "requests", "time"],
@@ -27,13 +32,13 @@ export const KIMERA_URL = "https://kimera.makz.space";
 export const tabsFor = (r: Role, _desktop?: boolean): Tab[] => TABS_FOR[r];
 
 export const can = {
-  manageJobs: (r: Role) => r === "boss" || r === "manager",
-  admin: (r: Role) => r === "boss" || r === "manager" || r === "office",
+  manageJobs: (r: Role) => isOwner(r) || r === "manager",
+  admin: (r: Role) => isOwner(r) || r === "manager" || r === "office",
   editStock: (r: Role) => r !== "operator" && r !== "support",
-  changeRoles: (r: Role) => r === "boss",
-  postNews: (r: Role) => r === "boss" || r === "manager" || r === "office",
+  changeRoles: (r: Role) => isOwner(r),
+  postNews: (r: Role) => isOwner(r) || r === "manager" || r === "office",
   /** Which roles this person may hand out through an invite link (only the boss makes links). */
-  linkRoles: (r: Role): Role[] => r === "boss" ? ["operator", "support", "assistant", "office", "manager", "boss"] : [],
+  linkRoles: (r: Role): Role[] => isOwner(r) ? ["operator", "support", "assistant", "office", "manager", "boss", "developer"] : [],
   /** Roles this admin may give: owner, managers and office; only the owner hands out or takes away Owner. */
-  assignRoles: (r: Role): Role[] => r === "boss" ? ROLE_ORDER : (r === "manager" || r === "office") ? ROLE_ORDER.filter((x) => x !== "boss") : [],
+  assignRoles: (r: Role): Role[] => isOwner(r) ? ROLE_ORDER : (r === "manager" || r === "office") ? ROLE_ORDER.filter((x) => !isOwner(x)) : [],
 };

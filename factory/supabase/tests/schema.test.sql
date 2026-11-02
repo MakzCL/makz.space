@@ -655,6 +655,20 @@ select pg_temp.expect_fail($$select public.check_import('items', '[]')$$, 'opera
 select pg_temp.expect_fail($$select public.recent_activity()$$, 'operator reads activity');
 select pg_temp.expect_fail($$insert into public.customers (name) values ('Sneaky')$$, 'operator adds customers');
 
+-- Developer = owner-level access, separate role
+select pg_temp.become(:'B');
+select role as a1role from public.profiles where id = :'A1' \gset
+update public.profiles set role = 'developer' where id = :'A1';
+select pg_temp.check((select role = 'developer' from public.profiles where id = :'A1'), 'owner makes someone Developer');
+select pg_temp.become(:'A1');
+select pg_temp.check(public.is_admin() and public.is_lead() and public.is_stock_keeper(), 'developer has admin, lead and stock rights');
+select pg_temp.check(public.create_join_link('operator', '', 24, 1) is not null, 'developer creates invite links like the owner');
+select pg_temp.check((select count(*) > 0 from public.join_links), 'developer reads invite links');
+select pg_temp.check(jsonb_typeof(public.recent_activity()) = 'array', 'developer reads activity');
+select pg_temp.expect_fail($$update public.profiles set role = 'operator' where id = auth.uid()$$, 'developer changes own role');
+select pg_temp.become(:'B');
+update public.profiles set role = :'a1role' where id = :'A1';
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

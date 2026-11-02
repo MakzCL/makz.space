@@ -7,7 +7,7 @@ import { Count, Empty, RoundBtn, Section, item, list } from "../components/ui";
 import { useMine, usePresence } from "../lib/actions";
 import { useDesktop } from "../lib/media";
 import { t } from "../lib/i18n";
-import { can, ROLE_META, TABS_FOR, type Tab, KIMERA_URL } from "../lib/roles";
+import { can, isOwner, ROLE_META, TABS_FOR, type Tab, KIMERA_URL } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { greeting, hm, hms, jobStats, participantMs, startOfDay } from "../lib/time";
 import type { Job, Role } from "../lib/types";
@@ -104,8 +104,8 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
   }, [db, presence, now, today]);
 
   const small = [
-    { label: t("Person-hours today"), v: k.personToday / 3600000, f: (v: number) => hm(v * 3600000), tab: (me.role === "boss" ? "insights" : "team") as Tab },
-    { label: t("Team jobs today"), v: k.teamToday, tab: (me.role === "boss" ? "insights" : "jobs") as Tab },
+    { label: t("Person-hours today"), v: k.personToday / 3600000, f: (v: number) => hm(v * 3600000), tab: (isOwner(me.role) ? "insights" : "team") as Tab },
+    { label: t("Team jobs today"), v: k.teamToday, tab: (isOwner(me.role) ? "insights" : "jobs") as Tab },
     { label: t("Open issues"), v: k.issues, tab: "issues" as Tab },
     { label: t("Waiting for you"), v: k.requests, tab: "requests" as Tab },
     ...(desktop && can.editStock(me.role) ? [{ label: t("Low stock"), v: k.low, tab: "stock" as Tab }] : []),
