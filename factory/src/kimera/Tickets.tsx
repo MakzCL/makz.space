@@ -62,7 +62,7 @@ export function Tickets({ openId, onOpen, onJob }: { openId: string | null; onOp
                     <td><b>{i.title}</b>{replies > 0 && <small className="muted"> · {t("{n} replies", { n: replies })}</small>}</td>
                     <td className="muted">{t(CAT[i.category] ?? i.category)}</td>
                     <td><Badge tone={SEV[i.severity].tone}>{t(SEV[i.severity].label)}</Badge></td>
-                    <td>{j ? <button className="link" onClick={(e) => { e.stopPropagation(); onJob(j.id); }}>{jobCode(j)}</button> : <span className="muted">—</span>}</td>
+                    <td>{j ? <button type="button" className="link" onClick={(e) => { e.stopPropagation(); onJob(j.id); }}>{jobCode(j)}</button> : <span className="muted">—</span>}</td>
                     <td><span className="who"><Avatar p={person(i.reported_by)} size={20} />{person(i.reported_by)?.full_name.split(" ")[0]}</span></td>
                     <td>{i.assignee_id ? <span className="who"><Avatar p={person(i.assignee_id)} size={20} />{person(i.assignee_id)?.full_name.split(" ")[0]}</span> : <span className="muted">{t("Nobody")}</span>}</td>
                     <td><Badge tone={TICKET_STATUS[i.status].tone} dot>{t(TICKET_STATUS[i.status].label)}</Badge></td>
@@ -112,7 +112,7 @@ export function TicketSheet({ issue, onClose, onJob }: { issue: Issue | null; on
             <Badge tone={TICKET_STATUS[i.status].tone} dot>{t(TICKET_STATUS[i.status].label)}</Badge>
             <Badge tone={SEV[i.severity].tone}>{t(SEV[i.severity].label)}</Badge>
             <Badge>{t(CAT[i.category] ?? i.category)}</Badge>
-            {job && (onJob ? <button className="link" onClick={() => onJob(job.id)}>{jobCode(job)} · {job.title}</button> : <span className="code">{jobCode(job)}</span>)}
+            {job && (onJob ? <button type="button" className="link" onClick={() => onJob(job.id)}>{jobCode(job)} · {job.title}</button> : <span className="code">{jobCode(job)}</span>)}
           </div>
           {(admin || i.assignee_id === me.id || i.reported_by === me.id) && (
             <div className="stack">

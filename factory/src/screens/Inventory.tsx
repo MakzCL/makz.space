@@ -115,7 +115,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
   const total = rows.reduce((x, r) => x + r.value, 0);
   const lowCount = db.stock_items.filter((s) => !s.archived && s.min_quantity > 0 && s.quantity - (lv.committed.get(s.id) ?? 0) + (lv.expected.get(s.id) ?? 0) <= s.min_quantity).length;
   const th = (k: string, label: string, num = false) => (
-    <th className={num ? "num" : ""}><button onClick={() => setSort({ k, d: sort.k === k ? (sort.d === 1 ? -1 : 1) : num ? -1 : 1 })}>{label}{sort.k === k ? (sort.d === 1 ? " ↑" : " ↓") : ""}</button></th>
+    <th className={num ? "num" : ""}><button type="button" onClick={() => setSort({ k, d: sort.k === k ? (sort.d === 1 ? -1 : 1) : num ? -1 : 1 })}>{label}{sort.k === k ? (sort.d === 1 ? " ↑" : " ↓") : ""}</button></th>
   );
 
   return (
@@ -216,9 +216,9 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
               <div className="card flat">
                 <Field label={t("Book in / out")} hint={t("e.g. +25 found, −3 scrapped")}>
                   <div className="row gap">
-                    <button className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) - 1))} aria-label={t("Less")}><Minus size={16} /></button>
+                    <button type="button" className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) - 1))} aria-label={t("Less")}><Minus size={16} /></button>
                     <input inputMode="decimal" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="±0" />
-                    <button className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) + 1))} aria-label={t("More")}><Plus size={16} /></button>
+                    <button type="button" className="icon-btn" onClick={() => setDelta(String((Number(delta) || 0) + 1))} aria-label={t("More")}><Plus size={16} /></button>
                   </div>
                 </Field>
                 <Field label={t("Stocktake — counted quantity")}><input inputMode="decimal" value={count} onChange={(e) => setCount(e.target.value)} placeholder={fmtQty(live.quantity)} /></Field>
@@ -308,7 +308,7 @@ export function RecipesView() {
             const lines = db.bom_lines.filter((b) => b.product_id === p.id);
             const canMake = lines.length ? Math.max(0, Math.floor(Math.min(...lines.map((b) => ((byId.get(b.material_id)?.quantity ?? 0) - (lv.committed.get(b.material_id) ?? 0)) / b.quantity)))) : null;
             return (
-              <button key={p.id} className={cur?.id === p.id ? "on" : ""} onClick={() => setSel(p.id)}>
+              <button type="button" key={p.id} className={cur?.id === p.id ? "on" : ""} onClick={() => setSel(p.id)}>
                 <span className="code">{p.sku}</span><b>{p.name}</b>
                 <small className="muted">{lines.length ? t("{n} materials · can make {m}", { n: lines.length, m: canMake ?? 0 }) : t("No recipe yet")}</small>
               </button>
@@ -347,7 +347,7 @@ export function RecipeEditor({ product }: { product: StockItem }) {
                   <td className="num">{editable ? <input className="cell-input" inputMode="decimal" defaultValue={b.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== b.quantity) a.saveBomLine({ id: b.id, quantity: v }); }} /> : fmtQty(b.quantity)} <small>{m?.unit}</small></td>
                   <td className="num muted">{fmtQty(m?.quantity ?? 0)}</td>
                   <td className="num">{money(b.quantity * (m?.avg_cost ?? 0))}</td>
-                  {editable && <td><button className="icon-btn subtle" onClick={() => a.removeBomLine(b.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
+                  {editable && <td><button type="button" className="icon-btn subtle" onClick={() => a.removeBomLine(b.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
                 </tr>
               );
             })}

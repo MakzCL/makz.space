@@ -36,7 +36,7 @@ export function SubTabs<T extends string>({ value, onChange, tabs }: { value: T;
   return (
     <div className="k-tabs" role="tablist">
       {tabs.map((x) => (
-        <button key={x.value} role="tab" aria-selected={value === x.value} className={value === x.value ? "on" : ""} onClick={() => onChange(x.value)}>
+        <button type="button" key={x.value} role="tab" aria-selected={value === x.value} className={value === x.value ? "on" : ""} onClick={() => onChange(x.value)}>
           {x.label}{x.count ? <i>{x.count}</i> : null}
         </button>
       ))}

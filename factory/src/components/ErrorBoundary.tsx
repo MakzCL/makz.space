@@ -15,8 +15,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode; place: strin
         <b>{t("Something went wrong on this screen")}</b>
         <p className="muted">{t("It has been reported automatically. Try again, or reload the app.")}</p>
         <div className="row gap">
-          <button className="btn soft" onClick={() => this.setState({ err: null })}>{t("Try again")}</button>
-          <button className="btn primary" onClick={() => location.reload()}>{t("Reload")}</button>
+          <button type="button" className="btn soft" onClick={() => this.setState({ err: null })}>{t("Try again")}</button>
+          <button type="button" className="btn primary" onClick={() => location.reload()}>{t("Reload")}</button>
         </div>
       </div>
     );

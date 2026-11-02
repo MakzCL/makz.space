@@ -59,10 +59,10 @@ function StationCard({ s, first, last }: { s: Station; first: boolean; last: boo
       <div className="row gap">
         <span className="station-no">{stations.list.indexOf(s) + 1}</span>
         <input className="station-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== s.name && a.saveStation({ id: s.id, name: name.trim() })} aria-label={t("Station name")} />
-        <button className="icon-btn subtle" disabled={first} onClick={() => a.moveStation(s, -1)} aria-label={t("Move up")}><ArrowUp size={17} /></button>
-        <button className="icon-btn subtle" disabled={last} onClick={() => a.moveStation(s, 1)} aria-label={t("Move down")}><ArrowDown size={17} /></button>
+        <button type="button" className="icon-btn subtle" disabled={first} onClick={() => a.moveStation(s, -1)} aria-label={t("Move up")}><ArrowUp size={17} /></button>
+        <button type="button" className="icon-btn subtle" disabled={last} onClick={() => a.moveStation(s, 1)} aria-label={t("Move down")}><ArrowDown size={17} /></button>
       </div>
-      <button className="row between station-crew" onClick={() => setOpen(!open)}>
+      <button type="button" className="row between station-crew" onClick={() => setOpen(!open)}>
         <span className="row gap-s wrap">
           {crew.length ? crew.map((id) => { const p = db.profiles.find((x) => x.id === id); return <span key={id} className="who"><Avatar p={p} size={22} />{p?.full_name.split(" ")[0]}</span>; })
             : <span className="muted">{t("Nobody assigned — tap to add people")}</span>}
@@ -109,7 +109,7 @@ function Products() {
         <Btn tone="primary" icon={<Plus size={18} />} onClick={() => setEdit({ sku: "", name: "", route: stations.list.filter((s) => s.in_default).map((s) => s.id), estimate_minutes: null })}>{t("Add")}</Btn>
       </div>
       {list.map((p) => (
-        <button key={p.id} className="card product-row" onClick={() => setEdit(p)}>
+        <button type="button" key={p.id} className="card product-row" onClick={() => setEdit(p)}>
           <span className="row between"><span className="code">{p.sku}</span>{p.estimate_minutes ? <small className="muted">{Math.round(p.estimate_minutes / 6) / 10} h</small> : null}</span>
           <b>{p.name || "—"}</b>
           <small className="muted">{p.route.length ? p.route.map((id) => stations.name(id)).join(" → ") : t("Standard route")}</small>
@@ -159,7 +159,7 @@ function ShopifyLink() {
         <li>{t("In Shopify admin open Settings → Notifications → Webhooks.")}</li>
         <li>{t("Create webhook: event “Order creation”, format JSON, and this URL:")}
           <div className="link-box"><span>{WEBHOOK_URL}</span>
-            <button className="icon-btn subtle" onClick={async () => { try { await navigator.clipboard.writeText(WEBHOOK_URL); toast(t("Copied"), "info"); } catch { /* ignore */ } }} aria-label={t("Copy")}><Copy size={17} /></button></div>
+            <button type="button" className="icon-btn subtle" onClick={async () => { try { await navigator.clipboard.writeText(WEBHOOK_URL); toast(t("Copied"), "info"); } catch { /* ignore */ } }} aria-label={t("Copy")}><Copy size={17} /></button></div>
         </li>
         <li>{t("Copy the signing secret Shopify shows under the webhooks list and send it to whoever set up the app, so orders can be verified.")}</li>
       </ol>

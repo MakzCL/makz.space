@@ -49,9 +49,9 @@ export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew:
       <div className="searchbar"><Search size={18} /><input placeholder={t("Search order, product, customer…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       {lead && stations.list.length > 0 && view === "active" && (
         <div className="station-strip">
-          <button className={station === "any" ? "on" : ""} onClick={() => setStation("any")}><b>{db.jobs.filter((j) => j.status !== "done").length}</b><small>{t("All stations")}</small></button>
+          <button type="button" className={station === "any" ? "on" : ""} onClick={() => setStation("any")}><b>{db.jobs.filter((j) => j.status !== "done").length}</b><small>{t("All stations")}</small></button>
           {stations.list.map((s) => (
-            <button key={s.id} className={station === s.id ? "on" : ""} onClick={() => setStation(station === s.id ? "any" : s.id)}>
+            <button type="button" key={s.id} className={station === s.id ? "on" : ""} onClick={() => setStation(station === s.id ? "any" : s.id)}>
               <b>{atStation(s.id)}</b><small>{s.name}</small>
             </button>
           ))}
@@ -69,7 +69,7 @@ export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew:
         {!jobs.length && <Empty icon={<Layers size={26} />} title={view === "done" ? t("Nothing finished yet") : t("No jobs here")} hint={scope === "mine" ? t("No production jobs are assigned to you yet.") : t("Try clearing filters.")} />}
       </motion.div>
       {lead && (
-        <motion.button className="fab" onClick={onNew} initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }} aria-label={t("New job")}>
+        <motion.button type="button" className="fab" onClick={onNew} initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }} aria-label={t("New job")}>
           <Plus size={26} />
         </motion.button>
       )}

@@ -151,7 +151,7 @@ function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: () => voi
                         <input className="cell-input" inputMode="decimal" value={recv[l.id] ?? String(left)} onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
                         <Btn small tone="soft" onClick={() => { const v = Number(cleanNumber(recv[l.id] ?? String(left))); if (v > 0) a.receive(l, v); }}>{t("Book in")}</Btn>
                       </span>) : <PackageCheck size={17} className="ok-t" />}</td>}
-                    {draft && editable && <td><button className="icon-btn subtle" onClick={() => a.removePoLine(l.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
+                    {draft && editable && <td><button type="button" className="icon-btn subtle" onClick={() => a.removePoLine(l.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
                   </tr>
                 );
               })}

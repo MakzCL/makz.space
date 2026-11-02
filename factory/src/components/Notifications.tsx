@@ -27,7 +27,7 @@ export function BellButton({ onOpen }: { onOpen: (link: NotifyLink) => void }) {
   const n = useUnreadNotifications();
   return (
     <>
-      <motion.button className="bell" onClick={() => { buzz(8); setOpen(true); }} whileTap={{ scale: 0.9 }} aria-label={t("Activity")}>
+      <motion.button type="button" className="bell" onClick={() => { buzz(8); setOpen(true); }} whileTap={{ scale: 0.9 }} aria-label={t("Activity")}>
         {n ? <BellRing size={21} /> : <Bell size={21} />}
         <AnimatePresence>{n > 0 && <motion.b className="nav-badge" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>{n > 9 ? "9+" : n}</motion.b>}</AnimatePresence>
       </motion.button>
@@ -57,11 +57,11 @@ function ActivitySheet({ open, onClose, onOpen }: { open: boolean; onClose: () =
     <Sheet open={open} onClose={onClose} tall title={t("Activity")}>
       <div className="stack">
         <PushCard />
-        {unread.length > 0 && <button className="link center" onClick={markAll}><Check size={14} /> {t("Mark all as read")}</button>}
+        {unread.length > 0 && <button type="button" className="link center" onClick={markAll}><Check size={14} /> {t("Mark all as read")}</button>}
         {list.length ? (
           <div className="activity">
             {list.map((n) => (
-              <button key={n.id} className={`act-row k-${n.kind} ${n.read_at ? "" : "new"}`} onClick={() => openOne(n)}>
+              <button type="button" key={n.id} className={`act-row k-${n.kind} ${n.read_at ? "" : "new"}`} onClick={() => openOne(n)}>
                 <span className="act-ic">{ICON[n.kind] ?? <Bell size={18} />}</span>
                 <span className="grow"><b>{n.title}</b>{n.body && <small>{n.body}</small>}</span>
                 <small className="muted nowrap">{ago(n.created_at)}</small>

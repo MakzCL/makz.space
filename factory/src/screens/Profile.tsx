@@ -46,7 +46,7 @@ export function Profile({ onSignOut }: { onSignOut: () => void }) {
             { value: "settings", label: <SettingsIcon size={22} />, aria: t("Settings") },
           ]} />
         <div className="profile-id">
-          <motion.button className="avatar-edit" whileTap={{ scale: 0.94 }} onClick={() => (me.avatar_url ? setPhotoMenu(true) : fileRef.current?.click())} aria-label={t("Change photo")}>
+          <motion.button type="button" className="avatar-edit" whileTap={{ scale: 0.94 }} onClick={() => (me.avatar_url ? setPhotoMenu(true) : fileRef.current?.click())} aria-label={t("Change photo")}>
             <Avatar p={me} size={88} />
             <span className="cam"><Camera size={15} /></span>
           </motion.button>
@@ -134,7 +134,7 @@ function MeTab() {
               <div key={r.id} className={`card mini-req k-${r.kind}`}>
                 <div className="grow"><Badge tone={KIND[r.kind].tone}>{kindLabel(r.kind)}</Badge> <span>{dayLabel(r.start_date)}{r.end_date !== r.start_date && ` → ${dayLabel(r.end_date)}`}</span></div>
                 <Badge tone={r.status === "approved" ? "ok" : r.status === "pending" ? "moon" : "muted"}>{t(r.status)}</Badge>
-                {r.status === "pending" && <button className="icon-btn subtle" onClick={() => a.decideAbsence(r.id, "cancelled")} aria-label={t("Cancel request")}><X size={15} /></button>}
+                {r.status === "pending" && <button type="button" className="icon-btn subtle" onClick={() => a.decideAbsence(r.id, "cancelled")} aria-label={t("Cancel request")}><X size={15} /></button>}
               </div>
             ))}
           </div>
@@ -211,7 +211,7 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
         <small className="label">{t("My status")}</small>
         <div className="status-pick">
           {(["available", "busy", "dnd", "away"] as const).map((s) => (
-            <button key={s} className={me.status === s ? "on" : ""} onClick={() => a.updateProfile(me.id, { status: s })}>
+            <button type="button" key={s} className={me.status === s ? "on" : ""} onClick={() => a.updateProfile(me.id, { status: s })}>
               <i className="pdot" style={{ background: STATUS_META[s].color }} />{t(STATUS_META[s].label)}
             </button>
           ))}
@@ -258,7 +258,7 @@ function AbsenceForm({ kind, title }: { kind: AbsenceKind; title: string }) {
   const n = to >= from ? daysBetween(from, to) : 0;
   return (
     <motion.div className={`card absence k-${kind} ${open ? "open" : ""}`} variants={item} layout>
-      <button className="absence-head" onClick={() => setOpen(!open)}>
+      <button type="button" className="absence-head" onClick={() => setOpen(!open)}>
         <span><small className="label">{t("Absence")}</small><b>{title}</b></span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="absence-chev"><ChevronDown size={20} /></motion.span>
       </button>

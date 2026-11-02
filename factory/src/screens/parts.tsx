@@ -46,7 +46,7 @@ export function ShiftCard() {
         </div>
         <div className="big-start">
           <i className="halo h1" /><i className="halo h2" />
-          <motion.button onClick={() => a.clockIn()} whileTap={{ scale: 0.94 }}>
+          <motion.button type="button" onClick={() => a.clockIn()} whileTap={{ scale: 0.94 }}>
             <b>{t("Clock in")}</b><small>{t("Start your shift")}</small>
           </motion.button>
         </div>
@@ -133,10 +133,10 @@ export function LiveJobCard({ onOpen, onReport }: { onOpen: (j: Job) => void; on
             <motion.div key={i.id} className="crew pending" layout initial={{ scale: 0 }} animate={{ scale: 1 }}>
               <Avatar p={person(i.to_user)} size={38} />
               <small>{t("invited")}</small>
-              <button className="mini-x" onClick={() => a.cancelInvite(i)} aria-label={t("Cancel invite")}><X size={12} /></button>
+              <button type="button" className="mini-x" onClick={() => a.cancelInvite(i)} aria-label={t("Cancel invite")}><X size={12} /></button>
             </motion.div>
           ))}
-          <button className="crew add" onClick={() => setInviting(true)}><span><UserPlus size={18} /></span><small>{t("Invite")}</small></button>
+          <button type="button" className="crew add" onClick={() => setInviting(true)}><span><UserPlus size={18} /></span><small>{t("Invite")}</small></button>
         </div>
       </div>
       <InviteSheet open={inviting} onClose={() => setInviting(false)} jobId={job.id} sessionId={session.id} />
@@ -167,7 +167,7 @@ export function InviteSheet({ open, onClose, jobId, sessionId }: { open: boolean
           const on = sel.includes(p.id);
           const busyJob = pr.jobId ? db.jobs.find((j) => j.id === pr.jobId) : null;
           return (
-            <motion.button key={p.id} variants={item} className={`person-row select ${on ? "on" : ""}`} disabled={invited.has(p.id)}
+            <motion.button type="button" key={p.id} variants={item} className={`person-row select ${on ? "on" : ""}`} disabled={invited.has(p.id)}
               onClick={() => setSel(on ? sel.filter((x) => x !== p.id) : [...sel, p.id])}>
               <Avatar p={p} size={42} status={pr.state} />
               <span><b>{p.full_name}</b>
@@ -294,7 +294,7 @@ export function NewsFeed() {
                 <div className="row between"><b>{person(n.author_id)?.full_name ?? t("Office")}</b><small className="muted">{n.pinned && <Pin size={12} />} {ago(n.created_at)}</small></div>
                 <p>{n.body}</p>
               </div>
-              {can.postNews(me.role) && <button className="icon-btn subtle" onClick={() => a.unpost(n.id)} aria-label={t("Delete")}><Trash2 size={16} /></button>}
+              {can.postNews(me.role) && <button type="button" className="icon-btn subtle" onClick={() => a.unpost(n.id)} aria-label={t("Delete")}><Trash2 size={16} /></button>}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -314,7 +314,7 @@ export function OnShiftRow({ onPerson }: { onPerson?: (id: string) => void }) {
         {on.map((p) => {
           const pr = presence.get(p.id)!;
           return (
-            <motion.button key={p.id} className="floor-person" onClick={() => onPerson?.(p.id)} whileTap={{ scale: 0.93 }}>
+            <motion.button type="button" key={p.id} className="floor-person" onClick={() => onPerson?.(p.id)} whileTap={{ scale: 0.93 }}>
               <Avatar p={p} size={54} status={pr.state} />
               <small>{p.full_name.split(" ")[0]}</small>
               <em className={pr.state}>{pr.state === "working" ? db.jobs.find((j) => j.id === pr.jobId)?.code : pr.state === "break" ? t("break") : t("free")}</em>
@@ -338,7 +338,7 @@ function OrderDetails({ job }: { job: Job }) {
   const money = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: order?.currency || "GBP" }).format(n);
   return (
     <span className="order-details" onClick={(e) => e.stopPropagation()}>
-      <button className="details-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button type="button" className="details-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         {t("Details")} <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform .2s" }} />
       </button>
       <AnimatePresence initial={false}>

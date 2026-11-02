@@ -42,7 +42,7 @@ export function Header({ onProfile, scrolled, hidden, extra }: { onProfile: () =
       </div>
       <div className="top-actions">
         {extra}
-        <motion.button className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>
+        <motion.button type="button" className="me-btn" onClick={() => { buzz(8); onProfile(); }} whileTap={{ scale: 0.92 }} aria-label={t("Profile")}>
           <Avatar p={me} size={38} /><MyDot />
         </motion.button>
       </div>
@@ -60,7 +60,7 @@ export function BottomNav({ tabs, tab, onTab, badges, foot }: {
       {tabs.map((x) => {
         const on = x === tab;
         return (
-          <button key={x} className={on ? "on" : ""} onClick={() => { if (!on) buzz(7); onTab(x); }} aria-current={on ? "page" : undefined}>
+          <button type="button" key={x} className={on ? "on" : ""} onClick={() => { if (!on) buzz(7); onTab(x); }} aria-current={on ? "page" : undefined}>
             <span className="nav-ic">
               {ICON[x]}
               <AnimatePresence>

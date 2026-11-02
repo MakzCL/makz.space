@@ -62,16 +62,16 @@ function WorkerHome({ onOpenJob, go, onPerson, onReport }: { onOpenJob: (j: Job)
       <ShiftCard />
 
       <motion.div className="tiles3" variants={item}>
-        <button className="tile red" onClick={() => go("jobs")}><b><Count value={counts.progress} /></b><small>{t("In progress")}</small></button>
-        <button className="tile blue" onClick={() => go("jobs")}><b><Count value={counts.open} /></b><small>{t("Open tasks")}</small></button>
-        <button className="tile plain" onClick={() => go("jobs")}><b><Count value={counts.blocked} /></b><small>{t("Blocked")}</small></button>
+        <button type="button" className="tile red" onClick={() => go("jobs")}><b><Count value={counts.progress} /></b><small>{t("In progress")}</small></button>
+        <button type="button" className="tile blue" onClick={() => go("jobs")}><b><Count value={counts.open} /></b><small>{t("Open tasks")}</small></button>
+        <button type="button" className="tile plain" onClick={() => go("jobs")}><b><Count value={counts.blocked} /></b><small>{t("Blocked")}</small></button>
       </motion.div>
 
       <Section title={t("Priority jobs")} sub={t("Start at the top.")}>
         <motion.div className="stack" variants={list} initial="hidden" animate="show">
           {mine.filter((j) => j.id !== current?.id).slice(0, 4).map((j, i) => <JobCard key={j.id} job={j} onOpen={onOpenJob} rank={i + 1} />)}
           {!mine.length && <Empty icon={<Layers size={26} />} title={t("All clear")} hint={t("No production jobs are assigned to you yet.")} />}
-          {mine.length > 4 && <button className="link center" onClick={() => go("jobs")}>{t("See all {n} jobs", { n: mine.length })} <ArrowRight size={14} /></button>}
+          {mine.length > 4 && <button type="button" className="link center" onClick={() => go("jobs")}>{t("See all {n} jobs", { n: mine.length })} <ArrowRight size={14} /></button>}
         </motion.div>
       </Section>
       <OnShiftRow onPerson={onPerson} />
@@ -116,12 +116,12 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
       <Hero />
       <AnimatePresence>{invites.map((i) => <InviteCard key={i.id} inv={i} />)}</AnimatePresence>
       <motion.div className="awards" variants={item}>
-        <button className="award red" onClick={() => go("team")}><span className="medal"><Users size={22} /></span><b><Count value={k.on} /></b><small>{t("On shift")}</small></button>
-        <button className="award blue" onClick={() => go(tabsHas(me.role, "jobs") ? "jobs" : "team")}><span className="medal"><Zap size={22} /></span><b><Count value={k.live.length} /></b><small>{t("Live jobs")}</small></button>
+        <button type="button" className="award red" onClick={() => go("team")}><span className="medal"><Users size={22} /></span><b><Count value={k.on} /></b><small>{t("On shift")}</small></button>
+        <button type="button" className="award blue" onClick={() => go(tabsHas(me.role, "jobs") ? "jobs" : "team")}><span className="medal"><Zap size={22} /></span><b><Count value={k.live.length} /></b><small>{t("Live jobs")}</small></button>
       </motion.div>
       <motion.div className="stat-list card" variants={item}>
         {small.map((s) => (
-          <button key={s.label} className="stat-line" onClick={() => s.tab === "stock" ? location.assign(`${KIMERA_URL}/#stock`) : go(s.tab)}>
+          <button type="button" key={s.label} className="stat-line" onClick={() => s.tab === "stock" ? location.assign(`${KIMERA_URL}/#stock`) : go(s.tab)}>
             <span>{s.label}</span><b><Count value={s.v} format={s.f} /></b><ArrowRight size={16} />
           </button>
         ))}
@@ -136,7 +136,7 @@ function LeadHome({ onOpenJob, go, onPerson }: { onOpenJob: (j: Job) => void; go
             const crew = db.participants.filter((p) => p.session_id === s.id && !p.left_at);
             const st = jobStats(db, job.id, now);
             return (
-              <motion.button key={s.id} variants={item} className="card floor-job" onClick={() => onOpenJob(job)} whileTap={{ scale: 0.985 }}>
+              <motion.button type="button" key={s.id} variants={item} className="card floor-job" onClick={() => onOpenJob(job)} whileTap={{ scale: 0.985 }}>
                 <div className="row between"><span className="code">{jobCode(job)}</span><span className="clock-chip"><i className="live-dot" />{hms(now - new Date(s.started_at).getTime())}</span></div>
                 <b>{job.title}</b>
                 <div className="row between">

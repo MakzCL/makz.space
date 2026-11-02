@@ -172,7 +172,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
                     {o.kind === "order" && <td>{mo
                       ? <span className="row gap-s"><span className="code">{jobCode(mo)}</span><small className="muted">{mo.status === "done" ? t("Done") : db.stations.find((s) => s.id === mo.station_id)?.name ?? ""}</small></span>
                       : editable && o.status === "open" && o.delivery === "not_shipped" ? <Btn small tone={sales.action === "make" ? "primary" : "soft"} icon={<Factory size={14} />} onClick={() => k.makeLine(line.id)}>{t("Make")}</Btn> : <span className="muted">—</span>}</td>}
-                    {editable && <td>{!mo && o.status === "open" && o.delivery === "not_shipped" && <button className="icon-btn subtle" aria-label={t("Remove")} onClick={() => k.removeLine(line.id)}><Trash2 size={15} /></button>}</td>}
+                    {editable && <td>{!mo && o.status === "open" && o.delivery === "not_shipped" && <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => k.removeLine(line.id)}><Trash2 size={15} /></button>}</td>}
                   </tr>
                 ))}
                 {!info.lines.length && <tr className="static"><td colSpan={8} className="muted">{t("No items yet")}</td></tr>}

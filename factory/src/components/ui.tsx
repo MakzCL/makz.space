@@ -32,7 +32,7 @@ export function Sheet({ open, onClose, title, children, tall }: {
             <SheetHandle />
             <div className="sheet-head">
               <h3>{title}</h3>
-              <button className="icon-btn round" onClick={onClose} aria-label={t("Close")}><X size={20} /></button>
+              <button type="button" className="icon-btn round" onClick={onClose} aria-label={t("Close")}><X size={20} /></button>
             </div>
             <div className="sheet-body">{children}</div>
           </motion.div>
@@ -105,7 +105,7 @@ export function HoldButton({ children, onConfirm, icon, ms = 900, tone = "ghost"
     ctl.current?.stop(); animate(p, 0, { duration: 0.25 });
   };
   return (
-    <button className={`btn hold ${tone}`} onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+    <button type="button" className={`btn hold ${tone}`} onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
       onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) start(); }} onKeyUp={stop}
       onContextMenu={(e) => e.preventDefault()}>
       <motion.i className="hold-fill" style={{ width }} />
@@ -121,7 +121,7 @@ export function Segmented<T extends string>({ value, options, onChange, size = "
   return (
     <div className={`seg ${size}`} role="tablist">
       {options.map((o) => (
-        <button key={o.value} role="tab" aria-selected={value === o.value} className={value === o.value ? "on" : ""}
+        <button type="button" key={o.value} role="tab" aria-selected={value === o.value} className={value === o.value ? "on" : ""}
           onClick={() => { buzz(6); onChange(o.value); }}>
           {value === o.value && <motion.i layoutId={`seg-${id}`} className="seg-pill" transition={spring} />}
           <span>{o.label}</span>
@@ -133,7 +133,7 @@ export function Segmented<T extends string>({ value, options, onChange, size = "
 
 export function Chip({ on, children, onClick, color }: { on?: boolean; children: ReactNode; onClick?: () => void; color?: string }) {
   return (
-    <motion.button whileTap={{ scale: 0.94 }} className={`chip ${on ? "on" : ""}`} onClick={() => { buzz(5); onClick?.(); }}
+    <motion.button type="button" whileTap={{ scale: 0.94 }} className={`chip ${on ? "on" : ""}`} onClick={() => { buzz(5); onClick?.(); }}
       style={color ? { ["--c" as string]: color } : undefined}>{children}</motion.button>
   );
 }
@@ -153,7 +153,7 @@ export function Empty({ icon, title, hint, children }: { icon: ReactNode; title:
 
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
-    <button role="switch" aria-checked={on} aria-label={label} className={`toggle ${on ? "on" : ""}`} onClick={() => { buzz(8); onChange(!on); }}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`toggle ${on ? "on" : ""}`} onClick={() => { buzz(8); onChange(!on); }}>
       <motion.i layout transition={spring} />
     </button>
   );
@@ -225,7 +225,7 @@ export function HoldCircle({ onConfirm, icon, label, size = 84, ms = 900 }: {
         <motion.circle cx={size / 2 + 8} cy={size / 2 + 8} r={r} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"
           strokeDasharray={circ} style={{ strokeDashoffset: dash, rotate: -90, transformOrigin: "50% 50%" }} />
       </svg>
-      <button aria-label={label} style={{ width: size, height: size }}
+      <button type="button" aria-label={label} style={{ width: size, height: size }}
         onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
         onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) start(); }} onKeyUp={stop}
         onContextMenu={(e) => e.preventDefault()}>{icon}</button>
@@ -235,7 +235,7 @@ export function HoldCircle({ onConfirm, icon, label, size = 84, ms = 900 }: {
 
 export function RoundBtn({ children, onClick, label, active }: { children: ReactNode; onClick?: () => void; label: string; active?: boolean }) {
   return (
-    <motion.button whileTap={{ scale: 0.9 }} className={`round-btn ${active ? "on" : ""}`} aria-label={label} title={label}
+    <motion.button type="button" whileTap={{ scale: 0.9 }} className={`round-btn ${active ? "on" : ""}`} aria-label={label} title={label}
       onClick={() => { buzz(6); onClick?.(); }}>{children}</motion.button>
   );
 }
@@ -244,7 +244,7 @@ export function RoundBtn({ children, onClick, label, active }: { children: React
 export function LangSwitch() {
   const { lang } = usePrefs();
   return (
-    <button className={`lang-switch ${lang}`} role="switch" aria-checked={lang === "pl"} aria-label="Language / Język"
+    <button type="button" className={`lang-switch ${lang}`} role="switch" aria-checked={lang === "pl"} aria-label="Language / Język"
       onClick={() => { buzz(8); setPrefs({ lang: lang === "en" ? "pl" : "en" }); }}>
       <motion.i layout transition={spring} className="lang-knob" />
       <span className={lang === "en" ? "on" : ""} title="English"><FlagGB /></span>

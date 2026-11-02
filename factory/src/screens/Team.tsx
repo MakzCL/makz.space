@@ -54,7 +54,7 @@ export function Team({ onPerson }: { onPerson: (id: string) => void }) {
           const todayMs = dailyTotals(db.shifts.filter((s) => s.user_id === p.id), db.breaks, now).get(today) ?? 0;
           const job = pr.jobId ? db.jobs.find((j) => j.id === pr.jobId) : null;
           return (
-            <motion.button key={p.id} variants={item} className="card person" onClick={() => onPerson(p.id)} whileTap={{ scale: 0.985 }}>
+            <motion.button type="button" key={p.id} variants={item} className="card person" onClick={() => onPerson(p.id)} whileTap={{ scale: 0.985 }}>
               <Avatar p={p} size={48} status={pr.state} />
               <div className="grow">
                 <b>{p.full_name}</b>
@@ -85,7 +85,7 @@ export function PendingMembers() {
             <motion.div key={p.id} className="card person pending-card" layout exit={{ opacity: 0, height: 0 }}>
               <Avatar p={p} size={44} />
               <div className="grow"><b>{p.full_name}</b><small className="muted">{t("signed up {when}", { when: ago(p.created_at) })}</small></div>
-              {me.role === "boss" && <button className="icon-btn subtle" onClick={() => a.removeMember(p)} aria-label={t("Remove")}><X size={18} /></button>}
+              {me.role === "boss" && <button type="button" className="icon-btn subtle" onClick={() => a.removeMember(p)} aria-label={t("Remove")}><X size={18} /></button>}
               <Btn small tone="primary" icon={<UserCheck size={16} />} onClick={() => a.approve(p)}>{t("Approve")}</Btn>
             </motion.div>
           ))}
@@ -137,8 +137,8 @@ export function JoinLinksSheet({ open, onClose }: { open: boolean; onClose: () =
                       <small className="muted">PIN {l.pin} · {t("used {n}", { n: l.uses })}{l.max_uses ? `/${l.max_uses}` : ""} · {t("until {date}", { date: dayLabel(l.expires_at) })} · {person(l.created_by)?.full_name.split(" ")[0]}</small>
                       {l.failed > 0 && <small className="red-t">{plural(l.failed, ["wrong PIN attempt", "wrong PIN attempts"], ["błędna próba PIN", "błędne próby PIN", "błędnych prób PIN"])}{l.failed >= 10 ? ` · ${t("locked")}` : ""}</small>}
                     </div>
-                    <button className="icon-btn subtle" onClick={() => setMade(l)} aria-label={t("Show")}><Share2 size={17} /></button>
-                    <button className="icon-btn subtle" onClick={() => a.revokeJoinLink(l.id)} aria-label={t("Switch off")}><Trash2 size={17} /></button>
+                    <button type="button" className="icon-btn subtle" onClick={() => setMade(l)} aria-label={t("Show")}><Share2 size={17} /></button>
+                    <button type="button" className="icon-btn subtle" onClick={() => a.revokeJoinLink(l.id)} aria-label={t("Switch off")}><Trash2 size={17} /></button>
                   </div>
                 ))}
               </div>
@@ -164,7 +164,7 @@ function LinkCard({ link, onDone }: { link: JoinLink; onDone: () => void }) {
         {qr ? <img src={qr} alt="QR" /> : <div className="qr-skel" />}
       </motion.div>
       <p className="muted">{t("Scan with a phone camera, or send the link.")}</p>
-      <div className="link-box"><span>{url}</span><button className="icon-btn subtle" onClick={() => copy(url)} aria-label={t("Copy")}><Copy size={17} /></button></div>
+      <div className="link-box"><span>{url}</span><button type="button" className="icon-btn subtle" onClick={() => copy(url)} aria-label={t("Copy")}><Copy size={17} /></button></div>
       <div className="pin-show"><small>{t("PIN")}</small><b>{link.pin}</b><small>{roleLabel(link.role)} · {t("until {date}", { date: dayLabel(link.expires_at) })}</small></div>
       <div className="row gap">
         {"share" in navigator && <Btn tone="soft" wide icon={<Share2 size={18} />} onClick={() => navigator.share({ title: "Skalarki Factory", text: t("Join the Skalarki Factory app"), url }).catch(() => {})}>{t("Share")}</Btn>}

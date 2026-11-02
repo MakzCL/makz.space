@@ -49,9 +49,9 @@ export function CalendarView({ openEvent, onOpenEvent }: { openEvent: string | n
         )}
         <div className="card cal-card">
           <div className="row between">
-            <button className="icon-btn subtle" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label={t("Previous month")}><ChevronLeft size={20} /></button>
+            <button type="button" className="icon-btn subtle" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label={t("Previous month")}><ChevronLeft size={20} /></button>
             <b className="cal-month">{month.toLocaleDateString(locale(), { month: "long", year: "numeric" })}</b>
-            <button className="icon-btn subtle" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label={t("Next month")}><ChevronRight size={20} /></button>
+            <button type="button" className="icon-btn subtle" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label={t("Next month")}><ChevronRight size={20} /></button>
           </div>
           <div className="cal-grid">
             {Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i)).map((d) => <small key={d.getDay()} className="cal-dow">{d.toLocaleDateString(locale(), { weekday: "narrow" })}</small>)}
@@ -59,7 +59,7 @@ export function CalendarView({ openEvent, onOpenEvent }: { openEvent: string | n
               const k = ymdLocal(d);
               const n = mine.filter((e) => sameDay(e.starts_at, k)).length;
               return (
-                <button key={k} className={`cal-day ${d.getMonth() !== month.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === day ? "on" : ""}`} onClick={() => setDay(k)}>
+                <button type="button" key={k} className={`cal-day ${d.getMonth() !== month.getMonth() ? "out" : ""} ${k === today ? "today" : ""} ${k === day ? "on" : ""}`} onClick={() => setDay(k)}>
                   <span>{d.getDate()}</span>{n > 0 && <i className="cal-dots">{Array.from({ length: Math.min(n, 3) }, (_, j) => <em key={j} />)}</i>}
                 </button>
               );
@@ -93,7 +93,7 @@ function EventRow({ e, onClick, withDate }: { e: CalEvent; onClick: () => void; 
   const now = Date.now();
   const live = now >= new Date(e.starts_at).getTime() - 10 * 60000 && now <= new Date(e.ends_at).getTime();
   return (
-    <motion.button className={`card event-row ${live ? "live" : ""}`} onClick={onClick} whileTap={{ scale: 0.985 }}>
+    <motion.button type="button" className={`card event-row ${live ? "live" : ""}`} onClick={onClick} whileTap={{ scale: 0.985 }}>
       <span className="ev-time">{e.all_day ? <b>{t("All day")}</b> : <><b>{clock(e.starts_at)}</b><small>{clock(e.ends_at)}</small></>}</span>
       <span className="grow">
         <b>{e.title}</b>

@@ -200,7 +200,7 @@ function Main({ signOut }: { signOut: () => void }) {
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, x: profile ? 0 : dir * -36 }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}>
-              {profile && <button className="back" onClick={() => setProfile(false)}><ArrowLeft size={18} /> {t("Back")}</button>}
+              {profile && <button type="button" className="back" onClick={() => setProfile(false)}><ArrowLeft size={18} /> {t("Back")}</button>}
               <ErrorBoundary place={`screen:${page}`}>{screen}</ErrorBoundary>
             </motion.div>
           </AnimatePresence>
@@ -229,8 +229,8 @@ function StartUp({ onReset }: { onReset: () => void }) {
       {slow && (
         <div className="startup-help">
           <p className="muted">{t("This is taking longer than usual.")}</p>
-          <button className="btn primary" onClick={() => location.reload()}>{t("Reload")}</button>
-          <button className="link center" onClick={onReset}>{t("Sign out and sign in again")}</button>
+          <button type="button" className="btn primary" onClick={() => location.reload()}>{t("Reload")}</button>
+          <button type="button" className="link center" onClick={onReset}>{t("Sign out and sign in again")}</button>
         </div>
       )}
     </div>

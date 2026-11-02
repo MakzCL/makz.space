@@ -71,7 +71,7 @@ export function Insights({ onOpenJob }: { onOpenJob: (j: Job) => void }) {
       <Section title={t("Jobs by effort")} sub={t("Job time vs person-hours. Team jobs use more hands than the clock shows.")}>
         <motion.div className="stack" variants={list} initial="hidden" animate="show" key={range}>
           {d.jobs.slice(0, 10).map(({ job, wall, person: pm, crew, people, teamSessions }) => (
-            <motion.button key={job!.id} variants={item} className="card effort" onClick={() => onOpenJob(job!)} whileTap={{ scale: 0.985 }}>
+            <motion.button type="button" key={job!.id} variants={item} className="card effort" onClick={() => onOpenJob(job!)} whileTap={{ scale: 0.985 }}>
               <div className="row between"><span className="code">{jobCode(job!)}</span>{crew >= 2 && <Badge tone="blue"><Users size={12} /> ×{crew} · {t("{n} team run(s)", { n: teamSessions })}</Badge>}</div>
               <b>{job!.title}</b>
               <div className="dual">

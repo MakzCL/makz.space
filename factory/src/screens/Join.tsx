@@ -32,10 +32,10 @@ export function PinPad({ value, onChange, length = 8, error }: { value: string; 
         {Array.from({ length: Math.max(4, value.length) }, (_, i) => <i key={i} className={i < value.length ? "on" : ""} />)}
       </motion.div>
       <div className="keys">
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <motion.button key={d} whileTap={{ scale: 0.88 }} onClick={() => press(d)}>{d}</motion.button>)}
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <motion.button type="button" key={d} whileTap={{ scale: 0.88 }} onClick={() => press(d)}>{d}</motion.button>)}
         <span />
-        <motion.button whileTap={{ scale: 0.88 }} onClick={() => press("0")}>0</motion.button>
-        <motion.button whileTap={{ scale: 0.88 }} className="del" aria-label={t("Delete")} onClick={() => { buzz(6); onChange(value.slice(0, -1)); }}><Delete size={22} /></motion.button>
+        <motion.button type="button" whileTap={{ scale: 0.88 }} onClick={() => press("0")}>0</motion.button>
+        <motion.button type="button" whileTap={{ scale: 0.88 }} className="del" aria-label={t("Delete")} onClick={() => { buzz(6); onChange(value.slice(0, -1)); }}><Delete size={22} /></motion.button>
       </div>
     </div>
   );
@@ -78,7 +78,7 @@ export function Join({ backend, code, onIn, onCancel }: { backend: Backend; code
   if (!info) return <FullLoader label={t("Opening invite…")} />;
   return (
     <div className="login join">
-      <div className="login-top"><button className="link" onClick={onCancel}>{t("Back to sign in")}</button><LangSwitch /></div>
+      <div className="login-top"><button type="button" className="link" onClick={onCancel}>{t("Back to sign in")}</button><LangSwitch /></div>
       <Scene kind="town" height={200}>
         <div className="login-brand"><Logo size={34} /><div><b>{t("You're invited")}</b><small>Skalarki Electronics Ltd</small></div></div>
       </Scene>

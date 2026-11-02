@@ -69,7 +69,7 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
                     <td className="muted nowrap">{shortDate(j.created_at)}</td>
                     <td><b>{j.title}</b>{j.sku && <small className="muted"> · {j.sku}</small>}</td>
                     <td className="num">{j.quantity ?? 1}</td>
-                    <td>{o ? <button className="link" onClick={(e) => { e.stopPropagation(); onOrder(o.id); }}>{o.order_number}</button> : <span className="muted">{t("Stock")}</span>}</td>
+                    <td>{o ? <button type="button" className="link" onClick={(e) => { e.stopPropagation(); onOrder(o.id); }}>{o.order_number}</button> : <span className="muted">{t("Stock")}</span>}</td>
                     <td className={`nowrap ${late ? "red-t" : "muted"}`}>{shortDate(j.due_date) || "—"}</td>
                     <td><Pill cell={ingr.get(j.id) ?? (j.stock_booked || j.status === "done" ? { label: "Processed", tone: "ok" } : { label: "—", tone: "none" })} /></td>
                     <td><span className="row gap-s"><RouteDots job={j} /><small>{j.status === "done" ? "" : stations.get(j.station_id ?? "") ?? ""}</small></span></td>
@@ -136,7 +136,7 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
           <div className="tri">
             <div className="hl"><small>{t("Quantity")}</small><b>{job.quantity ?? 1}</b><em>{job.sku ?? ""}</em></div>
             <div><small>{t("Deadline")}</small><b>{fullDate(job.due_date)}</b><em>{t("Priority")} P{job.priority}</em></div>
-            <div><small>{o ? t("Sales order") : t("For")}</small><b>{o ? <button className="link" onClick={() => onOrder?.(o.id)}>{o.order_number}</button> : t("Stock")}</b><em>{o?.customer ?? ""}</em></div>
+            <div><small>{o ? t("Sales order") : t("For")}</small><b>{o ? <button type="button" className="link" onClick={() => onOrder?.(o.id)}>{o.order_number}</button> : t("Stock")}</b><em>{o?.customer ?? ""}</em></div>
           </div>
           {job.route?.length > 0 && (
             <div className="card flat">

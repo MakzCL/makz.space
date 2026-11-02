@@ -81,7 +81,7 @@ function ChatsView({ convs, openConv, onOpenConv }: { convs: ConvView[]; openCon
     <div className="stack">
       <div className="row gap">
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search people and chats…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <button className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={t("New group chat")} title={t("New group chat")}><Users size={20} /></button>
+        <button type="button" className="icon-btn big-ic" onClick={() => setCreating(true)} aria-label={t("New group chat")} title={t("New group chat")}><Users size={20} /></button>
       </div>
       {shown.length > 0 && (
         <div className="conv-list">
@@ -93,7 +93,7 @@ function ChatsView({ convs, openConv, onOpenConv }: { convs: ConvView[]; openCon
           <small className="label people-label">{t("Everyone at Skalarki")}</small>
           <div className="conv-list">
             {people.map((p) => (
-              <button key={p.id} className={`conv-row ${directWith.get(p.id)?.c.id === openConv ? "on" : ""}`} onClick={() => message(p.id)} disabled={opening === p.id}>
+              <button type="button" key={p.id} className={`conv-row ${directWith.get(p.id)?.c.id === openConv ? "on" : ""}`} onClick={() => message(p.id)} disabled={opening === p.id}>
                 <span className="conv-av"><Avatar p={p} size={46} /><PresenceDot p={p} /></span>
                 <span className="grow">
                   <b>{p.full_name}</b>
@@ -140,7 +140,7 @@ function ConvRow({ v, on, onClick }: { v: ConvView; on: boolean; onClick: () => 
     : last.body || (last.attachments[0]?.type?.startsWith("image/") ? "📷 " + t("Photo") : last.attachments[0]?.type?.startsWith("video/") ? "🎬 " + t("Video") : "📎 " + t("File"));
   const joined = db.conversation_members.some((m) => m.conversation_id === v.c.id && m.user_id === me.id);
   return (
-    <button className={`conv-row ${on ? "on" : ""} ${v.unread ? "unread" : ""}`} onClick={onClick}>
+    <button type="button" className={`conv-row ${on ? "on" : ""} ${v.unread ? "unread" : ""}`} onClick={onClick}>
       <span className="conv-av">
         {v.c.kind === "direct" ? <><Avatar p={v.other} size={46} /><PresenceDot p={v.other} /></>
           : v.c.kind === "channel" ? <span className="ch-av"><Hash size={20} /></span> : <span className="ch-av grp"><Users size={20} /></span>}
@@ -273,19 +273,19 @@ function Conversation({ v, onBack }: { v: ConvView; onBack: () => void }) {
   return (
     <div className="conv">
       <div className="conv-head">
-        <button className="icon-btn subtle back-btn" onClick={onBack} aria-label={t("Back")}><ArrowLeft size={20} /></button>
-        <button className="row gap grow conv-title" onClick={() => setInfo(true)}>
+        <button type="button" className="icon-btn subtle back-btn" onClick={onBack} aria-label={t("Back")}><ArrowLeft size={20} /></button>
+        <button type="button" className="row gap grow conv-title" onClick={() => setInfo(true)}>
           {c.kind === "direct" ? <span className="conv-av"><Avatar p={v.other} size={38} /><PresenceDot p={v.other} size={11} /></span>
             : <span className="ch-av sm">{c.kind === "channel" ? <Hash size={17} /> : <Users size={17} />}</span>}
           <span className="grow"><b>{v.title}</b><small className="muted">{typers.length ? t("{names} typing…", { names: typers.join(", ") }) : sub}</small></span>
         </button>
         {c.kind !== "channel" && <>
-          <button className="icon-btn" onClick={() => calls.start({ conversationId: c.id, kind: "voice" })} aria-label={t("Voice call")}><Phone size={18} /></button>
-          <button className="icon-btn" onClick={() => calls.start({ conversationId: c.id, kind: "video" })} aria-label={t("Video call")}><Video size={18} /></button>
+          <button type="button" className="icon-btn" onClick={() => calls.start({ conversationId: c.id, kind: "voice" })} aria-label={t("Voice call")}><Phone size={18} /></button>
+          <button type="button" className="icon-btn" onClick={() => calls.start({ conversationId: c.id, kind: "video" })} aria-label={t("Video call")}><Video size={18} /></button>
         </>}
       </div>
       {activeCall && !calls.current && (
-        <button className="call-banner" onClick={() => calls.join(activeCall)}><PhoneIncoming size={18} /><span className="grow">{t("Call in progress")}</span><b>{t("Join")}</b></button>
+        <button type="button" className="call-banner" onClick={() => calls.join(activeCall)}><PhoneIncoming size={18} /><span className="grow">{t("Call in progress")}</span><b>{t("Join")}</b></button>
       )}
       <div className="msgs" ref={scroller} onClick={() => setMenu(null)}
         onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files); }}>
@@ -313,7 +313,7 @@ function Conversation({ v, onBack }: { v: ConvView; onBack: () => void }) {
         <div className="reply-bar">
           {editing ? <Pencil size={15} /> : <CornerUpLeft size={15} />}
           <span className="grow"><b>{editing ? t("Editing message") : person(reply!.sender_id)?.full_name.split(" ")[0]}</b><small>{(editing ?? reply)!.body || t("Attachment")}</small></span>
-          <button className="icon-btn subtle" onClick={() => { setReply(null); if (editing) { setEditing(null); setText(""); } }} aria-label={t("Cancel")}><X size={16} /></button>
+          <button type="button" className="icon-btn subtle" onClick={() => { setReply(null); if (editing) { setEditing(null); setText(""); } }} aria-label={t("Cancel")}><X size={16} /></button>
         </div>
       )}
       <form className="composer-bar" onSubmit={(e) => { e.preventDefault(); send(); }}>
@@ -368,15 +368,15 @@ function Bubble({ m, grouped, group, menu, onMenu, onReact, onReply, onEdit, onD
             {receipt && <span className={`rcpt ${receipt === "seen" ? "seen" : ""}`} title={receipt === "sent" ? t("Sent") : receipt === "seen" ? t("Seen") : t("Seen by {n}", { n: receipt.split("-")[1]! })}>
               {receipt === "sent" ? <Check size={13} /> : <CheckCheck size={13} />}</span>}</small>
         </div>
-        {counts.length > 0 && <div className="reacts">{counts.map((x) => <button key={x.e} className={x.me ? "on" : ""} onClick={() => onReact(x.e)}>{x.e} {x.n > 1 ? x.n : ""}</button>)}</div>}
+        {counts.length > 0 && <div className="reacts">{counts.map((x) => <button type="button" key={x.e} className={x.me ? "on" : ""} onClick={() => onReact(x.e)}>{x.e} {x.n > 1 ? x.n : ""}</button>)}</div>}
         <AnimatePresence>
           {menu && (
             <motion.div className="msg-menu" initial={{ opacity: 0, scale: 0.9, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => e.stopPropagation()}>
-              <div className="emoji-row">{EMOJI.map((e) => <button key={e} onClick={() => onReact(e)}>{e}</button>)}</div>
+              <div className="emoji-row">{EMOJI.map((e) => <button type="button" key={e} onClick={() => onReact(e)}>{e}</button>)}</div>
               <div className="menu-row">
-                <button onClick={onReply}><CornerUpLeft size={15} /> {t("Reply")}</button>
-                {mine && m.body && <button onClick={onEdit}><Pencil size={15} /> {t("Edit")}</button>}
-                {mine && <button className="red-t" onClick={onDelete}><Trash2 size={15} /> {t("Delete")}</button>}
+                <button type="button" onClick={onReply}><CornerUpLeft size={15} /> {t("Reply")}</button>
+                {mine && m.body && <button type="button" onClick={onEdit}><Pencil size={15} /> {t("Edit")}</button>}
+                {mine && <button type="button" className="red-t" onClick={onDelete}><Trash2 size={15} /> {t("Delete")}</button>}
                 {!mine && <span className="muted menu-time"><SmilePlus size={14} /> {new Date(m.created_at).toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
               </div>
             </motion.div>
@@ -395,7 +395,7 @@ function AttachmentView({ a }: { a: Attachment }) {
   if (a.type?.startsWith("image/")) {
     return (
       <>
-        <button className="att-img" style={a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined} onClick={(e) => { e.stopPropagation(); setBig(true); }}>
+        <button type="button" className="att-img" style={a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined} onClick={(e) => { e.stopPropagation(); setBig(true); }}>
           {url ? <img src={url} alt={a.name ?? ""} loading="lazy" /> : <ImageIcon size={24} />}
         </button>
         <AnimatePresence>{big && url && (
@@ -446,7 +446,7 @@ function NewChatSheet({ open, channel, onClose, onCreated }: { open: boolean; ch
               {people.map((p) => {
                 const on = pick.includes(p.id);
                 return (
-                  <button key={p.id} className={`person-row select ${on ? "on" : ""}`} onClick={() => setPick(on ? pick.filter((x) => x !== p.id) : [...pick, p.id])}>
+                  <button type="button" key={p.id} className={`person-row select ${on ? "on" : ""}`} onClick={() => setPick(on ? pick.filter((x) => x !== p.id) : [...pick, p.id])}>
                     <span className="conv-av"><Avatar p={p} size={38} /><PresenceDot p={p} size={11} /></span>
                     <span><b>{p.full_name}</b><small>#{p.employee_code}</small></span>
                     <i className="check">{on && <Check size={14} />}</i>
@@ -483,7 +483,7 @@ function ConvInfo({ v, open, onClose, onLeft }: { v: ConvView; open: boolean; on
             <div key={m.id} className="person-row">
               <span className="conv-av"><Avatar p={p} size={38} /><PresenceDot p={p} size={11} /></span>
               <span><b>{p?.full_name}</b><small>{t(STATUS_META[shownStatus(p, online)].label)}{m.role === "owner" ? ` · ${t("owner")}` : ""}</small></span>
-              {owner && m.user_id !== me.id && v.c.kind === "group" && <button className="icon-btn subtle" onClick={async () => { await backend.remove("conversation_members", m.id); refresh("conversation_members"); }} aria-label={t("Remove")}><X size={16} /></button>}
+              {owner && m.user_id !== me.id && v.c.kind === "group" && <button type="button" className="icon-btn subtle" onClick={async () => { await backend.remove("conversation_members", m.id); refresh("conversation_members"); }} aria-label={t("Remove")}><X size={16} /></button>}
             </div>
           );
         })}

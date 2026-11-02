@@ -73,9 +73,9 @@ export function TimeSheet({ userId }: { userId?: string }) {
         ? <SceneTabs kind="clock" title={t("Time sheet")} sub={t("Your hours, breaks and overtime")} value={range} onChange={(v) => { setRange(v); setOff(0); }} tabs={opts} />
         : <motion.div variants={item}><Segmented value={range} onChange={(v) => { setRange(v); setOff(0); }} options={opts} /></motion.div>}
       <motion.div className="date-nav" variants={item}>
-        <button className="icon-btn" onClick={() => setOff(off - 1)} aria-label={t("Previous")}><ChevronLeft size={20} /></button>
+        <button type="button" className="icon-btn" onClick={() => setOff(off - 1)} aria-label={t("Previous")}><ChevronLeft size={20} /></button>
         <motion.b key={title} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>{title}</motion.b>
-        <button className="icon-btn" onClick={() => setOff(Math.min(0, off + 1))} disabled={off >= 0} aria-label={t("Next")}><ChevronRight size={20} /></button>
+        <button type="button" className="icon-btn" onClick={() => setOff(Math.min(0, off + 1))} disabled={off >= 0} aria-label={t("Next")}><ChevronRight size={20} /></button>
       </motion.div>
 
       <motion.div className="card totals" variants={item}>
@@ -115,7 +115,7 @@ export function TimeSheet({ userId }: { userId?: string }) {
                     {br.length > 0 && <small className="muted"><Coffee size={12} /> {br.map((x) => `${clock(x.started_at)} (${human((x.ended_at ? new Date(x.ended_at).getTime() : now) - new Date(x.started_at).getTime())})`).join(" · ")}</small>}
                   </div>
                   <b>{hm(shiftWorked(s, db.breaks, now))}</b>
-                  {can.admin(me.role) && <button className="icon-btn subtle" onClick={() => setEdit(s)} aria-label={t("Correct shift")}><Pencil size={15} /></button>}
+                  {can.admin(me.role) && <button type="button" className="icon-btn subtle" onClick={() => setEdit(s)} aria-label={t("Correct shift")}><Pencil size={15} /></button>}
                 </div>
               );
             })}

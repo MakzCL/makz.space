@@ -218,8 +218,8 @@ function Incoming({ call, onAccept, onDecline }: { call: Call; onAccept: () => v
         <b>{who?.full_name ?? t("Someone")}</b>
         <small>{ev ? t("Meeting: {title}", { title: ev.title }) : conv?.kind === "group" ? `${conv.name} · ` : ""}{call.kind === "voice" ? t("Voice call") : t("Video call")}</small>
       </div>
-      <motion.button className="ring-btn no" whileTap={{ scale: 0.9 }} onClick={onDecline} aria-label={t("Decline")}><PhoneOff size={22} /></motion.button>
-      <motion.button className="ring-btn yes" whileTap={{ scale: 0.9 }} animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} onClick={onAccept} aria-label={t("Answer")}>
+      <motion.button type="button" className="ring-btn no" whileTap={{ scale: 0.9 }} onClick={onDecline} aria-label={t("Decline")}><PhoneOff size={22} /></motion.button>
+      <motion.button type="button" className="ring-btn yes" whileTap={{ scale: 0.9 }} animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} onClick={onAccept} aria-label={t("Answer")}>
         {call.kind === "voice" ? <Phone size={22} /> : <Video size={22} />}
       </motion.button>
     </motion.div>
@@ -309,14 +309,14 @@ function CallScreen({ live, setLive, peers, localRef, onLeave }: {
         <CtrlBtn on={!live.camOff} onClick={toggleCam} label={live.camOff ? t("Camera on") : t("Camera off")}>{live.camOff ? <VideoOff size={22} /> : <Video size={22} />}</CtrlBtn>
         {!live.camOff && !canShare && <CtrlBtn on onClick={flip} label={t("Switch camera")}><RefreshCw size={22} /></CtrlBtn>}
         {canShare && <CtrlBtn on={live.sharing} onClick={share} label={live.sharing ? t("Stop sharing") : t("Share screen")}><MonitorUp size={22} /></CtrlBtn>}
-        <motion.button className="ctrl hang" whileTap={{ scale: 0.9 }} onClick={onLeave} aria-label={t("Leave call")}><PhoneOff size={24} /></motion.button>
+        <motion.button type="button" className="ctrl hang" whileTap={{ scale: 0.9 }} onClick={onLeave} aria-label={t("Leave call")}><PhoneOff size={24} /></motion.button>
       </div>
     </motion.div>
   );
 }
 
 function CtrlBtn({ on, onClick, label, children }: { on: boolean; onClick: () => void; label: string; children: ReactNode }) {
-  return <motion.button className={`ctrl ${on ? "" : "off"}`} whileTap={{ scale: 0.9 }} onClick={onClick} aria-label={label} title={label}>{children}</motion.button>;
+  return <motion.button type="button" className={`ctrl ${on ? "" : "off"}`} whileTap={{ scale: 0.9 }} onClick={onClick} aria-label={label} title={label}>{children}</motion.button>;
 }
 
 function Tile({ stream, name, p }: { stream: MediaStream; name: string; p: ReturnType<ReturnType<typeof useStore>["person"]> }) {

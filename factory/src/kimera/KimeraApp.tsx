@@ -81,7 +81,7 @@ function Access({ signOut }: { signOut: () => void }) {
         <h2>{t("Kimera is for the office team")}</h2>
         <p className="muted">{t("Your jobs, chat and clock-in live in the Factory app.")}</p>
         <a className="btn primary" href={FACTORY_URL}>{t("Open Factory")}</a>
-        <button className="link center" onClick={signOut}>{t("Sign out")}</button>
+        <button type="button" className="link center" onClick={signOut}>{t("Sign out")}</button>
       </div>
     );
   }
@@ -169,7 +169,7 @@ function Shell({ signOut }: { signOut: () => void }) {
         <a className="k-brand" href="#sell" onClick={(e) => { e.preventDefault(); go("sell"); }}><SkKimera /></a>
         <nav className="k-nav" aria-label={t("Sections")}>
           {NAV.map((n) => (
-            <button key={n.v} className={tab === n.v ? "on" : ""} aria-current={tab === n.v ? "page" : undefined} onClick={() => go(n.v)}>
+            <button type="button" key={n.v} className={tab === n.v ? "on" : ""} aria-current={tab === n.v ? "page" : undefined} onClick={() => go(n.v)}>
               {n.icon}<span>{t(n.label)}</span>{badges[n.v] ? <i>{badges[n.v]}</i> : null}
               {tab === n.v && <motion.em layoutId="k-nav-on" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
             </button>
@@ -181,23 +181,23 @@ function Shell({ signOut }: { signOut: () => void }) {
               <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setMenu(menu === "create" ? null : "create")}>{t("Create")}</Btn>
               <AnimatePresence>{menu === "create" && (
                 <motion.div className="k-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
-                  <button onClick={() => { setSellKind("order"); go("sell"); setNewOrder("order"); }}><Tag size={15} />{t("Sales order")}</button>
-                  <button onClick={() => { setSellKind("quote"); go("sell"); setNewOrder("quote"); }}><Tag size={15} />{t("Quote")}</button>
-                  <button onClick={() => { go("make"); setNewMo(true); }}><Factory size={15} />{t("Manufacturing order")}</button>
-                  <button onClick={() => { setBuyView("pos"); go("buy"); }}><ShoppingCart size={15} />{t("Purchase order")}</button>
+                  <button type="button" onClick={() => { setSellKind("order"); go("sell"); setNewOrder("order"); }}><Tag size={15} />{t("Sales order")}</button>
+                  <button type="button" onClick={() => { setSellKind("quote"); go("sell"); setNewOrder("quote"); }}><Tag size={15} />{t("Quote")}</button>
+                  <button type="button" onClick={() => { go("make"); setNewMo(true); }}><Factory size={15} />{t("Manufacturing order")}</button>
+                  <button type="button" onClick={() => { setBuyView("pos"); go("buy"); }}><ShoppingCart size={15} />{t("Purchase order")}</button>
                 </motion.div>
               )}</AnimatePresence>
             </div>
           )}
           <div className="k-menu-wrap">
-            <button className="k-me" onClick={() => setMenu(menu === "me" ? null : "me")} aria-label={t("Account")}><Avatar p={me} size={30} /><ChevronDown size={14} /></button>
+            <button type="button" className="k-me" onClick={() => setMenu(menu === "me" ? null : "me")} aria-label={t("Account")}><Avatar p={me} size={30} /><ChevronDown size={14} /></button>
             <AnimatePresence>{menu === "me" && (
               <motion.div className="k-menu right" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
                 <div className="k-menu-me"><b>{me.full_name}</b><small className="muted">{t(ROLE_META[me.role].label)}</small></div>
-                <button onClick={() => setPrefs({ theme: prefs.theme === "light" ? "night" : "light" })}>{prefs.theme === "light" ? <Moon size={15} /> : <Sun size={15} />}{prefs.theme === "light" ? t("Dark mode") : t("Light mode")}</button>
+                <button type="button" onClick={() => setPrefs({ theme: prefs.theme === "light" ? "night" : "light" })}>{prefs.theme === "light" ? <Moon size={15} /> : <Sun size={15} />}{prefs.theme === "light" ? t("Dark mode") : t("Light mode")}</button>
                 <div className="k-menu-lang"><LangSwitch /></div>
                 <a href={FACTORY_URL}><Factory size={15} />{t("Open Factory app")}</a>
-                <button onClick={signOut}><LogOut size={15} />{t("Sign out")}</button>
+                <button type="button" onClick={signOut}><LogOut size={15} />{t("Sign out")}</button>
               </motion.div>
             )}</AnimatePresence>
           </div>
