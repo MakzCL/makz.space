@@ -6,6 +6,9 @@ rather than a set of pages.
 
 Live at **[makz.space](https://makz.space)**.
 
+> `factory/` holds a separate app — the Skalarki Electronics factory app
+> (Vite + React, Cloudflare Pages). See [`factory/README.md`](factory/README.md).
+
 ---
 
 ## What this is
