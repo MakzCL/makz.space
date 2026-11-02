@@ -13,7 +13,7 @@ default shown in brackets. Every default can be changed later.
    - (a) push stock levels back to Shopify, and
    - (b) mark orders fulfilled in Shopify with the tracking number?
    *(Default: orders in only.)*
-4. ~~**Publish phase 1?**~~ Answered: Phase 1, Phase 2 and the Access dashboard are live.
+4. ~~**Publish phase 1?**~~ Answered: Phases 1–4 (including outsourcing, 4d), the Developer role and the Access dashboard are live.
 
 ## Shapes the next phases
 
@@ -36,6 +36,7 @@ default shown in brackets. Every default can be changed later.
     Which label printer do you use?
     *(Default: Kimera generates Code-128 labels from the SKU.)*
 11. **Outsourcing:** do you send work to outside companies (powder coating, PCB assembly, CNC, etc.)? Which ones?
+    Kimera now supports this (Buy → PO type "Outsourced work"). For each company I need its name and whether it holds any of your stock now, so I can set up its contractor location.
 12. **Other channels:** do you use or plan to use WooCommerce, BigCommerce, eBay or Amazon, a shipping tool (ShipStation, DHL, FedEx…), or HubSpot?
 13. **Order priority:** is this order OK for who gets stock first?
     1. The rank you set by hand.
@@ -76,3 +77,15 @@ default shown in brackets. Every default can be changed later.
 29. **Expired stock:** should Kimera refuse to use or ship expired batches, or only warn?
     *(Default: warn only; the first-to-expire batch is used first.)*
 
+## Added 2 Nov (outsourcing + warehouse)
+
+30. **Contractor costs:** besides the contractor's fee, should shipping to and from the contractor be added to the cost of the finished piece?
+    *(Default: no. The cost is the contractor's fee plus the materials; shipping goes on the PO as a separate line if you want it counted.)*
+31. **Where materials for contractors come from:** always the main "Skalarki" location, or a different one (e.g. the downstairs workshop)?
+    *(Default: the default location. It can be changed on each transfer before it is dispatched.)*
+32. **Scanning hardware (warehouse phase):** will staff scan with phone cameras, USB/Bluetooth barcode scanners, or both?
+    *(Default: both. Phone camera in the app, and scanners that type into the search box.)*
+33. **Picking orders:** who picks and packs customer orders: one dispatch person, or whoever is free? Should pick lists be grouped by location/bin (walk order) or by order?
+    *(Default: anyone with stock rights; one pick list per order, sorted by bin.)*
+34. **Shop-floor time:** keep booking time per job as now, or should operators start and stop each operation (cutting, coating, assembly…) on a tablet at each station?
+    *(Default: per job as now, plus optional per-operation start/stop for stations that have a tablet.)*
