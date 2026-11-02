@@ -26,6 +26,7 @@ import { ChatHub } from "./screens/Chat";
 import { CallProvider } from "./components/Calls";
 import { BellButton, useNotificationToasts } from "./components/Notifications";
 import { PermissionsPrompt } from "./components/Permissions";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OnlineProvider, totalUnread, useConversations } from "./lib/comms";
 import type { NotifyLink } from "./lib/types";
 import { PersonSheet, Team } from "./screens/Team";
@@ -190,7 +191,7 @@ function Main({ signOut }: { signOut: () => void }) {
               exit={{ opacity: 0, x: profile ? 0 : dir * -36 }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}>
               {profile && <button className="back" onClick={() => setProfile(false)}><ArrowLeft size={18} /> {t("Back")}</button>}
-              {screen}
+              <ErrorBoundary place={`screen:${page}`}>{screen}</ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         )}

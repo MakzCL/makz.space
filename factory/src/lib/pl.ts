@@ -518,4 +518,5 @@ export const PL: Record<string, string> = {
   "Video calls and photos in chat": "Rozmowy wideo i zdjęcia w czacie",
   "Something is blocked: open your browser's site settings for this app and set it to Allow.": "Coś jest zablokowane: otwórz ustawienia witryny w przeglądarce i ustaw Zezwalaj.",
   "Allow": "Zezwól",
+  "Something went wrong on this screen": "Coś poszło nie tak na tym ekranie", "It has been reported automatically. Try again, or reload the app.": "Zgłoszono automatycznie. Spróbuj ponownie lub odśwież aplikację.", "Try again": "Spróbuj ponownie",
 };

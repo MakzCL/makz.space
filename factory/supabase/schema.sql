@@ -1629,3 +1629,20 @@ begin
     end loop;
   end if;
 end $$;
+
+-- App crash reports (written by the app, read by admins/support only via SQL).
+create table if not exists public.client_errors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete set null,
+  message text not null default '',
+  stack text not null default '',
+  place text not null default '',
+  url text not null default '',
+  user_agent text not null default '',
+  app_version text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.client_errors enable row level security;
+drop policy if exists "report errors" on public.client_errors;
+create policy "report errors" on public.client_errors for insert to anon, authenticated
+  with check ((user_id is null or user_id = auth.uid()) and length(message) <= 500 and length(stack) <= 4000);

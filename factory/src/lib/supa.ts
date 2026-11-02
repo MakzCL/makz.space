@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import type { Backend, Change, JoinInfo, Row } from "./backend";
 import { TABLES, type JoinLink, type Role, type TableName } from "./types";
 
@@ -70,6 +70,7 @@ export class SupabaseBackend implements Backend {
     if (error) throw error;
   }
   subscribe(onChange: (t: TableName, change?: Change) => void) {
+    this.dropStale("factory-live");
     const ch = this.sb.channel("factory-live");
     for (const t of TABLES) {
       ch.on("postgres_changes", { event: "*", schema: "public", table: t }, (p) => onChange(t, {
@@ -98,7 +99,21 @@ export class SupabaseBackend implements Backend {
   }
 
   channel(name: string, opts?: { presenceKey?: string }) {
+    this.dropStale(name);
     return this.sb.channel(name, { config: { broadcast: { self: false, ack: false }, presence: { key: opts?.presenceKey ?? "" } } });
+  }
+  /**
+   * supabase-js hands back an existing channel with the same name, and adding
+   * listeners to one that is already subscribed throws (blank-screen crash when
+   * a chat/call is reopened before the old channel finished closing).
+   * Always start from a fresh channel instead.
+   */
+  private dropStale(name: string) {
+    const rt = this.sb.realtime as unknown as { channels: RealtimeChannel[]; getChannels(): RealtimeChannel[] };
+    const old = rt.getChannels().find((c) => c.topic === `realtime:${name}`);
+    if (!old) return;
+    old.unsubscribe().catch(() => {});
+    rt.channels = rt.channels.filter((c) => c !== old);
   }
   removeChannel(ch: ReturnType<SupabaseClient["channel"]>) { this.sb.removeChannel(ch); }
   async uploadChatFile(conversationId: string, file: Blob, name: string) {

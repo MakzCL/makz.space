@@ -969,3 +969,6 @@ p { margin: 0; }
 .perm-st { color: var(--ok); } .perm-row.no .perm-st { color: var(--red-2); }
 .order-job { align-items: flex-start; }
 .order-job .job-badge, .order-job .job-side { margin-top: 0.35rem; }
+
+.crash { display: grid; justify-items: center; gap: 0.8rem; padding: 2.5rem 1.2rem; text-align: center; }
+.crash.full { position: relative; z-index: 1; min-height: 100%; align-content: center; }
