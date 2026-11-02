@@ -326,7 +326,7 @@ key per intent and disables the button while it runs.
   - MFG-10/11/12/13 → **Complete**: `pick_mo` (to Production floor WIP, not free for others), `produce_mo` (partial, actual usage, picked first), finish returns unused, reopen reverses by location/lot. ✔ scenario 5.
   - MFG-14/15/08/09/06 → **Complete** (core): `product_operations`, station rates, labour rate, `mo_costs()` planned vs actual, finish estimate vs deadline; Cost card on MO; Operations editor. ✔ scenario 12 (materials £51 = consumption).
   - INV-10/11/12/13, BUY-04 → **Complete** (core): `lots`, `lot_levels`, `lot_links`, item tracking none/batch/serial, FEFO, receive with batch + expiry, serials per piece, MO output batch/serials linked to consumed lots, reversals back into the same lot, `trace_lot()` + Trace view. ✔ scenario 7.
-  - Tests: 368 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: MO production panel, Cost card, batches + trace — no errors.
+  - Tests: 350 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: MO production panel, Cost card, batches + trace — no errors.
   - Not done in phase 4: outsourced manufacturing (OUT-01..06) — next.
 
 ## Next steps (continuation plan)
