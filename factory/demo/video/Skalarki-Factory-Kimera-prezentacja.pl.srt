@@ -39,21 +39,21 @@ Zamówienia sprzedaży z czytelnymi statusami: produkty, składniki, produkcja i
 Każde zamówienie ma swoją kartę — od pozycji, przez produkcję, aż po dostawę do hangaru klienta.
 
 11
-00:01:19,856 --> 00:01:29,000
-Kimera planuje produkcję i podpowiada, co wyprodukować, a co dokupić. Ramy zawsze czekają gotowe na górze.
+00:01:19,856 --> 00:01:29,168
+Kimera planuje produkcję i podpowiada, co wyprodukować, a co dokupić. Obudowy zawsze czekają gotowe na górze.
 
 12
-00:01:29,400 --> 00:01:35,232
+00:01:29,568 --> 00:01:35,400
 Pełny katalog produktów z recepturami — każdy panel i każda część.
 
 13
-00:01:35,632 --> 00:01:40,744
+00:01:35,800 --> 00:01:40,912
 Analizy sprzedaży i magazynu pokazują, jak rośnie firma.
 
 14
-00:01:41,144 --> 00:01:48,464
+00:01:41,312 --> 00:01:48,632
 Problemy z hali trafiają jako zgłoszenia — z osobą odpowiedzialną, historią i odpowiedziami.
 
 15
-00:01:48,764 --> 00:01:58,168
-Skalarki Factory i Kimera. Jedna rodzina. Jedna fabryka.
+00:01:48,932 --> 00:01:55,728
+SKALARKI x KIMERA — to jest przyszłość.
