@@ -8,7 +8,7 @@ import type { AnalysisKind } from "../../core/types";
 import { buildSpice } from "../../simulation/netlist";
 
 export type BottomTab = "sim" | "instruments" | "erc" | "netlist";
-export function Bottom({ tab, setTab, sim, dark }: { tab: BottomTab; setTab: (t: BottomTab) => void; sim: SimApi; dark: boolean }) {
+export function Bottom({ tab, setTab, sim, dark }: { tab: BottomTab; setTab: (t: BottomTab) => void; sim: SimApi; dark: string }) {
   const S = useStore();
   const errs = S.findings?.filter((f) => f.severity === "error").length ?? 0, warns = S.findings?.filter((f) => f.severity === "warning").length ?? 0;
   return (

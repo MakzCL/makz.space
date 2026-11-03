@@ -6,7 +6,7 @@ import type { Category } from "../../core/types";
 import { Modal } from "../kit";
 import { SymbolPreview } from "./SymbolPreview";
 const CATS: Category[] = ["Passive", "Semiconductor", "Indicator", "Source", "Analog IC", "Switch", "Connector"];
-export function DevicePicker({ onPick, onClose, dark }: { onPick: (id: string) => void; onClose: () => void; dark: boolean }) {
+export function DevicePicker({ onPick, onClose, dark }: { onPick: (id: string) => void; onClose: () => void; dark: string }) {
   const [q, setQ] = useState(""); const [cat, setCat] = useState<Category | "">("");
   const list = useMemo(() => searchDevices(q, cat || undefined), [q, cat]);
   const [cur, setCur] = useState(list[0]?.id ?? DEVICES[0].id);

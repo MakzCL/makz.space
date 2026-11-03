@@ -12,7 +12,7 @@ export function Multimeter({ sim }: { sim: SimApi }) {
   const [mode, setMode] = useState<"dcv" | "acv" | "dci">("dcv");
   const [pos, setPos] = useState<string>(""); const [neg, setNeg] = useState("GND"); const [elem, setElem] = useState("");
   const selNet = (() => { const id = [...S.sel][0]; return id ? S.con.wireNet.get(id) ?? S.con.labelNet.get(id) ?? null : null; })();
-  const a = pos || selNet || nets.find((n) => n !== "GND") || "";
+  const a = (pos && nets.includes(pos) ? pos : "") || selNet || nets.find((n) => n !== "GND") || "";
   const reading = useMemo(() => {
     if (!r) return { text: "— —", sub: "Run a simulation (DC operating point or transient)" };
     if (mode === "dci") {
@@ -47,7 +47,7 @@ export function Multimeter({ sim }: { sim: SimApi }) {
   );
 }
 
-export function Scope({ dark, sim }: { dark: boolean; sim: SimApi }) {
+export function Scope({ dark, sim }: { dark: string; sim: SimApi }) {
   const S = useStore(); const r = S.sim;
   const nets = S.con.nets.filter((n) => n.pins.length && n.name !== "GND").map((n) => n.name).sort();
   const [ch, setCh] = useState<{ net: string; on: boolean; vdiv: string; off: string }[]>([0, 1, 2, 3].map((i) => ({ net: nets[i] ?? "", on: i < 2, vdiv: "2", off: "0" })));
@@ -89,7 +89,7 @@ export function Scope({ dark, sim }: { dark: boolean; sim: SimApi }) {
 }
 export function dl(name: string, text: string, type = "text/csv") { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 
-export function Graph({ dark }: { dark: boolean }) {
+export function Graph({ dark }: { dark: string }) {
   const S = useStore(); const r = S.sim;
   const nets = S.con.nets.filter((n) => n.pins.length && n.name !== "GND").map((n) => n.name).sort();
   const [traces, setTraces] = useState<string[]>([]);

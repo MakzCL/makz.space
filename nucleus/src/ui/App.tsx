@@ -11,6 +11,7 @@ import { Graph, dl } from "./sim/Instruments";
 import { useSim } from "./sim/useSim";
 import { Menu, Modal, Split, type MenuItem } from "./kit";
 import { Logo } from "./Logo";
+import { sheetTheme, type Palette } from "./schematic/render";
 import { COMMANDS, conflicts, keyOf, loadKeys, saveKeys } from "./shortcuts";
 import * as ops from "../schematic/ops";
 import { thToMm } from "../core/units";
@@ -18,6 +19,7 @@ import type { Pt } from "../core/types";
 import { netlistText } from "../connectivity/connectivity";
 import { buildSpice } from "../simulation/netlist";
 import { APP_VERSION } from "../storage/file";
+import { EXAMPLES } from "../examples/examples";
 
 export function App() { return <StoreProvider><Shell /></StoreProvider>; }
 const pref = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(`nucleus-ui-${k}`); return v ? JSON.parse(v) : d; } catch { return d; } };
@@ -25,8 +27,9 @@ const keep = (k: string, v: unknown) => { try { localStorage.setItem(`nucleus-ui
 
 function Shell() {
   const S = useStore(); const sim = useSim();
-  const [dark, setDark] = useState<boolean>(() => pref("dark", true));
-  const [sheetDark, setSheetDark] = useState<boolean>(() => pref("sheetDark", false));
+  const [palette, setPalette] = useState<Palette>(() => { const p = pref<string>("palette", "granat"); return p === "light" || p === "dark" ? p : "granat"; });
+  const [paper, setPaper] = useState<boolean>(() => pref("paper", true));
+  const dark = palette; // passed down so plots repaint on palette change
   const [tool, setTool] = useState<Tool>({ k: "select" });
   const [picker, setPicker] = useState(false);
   const [picked, setPicked] = useState<string[]>(() => pref("picked", ["RES", "LED-RED", "VSOURCE"]));
@@ -36,14 +39,22 @@ function Shell() {
   const [cursor, setCursor] = useState<Pt | null>(null); const [zoom, setZoom] = useState(0.08); const [fitSig, setFitSig] = useState(0);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [modal, setModal] = useState<"keys" | "about" | "new" | null>(null);
+  const [autoRun, setAutoRun] = useState(false);
   const [interactive, setInteractive] = useState(false);
   const [keys, setKeys] = useState(loadKeys);
-  useEffect(() => { keep("dark", dark); document.documentElement.dataset.theme = dark ? "dark" : "light"; }, [dark]);
-  useEffect(() => keep("sheetDark", sheetDark), [sheetDark]); useEffect(() => keep("picked", picked), [picked]);
+  useEffect(() => { keep("palette", palette); document.documentElement.dataset.theme = palette; }, [palette]);
+  useEffect(() => keep("paper", paper), [paper]); useEffect(() => keep("picked", picked), [picked]);
   useEffect(() => keep("left", left), [left]); useEffect(() => keep("right", right), [right]); useEffect(() => keep("bottom", bottom), [bottom]);
   useEffect(() => { document.title = `${S.dirty ? "• " : ""}${S.pr.name} — NUCLEUS`; }, [S.pr.name, S.dirty]);
   const doc = S.docs.find((d) => d.id === S.active) ?? S.docs[0];
+  const openExample = useCallback((id: string) => {
+    const e = EXAMPLES.find((x) => x.id === id); if (!e) return;
+    if (S.dirty && S.pr.parts.length && !window.confirm("Open the example? Unsaved changes to the current design will be lost (a recovery copy is kept only for the latest design).")) return;
+    S.loadProject(e.build()); S.setActive("schematic"); setAutoRun(true);
+  }, [S]);
   const runSim = useCallback(async (a = S.pr.sim.analysis) => { setBtab((t) => (t === "erc" || t === "netlist" ? "sim" : t)); const r = await sim.run(a); if (r && r.analysis !== "op") S.openDoc("graph"); }, [sim, S]);
+  // after an example loads: fit it on screen and run its analysis so real results are visible straight away
+  useEffect(() => { if (!autoRun) return; setAutoRun(false); setFitSig((n) => n + 1); void runSim(); }, [autoRun, runSim]);
   const onInteract = useCallback(() => { if (interactive) setTimeout(() => sim.run("op"), 0); }, [interactive, sim]);
   const placeDevice = (id: string) => { setPicked((p) => (p.includes(id) ? p : [...p, id])); setTool({ k: "place", device: id }); setPicker(false); if (doc.kind !== "schematic") S.setActive("schematic"); };
   const sel = S.sel;
@@ -75,12 +86,14 @@ function Shell() {
   const MENUS: Record<string, MenuItem[]> = {
     File: [{ label: "New project…", key: k("file.new"), onClick: cmds["file.new"] }, { label: "Open…", key: k("file.open"), onClick: cmds["file.open"] }, { label: "Save", key: k("file.save"), onClick: cmds["file.save"] }, { label: "Save as…", key: k("file.saveAs"), onClick: cmds["file.saveAs"] }, { sep: true, label: "" },
       { label: "Export netlist (text)", onClick: () => dl(`${S.pr.name}.net.txt`, netlistText(S.pr, S.con), "text/plain") }, { label: "Export SPICE deck (.cir)", onClick: () => dl(`${S.pr.name}.cir`, buildSpice(S.pr, S.con).text, "text/plain") },
-      { label: "Export schematic PDF", disabled: "planned" }],
+      { label: "Export schematic PDF", disabled: "planned" }, { sep: true, label: "" },
+      ...EXAMPLES.map((e) => ({ label: `Example: ${e.title}`, onClick: () => openExample(e.id) }))],
     Edit: [{ label: `Undo ${S.lastLabel}`, key: k("edit.undo"), onClick: S.undo, disabled: !S.canUndo }, { label: "Redo", key: k("edit.redo"), onClick: S.redo, disabled: !S.canRedo }, { sep: true, label: "" },
       { label: "Rotate", key: k("edit.rotate"), onClick: cmds["edit.rotate"], disabled: !sel.size }, { label: "Mirror", key: k("edit.mirror"), onClick: cmds["edit.mirror"], disabled: !sel.size }, { label: "Duplicate", key: k("edit.duplicate"), onClick: cmds["edit.duplicate"], disabled: !sel.size },
       { label: "Delete", key: k("edit.delete"), onClick: cmds["edit.delete"], disabled: !sel.size }, { label: "Select all", key: k("edit.selectAll"), onClick: cmds["edit.selectAll"] }],
     View: [{ label: "Zoom to fit", key: "F8", onClick: () => setFitSig((n) => n + 1) }, { label: "Grid", key: k("view.grid"), checked: showGrid, onClick: cmds["view.grid"] }, ...[50, 100, 200].map((g) => ({ label: `Snap ${g} th (${thToMm(g).toFixed(2)} mm)`, checked: grid === g, onClick: () => setGrid(g) })),
-      { label: mm ? "Show thou" : "Show millimetres", key: k("view.units"), onClick: cmds["view.units"] }, { sep: true, label: "" }, { label: "Dark interface", checked: dark, onClick: () => setDark(!dark) }, { label: "Dark schematic sheet", checked: sheetDark, onClick: () => setSheetDark(!sheetDark) },
+      { label: mm ? "Show thou" : "Show millimetres", key: k("view.units"), onClick: cmds["view.units"] }, { sep: true, label: "" }, { label: "Colours: Light", checked: palette === "light", onClick: () => setPalette("light") }, { label: "Colours: Granat", checked: palette === "granat", onClick: () => setPalette("granat") }, { label: "Colours: Dark", checked: palette === "dark", onClick: () => setPalette("dark") },
+      { label: "Paper-white schematic sheet", checked: paper, onClick: () => setPaper(!paper) },
       { label: left ? "Hide object browser" : "Show object browser", onClick: () => setLeft(left ? 0 : 220) }, { label: right ? "Hide inspector" : "Show inspector", onClick: () => setRight(right ? 0 : 280) }, { label: bottom ? "Hide bottom dock" : "Show bottom dock", onClick: () => setBottom(bottom ? 0 : 230) }],
     Place: [{ label: "Component…", key: k("place.component"), onClick: cmds["place.component"] }, { label: "Wire", key: k("place.wire"), onClick: cmds["place.wire"] }, { label: "Net label", key: k("place.label"), onClick: cmds["place.label"] },
       { label: "Power terminal", onClick: () => setTool({ k: "label", kind: "power" }) }, { label: "Ground terminal", onClick: () => setTool({ k: "label", kind: "ground" }) }, { label: "Voltage probe", onClick: () => setTool({ k: "probe" }) }],
@@ -107,11 +120,12 @@ function Shell() {
     { t: { k: "probe" }, key: "", label: "Voltage probe", icon: <Ico d="M4 20l5-5m-2-4l6 6 7-13-13 7z" /> },
   ];
   return (
-    <div className={`n-app ${dark ? "dark" : "light"}`}>
+    <div className={`n-app ${palette}`}>
       <header className="n-head">
         <div className="n-brand"><Logo size={20} /><b>NUCLEUS</b></div>
         <nav className="n-menubar">{Object.keys(MENUS).map((m) => <button key={m} type="button" onClick={(e) => { const r = (e.target as HTMLElement).getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 2, items: MENUS[m] }); }} data-testid={`menu-${m}`}>{m}</button>)}</nav>
         <div className="n-proj"><b>{S.pr.name}</b><span className="n-dim">rev {S.pr.revision} · {S.fileName ?? "not saved yet"}</span><span className={`n-save ${S.dirty ? "dirty" : ""}`}>{S.dirty ? "● unsaved" : "saved"}</span></div>
+        <div className="n-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((x) => <button key={x} type="button" className={palette === x ? "on" : ""} onClick={() => setPalette(x)} title={{ light: "Light", granat: "Granat", dark: "Dark" }[x]} data-testid={`theme-${x}`}>{{ light: "L", granat: "G", dark: "D" }[x]}</button>)}</div>
         <div className="n-qa">
           <button type="button" className="n-ib" onClick={S.undo} disabled={!S.canUndo} title={`Undo ${S.lastLabel} (${k("edit.undo")})`}>↶</button><button type="button" className="n-ib" onClick={S.redo} disabled={!S.canRedo} title={`Redo (${k("edit.redo")})`}>↷</button>
           <button type="button" className="n-ib" onClick={() => S.save()} title={`Save (${k("file.save")})`} data-testid="save">💾</button>
@@ -133,7 +147,8 @@ function Shell() {
         <aside className="n-left" style={{ display: left ? undefined : "none" }}><Browser picked={picked} dark={dark} onPick={() => setPicker(true)} onPlace={(id) => setTool({ k: "place", device: id })} /><Split side="left" size={left} setSize={setLeft} /></aside>
         <main className="n-center">
           <div className="n-doc">
-            {doc.kind === "schematic" && <SchematicCanvas tool={tool} setTool={setTool} dark={sheetDark} grid={grid} showGrid={showGrid} onCursor={setCursor} onZoom={setZoom} interactive={interactive} onInteract={onInteract} fitSignal={fitSig} onMenu={(x, y, items) => setMenu({ x, y, items })} />}
+            {doc.kind === "schematic" && <SchematicCanvas tool={tool} setTool={setTool} theme={sheetTheme(palette, paper)} grid={grid} showGrid={showGrid} onCursor={setCursor} onZoom={setZoom} interactive={interactive} onInteract={onInteract} fitSignal={fitSig} onMenu={(x, y, items) => setMenu({ x, y, items })} />}
+            {doc.kind === "schematic" && !S.pr.parts.length && !S.pr.wires.length && tool.k !== "place" && <Start onExample={openExample} onPick={() => setPicker(true)} />}
             {doc.kind === "graph" && <Graph dark={dark} />}
             {doc.kind === "bom" && <Bom />}
             {doc.kind === "pcb" && <div className="n-pad"><h3>PCB layout</h3><p>Not built yet — it is the next milestone (board outline, footprints, netlist transfer, two-layer routing, vias, DRC, Gerber/Excellon). This tab does nothing until then.</p></div>}
@@ -175,4 +190,15 @@ function Keys({ keys, setKeys, onClose }: { keys: Record<string, string>; setKey
     <table className="n-tbl"><thead><tr><th>Command</th><th>Applies in</th><th>Key</th></tr></thead><tbody>{COMMANDS.map((x) => <tr key={x.id}><td>{x.label}</td><td className="n-dim">{x.scope}</td><td><button type="button" className="n-btn small mono" onClick={() => setRec(x.id)}>{rec === x.id ? "press a key…" : keys[x.id]}</button></td></tr>)}
       <tr><td>Zoom in / out / fit</td><td className="n-dim">schematic</td><td className="mono">F6 / F7 / F8, mouse wheel</td></tr><tr><td>Pan</td><td className="n-dim">schematic</td><td className="mono">middle mouse or Alt+drag</td></tr></tbody></table>
     {c.length > 0 && <p className="n-err">Conflicts: {c.join("; ")}</p>}</Modal>;
+}
+
+function Start({ onExample, onPick }: { onExample: (id: string) => void; onPick: () => void }) {
+  return (
+    <div className="n-start" data-testid="start">
+      <h3>Empty schematic</h3>
+      <p className="n-dim">Place a component (P), wire pins together (W), add a ground terminal, then run the simulation (F5 / ▶). Or open a worked example; it simulates straight away.</p>
+      <button type="button" className="n-btn primary" onClick={onPick}>Place a component…</button>
+      <div className="n-start-ex">{EXAMPLES.map((e) => <button type="button" key={e.id} className="n-start-card" onClick={() => onExample(e.id)} data-testid={`example-${e.id}`}><b>{e.title}</b><span>{e.summary}</span><em>Expected: {e.expect}</em></button>)}</div>
+    </div>
+  );
 }

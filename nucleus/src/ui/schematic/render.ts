@@ -9,8 +9,13 @@ export interface View { s: number; x: number; y: number } // screen = world * s 
 export const toScreen = (v: View, p: Pt): Pt => [p[0] * v.s + v.x, p[1] * v.s + v.y];
 export const toWorld = (v: View, x: number, y: number): Pt => [(x - v.x) / v.s, (y - v.y) / v.s];
 export interface Theme { bg: string; paper: string; border: string; grid: string; ink: string; body: string; wire: string; pin: string; text: string; ref: string; sel: string; hover: string; net: string; junction: string; probe: string; err: string; warn: string }
-export const LIGHT: Theme = { bg: "#c9cdd3", paper: "#fbfaf6", border: "#8a8f99", grid: "#c7c9ce", ink: "#1d2330", body: "#8a1f1f", wire: "#0f5a2e", pin: "#1d2330", text: "#1d2330", ref: "#0b3b8c", sel: "#e0611a", hover: "#2b7bd6", net: "#c218b8", junction: "#0f5a2e", probe: "#7a3cc8", err: "#d12020", warn: "#c98a00" };
-export const DARK: Theme = { bg: "#090b0f", paper: "#14171d", border: "#3a404c", grid: "#262b35", ink: "#d7dbe3", body: "#ff8f6b", wire: "#3ccf74", pin: "#c9ced8", text: "#d7dbe3", ref: "#7fb2ff", sel: "#ffa23a", hover: "#4ea3ff", net: "#ff5ef0", junction: "#3ccf74", probe: "#c294ff", err: "#ff5050", warn: "#ffc23a" };
+export const LIGHT: Theme = { bg: "#c9cde3", paper: "#fbfaf6", border: "#8a8fa8", grid: "#c7c9d6", ink: "#1d2330", body: "#8a1f1f", wire: "#0f5a2e", pin: "#1d2330", text: "#1d2330", ref: "#0b3b8c", sel: "#e0611a", hover: "#2b7bd6", net: "#c218b8", junction: "#0f5a2e", probe: "#7a3cc8", err: "#d12020", warn: "#c98a00" };
+export const GRANAT: Theme = { bg: "#080d2b", paper: "#10163d", border: "#3a4380", grid: "#2a3166", ink: "#e9ecff", body: "#ff8f7a", wire: "#3fcf8e", pin: "#cfd3f0", text: "#e9ecff", ref: "#aab3ff", sel: "#f5c85c", hover: "#7b8cff", net: "#ff6fd8", junction: "#3fcf8e", probe: "#c9a2ff", err: "#ff5d4f", warn: "#f5c85c" };
+export const DEEP: Theme = { ...GRANAT, bg: "#04061a", paper: "#0a0f30", border: "#2c3570", grid: "#1f2658" };
+export const DARK = GRANAT;
+export type Palette = "light" | "granat" | "dark";
+/** Sheet colours: paper (light, the usual drawing convention) or following the interface palette. */
+export const sheetTheme = (palette: Palette, paper: boolean): Theme => (paper || palette === "light" ? LIGHT : palette === "dark" ? DEEP : GRANAT);
 export const SHEET_SIZE: Record<string, Pt> = { A4: [11693, 8268], A3: [16535, 11693], A2: [23386, 16535] };
 const FONT = "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif";
 const MONO = "'IBM Plex Mono', ui-monospace, Consolas, monospace";
@@ -120,7 +125,8 @@ export function drawPart(ctx: CanvasRenderingContext2D, p: Part, v: View, o: Pic
   // text stays upright: on parts turned by 90°/270° it goes beside the body instead of rotating with the symbol
   const turned = p.rot === 90 || p.rot === 270; const bb = partBox(p); const cy = (bb.y0 + bb.y1) / 2;
   const refAt: Pt = turned ? [bb.x1 + 50, cy - 55] : xf(d.symbol.refAt, p.rot, p.mirror, p.at), valAt: Pt = turned ? [bb.x1 + 50, cy + 55] : xf(d.symbol.valueAt, p.rot, p.mirror, p.at);
-  const align: CanvasTextAlign = turned ? "left" : "center";
+  const dx = refAt[0] - p.at[0]; // text placed beside the body reads away from it; text above/below stays centred
+  const align: CanvasTextAlign = turned || dx > 20 ? "left" : dx < -20 ? "right" : "center";
   upright(ctx, v, p.refOffset ? [p.at[0] + p.refOffset[0], p.at[1] + p.refOffset[1]] : refAt, p.ref, 80, selected ? t.sel : t.ref, align, FONT, "600");
   const value = p.props.value ?? d.name;
   upright(ctx, v, p.valueOffset ? [p.at[0] + p.valueOffset[0], p.at[1] + p.valueOffset[1]] : valAt, d.interactive === "switch" ? `${value === d.name ? "" : value} ${p.state?.closed ? "[ON]" : "[OFF]"}`.trim() : d.interactive === "pot" ? `${value} @${Math.round((p.state?.position ?? 0.5) * 100)}%` : value, 70, t.text, align);

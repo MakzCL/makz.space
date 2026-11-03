@@ -6,12 +6,12 @@ import { device } from "../../library/devices";
 import * as ops from "../../schematic/ops";
 import { uid } from "../../core/project";
 import { useStore } from "../store";
-import { DARK, LIGHT, SHEET_SIZE, drawPart, drawSheet, hit, pinNear, toScreen, toWorld, type View } from "./render";
+import { SHEET_SIZE, drawPart, drawSheet, hit, pinNear, toScreen, toWorld, type View } from "./render";
 import { formatEng } from "../../core/units";
 import { netAt } from "../../connectivity/connectivity";
 
 export type Tool = { k: "select" } | { k: "place"; device: string } | { k: "wire" } | { k: "label"; kind: LabelKind } | { k: "probe" } | { k: "note" };
-interface Props { tool: Tool; setTool: (t: Tool) => void; dark: boolean; grid: number; showGrid: boolean; onCursor: (p: Pt | null) => void; onZoom: (z: number) => void; interactive: boolean; onInteract: () => void; fitSignal: number; onMenu: (x: number, y: number, items: { label: string; key?: string; onClick?: () => void; disabled?: boolean; sep?: boolean }[]) => void }
+interface Props { tool: Tool; setTool: (t: Tool) => void; theme: import("./render").Theme; grid: number; showGrid: boolean; onCursor: (p: Pt | null) => void; onZoom: (z: number) => void; interactive: boolean; onInteract: () => void; fitSignal: number; onMenu: (x: number, y: number, items: { label: string; key?: string; onClick?: () => void; disabled?: boolean; sep?: boolean }[]) => void }
 type Drag = { k: "pan"; s: Pt; v: View } | { k: "move"; p0: Pt; base: ReturnType<typeof useStore>["pr"]; ids: Set<string>; moved: boolean } | { k: "marquee"; s: Pt; e: Pt; add: boolean };
 
 export function SchematicCanvas(P: Props) {
@@ -25,7 +25,7 @@ export function SchematicCanvas(P: Props) {
   const [wire, setWire] = useState<{ pts: Pt[]; vFirst: boolean } | null>(null);
   const [ask, setAsk] = useState<{ at: Pt; kind: LabelKind; s: Pt } | null>(null);
   const drag = useRef<Drag | null>(null); const [marq, setMarq] = useState<{ s: Pt; e: Pt } | null>(null);
-  const theme = P.dark ? DARK : LIGHT;
+  const theme = P.theme;
   useLayoutEffect(() => { const el = wrap.current!; const ro = new ResizeObserver(() => setSize({ W: el.clientWidth, H: el.clientHeight })); ro.observe(el); setSize({ W: el.clientWidth, H: el.clientHeight }); return () => ro.disconnect(); }, []);
   const fit = useCallback(() => {
     const items = pr.parts.filter((p) => p.sheet === sheet).map(partBox);

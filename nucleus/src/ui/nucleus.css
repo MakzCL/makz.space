@@ -1,11 +1,13 @@
 /* NUCLEUS — compact engineering UI. Tokens on <html data-theme> so portalled menus/dialogs match. */
-:root, :root[data-theme="dark"] {
-  --bg: #0f1216; --panel: #161a20; --panel2: #1c2129; --line: #2a303a; --line2: #3a414d; --text: #d9dde4; --dim: #8b93a1;
-  --accent: #e8b04a; --accent-ink: #14181f; --sel: #3a8ee6; --ok: #3fbf74; --warn: #e6a92e; --err: #f05252; --input: #0f1216; color-scheme: dark;
+/* Ecosystem palettes shared with SK Factory, KORTANA and TROTAN: Granat (default), Dark (deep navy), Light. NUCLEUS keeps its amber accent. */
+:root, :root[data-theme="granat"] {
+  --bg: #0b1033; --panel: #0e1440; --panel2: #151c4d; --line: #20285a; --line2: #2c3570; --text: #ffffff; --dim: #8a91c4;
+  --accent: #f0b54a; --accent-ink: #0b1033; --sel: #5868e6; --ok: #3fcf8e; --warn: #f5c85c; --err: #ff5d4f; --input: #0b1033; color-scheme: dark;
 }
+:root[data-theme="dark"] { --bg: #060920; --panel: #080c28; --panel2: #10163d; --line: #161d4d; --line2: #1d255c; --input: #060920; }
 :root[data-theme="light"] {
-  --bg: #e8eaee; --panel: #f6f7f9; --panel2: #eceef2; --line: #d3d7de; --line2: #bfc4cc; --text: #1b2028; --dim: #5f6775;
-  --accent: #b47612; --accent-ink: #ffffff; --sel: #1f6fd1; --ok: #23864c; --warn: #a86d00; --err: #c62828; --input: #ffffff; color-scheme: light;
+  --bg: #f3f4fa; --panel: #ffffff; --panel2: #eef0f8; --line: #dfe2f1; --line2: #c9cde3; --text: #0b1033; --dim: #676d96;
+  --accent: #b47612; --accent-ink: #ffffff; --sel: #3b4cca; --ok: #14935a; --warn: #9a6400; --err: #d42a25; --input: #ffffff; color-scheme: light;
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -115,3 +117,10 @@ select.n-in { padding: 0 2px; }
 .n-graph { padding: 8px 0; } .n-graph-h { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 0 12px 6px; } .n-trace-pick { display: flex; flex-wrap: wrap; gap: 8px; }
 .n-about { display: flex; gap: 14px; align-items: flex-start; } .n-about p { margin: 4px 0; }
 .n-bom .n-row { padding-left: 0; }
+.n-themes { display: inline-flex; border: 1px solid var(--line2); border-radius: 3px; overflow: hidden; } .n-themes button { border: 0; background: none; color: var(--dim); padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; } .n-themes button.on { background: var(--panel2); color: var(--accent); }
+.n-doc { position: relative; }
+.n-start { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(640px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line2); border-radius: 6px; padding: 18px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.35); z-index: 3; }
+.n-start h3 { margin: 0 0 6px; font-size: 15px; } .n-start p { margin: 0 0 12px; font-size: 12px; line-height: 1.5; }
+.n-start-ex { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 14px; }
+.n-start-card { text-align: left; display: flex; flex-direction: column; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; color: var(--text); cursor: pointer; font: inherit; font-size: 11.5px; }
+.n-start-card:hover { border-color: var(--accent); } .n-start-card span { color: var(--dim); } .n-start-card em { font-style: normal; color: var(--ok); font-size: 11px; }

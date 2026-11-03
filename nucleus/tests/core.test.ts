@@ -70,3 +70,12 @@ describe("project file", () => {
     await expect(openFile(text.replace('"schema": 1', '"schema": 99'))).rejects.toThrow(/newer/);
   });
 });
+
+import { niceRange } from "../src/ui/sim/Plot";
+describe("plot axes", () => {
+  it("expand to round 1-2-5 steps that contain the data", () => {
+    expect(niceRange(-38.8, 2.9, 8)).toEqual([-40, 10, 10]); expect(niceRange(-38.8, 2.9, 10)).toEqual([-40, 5, 5]);
+    expect(niceRange(0, 5.2, 8)).toEqual([0, 6, 1]);
+    const [a, b, s] = niceRange(1.73, 1.74, 8); expect(a).toBeLessThanOrEqual(1.73); expect(b).toBeGreaterThanOrEqual(1.74); expect(s).toBeCloseTo(0.002, 12);
+  });
+});

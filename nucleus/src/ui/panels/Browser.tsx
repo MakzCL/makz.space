@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { device } from "../../library/devices";
 import { SymbolPreview } from "./SymbolPreview";
-export function Browser({ picked, onPlace, onPick, dark }: { picked: string[]; onPlace: (id: string) => void; onPick: () => void; dark: boolean }) {
+export function Browser({ picked, onPlace, onPick, dark }: { picked: string[]; onPlace: (id: string) => void; onPick: () => void; dark: string }) {
   const S = useStore(); const [tab, setTab] = useState<"devices" | "parts" | "nets" | "project">("devices"); const [q, setQ] = useState("");
   const [hov, setHov] = useState<string | null>(picked[0] ?? null);
   const parts = useMemo(() => [...S.pr.parts].sort((a, b) => a.ref.localeCompare(b.ref, "en", { numeric: true })).filter((p) => !q || `${p.ref} ${p.props.value ?? ""} ${p.device}`.toLowerCase().includes(q.toLowerCase())), [S.pr.parts, q]);

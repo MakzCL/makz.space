@@ -16,7 +16,7 @@ export interface Store {
   undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; lastLabel: string;
   sel: Set<string>; setSel: (s: Set<string>) => void; sheet: string; setSheet: (s: string) => void;
   docs: Doc[]; active: string; openDoc: (k: DocKind) => void; closeDoc: (id: string) => void; setActive: (id: string) => void; moveDoc: (id: string, to: number) => void;
-  dirty: boolean; fileName: string | null; save: (as?: boolean) => Promise<void>; open: (file?: File) => Promise<void>; newFile: (name: string) => void;
+  dirty: boolean; fileName: string | null; save: (as?: boolean) => Promise<void>; open: (file?: File) => Promise<void>; newFile: (name: string) => void; loadProject: (p: Project) => void;
   sim: SimResult | null; setSim: (r: SimResult | null) => void; simStale: boolean;
   focus: { sheet: string; at: [number, number]; id?: string } | null; focusOn: (f: Store["focus"]) => void;
   message: { text: string; tone: "ok" | "error" | "info" } | null; say: (text: string, tone?: "ok" | "error" | "info") => void;
@@ -85,13 +85,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch (e) { if ((e as Error).name !== "AbortError") say((e as Error).message, "error"); }
   }, [load, say]);
   const newFile = useCallback((name: string) => { load(newProject(name || "Untitled"), null); handle.current = null; setDirty(true); }, [load]);
+  const loadProject = useCallback((p: Project) => { load(p, null); handle.current = null; setDirty(true); }, [load]);
   const openDoc = useCallback((k: DocKind) => { setDocs((d) => (d.some((x) => x.kind === k) ? d : [...d, { id: k, kind: k, title: DOC_TITLES[k] }])); setActive(k); }, []);
   const closeDoc = useCallback((id: string) => { setDocs((d) => { const n = d.filter((x) => x.id !== id); if (!n.length) return d; if (id === active) setActive(n[n.length - 1].id); return n; }); }, [active]);
   const moveDoc = useCallback((id: string, to: number) => setDocs((d) => { const i = d.findIndex((x) => x.id === id); if (i < 0) return d; const n = [...d]; const [x] = n.splice(i, 1); n.splice(Math.max(0, Math.min(n.length, to)), 0, x); return n; }), []);
   const setSim = useCallback((r: SimResult | null) => setSimS(r), []);
   const v: Store = {
     pr: shown, con, findings, setFindings, runErc, change, preview, setPreview, undo, redo, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0, lastLabel: hist.past[hist.past.length - 1]?.l ?? "",
-    sel, setSel, sheet, setSheet, docs, active, openDoc, closeDoc, setActive, moveDoc, dirty, fileName, save, open, newFile,
+    sel, setSel, sheet, setSheet, docs, active, openDoc, closeDoc, setActive, moveDoc, dirty, fileName, save, open, newFile, loadProject,
     sim, setSim, simStale: !!sim && sim.revision !== -1 && sim.at < pr.modified, focus, focusOn, message, say,
   };
   return <C.Provider value={v}>{children}</C.Provider>;
