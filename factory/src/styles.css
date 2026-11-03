@@ -575,7 +575,7 @@ p { margin: 0; }
 .profile-id h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.35rem; cursor: text; }
 .avatar-edit { position: relative; border-radius: 50%; margin-top: -54px; box-shadow: 0 0 0 5px var(--bg); }
 .cam { position: absolute; right: -2px; bottom: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--red); border: 3px solid var(--bg); color: #fff; }
-.profile-head .folder-tabs { padding-left: 7.4rem; }
+.profile-head .folder-tabs { padding-left: calc(88px + 2.6rem); }
 .name-input { font-size: 1.25rem; font-weight: 600; padding: 0.4rem 0.6rem; margin-bottom: 0.4rem; }
 .pfp-preview { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; margin: 0.6rem auto 1rem; box-shadow: 0 0 0 6px var(--surface-2); }
 .absence { padding: 0; gap: 0; border-left: 5px solid var(--c); }
@@ -704,7 +704,7 @@ p { margin: 0; }
   .totals b { font-size: 1rem; }
   .totals .big b { font-size: 1.3rem; }
   .round-btn { width: 40px; height: 40px; }
-  .profile-head .folder-tabs { padding-left: 6.6rem; }
+  .profile-head .folder-tabs { padding-left: calc(88px + 2.2rem); }
 }
 
 
