@@ -1047,6 +1047,59 @@ select pg_temp.check((select location_id = public.default_location() from public
 update public.wh_tasks set status = 'cancelled' where id = :'wt4';
 select pg_temp.check((select status = 'cancelled' from public.wh_tasks where id = :'wt4'), 'office can cancel a task');
 
+-- ---------------------------------------------------------------- phase 6a: planning
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.stock_items (sku, name, kind, min_quantity, lead_days) values ('PL-MAT', 'Planned panel', 'material', 5, 7) returning id as plm \gset
+insert into public.purchase_orders (supplier_id, status) values (:'osup', 'ordered') returning id as plpo \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'plpo', :'plm', 40, 2) returning id as plpl \gset
+select public.receive_po_line(:'plpl', 40);
+insert into public.orders (order_number, customer, kind) values ('', 'History Buyer', 'order') returning id as plso \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity) values (:'plso', :'plm', 'PL-MAT', 'Planned panel', 24) returning id as plsl \gset
+select public.ship_lines(:'plso', jsonb_build_array(jsonb_build_object('line', :'plsl', 'qty', 3))) from generate_series(1, 8);
+-- move the 8 shipments back into the last 8 complete weeks (history)
+select pg_temp.become(null);
+set session_replication_role = replica;
+with s as (select id, row_number() over (order by created_at, id) n from public.stock_movements where item_id = :'plm' and reason = 'ship')
+update public.stock_movements m set created_at = date_trunc('week', now()) - make_interval(weeks => s.n::int) + interval '2 days' from s where m.id = s.id;
+set session_replication_role = origin;
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+-- booked sale of 5 due in two weeks, a PO of 10 arriving in three
+insert into public.orders (order_number, customer, kind, delivery_deadline) values ('', 'Future Buyer', 'order', date_trunc('week', current_date)::date + 15) returning id as plso2 \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity) values (:'plso2', :'plm', 'PL-MAT', 'Planned panel', 5);
+insert into public.purchase_orders (supplier_id, status, expected_date) values (:'osup', 'ordered', date_trunc('week', current_date)::date + 22) returning id as plpo2 \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'plpo2', :'plm', 10, 2);
+select public.plan_item(:'plm', null, 12) as pl \gset
+select pg_temp.check((:'pl'::jsonb->>'opening')::numeric = 16, 'PLAN-01 opening stock = 40 received − 24 shipped');
+select pg_temp.check((:'pl'::jsonb->'forecast'->>'weekly')::numeric = 2.615 and (:'pl'::jsonb->'forecast'->>'enough_history')::boolean, 'PLAN-02 automatic forecast = weighted 12-week average (204/78 = 2.615 a week)');
+select pg_temp.check((:'pl'::jsonb->'weeks'->2->>'demand')::numeric = 5 and (:'pl'::jsonb->'weeks'->2->>'orders')::numeric = 5, 'booked sales (5) use up the forecast that week instead of adding to it');
+select pg_temp.check((:'pl'::jsonb->'weeks'->3->>'receipts')::numeric = 10, 'PLAN-01 PO receipt lands in its expected week');
+select pg_temp.check((:'pl'::jsonb->'weeks'->6->>'closing')::numeric = 5.31 and (:'pl'::jsonb->'weeks'->7->>'closing')::numeric = 2.695, 'projected closing stock week by week');
+select pg_temp.check((:'pl'::jsonb->'recommendation'->>'action') = 'buy' and (:'pl'::jsonb->'recommendation'->>'quantity')::numeric = 13
+  and (:'pl'::jsonb->'recommendation'->>'short_week')::date = date_trunc('week', current_date)::date + 49, 'PLAN-06 recommendation: buy 13 before the week stock drops below the reorder point');
+select pg_temp.check((:'pl'::jsonb->'recommendation'->>'order_by')::date = date_trunc('week', current_date)::date + 42, 'PLAN-06 order by = shortage week − 7 days lead time');
+select pg_temp.check((:'pl'::jsonb->'weeks'->0->>'forecast_source') = 'auto', 'PLAN-05 automatic weeks are marked auto');
+-- manual override for this week (PLAN-03/05/07)
+insert into public.forecast_overrides (item_id, period, period_start, quantity, note) values (:'plm', 'week', date_trunc('week', current_date)::date, 10, 'Trade show');
+select public.plan_item(:'plm', null, 12) as pl2 \gset
+select pg_temp.check((:'pl2'::jsonb->'weeks'->0->>'forecast_source') = 'manual' and (:'pl2'::jsonb->'weeks'->0->>'demand')::numeric = 10, 'PLAN-03/05 a weekly override replaces the forecast and is marked manual');
+select pg_temp.check((:'pl2'::jsonb->'recommendation'->>'quantity')::numeric = 21, 'PLAN-07 the override flows into the projection and the recommendation (13 + 7.385 → 21)');
+select pg_temp.expect_fail($$insert into public.forecast_overrides (item_id, period, period_start, quantity) values ('$$ || :'plm' || $$', 'week', current_date + (8 - extract(isodow from current_date))::int + 1, 1)$$, 'a weekly override not starting on a Monday');
+-- monthly override for a new product with no history (PLAN-04)
+insert into public.stock_items (sku, name, kind, min_quantity) values ('PL-NEW', 'Brand new panel', 'material', 0) returning id as pln \gset
+select public.plan_item(:'pln', null, 8) as pl3 \gset
+select pg_temp.check((:'pl3'::jsonb->'forecast'->>'enough_history')::boolean = false and (:'pl3'::jsonb->'weeks'->0->>'forecast_source') = 'none', 'PLAN-04 a new product has no automatic forecast');
+insert into public.forecast_overrides (item_id, period, period_start, quantity) select :'pln', 'month', m, extract(day from m + interval '1 month' - interval '1 day') from (select date_trunc('month', date_trunc('week', current_date)::date + 3)::date m) x;
+select public.plan_item(:'pln', null, 8) as pl4 \gset
+select pg_temp.check((:'pl4'::jsonb->'weeks'->0->>'forecast')::numeric = 7 and (:'pl4'::jsonb->'weeks'->0->>'forecast_source') = 'manual' and (:'pl4'::jsonb->'recommendation'->>'action') = 'buy',
+  'PLAN-04 a monthly override of one a day becomes 7 a week and triggers a buy');
+-- location-specific planning (PLAN-08)
+select public.plan_item(:'plm', :'oloc', 4) as pl5 \gset
+select pg_temp.check((:'pl5'::jsonb->>'opening')::numeric = 0 and (:'pl5'::jsonb->'forecast'->>'weekly')::numeric = 0, 'PLAN-08 planning at one location only counts that location');
+select pg_temp.check(jsonb_array_length(public.plan_overview(null, 12)) >= 2 and exists (select 1 from jsonb_array_elements(public.plan_overview(null, 12)) x where x->'item'->>'sku' = 'PL-MAT'), 'plan overview lists items needing action');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
+insert into public.forecast_overrides (item_id, period, period_start, quantity) select :'plm', 'week', date_trunc('week', current_date)::date + 7, 1 where false;
+select pg_temp.expect_fail($$insert into public.forecast_overrides (item_id, period, period_start, quantity) values ('$$ || :'plm' || $$', 'week', date_trunc('week', current_date)::date + 7, 1)$$, 'assistant sets a forecast');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

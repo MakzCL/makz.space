@@ -5072,5 +5072,179 @@ end $$;
 revoke all on function public.ship_lines(uuid, jsonb, text) from public, anon;
 grant execute on function public.ship_lines(uuid, jsonb, text) to authenticated;
 
+-- ============================================================================
+-- Phase 6a — planning (PLAN-01..08).
+-- plan_item(): week-by-week projected stock for one item (optionally at one
+-- location): opening stock + receipts (POs incl. outsourced, open MOs, transfers
+-- in transit) − demand (sales lines, MO ingredients, outsourced-PO materials,
+-- draft transfers out) − forecast. Forecast per week = manual override if set,
+-- else the automatic forecast: a weighted average of the last 12 weeks of
+-- shipments (recent weeks count more). Forecast and booked sales are not added
+-- twice: each week uses whichever is larger. A recommendation says when and how
+-- much to buy or make so stock stays at or above the reorder point.
+-- ============================================================================
+create table if not exists public.forecast_overrides (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.stock_items(id) on delete cascade,
+  location_id uuid references public.locations(id) on delete cascade,
+  period text not null check (period in ('week', 'month')),
+  period_start date not null,
+  quantity numeric(14,3) not null check (quantity >= 0),
+  note text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  check ((period = 'week' and extract(isodow from period_start) = 1) or (period = 'month' and extract(day from period_start) = 1))
+);
+create unique index if not exists forecast_overrides_key on public.forecast_overrides (item_id, coalesce(location_id, '00000000-0000-0000-0000-000000000000'::uuid), period, period_start);
+alter table public.forecast_overrides enable row level security;
+drop policy if exists "staff read" on public.forecast_overrides;
+drop policy if exists "office write" on public.forecast_overrides;
+create policy "staff read" on public.forecast_overrides for select to authenticated using (public.is_active());
+create policy "office write" on public.forecast_overrides for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop trigger if exists audit_row on public.forecast_overrides;
+create trigger audit_row after insert or update or delete on public.forecast_overrides for each row execute function public.audit_row();
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'forecast_overrides') then
+    alter publication supabase_realtime add table public.forecast_overrides;
+  end if;
+end $$;
+
+-- Weekly shipments of an item over the last p_weeks complete weeks (oldest first).
+create or replace function public.demand_history(p_item uuid, p_location uuid default null, p_weeks int default 12) returns jsonb
+language sql stable security definer set search_path = public as $$
+  with w as (select (date_trunc('week', current_date)::date - 7 * g) as wk from generate_series(1, greatest(p_weeks, 1)) g)
+  select coalesce(jsonb_agg(jsonb_build_object('week', w.wk, 'qty', coalesce(s.q, 0)) order by w.wk), '[]')
+    from w left join (select date_trunc('week', created_at)::date wk, -sum(delta) q from public.stock_movements
+                       where item_id = p_item and reason = 'ship' and (p_location is null or location_id = p_location)
+                         and created_at >= date_trunc('week', current_date) - make_interval(weeks => greatest(p_weeks, 1))
+                         and created_at < date_trunc('week', current_date) group by 1) s on s.wk = w.wk
+$$;
+
+create or replace function public.plan_item(p_item uuid, p_location uuid default null, p_weeks int default 12) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  it public.stock_items; w0 date := date_trunc('week', current_date)::date; hist jsonb; h jsonb;
+  wsum numeric := 0; wtot numeric := 0; i int := 0; rate numeric := 0; first_ship timestamptz; enough boolean;
+  opening numeric; bal numeric; weeks jsonb := '[]'; v_wk date; rec numeric; sales numeric; other numeric; fc numeric; fsrc text; use_dem numeric;
+  low numeric; low_wk date; reorder numeric; lead int; rqty numeric; batch numeric; act text; loc_name text;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  select * into it from public.stock_items where id = p_item;
+  if it.id is null then raise exception 'Item not found'; end if;
+  p_weeks := least(greatest(p_weeks, 4), 52);
+  -- automatic forecast: weighted average of the last 12 complete weeks (weights 1..12)
+  hist := public.demand_history(p_item, p_location, 12);
+  for h in select * from jsonb_array_elements(hist) loop
+    i := i + 1; wsum := wsum + i * (h->>'qty')::numeric; wtot := wtot + i;
+  end loop;
+  select min(created_at) into first_ship from public.stock_movements where item_id = p_item and reason = 'ship' and (p_location is null or location_id = p_location);
+  enough := first_ship is not null and first_ship <= now() - interval '4 weeks';
+  rate := case when enough then round(wsum / nullif(wtot, 0), 3) else 0 end;
+  -- opening stock (in transit and the production floor are not free stock)
+  select coalesce(sum(quantity), 0) into opening from public.stock_levels sl join public.locations l on l.id = sl.location_id
+   where sl.item_id = p_item and l.kind not in ('transit', 'wip') and (p_location is null or sl.location_id = p_location);
+  create temp table if not exists pl_flow (wk date, kind text, qty numeric, ref text) on commit drop;
+  truncate pl_flow;
+  -- receipts
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(p.expected_date, current_date))::date), 'receipt', l.quantity - l.received, p.number
+    from public.po_lines l join public.purchase_orders p on p.id = l.po_id
+   where l.item_id = p_item and p.status in ('ordered', 'partial') and l.quantity > l.received
+     and (p_location is null or coalesce(p.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(j.due_date, current_date))::date), 'receipt', coalesce(j.quantity, 1) - j.produced, j.code
+    from public.jobs j where j.sku = it.sku and it.kind not in ('material', 'service') and j.status <> 'done' and not j.stock_booked
+     and coalesce(j.quantity, 1) > j.produced and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location);
+  if p_location is not null then
+    insert into pl_flow select greatest(w0, date_trunc('week', coalesce(t.expected_date, current_date))::date), 'receipt', tl.quantity, t.number
+      from public.transfer_lines tl join public.stock_transfers t on t.id = tl.transfer_id
+     where tl.item_id = p_item and t.status = 'in_transit' and t.to_location = p_location;
+    insert into pl_flow select greatest(w0, date_trunc('week', coalesce(t.expected_date, current_date))::date), 'demand', tl.quantity, t.number
+      from public.transfer_lines tl join public.stock_transfers t on t.id = tl.transfer_id
+     where tl.item_id = p_item and t.status = 'draft' and t.from_location = p_location;
+  end if;
+  -- demand: sales lines, MO ingredients, outsourced-PO materials
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(o.delivery_deadline, current_date))::date), 'sales', l.quantity - l.shipped, o.order_number
+    from public.order_lines l join public.orders o on o.id = l.order_id
+   where l.item_id = p_item and o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+     and (p_location is null or coalesce(o.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(j.due_date, current_date))::date), 'demand',
+         greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0), j.code
+    from public.jobs j
+    join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
+    join public.bom_lines b on b.product_id = p.id and b.material_id = p_item
+    left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = p_item
+   where j.status <> 'done' and not j.stock_booked and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(p.expected_date, current_date))::date), 'demand', pm.quantity_per * (l.quantity - l.received), p.number
+    from public.po_materials pm join public.po_lines l on l.id = pm.po_line_id join public.purchase_orders p on p.id = l.po_id
+   where pm.item_id = p_item and p.kind = 'outsourced' and p.status in ('ordered', 'partial') and l.quantity > l.received
+     and (p_location is null or p.partner_location_id = p_location);
+  -- walk the weeks
+  bal := opening; low := opening; low_wk := null; reorder := coalesce(it.min_quantity, 0);
+  for i in 0 .. p_weeks - 1 loop
+    v_wk := w0 + 7 * i;
+    select coalesce(sum(qty) filter (where kind = 'receipt'), 0), coalesce(sum(qty) filter (where kind = 'sales'), 0), coalesce(sum(qty) filter (where kind = 'demand'), 0)
+      into rec, sales, other from pl_flow where pl_flow.wk = v_wk;
+    -- forecast: weekly override, else monthly override spread over its days, else automatic
+    select quantity into fc from public.forecast_overrides fo where fo.item_id = p_item and fo.period = 'week' and fo.period_start = v_wk
+       and fo.location_id is not distinct from p_location;
+    if fc is not null then fsrc := 'manual';
+    else
+      select round(quantity * 7 / extract(day from (period_start + interval '1 month' - interval '1 day')), 3) into fc from public.forecast_overrides fo
+       where fo.item_id = p_item and fo.period = 'month' and fo.period_start = date_trunc('month', v_wk + 3)::date and fo.location_id is not distinct from p_location;
+      if fc is not null then fsrc := 'manual'; else fc := rate; fsrc := case when enough then 'auto' else 'none' end; end if;
+    end if;
+    -- the forecast stands for customer sales: booked sales use it up (whichever is larger counts)
+    use_dem := greatest(sales, fc) + other;
+    bal := bal + rec - use_dem;
+    if bal < low or (low_wk is null and bal < reorder) then
+      if bal < reorder and low_wk is null then low_wk := v_wk; end if;
+      low := least(low, bal);
+    end if;
+    weeks := weeks || jsonb_build_object('week', v_wk, 'receipts', rec, 'orders', sales, 'other', other, 'forecast', fc, 'forecast_source', fsrc,
+      'demand', use_dem, 'closing', round(bal, 3),
+      'refs', (select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'qty', qty, 'ref', ref)), '[]') from pl_flow f where f.wk = v_wk));
+  end loop;
+  -- recommendation: bring the lowest point back up to the reorder point (rounded to the batch size)
+  act := null; rqty := 0;
+  if low_wk is not null then
+    act := case when exists (select 1 from public.bom_lines where product_id = p_item) then 'make' else 'buy' end;
+    batch := greatest(coalesce(nullif(it.make_batch, 0), 1), 1);
+    rqty := ceil(greatest(reorder - low, 0.001) / batch) * batch;
+    lead := coalesce(it.lead_days, (select default_lead_days from public.company_settings where id = 1), 7);
+  end if;
+  select name into loc_name from public.locations where id = p_location;
+  return jsonb_build_object(
+    'item', jsonb_build_object('id', it.id, 'sku', it.sku, 'name', it.name, 'unit', it.unit, 'reorder_point', reorder),
+    'location', loc_name, 'opening', opening, 'weeks', weeks, 'history', hist,
+    'forecast', jsonb_build_object('weekly', rate, 'enough_history', enough,
+      'method', 'Weighted average of the last 12 complete weeks of shipments; the most recent week counts 12×, the oldest 1×. Needs at least 4 weeks of history. Manual overrides replace it for their week or month.'),
+    'recommendation', case when act is null then null else jsonb_build_object('action', act, 'quantity', rqty, 'short_week', low_wk,
+      'order_by', greatest(current_date, low_wk - lead), 'lead_days', lead, 'lowest', round(low, 3),
+      'reason', format('Projected stock falls to %s in the week of %s (reorder point %s)', trim_scale(round(low, 3)), to_char(low_wk, 'DD Mon'), trim_scale(reorder))) end);
+end $$;
+revoke all on function public.plan_item(uuid, uuid, int) from public, anon;
+grant execute on function public.plan_item(uuid, uuid, int) to authenticated;
+revoke all on function public.demand_history(uuid, uuid, int) from public, anon;
+grant execute on function public.demand_history(uuid, uuid, int) to authenticated;
+
+-- Every stocked item with a recommendation or a shortage in the horizon (for the Plan screen).
+create or replace function public.plan_overview(p_location uuid default null, p_weeks int default 12) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare r record; p jsonb; out jsonb := '[]';
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  for r in select id from public.stock_items where not archived and kind <> 'service' order by sku loop
+    p := public.plan_item(r.id, p_location, p_weeks);
+    if p->'recommendation' is not null and p->'recommendation' <> 'null'::jsonb then
+      out := out || jsonb_build_object('item', p->'item', 'opening', p->'opening', 'recommendation', p->'recommendation',
+        'forecast', p->'forecast'->'weekly', 'source', case when exists (select 1 from jsonb_array_elements(p->'weeks') x where x->>'forecast_source' = 'manual') then 'manual'
+          when (p->'forecast'->>'enough_history')::boolean then 'auto' else 'none' end);
+    end if;
+  end loop;
+  return out;
+end $$;
+revoke all on function public.plan_overview(uuid, int) from public, anon;
+grant execute on function public.plan_overview(uuid, int) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
