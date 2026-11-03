@@ -26,7 +26,7 @@ export const config = {
   /** Expose GET /api/dev/mail (the outbox) — only for local development and tests. */
   devMail: env.SYNDO_DEV_MAIL === "1",
   smtp: env.SMTP_URL ?? null,
-  mailFrom: env.SYNDO_MAIL_FROM ?? "Syndo <no-reply@syndo.local>",
+  mailFrom: env.SYNDO_MAIL_FROM ?? "SEND <no-reply@syndo.local>",
   livekit: {
     url: env.LIVEKIT_URL ?? null, // wss://media.example.com
     apiKey: env.LIVEKIT_API_KEY ?? null,

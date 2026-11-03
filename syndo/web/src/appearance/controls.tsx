@@ -37,7 +37,7 @@ export function useField<T = unknown>(path: string) {
 }
 export const resetSection = (target: Target, keys: string[]) => editDraft((x) => withOverrides(x, target, (o) => { let n = o; for (const k of keys) n = unsetPath(n, k); return n; }));
 
-const SOURCE_LABEL: Record<LayerName, string> = { default: "Syndo default", theme: "theme", global: "your global look", device: "this device", server: "server override", shared: "shared conversation theme", conversation: "conversation override", accessibility: "accessibility setting" };
+const SOURCE_LABEL: Record<LayerName, string> = { default: "SEND default", theme: "theme", global: "your global look", device: "this device", server: "server override", shared: "shared conversation theme", conversation: "conversation override", accessibility: "accessibility setting" };
 
 function Row({ label, hint, path, children, field }: { label: string; hint?: ReactNode; path: string; children: ReactNode; field: { overridden: boolean; source: LayerName; reset: () => void } }) {
   return (

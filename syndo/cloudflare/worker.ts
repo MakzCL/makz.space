@@ -19,6 +19,7 @@ const fs = require('node:fs'), cp = require('node:child_process');
 `;
 export class SyndoBackend extends DurableObject<Env> {
   private starting?: Promise<void>;
+  private ready = false;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     if (ctx.container?.running) ctx.waitUntil(ctx.container.setInactivityTimeout(TIMEOUT));
@@ -26,19 +27,24 @@ export class SyndoBackend extends DurableObject<Env> {
   private async ensureReady() {
     const c = this.ctx.container;
     if (!c) throw new Error("Container not configured");
+    if (c.running && await this.ctx.storage.get("active-source-commit") !== this.env.SOURCE_COMMIT) {
+      await c.destroy();
+      this.ready = false;
+    }
     if (!c.running) c.start({enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
       DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
       SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
       SYNDO_AUTO_MIGRATE:"0", SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
       SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT,
     }});
+    await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
     await c.setInactivityTimeout(TIMEOUT);
     const deadline = Date.now() + 150000;
     while (Date.now() < deadline) {
       try {
         const r = await c.getTcpPort(3900).fetch("http://container/api/health", {signal:AbortSignal.timeout(2000)});
         await r.body?.cancel();
-        if (r.ok) return;
+        if (r.ok) { this.ready = true; return; }
       } catch { /* Wait for the process and database to become ready. */ }
       await scheduler.wait(1000);
     }
@@ -46,6 +52,10 @@ export class SyndoBackend extends DurableObject<Env> {
   }
   async fetch(request: Request) {
     this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
+    if (new URL(request.url).pathname === "/api/health" && !this.ready) {
+      this.ctx.waitUntil(this.starting.catch(error => console.error("startup_failed",error.message)));
+      return Response.json({ok:false,status:"starting"},{status:503,headers:{"retry-after":"10"}});
+    }
     await this.starting;
     const url = new URL(request.url); url.protocol = "http:"; url.host = "container";
     const forwarded = new Request(url, request); forwarded.headers.delete("host");

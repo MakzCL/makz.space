@@ -267,7 +267,7 @@ export function setUserVolume(key: string, v: number) {
 
 /**
  * Push-to-talk. In a browser it works while the window has focus. In the
- * desktop app the shell reports the key globally (even when Syndo is in the
+ * desktop app the shell reports the key globally (even when SEND is in the
  * background), using the same press/release functions.
  */
 let pttTimer: number | null = null;

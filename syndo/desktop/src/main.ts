@@ -1,16 +1,16 @@
 /**
- * Syndo desktop shell (Windows first; also runs on macOS/Linux for development).
+ * SEND desktop shell (Windows first; also runs on macOS/Linux for development).
  *
- * The window loads the hosted Syndo web app, so interface updates arrive the
+ * The window loads the hosted SEND web app, so interface updates arrive the
  * moment the web app is deployed. This shell adds what browsers can't do:
- *   - global push-to-talk (works while Syndo is in the background),
+ *   - global push-to-talk (works while SEND is in the background),
  *   - screen sharing with whole-system audio on Windows (WASAPI loopback),
  *   - tray icon, close-to-tray, syndo:// invite links, native notifications,
  *   - Windows 11 window materials (Mica / Acrylic) where the OS supports them,
  *   - self-updates from a Cloudflare-hosted feed (electron-updater, generic provider).
  *
  * Security: context isolation + sandbox, no Node in the page, a tiny preload
- * API, navigation locked to the configured Syndo origin, permissions granted
+ * API, navigation locked to the configured SEND origin, permissions granted
  * only to that origin, external links opened in the system browser.
  */
 import { app, BrowserWindow, Menu, Tray, desktopCapturer, dialog, ipcMain, nativeImage, session, shell, systemPreferences, type DesktopCapturerSource } from "electron";
@@ -56,7 +56,7 @@ let pendingDeepLink: string | null = null;
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 420, minHeight: 520,
-    title: "Syndo", icon: join(STATIC, "icon.png"), show: !config.startHidden,
+    title: "SEND", icon: join(STATIC, "icon.png"), show: !config.startHidden,
     backgroundColor: config.material !== "none" && MATERIAL_OK ? "#00000000" : "#0E1220",
     autoHideMenuBar: true,
     webPreferences: {
@@ -198,14 +198,14 @@ function buildTrayMenu() {
   if (!tray) return;
   const u = updateStatus;
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open Syndo", click: () => { win?.show(); win?.focus(); } },
+    { label: "Open SEND", click: () => { win?.show(); win?.focus(); } },
     { type: "separator" },
     u.state === "ready" ? { label: `Restart to update (${u.version})`, click: () => { quitting = true; autoUpdater?.quitAndInstall(); } }
       : { label: u.state === "downloading" ? `Downloading update… ${u.percent ?? 0}%` : "Check for updates", enabled: !!autoUpdater && u.state !== "downloading", click: () => autoUpdater?.checkForUpdates().catch(() => {}) },
     { label: "Change server…", click: () => changeServer() },
     { label: "Close to tray", type: "checkbox", checked: config.closeToTray, click: (m) => { config.closeToTray = m.checked; saveConfig(); } },
     { type: "separator" },
-    { label: "Quit Syndo", click: () => { quitting = true; app.quit(); } },
+    { label: "Quit SEND", click: () => { quitting = true; app.quit(); } },
   ]));
 }
 function changeServer() {
@@ -250,7 +250,7 @@ function registerIpc() {
     try {
       const r = await fetch(`${url}/api/instance`, { signal: AbortSignal.timeout(8000) });
       const j = r.ok ? await r.json() : null;
-      if (!j?.name) return { ok: false, reason: "That address didn't answer like a Syndo server." };
+      if (!j?.name) return { ok: false, reason: "That address didn't answer like a SEND server." };
     } catch { return { ok: false, reason: "Couldn't reach that server. Check the address and your connection." }; }
     config.serverUrl = url; saveConfig(); loadApp();
     return { ok: true };
@@ -281,7 +281,7 @@ else {
     setupSession();
     createWindow();
     tray = new Tray(nativeImage.createFromPath(join(STATIC, "tray.png")));
-    tray.setToolTip("Syndo");
+    tray.setToolTip("SEND");
     tray.on("click", () => { win?.show(); win?.focus(); });
     buildTrayMenu();
     setupUpdates();

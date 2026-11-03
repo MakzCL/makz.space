@@ -3,7 +3,8 @@ import { config } from "./config.ts";
 
 pg.types.setTypeParser(1184, (v) => new Date(v).toISOString()); // timestamptz → ISO string
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: Number(process.env.PG_POOL ?? 20) });
+export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: Number(process.env.PG_POOL ?? 20), connectionTimeoutMillis: 10_000, query_timeout: 15_000 });
+pool.on("error", (error) => console.error("[database pool]", error.message));
 
 export type Q = { query: pg.Pool["query"] } | pg.PoolClient;
 

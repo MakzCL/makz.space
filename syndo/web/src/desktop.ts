@@ -1,5 +1,5 @@
 /**
- * Integration with the Syndo desktop shell (when running inside it).
+ * Integration with the SEND desktop shell (when running inside it).
  * Everything here is optional: in a browser `window.syndoDesktop` is absent
  * and nothing changes.
  */
@@ -7,7 +7,7 @@ import { useVoice, pttPress, pttRelease } from "./voice/session.ts";
 import { onEvent, useStore } from "./store.ts";
 
 export interface DesktopUpdate { state: "idle" | "checking" | "available" | "downloading" | "ready" | "none" | "error" | "disabled"; version?: string; percent?: number; message?: string }
-export interface SyndoDesktop {
+export interface SENDDesktop {
   version: string; platform: string;
   capabilities: { globalPtt: boolean; systemAudio: boolean; windowMaterial: boolean; autoUpdate: boolean; tray: boolean };
   setPushToTalk(code: string | null): Promise<{ ok: boolean; reason?: string }>;
@@ -22,7 +22,7 @@ export interface SyndoDesktop {
   onUpdateStatus(cb: (s: DesktopUpdate) => void): () => void;
   flash(): Promise<void>;
 }
-export const desktop: SyndoDesktop | null = (window as any).syndoDesktop ?? null;
+export const desktop: SENDDesktop | null = (window as any).syndoDesktop ?? null;
 
 export let globalPttError: string | null = null;
 /** Keep the shell's global push-to-talk key in sync with Voice settings. */

@@ -27,7 +27,7 @@ test("APK preview boots offline, renders the real shell and supports local messa
   assert.equal(useStore.getState().conn, "ready");
   const user = userEvent.setup(); render(<Shell />);
   await screen.findByRole("heading", { name: "Friends" });
-  await user.click(screen.getByRole("button", { name: /^Syndo Preview/ }));
+  await user.click(screen.getByRole("button", { name: /^SEND Preview/ }));
   await screen.findByRole("heading", { name: "general", exact: true });
   assert.equal(new URLSearchParams(location.search).get("preview"), "1", "preview links remain shareable after navigation");
   await screen.findByText(/Welcome to the/);

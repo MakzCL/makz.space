@@ -1,25 +1,11 @@
-/**
- * Syndo — the single source of truth for the product's identity.
- *
- * Everything that names or colours the product reads from here: the web
- * client's CSS tokens, the HTML <title>, the web manifest, notifications,
- * email templates and the server's API metadata. Change it here and nowhere
- * else.
- *
- * About the name: "Syndo" is a personal reference to Down syndrome. The
- * public identity stays on friendship, community and communication. The mark
- * is a sharp hexagonal "S" — one solid shape, cut by two channels into a path
- * that flows from one side to the other, like a conversation passing between
- * people. The warm yellow and calm blue (colours long associated with Down
- * syndrome awareness) remain in the palette.
- */
+/** SEND — shared product identity. */
 export const BRAND = {
-  name: "Syndo",
+  name: "SEND",
   tagline: "Talk together. Belong together.",
   description:
-    "Syndo is a free place for friends and communities to chat, call, share their screens and hang out — every feature, for everyone.",
+    "SEND is a free place for friends and communities to chat, call, share their screens and hang out — every feature, for everyone.",
   /** Shown in email footers and the about panel. */
-  publisher: "Syndo",
+  publisher: "SEND",
   supportEmail: "support@syndo.local",
 
   colors: {
@@ -71,12 +57,12 @@ export const BRAND = {
   },
 
   assets: {
-    logo: "/brand/syndo-mark.svg",
-    appIcon256: "/brand/syndo-icon-256.png",
-    wordmark: "/brand/syndo-wordmark.svg",
-    appIcon: "/brand/syndo-icon.svg",
-    appIcon192: "/brand/syndo-icon-192.png",
-    appIcon512: "/brand/syndo-icon-512.png",
+    logo: "/brand/send-icon.svg",
+    appIcon256: "/brand/send-icon-256.png",
+    wordmark: "/brand/send-wordmark.svg",
+    appIcon: "/brand/send-icon.svg",
+    appIcon192: "/brand/send-icon-192.png",
+    appIcon512: "/brand/send-icon-512.png",
   },
 
   /** Loading-screen copy. Rotates; kept warm and short. */

@@ -658,3 +658,8 @@ a, .md-p a { color: var(--link, var(--accent)); }
 /* Desktop app: Windows 11 window material shows through the app background layer only. */
 html[data-desktop-material], html[data-desktop-material] body { background: transparent !important; }
 [data-desktop-material] .shell { background: transparent; }
+
+/* Brand artwork uses the exact supplied Dimitri glyph outlines. */
+.send-wordmark { display: block; width: 112px; height: auto; flex-shrink: 0; color: var(--text, currentColor); }
+.splash-wordmark { width: 210px; color: var(--text, currentColor); }
+.auth-brand { padding-block: 4px; }

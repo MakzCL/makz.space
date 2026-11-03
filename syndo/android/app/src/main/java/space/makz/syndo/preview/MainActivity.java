@@ -36,8 +36,8 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.rgb(14,14,13)); root.setFitsSystemWindows(true);
         LinearLayout bar = new LinearLayout(this); bar.setGravity(android.view.Gravity.CENTER_VERTICAL); bar.setPadding(dp(12),0,dp(4),0);
-        TextView title = new TextView(this); title.setText("Syndo · preview"); title.setTextColor(Color.WHITE); title.setTextSize(17);
-        bar.addView(title, new LinearLayout.LayoutParams(0, dp(52), 1)); title.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        ImageView title = new ImageView(this); title.setImageResource(space.makz.syndo.preview.R.drawable.send_wordmark); title.setContentDescription("SEND"); title.setScaleType(ImageView.ScaleType.FIT_START);
+        bar.addView(title, new LinearLayout.LayoutParams(0, dp(30), 1));
         Button update = new Button(this); update.setText("Update"); update.setTextColor(Color.rgb(247,186,0)); update.setContentDescription("Load latest Cloudflare preview");
         update.setOnClickListener(v -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?preview=1&build=" + System.currentTimeMillis()); });
         bar.addView(update);
@@ -45,7 +45,7 @@ public class MainActivity extends Activity {
         menu.setOnClickListener(v -> {
             PopupMenu popup = new PopupMenu(this, menu);
             popup.getMenu().add("Local interface preview").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); return true; });
-            popup.getMenu().add("Open live Syndo").setOnMenuItemClickListener(item -> { web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
+            popup.getMenu().add("Open live SEND").setOnMenuItemClickListener(item -> { web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
             popup.getMenu().add("Open in browser").setOnMenuItemClickListener(item -> { browse(Uri.parse(BuildConfig.HOSTED_URL)); return true; });
             popup.show();
         });

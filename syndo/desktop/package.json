@@ -1,10 +1,10 @@
 {
   "name": "syndo-desktop",
-  "productName": "Syndo",
+  "productName": "SEND",
   "version": "0.2.0",
   "private": true,
-  "description": "Syndo for Windows — free chat, voice, video and screen sharing.",
-  "author": "Syndo",
+  "description": "SEND for Windows — free chat, voice, video and screen sharing.",
+  "author": "SEND",
   "main": "dist/main.js",
   "syndo": {
     "appUrl": "",

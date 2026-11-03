@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BRAND } from "@syndo/shared";
-import { Mark } from "./ui.tsx";
+import { Mark, Wordmark } from "./ui.tsx";
 
 /** Loading screen: the three voices gather into one conversation. Static under reduced motion. */
 export function Splash({ label }: { label?: string }) {
@@ -9,7 +9,7 @@ export function Splash({ label }: { label?: string }) {
   return (
     <div className="splash" role="status" aria-live="polite" aria-busy="true">
       <Mark size={96} animate />
-      <div className="splash-name">{BRAND.name}</div>
+      <Wordmark className="splash-wordmark" />
       <div className="splash-line">{label ?? BRAND.loadingLines[i]}</div>
     </div>
   );

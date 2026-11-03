@@ -243,7 +243,7 @@ export async function resetAppearance(scope: "all" | "global" = "all") {
   if (scope === "all") for (const k of Object.keys(get().scopes)) await putScope(k, null).catch(() => {});
   setDevice({});
   setSafeMode(false);
-  toast("Appearance reset to the Syndo default.", "success");
+  toast("Appearance reset to the SEND default.", "success");
 }
 // Emergency shortcut, works anywhere and before anything else loads: Ctrl+Shift+Alt+R.
 window.addEventListener("keydown", (e) => { if (e.ctrlKey && e.shiftKey && e.altKey && e.code === "KeyR") { e.preventDefault(); setSafeMode(!get().safeMode); } });

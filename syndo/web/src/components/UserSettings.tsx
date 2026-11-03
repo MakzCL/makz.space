@@ -102,8 +102,8 @@ function AppearanceTab({ onClose }: { onClose: () => void }) {
     <div className="stack">
       <h2>Appearance</h2>
       <div className="card row wrap">
-        <div className="grow"><strong>Syndo Studio</strong><p className="muted small">Themes, panel transparency, backgrounds, layout, per-server and per-conversation looks, profile effects, presets and import/export.</p></div>
-        <button className="btn primary" onClick={() => { onClose(); openStudio("gallery"); }}>Open Syndo Studio</button>
+        <div className="grow"><strong>SEND Studio</strong><p className="muted small">Themes, panel transparency, backgrounds, layout, per-server and per-conversation looks, profile effects, presets and import/export.</p></div>
+        <button className="btn primary" onClick={() => { onClose(); openStudio("gallery"); }}>Open SEND Studio</button>
       </div>
       <Field label="Theme"><select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("syndo-") && <option value={g.themeId}>My preset</option>}</select></Field>
       <Field label="Accent colour"><input type="color" value={(g.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, colors: { ...(x.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></Field>
@@ -187,7 +187,7 @@ function VoiceTab() {
       <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><input type="range" min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
       <Field label="Input mode"><select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></select></Field>
-      {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when Syndo is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
+      {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when SEND is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
       <h3>Audio quality — free for everyone</h3>
       <Field label="Preset"><select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></select></Field>
       <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">
@@ -240,17 +240,17 @@ function DesktopTab() {
   return (
     <div className="stack">
       <h2>Desktop app</h2>
-      <p className="muted">Syndo for {desktop.platform === "win32" ? "Windows" : desktop.platform} · version {desktop.version}. The interface updates automatically whenever the Syndo web app is updated; the app itself updates from the Syndo update feed.</p>
+      <p className="muted">SEND for {desktop.platform === "win32" ? "Windows" : desktop.platform} · version {desktop.version}. The interface updates automatically whenever the SEND web app is updated; the app itself updates from the SEND update feed.</p>
       <div className="card row wrap"><span className="grow" role="status">{label}</span>
         {u?.state === "ready" ? <button className="btn primary" onClick={() => d.restartToUpdate()}>Restart to update</button>
           : <button className="btn" disabled={u?.state === "checking" || u?.state === "downloading" || u?.state === "disabled"} onClick={() => d.checkForUpdates().then(setU)}>Check for updates</button>}</div>
       {cfg && <Toggle label="Keep running in the tray when closed" hint="Calls and notifications keep working." checked={cfg.closeToTray} onChange={(v) => { d.setCloseToTray(v); setCfg({ ...cfg, closeToTray: v }); }} />}
       {desktop.capabilities.windowMaterial ? (
-        <Field label="Window material (Windows 11)" hint="Lets the desktop show through the app background. Panels keep the transparency you set in Syndo Studio.">
+        <Field label="Window material (Windows 11)" hint="Lets the desktop show through the app background. Panels keep the transparency you set in SEND Studio.">
           <select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
             <option value="none">None</option><option value="mica">Mica</option><option value="acrylic">Acrylic</option></select></Field>
       ) : <p className="muted small">See-through window materials need Windows 11 (22H2 or newer).</p>}
-      <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={() => confirm("Switch to a different Syndo server? You'll need to sign in there.") && d.changeServer()}>Change server</button></div></Field>
+      <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={() => confirm("Switch to a different SEND server? You'll need to sign in there.") && d.changeServer()}>Change server</button></div></Field>
       <ul className="small keys">
         <li>Push-to-talk works globally — set it in Voice &amp; video.</li>
         <li>Screen sharing can include whole-system audio{desktop.capabilities.systemAudio ? "" : " (Windows only)"}.</li>

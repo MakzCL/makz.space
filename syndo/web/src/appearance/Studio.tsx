@@ -50,9 +50,9 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
   return (
     <TargetCtx.Provider value={target}>
       <div className="studio-back" data-region="settings">
-        <div className="studio" role="dialog" aria-modal="true" aria-label="Syndo Studio">
+        <div className="studio" role="dialog" aria-modal="true" aria-label="SEND Studio">
           <header className="studio-h">
-            <h2>Syndo Studio</h2>
+            <h2>SEND Studio</h2>
             <TargetPicker target={target} onChange={setTarget} />
             <div className="row studio-actions">
               <button className="icon-btn" onClick={undo} disabled={!past} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 size={18} /></button>
@@ -80,7 +80,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
               {section === "advanced" && <AdvancedSection />}
               <footer className="studio-f">
                 {sectionKeys && <button className="btn sm" onClick={() => resetSection(target, sectionKeys)}><RefreshCcw size={14} /> Reset this section{target.kind !== "global" ? " for this scope" : ""}</button>}
-                <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the Syndo default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-midnight", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
+                <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-midnight", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
               </footer>
             </section>
             <aside className="studio-preview-wrap" aria-label="Live preview">
@@ -220,7 +220,7 @@ function PanelsSection({ region, setRegion }: { region: RegionId; setRegion: (r:
   return (
     <div className="stack">
       <h3>Panels & transparency</h3>
-      <p className="muted small">Pick a region in the live preview (it doubles as an interface map) or from this list. Opacity only affects a panel's <em>background layer</em> — text, icons and controls stay fully opaque. Lower opacity reveals what's underneath inside {""}Syndo (the wallpaper and lower panels). Seeing through to your desktop is a separate native option, available only in the Windows desktop app.</p>
+      <p className="muted small">Pick a region in the live preview (it doubles as an interface map) or from this list. Opacity only affects a panel's <em>background layer</em> — text, icons and controls stay fully opaque. Lower opacity reveals what's underneath inside {""}SEND (the wallpaper and lower panels). Seeing through to your desktop is a separate native option, available only in the Windows desktop app.</p>
       <div className="region-list" role="listbox" aria-label="Interface regions">
         {REGIONS.map((r) => <button key={r.id} role="option" aria-selected={r.id === region} className={r.id === region ? "active" : ""} onClick={() => setRegion(r.id)}>{r.label}<small className="muted block">{r.hint}</small></button>)}
       </div>
@@ -489,7 +489,7 @@ function PresetsSection() {
       delete raw.assets;
       const { doc, issues } = validateThemeDoc(raw);
       setImp({ doc, issues, assets });
-    } catch { setImp({ doc: null, issues: [{ path: "", level: "error", message: file.name.endsWith(".css") ? "This is a CSS file. Syndo themes are JSON packages; theme files made for other apps aren't compatible." : "This file isn't valid JSON." }], assets: {} }); }
+    } catch { setImp({ doc: null, issues: [{ path: "", level: "error", message: file.name.endsWith(".css") ? "This is a CSS file. SEND themes are JSON packages; theme files made for other apps aren't compatible." : "This file isn't valid JSON." }], assets: {} }); }
   };
   const finishImport = async (applyNow: boolean) => {
     if (!imp?.doc) return;
@@ -520,7 +520,7 @@ function PresetsSection() {
       <button className="btn" onClick={exportDoc}><Download size={14} /> Export theme</button>
       <h3>Import</h3>
       <label className="btn"><Upload size={14} /> Choose a theme file<input type="file" hidden accept=".json,application/json,.css" onChange={(e) => { const f = e.target.files?.[0]; if (f) readImport(f); e.target.value = ""; }} /></label>
-      <p className="muted small">Supported: Syndo theme packages (v2) and v1 exports. Not supported: BetterDiscord or other apps' <code>.theme.css</code> files — they target another app's structure and are rejected rather than half-applied.</p>
+      <p className="muted small">Supported: SEND theme packages (v2) and v1 exports. Not supported: BetterDiscord or other apps' <code>.theme.css</code> files — they target another app's structure and are rejected rather than half-applied.</p>
       {imp && (
         <div className="card stack">
           <strong>{imp.doc ? `“${imp.doc.meta.name}”` : "Can't import this file"}</strong>
@@ -562,7 +562,7 @@ function AccessSection() {
       <label className="field"><span className="field-l">Interface scale on this device</span><select value={device.layout?.scale ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, scale: e.target.value ? +e.target.value : undefined } })}><option value="">Use synced setting</option>{[0.85, 0.9, 1, 1.1, 1.2, 1.3].map((v) => <option key={v} value={v}>{Math.round(v * 100)}%</option>)}</select></label>
       <label className="field"><span className="field-l">Spacing on this device</span><select value={device.layout?.density ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, density: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="compact">Compact</option><option value="cozy">Comfortable</option><option value="spacious">Spacious</option></select></label>
       <h3>Recovery</h3>
-      <p className="small">If a theme ever makes Syndo hard to use: press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> anywhere for safe appearance mode, open <code>/?safe-appearance=1</code>, or use the “Reset appearance” button on the sign-in screen and in the user menu.</p>
+      <p className="small">If a theme ever makes SEND hard to use: press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> anywhere for safe appearance mode, open <code>/?safe-appearance=1</code>, or use the “Reset appearance” button on the sign-in screen and in the user menu.</p>
       <button className="btn danger" onClick={() => confirm("Reset all appearance settings (global, servers and conversations) to the default? Presets and your library are kept.") && resetAppearance("all")}>Reset appearance everywhere</button>
     </div>
   );

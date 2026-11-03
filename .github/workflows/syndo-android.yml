@@ -1,4 +1,4 @@
-name: Syndo Android preview
+name: SEND Android beta
 
 on:
   push:
@@ -46,16 +46,16 @@ jobs:
         working-directory: syndo/android
         run: gradle --no-daemon assembleDebug -PsyndoAppUrl="$SYNDO_APP_URL"
       - name: Name the download
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Syndo-preview.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk SEND-beta.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: syndo-android-preview
-          path: syndo/Syndo-preview.apk
+          name: send-android-beta
+          path: syndo/SEND-beta.apk
           if-no-files-found: error
       - name: Publish APK to Cloudflare R2
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
-          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/android/Syndo-preview.apk" --file Syndo-preview.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
+          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/android/SEND-beta.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
       - name: Explain missing Cloudflare connection
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
