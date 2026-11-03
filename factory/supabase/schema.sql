@@ -6639,5 +6639,431 @@ begin
     'estimated_finish', finish, 'due', j.due_date, 'late', (j.due_date is not null and finish > j.due_date and j.status <> 'done'));
 end $$;
 
+-- ============================================================================
+-- TROTAN — laser design & production (third app; same Supabase project, same users and roles).
+-- Integration contracts:
+--   * KORTANA: trotan_materials.stock_item_id → stock_items. Queueing reserves sheets (checked against
+--     stock); only a confirmed finished run consumes them, through move_stock (idempotent by run key).
+--   * SK Factory: trotan_projects / trotan_jobs carry mo_job_id → jobs; SK Factory reads progress
+--     through the view trotan_mo_activity (no writes into SK Factory tables).
+-- ============================================================================
+
+-- ---- access matrix (owner edits it; Owner/Developer always have everything)
+create table if not exists public.trotan_access (
+  role public.staff_role primary key,
+  sections text[] not null default '{}',
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null
+);
+insert into public.trotan_access (role, sections) values
+  ('manager', '{manage,design,prepare,produce,admin,approve}'), ('office', '{manage,design,prepare,produce}'),
+  ('assistant', '{manage,design,prepare,produce}'), ('support', '{manage}'), ('operator', '{manage,produce}')
+on conflict (role) do nothing;
+create or replace function public.trotan_can(p text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_active() and (public.my_role() in ('boss', 'developer')
+    or exists (select 1 from public.trotan_access a where a.role = public.my_role() and p = any(a.sections)))
+$$;
+grant execute on function public.trotan_can(text) to authenticated;
+alter table public.trotan_access enable row level security;
+drop policy if exists "read" on public.trotan_access;
+drop policy if exists "owner writes" on public.trotan_access;
+create policy "read" on public.trotan_access for select to authenticated using (public.is_active());
+create policy "owner writes" on public.trotan_access for all to authenticated using (public.my_role() in ('boss', 'developer')) with check (public.my_role() in ('boss', 'developer'));
+
+-- ---- projects & revisions
+create sequence if not exists public.trotan_project_seq;
+create table if not exists public.trotan_projects (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'TP-' || lpad(nextval('public.trotan_project_seq')::text, 4, '0'),
+  name text not null check (length(trim(name)) > 0),
+  customer text not null default '',
+  notes text not null default '',
+  tags text[] not null default '{}',
+  template boolean not null default false,
+  mo_job_id uuid references public.jobs(id) on delete set null,
+  doc jsonb not null,
+  version int not null default 1,
+  archived boolean not null default false,
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  updated_at timestamptz not null default now(),
+  check (doc->>'format' = 'trotan' and doc->>'units' = 'mm')
+);
+create table if not exists public.trotan_revisions (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.trotan_projects(id) on delete cascade,
+  version int not null,
+  doc jsonb not null,
+  note text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  unique (project_id, version)
+);
+
+-- ---- machines, materials, settings, tests
+create table if not exists public.trotan_machines (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  adapter text not null default 'virtual' check (adapter in ('virtual', 'none')),
+  manufacturer text not null default '',
+  model text not null default '',
+  caps jsonb not null,
+  prohibited uuid[] not null default '{}',
+  status text not null default 'idle' check (status in ('idle', 'busy', 'offline')),
+  active boolean not null default true,
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  check ((caps->>'bedW')::numeric > 0 and (caps->>'bedH')::numeric > 0 and (caps->>'maxSpeed')::numeric > 0)
+);
+create table if not exists public.trotan_materials (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text not null default 'Other',
+  supplier text not null default '',
+  thickness_mm numeric(8,3) check (thickness_mm is null or thickness_mm > 0),
+  sheet_w numeric(10,2) check (sheet_w is null or sheet_w > 0),
+  sheet_h numeric(10,2) check (sheet_h is null or sheet_h > 0),
+  stock_item_id uuid references public.stock_items(id) on delete set null,
+  notes text not null default '',
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.trotan_profiles (
+  id uuid primary key default gen_random_uuid(),
+  material_id uuid not null references public.trotan_materials(id) on delete cascade,
+  machine_id uuid not null references public.trotan_machines(id) on delete cascade,
+  operation text not null check (operation in ('cut', 'kiss', 'score', 'vengrave', 'mark', 'raster')),
+  version int not null default 1,
+  params jsonb not null,
+  status text not null default 'untested' check (status in ('untested', 'testing', 'approved', 'retired')),
+  approved_by uuid references public.profiles(id) on delete set null,
+  approved_at timestamptz,
+  notes text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  unique (material_id, machine_id, operation, version)
+);
+create table if not exists public.trotan_tests (
+  id uuid primary key default gen_random_uuid(),
+  material_id uuid not null references public.trotan_materials(id) on delete cascade,
+  machine_id uuid not null references public.trotan_machines(id) on delete cascade,
+  operation text not null,
+  matrix jsonb not null,
+  project_id uuid references public.trotan_projects(id) on delete set null,
+  result text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+-- ---- jobs, runs, stock reservations
+create sequence if not exists public.trotan_job_seq;
+create table if not exists public.trotan_jobs (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'TJ-' || lpad(nextval('public.trotan_job_seq')::text, 4, '0'),
+  project_id uuid not null references public.trotan_projects(id) on delete restrict,
+  revision int not null,
+  machine_id uuid not null references public.trotan_machines(id) on delete restrict,
+  material_id uuid references public.trotan_materials(id) on delete restrict,
+  status text not null default 'draft' check (status in ('draft', 'ready', 'queued', 'running', 'done', 'failed', 'cancelled')),
+  placements jsonb not null default '[]',
+  ops jsonb not null default '{}',
+  kerf numeric(6,3) not null default 0 check (kerf >= 0 and kerf < 5),
+  common_line boolean not null default false,
+  copies int not null default 1 check (copies >= 0),
+  sheets numeric(10,3) not null default 1 check (sheets >= 0),
+  estimate_s numeric(12,1),
+  validation jsonb not null default '[]',
+  mo_job_id uuid references public.jobs(id) on delete set null,
+  position int not null default 0,
+  qty_good int, qty_scrap int, actual_s numeric(12,1),
+  operator uuid references public.profiles(id) on delete set null,
+  error text,
+  queued_at timestamptz, started_at timestamptz, finished_at timestamptz,
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists trotan_jobs_status_idx on public.trotan_jobs (status, position);
+create index if not exists trotan_jobs_mo_idx on public.trotan_jobs (mo_job_id);
+create table if not exists public.trotan_runs (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.trotan_jobs(id) on delete cascade,
+  machine_id uuid not null references public.trotan_machines(id) on delete restrict,
+  adapter text not null,
+  status text not null default 'running' check (status in ('running', 'done', 'failed', 'aborted')),
+  started_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  started_at timestamptz not null default now(),
+  finished_by uuid references public.profiles(id) on delete set null,
+  finished_at timestamptz,
+  seconds numeric(12,1), good int, scrap int, sheets_used numeric(10,3), waste_sheets numeric(10,3),
+  notes text not null default '',
+  checks jsonb not null default '[]'
+);
+create unique index if not exists trotan_runs_one_running on public.trotan_runs (machine_id) where status = 'running';
+create table if not exists public.trotan_reservations (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null unique references public.trotan_jobs(id) on delete cascade,
+  stock_item_id uuid not null references public.stock_items(id) on delete restrict,
+  location_id uuid references public.locations(id) on delete set null,
+  quantity numeric(10,3) not null check (quantity > 0),
+  status text not null default 'reserved' check (status in ('reserved', 'consumed', 'released')),
+  consumed numeric(10,3),
+  created_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+-- ---- row level security: everybody active may read; writes per section; status changes only via functions
+do $$
+declare t text;
+begin
+  foreach t in array array['trotan_projects', 'trotan_revisions', 'trotan_machines', 'trotan_materials', 'trotan_profiles', 'trotan_tests', 'trotan_jobs', 'trotan_runs', 'trotan_reservations'] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "read" on public.%I', t);
+    execute format('create policy "read" on public.%I for select to authenticated using (public.trotan_can(''manage'') or public.trotan_can(''produce''))', t);
+    execute format('drop policy if exists "write" on public.%I', t);
+  end loop;
+end $$;
+create policy "write" on public.trotan_projects for all to authenticated using (public.trotan_can('design')) with check (public.trotan_can('design'));
+create policy "write" on public.trotan_machines for all to authenticated using (public.trotan_can('admin')) with check (public.trotan_can('admin'));
+create policy "write" on public.trotan_materials for all to authenticated using (public.trotan_can('admin')) with check (public.trotan_can('admin'));
+create policy "write" on public.trotan_profiles for all to authenticated using (public.trotan_can('admin') or public.trotan_can('approve')) with check (public.trotan_can('admin') or public.trotan_can('approve'));
+create policy "write" on public.trotan_tests for all to authenticated using (public.trotan_can('prepare')) with check (public.trotan_can('prepare'));
+drop policy if exists "add" on public.trotan_jobs; drop policy if exists "change" on public.trotan_jobs; drop policy if exists "remove" on public.trotan_jobs;
+create policy "add" on public.trotan_jobs for insert to authenticated with check (public.trotan_can('prepare'));
+create policy "change" on public.trotan_jobs for update to authenticated using (public.trotan_can('prepare')) with check (public.trotan_can('prepare'));
+create policy "remove" on public.trotan_jobs for delete to authenticated using (public.trotan_can('prepare') and status in ('draft', 'ready', 'cancelled'));
+-- revisions, runs and reservations are written only by the functions below.
+
+-- ---- audit (large design documents are not copied into the log)
+do $$
+declare t text[];
+begin
+  foreach t slice 1 in array array[array['trotan_projects', 'doc'], array['trotan_machines', ''], array['trotan_materials', ''], array['trotan_profiles', ''],
+                                   array['trotan_jobs', 'placements,validation'], array['trotan_runs', ''], array['trotan_reservations', ''], array['trotan_access', '']] loop
+    execute format('drop trigger if exists audit_row on public.%I', t[1]);
+    if t[2] = '' then execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t[1]);
+    else execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row(%s)', t[1],
+      (select string_agg(quote_literal(x), ',') from unnest(string_to_array(t[2], ',')) x)); end if;
+  end loop;
+end $$;
+do $$
+declare t text;
+begin
+  foreach t in array array['trotan_projects', 'trotan_jobs', 'trotan_runs', 'trotan_machines', 'trotan_profiles', 'trotan_materials'] loop
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- ---- guards
+-- Approved settings are locked: they change only by approving, retiring, or saving a new version.
+create or replace function public.trotan_guard_profile() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_setting('trotan.approving', true) = 'on' then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.status = 'approved' then raise exception 'New settings start untested — approve them after testing'; end if;
+    return new;
+  end if;
+  if new.status is distinct from old.status and (new.status = 'approved' or old.status = 'approved') then raise exception 'Use Approve / Retire to change an approved setting'; end if;
+  if old.status = 'approved' and (new.params is distinct from old.params or new.operation is distinct from old.operation or new.material_id is distinct from old.material_id or new.machine_id is distinct from old.machine_id) then
+    raise exception 'Approved settings are locked — save them as a new version';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trotan_guard_profile on public.trotan_profiles;
+create trigger trotan_guard_profile before insert or update on public.trotan_profiles for each row execute function public.trotan_guard_profile();
+
+-- Job status machine. queued→running, running→done/failed only through trotan_start / trotan_finish.
+create or replace function public.trotan_guard_job() returns trigger
+language plpgsql set search_path = public as $$
+declare ok boolean;
+begin
+  new.updated_at := now();
+  if tg_op = 'INSERT' then
+    if new.status not in ('draft', 'ready') then raise exception 'A new job starts as draft or ready'; end if;
+    return new;
+  end if;
+  if new.status = old.status then
+    if old.status in ('queued', 'running', 'done') and (new.placements is distinct from old.placements or new.ops is distinct from old.ops or new.machine_id is distinct from old.machine_id or new.material_id is distinct from old.material_id or new.kerf is distinct from old.kerf or new.revision is distinct from old.revision) then
+      raise exception 'This job is % — set it back to ready before changing it', old.status;
+    end if;
+    return new;
+  end if;
+  ok := case
+    when current_setting('trotan.engine', true) = 'on' then true
+    when old.status = 'draft' and new.status in ('ready', 'cancelled') then true
+    when old.status = 'ready' and new.status in ('draft', 'cancelled') then true
+    when old.status = 'queued' and new.status in ('ready', 'cancelled') then true
+    when old.status = 'failed' and new.status in ('ready', 'cancelled') then true
+    else false end;
+  if not ok then raise exception 'A job cannot go from % to % here', old.status, new.status; end if;
+  return new;
+end $$;
+drop trigger if exists trotan_guard_job on public.trotan_jobs;
+create trigger trotan_guard_job before insert or update on public.trotan_jobs for each row execute function public.trotan_guard_job();
+-- leaving the queue (back to ready / cancelled) releases the stock reservation
+create or replace function public.trotan_release_on_leave() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.status = 'queued' and new.status in ('ready', 'cancelled', 'draft') then
+    update public.trotan_reservations set status = 'released', closed_at = now() where job_id = new.id and status = 'reserved';
+  end if;
+  return null;
+end $$;
+drop trigger if exists trotan_release_on_leave on public.trotan_jobs;
+create trigger trotan_release_on_leave after update on public.trotan_jobs for each row execute function public.trotan_release_on_leave();
+
+-- ---- save with optimistic concurrency (two people editing the same project cannot overwrite each other)
+create or replace function public.trotan_save(p_project uuid, p_base int, p_doc jsonb, p_note text default '', p_revision boolean default false) returns int
+language plpgsql security definer set search_path = public as $$
+declare pr public.trotan_projects; v int;
+begin
+  if not public.trotan_can('design') then raise exception 'Your role cannot edit designs'; end if;
+  select * into pr from public.trotan_projects where id = p_project for update;
+  if pr.id is null then raise exception 'Project not found'; end if;
+  if pr.version <> p_base then raise exception 'Someone else saved this project (now version %) — reload to see their changes', pr.version; end if;
+  if p_doc->>'format' is distinct from 'trotan' or p_doc->>'units' is distinct from 'mm' or jsonb_typeof(p_doc->'objects') <> 'array' then raise exception 'Not a valid TROTAN design'; end if;
+  v := pr.version + 1;
+  update public.trotan_projects set doc = p_doc, version = v, updated_at = now(), updated_by = auth.uid() where id = pr.id;
+  if p_revision then insert into public.trotan_revisions (project_id, version, doc, note) values (pr.id, v, p_doc, coalesce(p_note, '')); end if;
+  return v;
+end $$;
+revoke all on function public.trotan_save(uuid, int, jsonb, text, boolean) from public, anon;
+grant execute on function public.trotan_save(uuid, int, jsonb, text, boolean) to authenticated;
+
+-- ---- approvals
+create or replace function public.trotan_set_profile_status(p_id uuid, p_status text) returns void
+language plpgsql security definer set search_path = public as $$
+declare pf public.trotan_profiles;
+begin
+  if not public.trotan_can('approve') then raise exception 'Only an authorised operator can approve laser settings'; end if;
+  if p_status not in ('untested', 'testing', 'approved', 'retired') then raise exception 'Unknown status'; end if;
+  select * into pf from public.trotan_profiles where id = p_id for update;
+  if pf.id is null then raise exception 'Settings not found'; end if;
+  perform set_config('trotan.approving', 'on', true);
+  if p_status = 'approved' then -- one approved version per material/machine/operation
+    update public.trotan_profiles set status = 'retired' where material_id = pf.material_id and machine_id = pf.machine_id and operation = pf.operation and status = 'approved' and id <> pf.id;
+  end if;
+  update public.trotan_profiles set status = p_status,
+    approved_by = case when p_status = 'approved' then auth.uid() else approved_by end,
+    approved_at = case when p_status = 'approved' then now() else approved_at end where id = pf.id;
+  perform set_config('trotan.approving', 'off', true);
+end $$;
+revoke all on function public.trotan_set_profile_status(uuid, text) from public, anon;
+grant execute on function public.trotan_set_profile_status(uuid, text) to authenticated;
+
+-- ---- queue: server-side checks, then reserve stock in KORTANA
+create or replace function public.trotan_queue(p_job uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.trotan_jobs; mc public.trotan_machines; mt public.trotan_materials; op text; have numeric; loc uuid; missing text[] := '{}';
+begin
+  if not public.trotan_can('prepare') then raise exception 'Your role cannot queue laser jobs'; end if;
+  select * into j from public.trotan_jobs where id = p_job for update;
+  if j.id is null then raise exception 'Job not found'; end if;
+  if j.status <> 'ready' then raise exception 'Only a ready (validated) job can be queued — it is %', j.status; end if;
+  if exists (select 1 from jsonb_array_elements(j.validation) v where v->>'level' = 'error') then raise exception 'The job still has validation errors'; end if;
+  select * into mc from public.trotan_machines where id = j.machine_id;
+  if not mc.active then raise exception 'This machine is switched off in TROTAN'; end if;
+  if j.material_id is null then raise exception 'Choose a material'; end if;
+  select * into mt from public.trotan_materials where id = j.material_id;
+  if mt.id = any(mc.prohibited) then raise exception '% is prohibited on %', mt.name, mc.name; end if;
+  if (select project_id from public.trotan_jobs where id = j.id) is not null and not exists (select 1 from public.trotan_revisions r where r.project_id = j.project_id and r.version = j.revision) then
+    raise exception 'Save a revision of the design before queuing (the job must point at a saved version)';
+  end if;
+  for op in select jsonb_object_keys(j.ops) loop
+    if not exists (select 1 from public.trotan_profiles p where p.material_id = j.material_id and p.machine_id = j.machine_id and p.operation = op and p.status = 'approved') then missing := missing || op; end if;
+  end loop;
+  if cardinality(missing) > 0 then raise exception 'No approved settings for % on this material and machine', array_to_string(missing, ', '); end if;
+  if mt.stock_item_id is not null and j.sheets > 0 then
+    loc := public.default_location();
+    select coalesce(sum(quantity), 0) into have from public.stock_levels where item_id = mt.stock_item_id and location_id not in (select id from public.locations where kind in ('transit', 'wip'));
+    have := have - coalesce((select sum(quantity) from public.trotan_reservations where stock_item_id = mt.stock_item_id and status = 'reserved' and job_id <> j.id), 0);
+    if have < j.sheets then raise exception 'Not enough % in KORTANA: % free, % needed', mt.name, trim_scale(have), trim_scale(j.sheets); end if;
+    insert into public.trotan_reservations (job_id, stock_item_id, location_id, quantity) values (j.id, mt.stock_item_id, loc, j.sheets)
+      on conflict (job_id) do update set quantity = excluded.quantity, status = 'reserved', closed_at = null, consumed = null;
+  end if;
+  perform set_config('trotan.engine', 'on', true);
+  update public.trotan_jobs set status = 'queued', queued_at = now(), position = coalesce((select max(position) from public.trotan_jobs where status = 'queued'), 0) + 1 where id = j.id;
+  perform set_config('trotan.engine', 'off', true);
+  return 'queued';
+end $$;
+revoke all on function public.trotan_queue(uuid) from public, anon;
+grant execute on function public.trotan_queue(uuid) to authenticated;
+
+-- ---- start: operator confirms the physical checks; one run per machine at a time
+create or replace function public.trotan_start(p_job uuid, p_checks jsonb, p_key text default null) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare j public.trotan_jobs; mc public.trotan_machines; rid uuid; prev text;
+begin
+  if not public.trotan_can('produce') then raise exception 'Your role cannot run laser jobs'; end if;
+  prev := public.claim_op('trotan_start', p_key); if prev is not null then return prev::uuid; end if;
+  select * into j from public.trotan_jobs where id = p_job for update;
+  if j.id is null then raise exception 'Job not found'; end if;
+  if j.status <> 'queued' then raise exception 'Only a queued job can start — it is %', j.status; end if;
+  select * into mc from public.trotan_machines where id = j.machine_id for update;
+  if mc.status <> 'idle' then raise exception '% is % — wait for it to be free', mc.name, mc.status; end if;
+  if jsonb_typeof(p_checks) <> 'array' or jsonb_array_length(p_checks) = 0 or exists (select 1 from jsonb_array_elements(p_checks) c where (c->>'ok')::boolean is not true) then
+    raise exception 'Confirm every pre-run check first';
+  end if;
+  if mc.adapter <> 'virtual' then raise exception 'No validated interface for % — run this job with the machine''s own software and start procedure', mc.name; end if;
+  insert into public.trotan_runs (job_id, machine_id, adapter, checks) values (j.id, mc.id, mc.adapter, p_checks) returning id into rid;
+  update public.trotan_machines set status = 'busy' where id = mc.id;
+  perform set_config('trotan.engine', 'on', true);
+  update public.trotan_jobs set status = 'running', started_at = now(), operator = auth.uid(), error = null where id = j.id;
+  perform set_config('trotan.engine', 'off', true);
+  return public.finish_op('trotan_start', p_key, rid::text)::uuid;
+end $$;
+revoke all on function public.trotan_start(uuid, jsonb, text) from public, anon;
+grant execute on function public.trotan_start(uuid, jsonb, text) to authenticated;
+
+-- ---- finish: results, KORTANA consumption (once), machine free again
+create or replace function public.trotan_finish(p_run uuid, p_status text, p_good int, p_scrap int, p_seconds numeric, p_sheets numeric, p_notes text default '', p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare r public.trotan_runs; j public.trotan_jobs; res public.trotan_reservations; prev text; used numeric;
+begin
+  if not public.trotan_can('produce') then raise exception 'Your role cannot run laser jobs'; end if;
+  if p_status not in ('done', 'failed', 'aborted') then raise exception 'Unknown result'; end if;
+  prev := public.claim_op('trotan_finish', p_key); if prev is not null then return prev; end if;
+  select * into r from public.trotan_runs where id = p_run for update;
+  if r.id is null then raise exception 'Run not found'; end if;
+  if r.status <> 'running' then return public.finish_op('trotan_finish', p_key, r.status); end if; -- already finished: nothing happens twice
+  if coalesce(p_good, 0) < 0 or coalesce(p_scrap, 0) < 0 or coalesce(p_sheets, 0) < 0 then raise exception 'Counts cannot be negative'; end if;
+  select * into j from public.trotan_jobs where id = r.job_id for update;
+  used := case when p_status = 'done' then coalesce(p_sheets, j.sheets) else coalesce(p_sheets, 0) end;
+  update public.trotan_runs set status = p_status, finished_at = now(), finished_by = auth.uid(), seconds = p_seconds, good = p_good, scrap = p_scrap,
+    sheets_used = used, waste_sheets = greatest(used - j.sheets * coalesce(p_good, 0)::numeric / greatest(j.copies, 1), 0), notes = coalesce(p_notes, '') where id = r.id;
+  update public.trotan_machines set status = 'idle' where id = r.machine_id;
+  perform set_config('trotan.engine', 'on', true);
+  update public.trotan_jobs set status = case when p_status = 'done' then 'done' else 'failed' end, finished_at = now(), actual_s = p_seconds,
+    qty_good = p_good, qty_scrap = p_scrap, error = case when p_status = 'done' then null else coalesce(nullif(p_notes, ''), p_status) end where id = j.id;
+  perform set_config('trotan.engine', 'off', true);
+  select * into res from public.trotan_reservations where job_id = j.id for update;
+  if res.id is not null and res.status = 'reserved' then
+    if used > 0 then
+      perform public.stock_source('trotan_job', j.id);
+      perform set_config('app.stock_loc', coalesce(res.location_id::text, ''), true);
+      perform public.move_stock(res.stock_item_id, -used, 'consume', j.number, 'TROTAN laser job' || case when p_status = 'done' then '' else ' (' || p_status || ')' end);
+      perform set_config('app.stock_loc', '', true);
+    end if;
+    update public.trotan_reservations set status = case when p_status = 'done' or used > 0 then 'consumed' else 'released' end, consumed = used, closed_at = now() where id = res.id;
+  end if;
+  return public.finish_op('trotan_finish', p_key, p_status);
+end $$;
+revoke all on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) from public, anon;
+grant execute on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) to authenticated;
+
+-- ---- SK Factory reads laser progress through this view (contract: columns are stable)
+create or replace view public.trotan_mo_activity with (security_invoker = on) as
+  select j.mo_job_id, j.id as trotan_job_id, j.number, j.status, j.copies, j.qty_good, j.qty_scrap, j.estimate_s, j.actual_s,
+         j.operator, j.queued_at, j.started_at, j.finished_at, p.name as project_name, m.name as machine_name
+    from public.trotan_jobs j join public.trotan_projects p on p.id = j.project_id join public.trotan_machines m on m.id = j.machine_id
+   where j.mo_job_id is not null;
+grant select on public.trotan_mo_activity to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

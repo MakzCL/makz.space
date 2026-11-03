@@ -1275,6 +1275,106 @@ select pg_temp.check((:'sch'::jsonb->>'working_days')::int >= 2 and (:'sch'::jso
 select public.mo_schedule(:'satj2') as sch2 \gset
 select pg_temp.check((:'sch2'::jsonb->'steps'->0->'operations'->0->>'queue_minutes')::numeric > 0, 'MFG-09 the MO behind it waits for the queue at the station');
 
+-- ================================================================ TROTAN (laser design & production)
+select pg_temp.become(null);
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-0000000000e1', 'lo@x.test', '{"full_name":"Lena Office"}'),
+  ('00000000-0000-0000-0000-0000000000e2', 'lop@x.test', '{"full_name":"Laser Operator"}'),
+  ('00000000-0000-0000-0000-0000000000e3', 'lsu@x.test', '{"full_name":"Sue Support"}');
+update public.profiles set active = true, role = 'office' where id = '00000000-0000-0000-0000-0000000000e1';
+update public.profiles set active = true, role = 'operator' where id = '00000000-0000-0000-0000-0000000000e2';
+update public.profiles set active = true, role = 'support' where id = '00000000-0000-0000-0000-0000000000e3';
+update public.profiles set active = true, role = 'boss' where id = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+insert into public.stock_items (sku, name, kind, unit) values ('PLY3-SHEET', 'Plywood 3 mm sheet 600×400', 'material', 'sheet') returning id as tply \gset
+select public.opening_stock(:'tply', 5, 4.20);
+insert into public.trotan_machines (name, adapter, manufacturer, model, caps) values ('Virtual CO2 600×400', 'virtual', 'TROTAN', 'Simulator',
+  '{"bedW":600,"bedH":400,"laserType":"co2","maxPowerW":60,"maxSpeed":1000,"maxRasterSpeed":3550,"accel":15000,"travelSpeed":1200,"ops":["cut","raster"],"freq":null,"dpi":[500],"focus":{"min":-5,"max":5},"airAssist":true,"maxPasses":10}') returning id as tm \gset
+insert into public.trotan_machines (name, adapter, manufacturer, model, caps) values ('Workshop CO2', 'none', 'Any', 'Real', '{"bedW":600,"bedH":400,"maxSpeed":1000}') returning id as tmreal \gset
+insert into public.trotan_materials (name, category, thickness_mm, sheet_w, sheet_h, stock_item_id) values ('Plywood 3 mm', 'Plywood', 3, 600, 400, :'tply') returning id as tmat \gset
+insert into public.trotan_materials (name, category) values ('PVC', 'Prohibited plastics') returning id as tpvc \gset
+update public.trotan_machines set prohibited = array[:'tpvc'::uuid] where id = :'tm';
+select pg_temp.expect_fail($$insert into public.trotan_profiles (material_id, machine_id, operation, params, status) values ('$$ || :'tmat' || $$', '$$ || :'tm' || $$', 'cut', '{"power":80,"speed":20}', 'approved')$$, 'TROTAN new settings cannot start as approved');
+insert into public.trotan_profiles (material_id, machine_id, operation, params) values (:'tmat', :'tm', 'cut', '{"power":80,"speed":20,"passes":1}') returning id as tpf \gset
+
+-- access: operators run jobs but cannot design or configure; support only browses
+select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
+select pg_temp.check(public.trotan_can('produce') and not public.trotan_can('design') and not public.trotan_can('approve'), 'TROTAN operator: produce yes, design/approve no');
+select pg_temp.expect_fail($$insert into public.trotan_projects (name, doc) values ('x', '{"format":"trotan","units":"mm","objects":[]}')$$, 'TROTAN operators cannot create designs');
+select pg_temp.expect_fail($$insert into public.trotan_machines (name, caps) values ('x', '{"bedW":1,"bedH":1,"maxSpeed":1}')$$, 'TROTAN operators cannot configure machines');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e3');
+select pg_temp.check((select count(*) from public.trotan_machines) = 2 and not public.trotan_can('prepare'), 'TROTAN support can browse but not prepare');
+select pg_temp.expect_fail($$select public.trotan_set_profile_status('$$ || :'tpf' || $$', 'approved')$$, 'TROTAN support cannot approve settings');
+
+-- office designs; saves are versioned and conflict-safe
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+insert into public.trotan_projects (name, customer, doc) values ('Coasters', 'Demo', '{"format":"trotan","version":1,"units":"mm","width":200,"height":100,"layers":[],"objects":[],"guides":[]}') returning id as tpr \gset
+select pg_temp.check(public.trotan_save(:'tpr', 1, '{"format":"trotan","version":1,"units":"mm","width":200,"height":100,"layers":[],"objects":[{"id":"a"}],"guides":[]}', 'first', true) = 2, 'TROTAN save → version 2 with a revision');
+select pg_temp.expect_fail($$select public.trotan_save('$$ || :'tpr' || $$', 1, '{"format":"trotan","units":"mm","objects":[]}')$$, 'TROTAN a stale save (someone else saved first) is refused');
+select pg_temp.expect_fail($$select public.trotan_save('$$ || :'tpr' || $$', 2, '{"format":"x"}')$$, 'TROTAN an invalid design is refused');
+select pg_temp.check((select count(*) = 1 from public.trotan_revisions where project_id = :'tpr' and version = 2), 'TROTAN revision 2 stored');
+select pg_temp.expect_fail($$select public.trotan_set_profile_status('$$ || :'tpf' || $$', 'approved')$$, 'TROTAN office (no approve right) cannot approve settings');
+
+-- jobs: validation errors, unapproved settings and missing stock all block the queue
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, copies, sheets, validation)
+  values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{"power":80,"speed":20}}', 6, 3, '[{"level":"error","code":"sheet"}]') returning id as tj \gset
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj' || $$')$$, 'TROTAN a job with validation errors cannot be queued');
+update public.trotan_jobs set validation = '[{"level":"warning","code":"overlap"}]' where id = :'tj';
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj' || $$')$$, 'TROTAN a job without approved settings cannot be queued');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select public.trotan_set_profile_status(:'tpf', 'approved');
+select pg_temp.expect_fail($$update public.trotan_profiles set params = '{"power":100}' where id = '$$ || :'tpf' || $$'$$, 'TROTAN approved settings are locked');
+insert into public.trotan_profiles (material_id, machine_id, operation, version, params) values (:'tmat', :'tm', 'cut', 2, '{"power":75,"speed":22,"passes":1}') returning id as tpf2 \gset
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.expect_fail($$update public.trotan_jobs set status = 'running' where id = '$$ || :'tj' || $$'$$, 'TROTAN a job cannot jump to running');
+select pg_temp.check(public.trotan_queue(:'tj') = 'queued', 'TROTAN validated job with approved settings is queued');
+select pg_temp.check((select status = 'reserved' and quantity = 3 from public.trotan_reservations where job_id = :'tj'), 'TROTAN 3 sheets reserved in KORTANA');
+select pg_temp.check((select quantity = 5 from public.stock_items where id = :'tply'), 'TROTAN queuing does not deduct stock');
+select pg_temp.expect_fail($$update public.trotan_jobs set kerf = 0.2 where id = '$$ || :'tj' || $$'$$, 'TROTAN a queued job cannot be edited');
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, sheets) values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{}}', 3) returning id as tj2 \gset
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj2' || $$')$$, 'TROTAN only 2 free sheets left — the second job is refused');
+update public.trotan_jobs set sheets = 2, material_id = :'tpvc' where id = :'tj2';
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj2' || $$')$$, 'TROTAN prohibited material is refused');
+update public.trotan_jobs set material_id = :'tmat' where id = :'tj2';
+select public.trotan_queue(:'tj2');
+
+-- production: operator confirms checks; one run per machine; finishing is idempotent
+select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
+select pg_temp.expect_fail($$select public.trotan_start('$$ || :'tj' || $$', '[{"name":"Lid closed","ok":false}]')$$, 'TROTAN a run needs every pre-run check confirmed');
+select public.trotan_start(:'tj', '[{"name":"Material placed","ok":true},{"name":"Lid closed","ok":true}]', 'start-1') as trun \gset
+select pg_temp.check(public.trotan_start(:'tj', '[{"name":"x","ok":true}]', 'start-1') = :'trun'::uuid, 'TROTAN a repeated start (same key) returns the same run');
+select pg_temp.check((select status = 'busy' from public.trotan_machines where id = :'tm') and (select status = 'running' from public.trotan_jobs where id = :'tj'), 'TROTAN job running, machine busy');
+select pg_temp.expect_fail($$select public.trotan_start('$$ || :'tj2' || $$', '[{"name":"x","ok":true}]')$$, 'TROTAN a busy machine cannot start a second job');
+select public.trotan_finish(:'trun', 'done', 5, 1, 312.5, 3, '', 'fin-1');
+select public.trotan_finish(:'trun', 'done', 5, 1, 312.5, 3, '', 'fin-1');
+select public.trotan_finish(:'trun', 'done', 5, 1, 312.5, 3, '', 'fin-2');
+select pg_temp.check((select quantity = 2 from public.stock_items where id = :'tply'), 'TROTAN finishing consumed 3 sheets exactly once (5 → 2)');
+select pg_temp.check((select count(*) = 1 from public.stock_movements where source_type = 'trotan_job' and source_id = :'tj' and reason = 'consume'), 'TROTAN one traceable KORTANA movement for the job');
+select pg_temp.check((select status = 'consumed' and consumed = 3 from public.trotan_reservations where job_id = :'tj'), 'TROTAN reservation consumed');
+select pg_temp.check((select status = 'done' and qty_good = 5 and qty_scrap = 1 and actual_s = 312.5 and operator = '00000000-0000-0000-0000-0000000000e2' from public.trotan_jobs where id = :'tj'), 'TROTAN results, time and operator recorded');
+select pg_temp.check((select status = 'idle' from public.trotan_machines where id = :'tm'), 'TROTAN machine free again');
+-- a failed run with no material used releases the stock
+select public.trotan_start(:'tj2', '[{"name":"x","ok":true}]') as trun2 \gset
+select public.trotan_finish(:'trun2', 'aborted', 0, 0, 10, 0, 'Lid opened');
+select pg_temp.check((select status = 'released' from public.trotan_reservations where job_id = :'tj2') and (select quantity = 2 from public.stock_items where id = :'tply'), 'TROTAN aborted run with no material used releases the reservation');
+select pg_temp.check((select status = 'failed' and error = 'Lid opened' from public.trotan_jobs where id = :'tj2'), 'TROTAN failure reason recorded');
+
+-- machines without a validated interface never run; finished jobs cannot be deleted
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, sheets) values (:'tpr', 2, :'tmreal', :'tmat', 'ready', 0) returning id as tj3 \gset
+select public.trotan_queue(:'tj3');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
+select pg_temp.expect_fail($$select public.trotan_start('$$ || :'tj3' || $$', '[{"name":"x","ok":true}]')$$, 'TROTAN a machine without a validated interface can never be started from TROTAN');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+delete from public.trotan_jobs where id = :'tj';
+select pg_temp.check((select count(*) = 1 from public.trotan_jobs where id = :'tj'), 'TROTAN a finished job cannot be deleted');
+-- SK Factory link
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select public.create_mo('PLY3-SHEET', 'Coaster MO', 6) as tmo \gset
+update public.trotan_jobs set mo_job_id = :'tmo' where id = :'tj';
+select pg_temp.check((select status = 'done' and qty_good = 5 from public.trotan_mo_activity where mo_job_id = :'tmo'), 'TROTAN SK Factory sees the laser result on its MO');
+select pg_temp.check((select count(*) > 0 from public.audit_log where table_name = 'trotan_jobs'), 'TROTAN job changes are in the audit log');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
