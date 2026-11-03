@@ -5651,5 +5651,66 @@ begin
 end $$;
 revoke all on function public.apply_cost_privileges() from public, anon, authenticated;
 
+
+-- API: orders created through the REST API (service role only; the edge function checks the key's "write" scope).
+alter table public.orders drop constraint if exists orders_source_check;
+alter table public.orders add constraint orders_source_check check (source in ('shopify', 'manual', 'api'));
+create or replace function public.api_create_order(p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare oid uuid; l jsonb; it public.stock_items; n int := 0; num text; ref text := nullif(trim(p->>'reference'), '');
+begin
+  if coalesce(trim(p->>'customer'), '') = '' then raise exception 'customer is required'; end if;
+  if jsonb_typeof(p->'lines') <> 'array' or jsonb_array_length(p->'lines') = 0 then raise exception 'lines must be a non-empty array'; end if;
+  if ref is not null then
+    select id into oid from public.orders where source = 'api' and note = 'API ref: ' || ref;
+    if oid is not null then return jsonb_build_object('id', oid, 'number', (select order_number from public.orders where id = oid), 'duplicate', true); end if;
+  end if;
+  insert into public.orders (order_number, customer, company, email, phone, ship_to, shipping_method, note, kind, source, currency, ordered_at, delivery_deadline)
+  values ('', trim(p->>'customer'), coalesce(p->>'company', ''), coalesce(p->>'email', ''), coalesce(p->>'phone', ''), coalesce(p->>'ship_to', ''),
+          coalesce(p->>'shipping_method', ''), case when ref is null then '' else 'API ref: ' || ref end, 'order', 'api',
+          coalesce(nullif(upper(p->>'currency'), ''), 'GBP'), now(), nullif(p->>'delivery_deadline', '')::date)
+  returning id, order_number into oid, num;
+  for l in select * from jsonb_array_elements(p->'lines') loop
+    select * into it from public.stock_items where sku = trim(l->>'sku') and not archived;
+    if it.id is null then raise exception 'unknown SKU: %', l->>'sku'; end if;
+    if coalesce((l->>'quantity')::numeric, 0) <= 0 then raise exception 'quantity must be above 0 for %', it.sku; end if;
+    n := n + 1;
+    insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price, sort)
+    values (oid, it.id, it.sku, it.name, (l->>'quantity')::numeric, coalesce((l->>'unit_price')::numeric, it.sale_price), n);
+  end loop;
+  return jsonb_build_object('id', oid, 'number', (select order_number from public.orders where id = oid), 'lines', n);
+end $$;
+revoke all on function public.api_create_order(jsonb) from public, anon, authenticated;
+
+
+-- Settings → Integrations reads and changes everything through these (owner/developer only).
+create or replace function public.integrations_state() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can manage integrations'; end if;
+  return jsonb_build_object(
+    'keys', (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name, 'prefix', prefix, 'scopes', scopes, 'created_at', created_at,
+              'last_used_at', last_used_at, 'revoked_at', revoked_at, 'created_by', (select full_name from public.profiles where id = k.created_by)) order by revoked_at nulls first, created_at desc), '[]') from public.api_keys k),
+    'webhooks', (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'url', url, 'events', events, 'active', active, 'note', note, 'failures', failures,
+              'last_status', last_status, 'last_delivery_at', last_delivery_at, 'created_at', created_at) order by created_at), '[]') from public.webhooks),
+    'deliveries', (select coalesce(jsonb_agg(x order by x->>'created_at' desc), '[]') from (
+              select jsonb_build_object('id', d.id, 'webhook_id', d.webhook_id, 'type', e.type, 'status', d.status, 'attempts', d.attempts, 'code', d.response_code,
+                'error', d.error, 'next_at', d.next_at, 'created_at', d.created_at) x
+                from public.webhook_deliveries d join public.webhook_events e on e.id = d.event_id order by d.created_at desc limit 30) s),
+    'events', to_jsonb(public.webhook_event_types()));
+end $$;
+revoke all on function public.integrations_state() from public, anon;
+grant execute on function public.integrations_state() to authenticated;
+
+create or replace function public.set_webhook(p_id uuid, p_active boolean default null, p_delete boolean default false) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can change webhooks'; end if;
+  if p_delete then delete from public.webhooks where id = p_id; return; end if;
+  update public.webhooks set active = coalesce(p_active, active), failures = case when p_active then 0 else failures end where id = p_id;
+end $$;
+revoke all on function public.set_webhook(uuid, boolean, boolean) from public, anon;
+grant execute on function public.set_webhook(uuid, boolean, boolean) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

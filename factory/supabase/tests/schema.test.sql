@@ -1177,8 +1177,21 @@ update public.webhook_deliveries set attempts = 6 where id = :d1;
 select pg_temp.check(public.finish_webhook_delivery(:d1, 404) = 'failed', 'after six attempts a delivery is given up');
 set role authenticated;
 select pg_temp.check(public.test_webhook(:'whid') > 0, 'a test ping can be sent');
+reset role;
+select public.api_create_order(jsonb_build_object('customer', 'API Buyer', 'reference', 'ext-77', 'lines', jsonb_build_array(jsonb_build_object('sku', 'PL-MAT', 'quantity', 2, 'unit_price', 40)))) as ao \gset
+select pg_temp.check((select source = 'api' and order_number <> '' from public.orders where id = (:'ao'::jsonb->>'id')::uuid)
+  and (select quantity = 2 and unit_price = 40 from public.order_lines where order_id = (:'ao'::jsonb->>'id')::uuid), 'INT-06 the API creates a sales order from SKUs');
+select pg_temp.check((public.api_create_order(jsonb_build_object('customer', 'API Buyer', 'reference', 'ext-77', 'lines', jsonb_build_array(jsonb_build_object('sku', 'PL-MAT', 'quantity', 2))))->>'duplicate')::boolean,
+  'INT-09 resending the same reference does not create a second order');
+select pg_temp.expect_fail($$select public.api_create_order('{"customer":"X","lines":[{"sku":"NOPE","quantity":1}]}')$$, 'an API order with an unknown SKU');
+set role authenticated;
+select pg_temp.check(jsonb_array_length(public.integrations_state()->'keys') = 1 and not (public.integrations_state()->'keys'->0 ? 'key_hash')
+  and not (public.integrations_state()->'webhooks'->0 ? 'secret') and jsonb_array_length(public.integrations_state()->'deliveries') >= 3, 'INT-08 the integrations screen sees keys and webhooks without hashes or secrets');
+select public.set_webhook(:'whid', false);
+select pg_temp.check((select not active from public.webhooks where id = :'whid'), 'a webhook can be paused');
 select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
 select pg_temp.check((select count(*) from public.webhooks) = 0 and (select count(*) from public.webhook_deliveries) = 0, 'managers do not see webhooks or deliveries');
+select pg_temp.expect_fail($$select public.integrations_state()$$, 'a manager opens Integrations');
 
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');

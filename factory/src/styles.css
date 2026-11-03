@@ -1201,3 +1201,8 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
   .k-nav button { padding: 0.5rem 0.55rem; gap: 0.35rem; font-size: 0.86rem; }
 }
 @media (min-width: 901px) and (max-width: 1280px) { .k-nav button svg { display: none; } }
+/* integrations (phase 6c) */
+.int-code { display: block; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--surface-2); font: 500 13px ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; text-align: left; }
+.int-secret { border-left: 3px solid #e5484d; }
+.int-docs summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.int-docs p { text-align: left; }

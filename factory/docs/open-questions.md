@@ -92,3 +92,7 @@ default shown in brackets. Every default can be changed later.
 35. **Who may remove staff:** Owner/Developer can remove anyone (except themselves, and never the last Owner/Developer). Manager and Office can remove anyone except Owner/Developer. Assistants can remove Operators and Support only. Is that right, or should Assistants be able to remove other roles too?
     *(Default: as described. Removing someone keeps all their history, and they can be restored from Team → Removed staff.)*
 36. ~~**Web address for Kortana**~~ Answered: Kortana is at kortana.makz.space; kimera.makz.space forwards there.
+37. **What should Kortana talk to first?** The API and webhooks are ready (Settings → Integrations). For example: a Slack/Teams message when an order ships or stock runs low, your website showing live stock, or Zapier/Make connecting other tools.
+    *(Default: nothing is connected until you add a key or webhook.)*
+38. **Forecast settings:** the automatic forecast uses the last 12 weeks of shipments. Is 12 weeks right for your business, or is it seasonal (e.g. busy before Christmas) so a longer history would be better?
+    *(Default: 12 weeks; override any week or month by hand in Plan → Forecast.)*

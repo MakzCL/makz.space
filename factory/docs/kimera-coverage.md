@@ -207,15 +207,18 @@ advisory lock per item, so concurrent requests serialise.
 | REP-08 | Complete | CSV export of every report as shown |
 | REP-09 | Complete | tests: inventory closing = stock on hand (company and per location), consumption = ledger, MO materials = MO cost card, sales cost = ledger, PO count; costs only to roles with Costs & margins |
 
-## K. Integrations
+## K. Integrations — INT-06..09 **Complete (core), phase 6c — not yet published**; INT-02..05 wait for your answers
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| INT-01 | Partial | Edge function + SQL ingest pattern; no connector registry / event log |
-| INT-02 | Partial | Shopify orders/create+paid, custom (native code), HMAC, idempotent; **awaiting SHOPIFY_WEBHOOK_SECRET**; WooCommerce/BigCommerce missing |
-| INT-03 / 04 / 05 | Missing | |
-| INT-06 | Partial | Supabase REST/RPC with user JWT + RLS = internal API; no API keys |
-| INT-07 / 08 / 09 / 10 | Missing | |
+| INT-01 | Complete | one pattern for every connector: DB event → outbox (`webhook_events`) → edge function; inbound via edge function + SQL ingest (Shopify) |
+| INT-02 | Partial | Shopify orders in (HMAC, idempotent) — **awaiting SHOPIFY_WEBHOOK_SECRET** (Q2) and sync direction (Q3); WooCommerce/BigCommerce: not used (Q12) |
+| INT-03 | Waiting | QuickBooks or Xero — your choice (Q1); reports export CSV meanwhile |
+| INT-04 / 05 | Waiting | HubSpot / shipping / marketplaces — only if you use them (Q12); webhooks + API cover Zapier/Make bridges today |
+| INT-06 | Complete | REST API (edge function `api`): items, stock, locations, orders (read + create), purchase orders, manufacturing orders; API keys with read / read & write; never returns costs; idempotent order creation by `reference` |
+| INT-07 | Complete | webhooks: order.created, order.shipped, po.received, mo.completed, stock.low (+ test ping); HMAC-SHA256 signed with timestamp; retries 1/5/30/120/720 min; auto-pause after 50 failures in a row |
+| INT-08 | Complete | Settings → Integrations (Owner/Developer only): create/revoke keys (hash stored, key shown once), add/pause/delete webhooks, rotate secret, test ping, delivery log |
+| INT-09 | Complete | API + webhooks work with Zapier / Make / n8n; duplicate-safe order creation |
 
 ## L. Administration
 
@@ -360,6 +363,8 @@ key per intent and disables the button while it runs.
 - 2026-11-03 — **Phase 6a — planning — built, not yet published.** Section I. Booked sales use the forecast up (each week counts the larger), so demand is never counted twice. Tests: 11 new planning checks (hand-calculated scenario) ALL PASSED; browser: Plan → Forecast list, item sheet with chart (hover tooltip, reorder line), week table with Auto/Manual badges — no errors.
 
 - 2026-11-03 — **Phase 6b — reports — built, not yet published.** Section J. Insights → Reports. Tests: 10 new report checks ALL PASSED; browser: sales table with totals, sorting, drill-through to the item, purchasing report — no errors. Header navigation tightened so every section fits from 1280 px with Scan + Create.
+
+- 2026-11-03 — **Phase 6c — API & webhooks — built, not yet published.** Section K. Tests: 22 new checks (keys hashed/shown once/revoked, secrets hidden from the app, events queue only for subscribers, claim-once, retry schedule, give-up, owner-only screen, API order creation + duplicate reference) ALL PASSED; edge functions `api` and `webhooks` compile; browser smoke of Settings → Integrations — no errors. To go live they must be deployed (JWT verification off) and `app_settings.webhooks_url` set.
 
 ## Next steps (continuation plan)
 
