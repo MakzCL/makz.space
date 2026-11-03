@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NUCLEUS \u2014 electronics design, simulation and PCB engineering suite",
+  "description": "NUCLEUS — electronics design, simulation and PCB engineering suite",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -25,6 +25,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^45.2.1",
+    "resedit": "^3.1.0",
     "typescript": "5.9",
     "vite": "^7.3.7",
     "vitest": "^3.2.7"

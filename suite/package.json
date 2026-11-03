@@ -1,0 +1,18 @@
+{
+  "name": "sk-suite",
+  "productName": "SK Suite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop home for SK Factory, Kortana, TROTAN and NUCLEUS",
+  "main": "main.cjs",
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "start": "node scripts/bundle.mjs && electron .",
+    "test": "node scripts/bundle.mjs && node tests/e2e.mjs",
+    "package:win": "node scripts/bundle.mjs && node scripts/package-win.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.2.1",
+    "resedit": "^3.1.0"
+  }
+}

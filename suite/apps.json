@@ -1,0 +1,6 @@
+[
+  { "id": "factory", "name": "SK Factory", "tagline": "Factory operations", "description": "Orders, production, people, chat, calls and calendar for the shop floor.", "url": "https://factory.makz.space/", "hosts": ["factory.makz.space"], "icon": "factory.png", "offline": false },
+  { "id": "kortana", "name": "Kortana", "tagline": "Inventory & MRP", "description": "Sell, make, buy, stock, planning, tickets and reports.", "url": "https://kortana.makz.space/", "hosts": ["kortana.makz.space", "kimera.makz.space"], "icon": "kortana.svg", "offline": false },
+  { "id": "trotan", "name": "TROTAN", "tagline": "Laser design & production", "description": "Design, prepare and produce laser cutting and engraving jobs.", "url": "https://trotan.makz.space/", "hosts": ["trotan.makz.space"], "icon": "trotan.svg", "offline": false },
+  { "id": "nucleus", "name": "NUCLEUS", "tagline": "Electronics design & simulation", "description": "Schematic capture, rule checks and ngspice simulation. Runs fully offline.", "url": "app://nucleus/index.html", "hosts": [], "icon": "nucleus.svg", "offline": true, "separateBrand": true }
+]

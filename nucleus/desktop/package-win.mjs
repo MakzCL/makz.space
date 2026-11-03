@@ -25,6 +25,8 @@ const win = process.platform === "win32";
 if (win) execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${dir}' -Force`]);
 else execFileSync("unzip", ["-q", zipPath, "-d", dir]);
 fs.renameSync(path.join(dir, "electron.exe"), path.join(dir, "NUCLEUS.exe"));
+const { stampExe } = await import("./winexe.mjs");
+stampExe(path.join(dir, "NUCLEUS.exe"), { icon: path.join(root, "desktop/nucleus.ico"), product: "NUCLEUS", description: "NUCLEUS electronics design and simulation", version: pkg.version, company: "NUCLEUS", fileName: "NUCLEUS.exe" });
 fs.rmSync(path.join(dir, "resources", "default_app.asar"), { force: true });
 const app = path.join(dir, "resources", "app"); fs.mkdirSync(path.join(app, "desktop"), { recursive: true });
 fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "nucleus", productName: "NUCLEUS", version: pkg.version, main: "desktop/main.cjs", private: true }, null, 2));
