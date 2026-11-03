@@ -16,12 +16,14 @@ import { restoreSnapshot } from "./appearance/engine.ts";
 import { RecoveryBanner } from "./appearance/Recovery.tsx";
 import { Studio } from "./appearance/Studio.tsx";
 import { reapply, useAppearance } from "./appearance/store.ts";
+import { previewMode } from "./preview-mode.ts";
 import "./styles.css";
 
 // Paint with the last-used look immediately (no flash), unless recovering. The default theme otherwise.
 if (!useAppearance.getState().safeMode) restoreSnapshot();
 reapply();
 document.title = BRAND.name;
+if (previewMode) document.documentElement.dataset.preview = "true";
 
 function App() {
   const route = useRoute();
@@ -54,7 +56,7 @@ function App() {
   else if (conn === "signed_out") page = route.name === "register" ? <Register /> : <Login />;
   else if (conn === "connecting") page = <Splash />;
   else page = <Shell />;
-  return <>{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<Toasts /><RecoveryBanner /></>;
+  return <>{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<Toasts /><RecoveryBanner /></>;
 }
 
 initNotifications();

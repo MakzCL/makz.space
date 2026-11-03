@@ -14,6 +14,7 @@ Syndo is an independent platform with its own accounts, servers and media infras
 | [OPERATIONS.md](OPERATIONS.md) | Backups/restore, maintenance, scaling limits, capacity worksheet |
 | [THEMES.md](THEMES.md) | Syndo Studio, where every control lives, theme schema, custom CSS rules |
 | [DESKTOP.md](DESKTOP.md) | Windows app, Cloudflare Pages web app, R2 auto-updates, releasing |
+| [ANDROID.md](ANDROID.md) | Android preview APK, local sample interface and Cloudflare updates |
 
 Branding lives in one place: `shared/src/brand.ts` (name, colours, fonts, assets, loading lines). Logo and icons: `web/public/brand/`.
 

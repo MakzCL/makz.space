@@ -1,4 +1,5 @@
 import { dispatch, useStore } from "./store.ts";
+import { previewMode } from "./preview-mode.ts";
 
 /**
  * Gateway connection with heartbeat and exponential-backoff reconnect.
@@ -14,6 +15,7 @@ let lastSeq = 0;
 let reconnectTimer: number | null = null;
 
 export function connectGateway() {
+  if (previewMode) return;
   stopped = false;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const proto = location.protocol === "https:" ? "wss" : "ws";

@@ -253,6 +253,10 @@ img.freeze { /* animated images still animate in <img>; this hint is used where 
 .search-form { display: flex; flex-direction: column; gap: 6px; } .search-form .row > * { flex: 1; } .search-form label { display: flex; flex-direction: column; }
 
 /* friends */
+html[data-preview] #root { display: flex; flex-direction: column; }
+html[data-preview] .shell { flex: 1; min-height: 0; height: 0; }
+.preview-banner { flex: none; display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 7px 12px; background: #f7ba00; color: #171710; font-size: 12px; line-height: 1.35; z-index: 60; }
+.preview-banner button { flex: none; padding: 3px 8px; border: 1px solid #171710; background: transparent; color: inherit; border-radius: 6px; cursor: pointer; }
 .tabs { display: flex; gap: 4px; align-items: center; margin-left: 12px; flex-wrap: wrap; }
 .tabs button { background: none; border: 0; padding: 4px 10px; border-radius: var(--r-sm); cursor: pointer; color: var(--textMuted); font-weight: 600; display: inline-flex; gap: 4px; }
 .tabs button.active, .tabs button:hover { background: var(--bg3); color: var(--text); }

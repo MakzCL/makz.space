@@ -3,11 +3,13 @@ import { connectGateway, disconnectGateway } from "./gateway.ts";
 import { navigate } from "./router.ts";
 import { messagesApi, toast, useStore, type UIMessage } from "./store.ts";
 import type { Channel, Message } from "@syndo/shared";
+import { previewMode } from "./preview-mode.ts";
 
 const set = useStore.setState;
 const get = useStore.getState;
 
 export async function boot() {
+  if (previewMode) { (await import("./preview.ts")).startPreview(); return; }
   try {
     await api.get("/api/users/@me");
     set({ conn: "connecting" });

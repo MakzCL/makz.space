@@ -1,9 +1,11 @@
 /** Thin fetch wrapper: JSON in/out, cookie session, readable errors. */
+import { previewMode } from "./preview-mode.ts";
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public retryAfter?: number) { super(message); }
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (previewMode) return (await import("./preview.ts")).previewRequest<T>(method, path, body);
   const headers: Record<string, string> = { "x-syndo-client": "1" };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
@@ -31,6 +33,7 @@ export const api = {
 
 /** Upload with progress + cancel (XHR, because fetch can't report upload progress). */
 export function upload<T = any>(path: string, form: FormData, onProgress: (f: number) => void): { promise: Promise<T>; cancel: () => void } {
+  if (previewMode) return { promise: Promise.reject(new ApiError(0, "preview", "Uploads need the live server. No sample files were sent.")), cancel() {} };
   const xhr = new XMLHttpRequest();
   const promise = new Promise<T>((res, rej) => {
     xhr.open("POST", path);
