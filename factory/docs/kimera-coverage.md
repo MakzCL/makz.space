@@ -13,6 +13,27 @@ Status key: **Complete** = core workflow works end to end with persistent data �
 results · **Unverified** = cannot be established from here.
 Action key: **Reuse / Extend / Repair / Implement**.
 
+## Current status — re-audited 3 Nov 2026 (supersedes the per-section tables below, which record the 2 Nov starting audit)
+
+**Complete and live:** CAT-01, 03, 04, 05, 07, 08 · INV-01–07, 09–15 · ALLOC-01–07 · SALES-02–06, 08, 10 · BUY-01–09 · MFG-01, 03–06, 08, 10–18 · OUT-01–06 · WH-01–09 · PLAN-01–08 · REP-01–09 · INT-01, 06–09 · ADMIN-01–05, 08
+(evidence for each: the phase sections in the progress log and tests in `supabase/tests/schema.test.sql`, 459 checks).
+
+**Still open — can be built now (no answers needed):**
+
+| ID | Gap |
+|---|---|
+| CAT-02 / CAT-06 | product variants (one product with option values, e.g. colour × version) and recipes per variant — today every variant is its own SKU |
+| SALES-07 | kits and bundles (sold as one line, components taken from stock, availability from the components) |
+| SALES-09 | custom fields on sales orders |
+| INV-08 | stocktake sessions: count first, review the differences, then post them together |
+| MFG-02 | sub-assembly MOs created and linked automatically from a parent MO |
+| MFG-07 | routings with steps that run at the same time |
+| MFG-09 | finish dates that take station capacity and the queue into account (today: operation time only) |
+| ADMIN-06 / 07 | printable documents (PO, pick list, packing slip, MO traveller sheet); workflow settings |
+| INT-10 | optional: ask questions about the business in plain language (permission-aware) |
+
+**Waiting for your answers:** SALES-01 / SALES-11 / SALES-12 / INT-02 (Shopify secret + sync, Q2–Q3) · INT-03 (QuickBooks or Xero, Q1) · INT-04 / 05 (HubSpot, shipping, marketplaces, Q12) · WH-10 (outside warehouse / 3PL).
+
 ## Existing building blocks (reuse — do not duplicate)
 
 | Block | Where | Notes |
@@ -233,23 +254,23 @@ advisory lock per item, so concurrent requests serialise.
 | ADMIN-07 | Partial | CSV only; no PDFs/labels |
 | ADMIN-08 | Partial | CSV import with mapping; no dry-run report |
 
-## Acceptance scenarios — current state
+## Acceptance scenarios — current state (3 Nov)
 
-| # | Scenario | Today |
+| # | Scenario | Status |
 | --- | --- | --- |
-| 1 | Partial PO receive | ✔ **passes** (60/100, outstanding 40, on hand 60, replay no-op) |
-| 2 | Competing SOs + priority | Not possible (no rank, no reservations) |
-| 3 | MTO with missing component | ✔ receive → build SUB → build MTO unit → ship (costs 7.15 / 7.35 asserted); shortage *explanation* waits for phase 3 |
-| 4 | Sub-assembly no double count | ✔ passes (screws 100 → 92 → 90, never double) |
-| 5 | Pick, partial complete, reconcile | Not possible |
-| 6 | Transfer | Not possible |
-| 7 | Lot trace | Not possible |
-| 8 | Partial ship + return | ✔ passes (ship 3/5, return 1 restock + 1 scrap → on hand +1) |
-| 9 | Replayed event | ✔ Shopify ingest, receive, ship, adjust keys replayed → one movement |
-| 10 | Restricted action UI + API | ✔ API: operator denied ship/return/receive/reverse/audit/settings; UI hides the same actions for non-office roles |
-| 11 | Forecast update | Not possible |
-| 12 | Valuation reconciliation | ✔ passes for every test item (|qty×avg − Σ delta×cost| < 0.01) |
-| 13 | Concurrent allocation | ✔ `tests/concurrency.sh`: 20 parallel −1 on 20 → 0 with 20 movements; 10 parallel same-key receipts → 1. *Reservation* races wait for phase 3 |
+| 1 | Partial PO receive | ✔ passes |
+| 2 | Competing SOs + priority | ✔ passes (phase 3: rank decides, reason shown) |
+| 3 | MTO with missing component | ✔ passes |
+| 4 | Sub-assembly no double count | ✔ passes |
+| 5 | Pick, partial complete, reconcile | ✔ passes (phase 4a) |
+| 6 | Transfer | ✔ passes (phase 3a) |
+| 7 | Lot trace | ✔ passes (phase 4c) |
+| 8 | Partial ship + return | ✔ passes |
+| 9 | Replayed event | ✔ passes |
+| 10 | Restricted action UI + API | ✔ passes (incl. API keys, integrations owner-only) |
+| 11 | Forecast update | ✔ passes (phase 6a: override 13 → 21) |
+| 12 | Valuation reconciliation | ✔ passes (+ phase 6b report reconciliation) |
+| 13 | Concurrent allocation | ✔ passes (incl. last-unit shipping race) |
 
 ## Phased plan (adjusted to what exists)
 
