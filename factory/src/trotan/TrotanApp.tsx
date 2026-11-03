@@ -16,7 +16,8 @@ import { TrotanMark } from "./Mark";
 import { Prepare } from "./prod/Prepare";
 import { Produce } from "./prod/Produce";
 import { SessionProvider, useSession } from "./session";
-import { Btn, Empty } from "./ui";
+import { Btn, Empty, Modal } from "./ui";
+import { Devices } from "../components/Devices";
 import { Admin } from "./ws/Admin";
 import { Manage } from "./ws/Manage";
 import css from "./trotan.css?inline";
@@ -66,8 +67,9 @@ function Gate(p: { theme: Palette; setTheme: (t: Palette) => void; signOut: () =
 const readHash = (): WS => { const h = location.hash.replace("#", "") as WS; return WORKSPACES.some((w) => w.v === h) ? h : "manage"; };
 
 function Shell({ theme, setTheme, signOut }: { theme: Palette; setTheme: (t: Palette) => void; signOut: () => void }) {
-  const T = useT(); const S = useSession(); const { me } = useStore();
+  const T = useT(); const S = useSession(); const { me, backend } = useStore();
   const [ws, setWs] = useState<WS>(readHash);
+  const [account, setAccount] = useState(false);
   const allowed = WORKSPACES.filter((w) => w.need.some((n) => T.can(n)));
   const cur = allowed.find((w) => w.v === ws)?.v ?? allowed[0]?.v ?? null;
   const go = useCallback((w: WS) => { setWs(w); history.replaceState(null, "", `#${w}`); }, []);
@@ -91,10 +93,11 @@ function Shell({ theme, setTheme, signOut }: { theme: Palette; setTheme: (t: Pal
         <div className="t-top-r">
           <a className="t-applink" href={FACTORY_URL} title="SK Factory">Factory</a><a className="t-applink" href={KORTANA_URL} title="KORTANA inventory">Kortana</a>
           <div className="t-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((p) => <button key={p} type="button" className={theme === p ? "on" : ""} onClick={() => setTheme(p)} title={{ light: "Light", granat: "Granat (navy)", dark: "Dark" }[p]} data-testid={`theme-${p}`}>{{ light: <Sun size={13} />, granat: "G", dark: <Moon size={13} /> }[p]}</button>)}</div>
-          <span className="t-me" title={ROLE_META[me.role]?.label}>{me.full_name}<small>{ROLE_META[me.role]?.label}</small></span>
+          <button type="button" className="t-me" title="Account and signed-in devices" onClick={() => setAccount(true)} data-testid="account">{me.full_name}<small>{ROLE_META[me.role]?.label}</small></button>
           <button type="button" className="t-btn icon" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut size={16} /></button>
         </div>
       </header>
+      {account && <Modal title="Account" onClose={() => setAccount(false)}><Devices backend={backend} onSignedOutHere={signOut} /></Modal>}
       {S.recovery && <div className="t-banner warn" data-testid="recovery">Unsaved changes from {new Date(S.recovery.at).toLocaleString("en-GB")} were found in this browser. <Btn small tone="primary" onClick={S.restoreRecovery} testid="restore-recovery">Restore them</Btn><Btn small onClick={S.dropRecovery}>Discard</Btn></div>}
       {S.saveState === "conflict" && <div className="t-banner err">Someone else saved this project while you were editing. Your changes are kept in this browser. <Btn small onClick={() => S.project && S.open(S.project.id)}>Reload their version</Btn></div>}
       {T.error && <div className="t-banner err">{T.error}</div>}

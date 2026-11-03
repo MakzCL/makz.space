@@ -12,14 +12,14 @@ const exe = path.join(dir, "SK Suite.exe"); fs.renameSync(path.join(dir, "electr
 stampExe(exe, { icon: path.join(root, "build/suite.ico"), product: "SK Suite", description: "SK Suite", version: pkg.version, company: "Skalarki Electronics Ltd", fileName: "SK Suite.exe" });
 fs.rmSync(path.join(dir, "resources", "default_app.asar"), { force: true });
 const app = path.join(dir, "resources", "app"); fs.mkdirSync(app, { recursive: true });
-fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: pkg.name, productName: pkg.productName, version: pkg.version, main: "main.cjs", private: true }, null, 2));
-for (const f of ["main.cjs", "preload.cjs", "apps.json"]) fs.copyFileSync(path.join(root, f), path.join(app, f));
+fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: pkg.name, productName: pkg.productName, version: pkg.version, main: "boot.cjs", private: true }, null, 2));
+for (const f of ["boot.cjs", "version.json", "main.cjs", "preload.cjs", "apps.json"]) fs.copyFileSync(path.join(root, f), path.join(app, f));
 for (const d of ["hub", "bundled"]) fs.cpSync(path.join(root, d), path.join(app, d), { recursive: true });
 fs.writeFileSync(path.join(dir, "README.txt"), [`SK Suite ${pkg.version} - portable Windows x64`, "",
   "Run \"SK Suite.exe\". No installation needed. Right-click it > Send to > Desktop (create shortcut) to pin it.",
   "Not code-signed: Windows SmartScreen may warn the first time (More info > Run anyway).",
   "SK Factory, Kortana and TROTAN load their live sites (internet needed) and stay signed in.",
-  "NUCLEUS is included and works offline.", "",
+  "NUCLEUS is included and works offline.", "Updates: Settings > Updates > Update now (one click; the suite restarts itself).", "",
   `Runtime: Electron ${ev} (MIT; LICENSE and LICENSES.chromium.html in this folder).`, ""].join("\r\n"));
 const s = zipDir(rel, folder, path.join(rel, `${folder}.zip`));
 console.log(`release/${folder}.zip  ${(fs.statSync(path.join(rel, `${folder}.zip`)).size / 1048576).toFixed(1)} MB  sha256 ${s}`);

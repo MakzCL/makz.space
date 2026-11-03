@@ -1425,3 +1425,25 @@ select pg_temp.check((select count(*) from pg_tables where schemaname = 'public'
 delete from auth.users;
 select pg_temp.check((select count(*) from public.profiles) + (select count(*) from public.shifts) + (select count(*) from public.participants) = 0, 'deleting users cascades');
 \echo ALL SCHEMA TESTS PASSED
+
+-- ==== signed-in devices: people see and end only their own sessions ====
+do $$
+declare a uuid := gen_random_uuid(); b uuid := gen_random_uuid(); s1 uuid := gen_random_uuid(); s2 uuid := gen_random_uuid(); s3 uuid := gen_random_uuid(); n int; cur boolean; ok boolean;
+begin
+  insert into auth.users (id, email) values (a, 'dev-a@x.test'), (b, 'dev-b@x.test');
+  insert into auth.sessions (id, user_id, user_agent, ip) values (s1, a, 'Chrome on Windows', '10.0.0.1'), (s2, a, 'Safari on iPhone', '10.0.0.2'), (s3, b, 'Firefox', '10.0.0.3');
+  perform set_config('request.jwt.claim.sub', a::text, true); perform set_config('request.jwt.claim.session_id', s1::text, true);
+  set local role authenticated;
+  select count(*) into n from public.my_sessions(); assert n = 2, 'A sees exactly their 2 sessions';
+  select current into cur from public.my_sessions() where id = s1; assert cur, 'current session is flagged';
+  select end_my_session into ok from public.end_my_session(s3); assert not ok, 'cannot end another person''s session';
+  select end_my_session into ok from public.end_my_session(s2); assert ok, 'ends own other session';
+  select count(*) into n from public.my_sessions(); assert n = 1, 'one session left';
+  reset role;
+  assert (select count(*) from auth.sessions where id = s3) = 1, 'B''s session untouched';
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role anon;
+  begin perform public.my_sessions(); assert false, 'anon must not list sessions'; exception when insufficient_privilege then null; end;
+  reset role;
+  raise notice 'signed-in devices: ok';
+end $$;

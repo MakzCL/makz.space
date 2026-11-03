@@ -12,13 +12,14 @@ import type { AuditEntry, KimeraSection, Role } from "../lib/types";
 import { useKimera } from "./actions";
 import { PageHead, SubTabs } from "./kit";
 
-type View = "company" | "tax" | "activity" | "access" | "locations" | "integrations" | "trotan";
+type View = "company" | "tax" | "activity" | "access" | "locations" | "integrations" | "trotan" | "devices";
 import { Integrations } from "./Integrations";
 import { TrotanAccess } from "./TrotanAccess";
+import { Devices } from "../components/Devices";
 
 /** Kortana → Settings (ADMIN-06): company defaults, tax rates and the activity log. */
 export function Settings() {
-  const { me } = useStore();
+  const { me, backend } = useStore();
   const [view, setView] = useState<View>(isOwner(me.role) ? "access" : "company");
   if (!can.admin(me.role)) return <Empty icon={<Settings2 size={28} />} title={t("Settings are for the office team")} />;
   return (
@@ -26,10 +27,10 @@ export function Settings() {
       <PageHead title={t("Settings")} sub={t("Company defaults, tax rates and who changed what.")}
         tabs={<SubTabs value={view} onChange={setView} tabs={[
           ...(isOwner(me.role) ? [{ value: "access" as View, label: t("Access") }] : []),
-          { value: "company", label: t("Company") }, { value: "locations", label: t("Locations") }, { value: "tax", label: t("Tax rates") }, { value: "activity", label: t("Activity") },
+          { value: "company", label: t("Company") }, { value: "locations", label: t("Locations") }, { value: "tax", label: t("Tax rates") }, { value: "activity", label: t("Activity") }, { value: "devices", label: t("Devices") },
           ...(isOwner(me.role) || me.role === "manager" ? [{ value: "trotan" as View, label: "TROTAN" }] : []),
           ...(isOwner(me.role) ? [{ value: "integrations" as View, label: t("Integrations") }] : [])]} />} />
-      {view === "trotan" && (isOwner(me.role) || me.role === "manager") ? <TrotanAccess /> : view === "integrations" && isOwner(me.role) ? <Integrations /> : view === "access" && isOwner(me.role) ? <Access /> : view === "locations" ? <LocationsSettings /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
+      {view === "devices" ? <div className="card" style={{ maxWidth: 640 }}><Devices backend={backend} onSignedOutHere={() => location.reload()} /></div> : view === "trotan" && (isOwner(me.role) || me.role === "manager") ? <TrotanAccess /> : view === "integrations" && isOwner(me.role) ? <Integrations /> : view === "access" && isOwner(me.role) ? <Access /> : view === "locations" ? <LocationsSettings /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
     </div>
   );
 }

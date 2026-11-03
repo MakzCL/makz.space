@@ -13,7 +13,7 @@
     <nav>
       <button class="nav on" data-view="home" type="button"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
       <button class="nav" data-view="apps" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>All apps</button>
-      <button class="nav" data-view="settings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+      <button class="nav" data-view="settings" type="button"><i class="dot" id="nav-dot" hidden></i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
     </nav>
     <div class="running" id="running"></div>
     <div class="themes" role="group" aria-label="Colours">
@@ -23,6 +23,7 @@
   <main>
     <section class="view" id="view-home">
       <header class="hero"><div><h1 id="greet">Good day</h1><p class="dim">Your apps, in one place. Each opens in its own window and stays signed in.</p></div><div class="net" id="net"><i></i><span>Checking connection…</span></div></header>
+      <div class="banner" id="upd-banner" hidden><span id="upd-banner-text">An update is ready.</span><button type="button" class="btn primary" id="upd-banner-go">Update now</button></div>
       <h2>Your apps</h2>
       <div class="grid" id="grid"></div>
       <h2>Recently opened</h2>
@@ -38,7 +39,10 @@
         <div><b>Colours</b><p class="dim">Light, Granat or Dark for the suite window. Each app keeps its own colour setting in its own settings.</p></div>
         <div class="themes big" role="group" aria-label="Colours"><button type="button" data-p="light">Light</button><button type="button" data-p="granat">Granat</button><button type="button" data-p="dark">Dark</button></div>
       </div>
-      <div class="card set"><div><b>Signing in</b><p class="dim">Web apps share one secure session stored in your Windows profile, so signing in once keeps you signed in after restarts. Sign out from inside each app.</p></div></div>
+      <div class="card set" id="updates"><div><b>Updates</b><p class="dim" id="upd-text">SK Suite</p><div class="bar" id="upd-bar" hidden><i></i></div></div>
+        <div class="acts"><button type="button" class="btn" id="upd-check">Check for updates</button><button type="button" class="btn primary" id="upd-go" hidden>Update now</button></div></div>
+      <div class="card set"><div><b>Sign out of devices</b><p class="dim">Signs SK Factory, Kortana and TROTAN out on this computer and closes their windows. To see and sign out your other phones and computers, open Settings in any app → Sign out of devices.</p><p class="ok-note" id="signout-done" hidden>Signed out on this computer.</p></div>
+        <div class="acts"><button type="button" class="btn danger" id="signout-here">Sign out on this computer</button></div></div>
       <div class="card set"><div><b>About</b><p class="dim" id="about">SK Suite</p></div></div>
     </section>
   </main>

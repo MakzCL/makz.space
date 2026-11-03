@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { JoinLink, Role, TableName, Tables } from "./types";
 
+export interface DeviceSession { id: string; created_at: string; last_active: string; user_agent: string | null; ip: string | null; current: boolean }
 export interface JoinInfo { valid: boolean; reason: "ok" | "expired" | "revoked" | "used_up" | "locked" | "not_found"; role: Role; inviter: string }
 
 export type Row<T extends TableName> = Tables[T];
@@ -13,6 +14,12 @@ export interface Backend {
   signUp(email: string, password: string, fullName: string): Promise<{ needsConfirm: boolean }>;
   resetPassword(email: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Signed-in devices of the current person (newest activity first; the current one is flagged). */
+  listSessions(): Promise<DeviceSession[]>;
+  /** End one of the current person's sessions (another device). */
+  endSession(id: string): Promise<boolean>;
+  /** Sign out every other device, or every device including this one. */
+  signOutScope(scope: "others" | "global"): Promise<void>;
 
   list<T extends TableName>(table: T): Promise<Row<T>[]>;
   insert<T extends TableName>(table: T, row: Partial<Row<T>>): Promise<Row<T>>;

@@ -1,5 +1,5 @@
 import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
-import type { Backend, Change, JoinInfo, Row } from "./backend";
+import type { DeviceSession, Backend, Change, JoinInfo, Row } from "./backend";
 import { TABLES, type JoinLink, type Role, type TableName } from "./types";
 
 /** History older than this is not loaded into the app (keeps phones fast). */
@@ -60,6 +60,9 @@ export class SupabaseBackend implements Backend {
     if (error) throw error;
   }
   async signOut() { await this.sb.auth.signOut(); }
+  async listSessions() { const { data, error } = await this.sb.rpc("my_sessions"); if (error) throw error; return (data ?? []) as DeviceSession[]; }
+  async endSession(id: string) { const { data, error } = await this.sb.rpc("end_my_session", { p_id: id }); if (error) throw error; return !!data; }
+  async signOutScope(scope: "others" | "global") { const { error } = await this.sb.auth.signOut({ scope }); if (error) throw error; }
 
   async list<T extends TableName>(table: T) {
     const cost = COST[table];

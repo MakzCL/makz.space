@@ -7184,5 +7184,31 @@ grant select on public.trotan_mo_activity to authenticated;
 -- only signed-in staff call TROTAN helpers; trigger functions are never called directly
 revoke all on function public.trotan_guard_job(), public.trotan_guard_profile(), public.trotan_release_on_leave() from public, anon, authenticated;
 
+-- ==== Signed-in devices (every app's Settings → "Sign out of devices") ====
+-- Lists and ends only the caller's own sessions. Ending a session revokes its refresh token, so that device is
+-- signed out when its current access token expires (at most one hour) or straight away on its next refresh.
+create or replace function public.my_sessions()
+returns table (id uuid, created_at timestamptz, last_active timestamptz, user_agent text, ip text, current boolean)
+language sql stable security definer set search_path = '' as $$
+  select s.id, s.created_at, greatest(s.updated_at, s.refreshed_at::timestamptz, s.created_at) as last_active,
+         s.user_agent, host(s.ip) as ip, s.id::text = (auth.jwt() ->> 'session_id') as current
+    from auth.sessions s
+   where s.user_id = auth.uid() and (s.not_after is null or s.not_after > now())
+   order by (s.id::text = (auth.jwt() ->> 'session_id')) desc, greatest(s.updated_at, s.refreshed_at::timestamptz, s.created_at) desc
+$$;
+revoke all on function public.my_sessions() from public, anon;
+grant execute on function public.my_sessions() to authenticated;
+create or replace function public.end_my_session(p_id uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare n int;
+begin
+  if auth.uid() is null then raise exception 'Sign in first' using errcode = '42501'; end if;
+  delete from auth.sessions where id = p_id and user_id = auth.uid();
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+revoke all on function public.end_my_session(uuid) from public, anon;
+grant execute on function public.end_my_session(uuid) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

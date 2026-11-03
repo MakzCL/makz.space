@@ -1218,3 +1218,19 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .int-secret { border-left: 3px solid #e5484d; }
 .int-docs summary { cursor: pointer; color: var(--text); font-weight: 600; }
 .int-docs p { text-align: left; }
+
+/* ---- Sign out of devices (shared: SK Factory, Kortana, TROTAN) ---- */
+.devices { display: flex; flex-direction: column; gap: 0.8rem; }
+.devices-head { display: flex; flex-direction: column; gap: 0.15rem; }
+.devices-head small, .devices-list small, .devices-note { color: var(--muted); font-size: 0.82rem; }
+.devices-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.devices-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.6rem 0.75rem; border-radius: 12px; background: var(--surface-2); }
+.devices-list li span { display: flex; flex-direction: column; min-width: 0; }
+.devices-list li.current { box-shadow: inset 0 0 0 1px var(--ok); }
+.devices-list li em { font-style: normal; font-size: 0.78rem; font-weight: 600; color: var(--ok); white-space: nowrap; }
+.devices-acts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dev-btn { border: 1px solid var(--surface-3); background: var(--surface-2); color: var(--text); border-radius: 10px; padding: 0.45rem 0.85rem; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.dev-btn:hover:not(:disabled) { border-color: var(--blue-2, var(--blue)); }
+.dev-btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.dev-btn:disabled { opacity: 0.5; cursor: default; }
+.devices-ok { margin: 0; color: var(--ok); font-size: 0.85rem; } .devices-err { margin: 0; color: var(--red); font-size: 0.85rem; }

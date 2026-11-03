@@ -2,3 +2,5 @@ node_modules
 bundled
 release
 .cache
+version.json
+site

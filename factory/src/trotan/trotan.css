@@ -34,7 +34,7 @@
 .t-dot.dirty, .t-dot.saving { background: var(--t-warn); } .t-dot.error, .t-dot.conflict { background: var(--t-err); }
 .t-top-r { display: flex; align-items: center; gap: 8px; }
 .t-applink { color: var(--t-muted); text-decoration: none; font-size: 12px; padding: 4px 6px; border-radius: 6px; } .t-applink:hover { color: var(--t-text); background: var(--t-panel2); }
-.t-me { display: flex; flex-direction: column; line-height: 1.1; font-weight: 600; text-align: right; } .t-me small { color: var(--t-muted); font-weight: 500; font-size: 11px; }
+.t-me { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 2px 4px; border-radius: 6px; display: flex; flex-direction: column; line-height: 1.1; font-weight: 600; text-align: right; } .t-me small { color: var(--t-muted); font-weight: 500; font-size: 11px; }
 .t-main { min-height: 0; position: relative; overflow: hidden; }
 .t-banner { display: flex; gap: 10px; align-items: center; padding: 7px 14px; font-size: 12.5px; border-bottom: 1px solid var(--t-line); background: var(--t-panel2); }
 .t-banner.warn { background: color-mix(in srgb, var(--t-warn) 16%, var(--t-panel)); } .t-banner.err { background: color-mix(in srgb, var(--t-err) 16%, var(--t-panel)); }
@@ -181,3 +181,11 @@ html[data-trotan-theme] .toasts { top: auto; bottom: 46px; }
 html[data-trotan-theme] .toast { background: var(--t-panel2); color: var(--t-text); border: 1px solid var(--t-line2); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .3); }
 html[data-trotan-theme] .toast.ok svg { color: var(--t-ok); } html[data-trotan-theme] .toast.info svg { color: var(--t-info); }
 html[data-trotan-theme] .toast.error { background: var(--t-err); color: #fff; border-color: transparent; } html[data-trotan-theme] .toast.error svg { color: #fff; }
+.t-me:hover { background: var(--t-panel2); }
+/* Sign out of devices inside TROTAN */
+.trotan .devices-head small, .trotan .devices-list small, .trotan .devices-note, html[data-trotan-theme] .t-modal .devices small { color: var(--t-muted); }
+html[data-trotan-theme] .devices-list li { background: var(--t-panel2); border-radius: 8px; }
+html[data-trotan-theme] .devices-list li.current { box-shadow: inset 0 0 0 1px var(--t-ok); } html[data-trotan-theme] .devices-list li em { color: var(--t-ok); }
+html[data-trotan-theme] .dev-btn { background: var(--t-panel2); border-color: var(--t-line2); color: var(--t-text); border-radius: 7px; }
+html[data-trotan-theme] .dev-btn.danger { background: var(--t-err); border-color: var(--t-err); color: #fff; }
+html[data-trotan-theme] .devices-ok { color: var(--t-ok); } html[data-trotan-theme] .devices-err { color: var(--t-err); }

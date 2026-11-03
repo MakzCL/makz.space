@@ -6,3 +6,4 @@ if (!fs.existsSync(path.join(nuc, "dist", "index.html"))) { console.log("buildin
 const out = path.join(root, "bundled", "nucleus"); fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.cpSync(path.join(nuc, "dist"), out, { recursive: true });
 console.log(`bundled NUCLEUS ${JSON.parse(fs.readFileSync(path.join(nuc, "package.json"), "utf8")).version}`);
+fs.writeFileSync(path.join(root, "version.json"), JSON.stringify({ version: JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version }) + "\n");

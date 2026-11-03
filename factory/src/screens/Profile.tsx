@@ -10,6 +10,7 @@ import { t } from "../lib/i18n";
 import { setPrefs, usePrefs } from "../lib/prefs";
 import { TABS_FOR, type Tab } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
+import { Devices } from "../components/Devices";
 import { DAY_TARGET, HOUR, dailyTotals, dayLabel, daysBetween, hm, jobStats, splitOvertime, startOfMonth, ymd } from "../lib/time";
 import type { AbsenceKind } from "../lib/types";
 import { KIND, kindLabel } from "./Requests";
@@ -204,6 +205,7 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
   const { me } = useStore();
   const prefs = usePrefs();
   const a = useActions();
+  const { backend } = useStore();
   const [note, setNote] = useState(me.status_note ?? "");
   return (
     <>
@@ -242,6 +244,7 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
             location.reload();
           }}>{t("Reload")}</Btn></div>
       </div>
+      <div className="card"><Devices backend={backend} onSignedOutHere={onSignOut} /></div>
       <Btn tone="danger" wide icon={<LogOut size={18} />} onClick={onSignOut}>{t("Sign out")}</Btn>
       <p className="foot">Skalarki Electronics Ltd</p>
     </>

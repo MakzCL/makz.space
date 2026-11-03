@@ -30,6 +30,22 @@ function render() {
   $("#running").replaceChildren(...APPS.filter((a) => running.has(a.id)).map((a) => el("button", { type: "button", class: "run", onclick: () => open(a.id) }, icon(a), el("span", {}, a.name))));
   const net = $("#net"); net.className = `net ${online ? "on" : "off"}`; net.lastElementChild.textContent = online ? "Online" : "Offline: NUCLEUS still works";
 }
+function paintUpdate() {
+  const u = STATE.update ?? { status: "idle" }; const v = VERSION;
+  const text = { idle: `SK Suite ${v}.`, checking: `SK Suite ${v} · checking for updates…`, current: `SK Suite ${v} is up to date.`, available: `SK Suite ${u.version} is available (you have ${v}). Takes about a minute; the suite restarts when it is done.`,
+    downloading: `Downloading SK Suite ${u.version}… ${Math.round((u.progress || 0) * 100)}%`, ready: `SK Suite ${u.version} installed. Restarting…`, "ready-restart": `SK Suite ${u.version} is installed. Restart to finish (an app still had unsaved work).`,
+    full: `SK Suite ${u.version} needs the full download this time (a newer runtime). Download the new zip and replace this folder.`, error: `Couldn't update: ${u.error}. SK Suite ${v} keeps working.` }[u.status] ?? `SK Suite ${v}`;
+  $("#upd-text").textContent = text + (u.notes && (u.status === "available") ? ` What's new: ${u.notes}` : "");
+  const go = $("#upd-go"); go.hidden = !["available", "ready-restart"].includes(u.status); go.textContent = u.status === "ready-restart" ? "Restart now" : `Update to ${u.version}`;
+  $("#upd-check").disabled = ["checking", "downloading", "ready"].includes(u.status);
+  const bar = $("#upd-bar"); bar.hidden = u.status !== "downloading"; bar.firstElementChild.style.width = `${Math.round((u.progress || 0) * 100)}%`;
+  const pending = ["available", "ready-restart"].includes(u.status);
+  $("#upd-banner").hidden = !pending; $("#nav-dot").hidden = !pending;
+  $("#upd-banner-text").textContent = u.status === "ready-restart" ? `SK Suite ${u.version} is installed. Restart to finish.` : `SK Suite ${u.version} is available.`;
+  $("#upd-banner-go").textContent = u.status === "ready-restart" ? "Restart now" : "Update now";
+}
+const updateNow = () => ((STATE.update?.status === "ready-restart") ? window.suite.restart() : window.suite.installUpdate());
+let VERSION = "";
 function show(view) {
   for (const b of document.querySelectorAll(".nav")) b.classList.toggle("on", b.dataset.view === view);
   for (const s of document.querySelectorAll(".view")) s.hidden = s.id !== `view-${view}`;
@@ -40,8 +56,15 @@ async function main() {
   for (const b of document.querySelectorAll(".themes button")) b.addEventListener("click", async () => { STATE.palette = await window.suite.setPalette(b.dataset.p); paintPalette(); });
   window.addEventListener("online", () => { online = true; render(); }); window.addEventListener("offline", () => { online = false; render(); });
   [APPS, STATE] = await Promise.all([window.suite.apps(), window.suite.state()]);
-  window.suite.onState((s) => { STATE = s; render(); });
-  const v = await window.suite.version(); $("#about").textContent = `SK Suite ${v.suite} · Electron ${v.electron} · Chromium ${v.chrome}. NUCLEUS is a separate product bundled for offline use.`;
-  render();
+  window.suite.onState((s) => { STATE = s; render(); paintUpdate(); });
+  const v = await window.suite.version(); VERSION = v.suite; $("#about").textContent = `SK Suite ${v.suite}${v.updated ? ` (updated from ${v.shipped})` : ""} · Electron ${v.electron} · Chromium ${v.chrome}. NUCLEUS is a separate product bundled for offline use.`;
+  render(); paintUpdate();
+  $("#upd-check").addEventListener("click", () => window.suite.checkUpdate());
+  $("#upd-go").addEventListener("click", updateNow); $("#upd-banner-go").addEventListener("click", updateNow);
+  $("#signout-here").addEventListener("click", async () => {
+    if (!confirm("Sign SK Factory, Kortana and TROTAN out on this computer? Their windows will close. NUCLEUS is not affected.")) return;
+    await window.suite.signOutHere(); $("#signout-done").hidden = false;
+  });
+  window.suite.healthy();
 }
 main();

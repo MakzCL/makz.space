@@ -27,6 +27,8 @@ export function rpcs(D, who) {
   const once = (k, fn) => { if (k && ops.has(k)) return ops.get(k); const r = fn(); if (k) ops.set(k, r); return r; };
   const ALL = ["manage", "design", "prepare", "produce", "admin", "approve"];
   const this_ = {
+    my_sessions: () => (D.sessions ?? []).filter((x) => x.user === who()).map(({ user, ...x }) => x),
+    end_my_session: ({ p_id }) => { const i = (D.sessions ?? []).findIndex((x) => x.id === p_id && x.user === who()); if (i < 0) return false; D.sessions.splice(i, 1); return true; },
     trotan_my_sections: () => { const pr = D.profiles.find((x) => x.id === who()); if (!pr?.active) return []; if (["boss", "developer"].includes(pr.role)) return ALL;
       return D.trotan_person_access?.find((x) => x.profile_id === pr.id)?.sections ?? D.trotan_access.find((a) => a.role === pr.role)?.sections ?? []; },
     trotan_save: ({ p_project, p_base, p_doc, p_note, p_revision }) => {
@@ -113,6 +115,7 @@ export async function context(browser, D, { user = OWNER, w = 1440, h = 900, dsf
     const req = r.request(), u = new URL(req.url()), method = req.method();
     const send = (x, status = 200) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(x) });
     if (u.pathname.startsWith("/auth/v1/user")) return send(sess.user);
+    if (u.pathname.startsWith("/auth/v1/logout")) { const sc = u.searchParams.get("scope") ?? "global"; (D.logouts ??= []).push(sc); if (sc === "others") D.sessions = (D.sessions ?? []).filter((x) => x.current || x.user !== user); return r.fulfill({ status: 204, body: "" }); }
     if (u.pathname.startsWith("/auth/")) return send({});
     const rpc = u.pathname.match(/\/rest\/v1\/rpc\/(\w+)/);
     if (rpc) { let a = {}; try { a = req.postDataJSON() ?? {}; } catch { /* none */ } const f = R[rpc[1]]; try { return send(f ? f(a) ?? null : null); } catch (e) { return send({ message: e.message, code: "P0001" }, 400); } }

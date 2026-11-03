@@ -7,5 +7,10 @@ contextBridge.exposeInMainWorld("suite", {
   openInBrowser: (id) => ipcRenderer.invoke("suite:openInBrowser", id),
   setPalette: (p) => ipcRenderer.invoke("suite:palette", p),
   version: () => ipcRenderer.invoke("suite:version"),
+  healthy: () => ipcRenderer.invoke("suite:healthy"),
+  checkUpdate: () => ipcRenderer.invoke("suite:checkUpdate"),
+  installUpdate: () => ipcRenderer.invoke("suite:installUpdate"),
+  restart: () => ipcRenderer.invoke("suite:restart"),
+  signOutHere: () => ipcRenderer.invoke("suite:signOutHere"),
   onState: (fn) => { const h = (_e, s) => fn(s); ipcRenderer.on("suite:state", h); return () => ipcRenderer.removeListener("suite:state", h); },
 });
