@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Syndo">
-  <title>Syndo</title>
-  <!-- Three voices around one shared space: yellow, blue, coral. The blue voice carries a speech tail. -->
-  <path d="M27 104 L32 84 L46 92 Z" fill="#3D6BFF"/>
-  <circle cx="64" cy="42" r="23" fill="#FFC93C"/>
-  <circle cx="43" cy="76" r="23" fill="#3D6BFF"/>
-  <circle cx="85" cy="76" r="23" fill="#FF8A6B"/>
-  <circle cx="64" cy="65" r="10.5" fill="#FFFFFF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Syndo"><title>Syndo</title><defs><mask id="sm"><rect x="-20" y="-20" width="168" height="168" fill="#fff"/><polygon points="42,55 48.93,43 140,43 140,55" fill="#000"/><polygon points="86,73 79.07,85 -12,85 -12,73" fill="#000"/></mask></defs><polygon points="64,6 114.23,35 114.23,93 64,122 13.77,93 13.77,35" fill="#0E1220" mask="url(#sm)"/></svg>

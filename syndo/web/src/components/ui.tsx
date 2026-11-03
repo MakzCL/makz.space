@@ -1,16 +1,22 @@
 import { X } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BRAND, type User } from "@syndo/shared";
 import { displayName, useStore } from "../store.ts";
 
-export function Mark({ size = 40, animate = false, title = BRAND.name }: { size?: number; animate?: boolean; title?: string }) {
+let markSeq = 0;
+/** The Syndo mark: a sharp hexagon cut into an S by two point-symmetric channels. Uses currentColor unless a fill is given. */
+export function Mark({ size = 40, animate = false, title = BRAND.name, fill = "currentColor" }: { size?: number; animate?: boolean; title?: string; fill?: string }) {
+  const [id] = useState(() => `sm${++markSeq}`);
   return (
     <svg className={`mark ${animate ? "mark-anim" : ""}`} width={size} height={size} viewBox="0 0 128 128" role="img" aria-label={title}>
-      <path className="m-tail" d="M27 104 L32 84 L46 92 Z" fill="var(--brand-blue)" />
-      <circle className="m-a" cx="64" cy="42" r="23" fill="var(--brand-yellow)" />
-      <circle className="m-b" cx="43" cy="76" r="23" fill="var(--brand-blue)" />
-      <circle className="m-c" cx="85" cy="76" r="23" fill="var(--brand-coral)" />
-      <circle className="m-core" cx="64" cy="65" r="10.5" fill="#fff" />
+      <defs>
+        <mask id={id}>
+          <rect x="-20" y="-20" width="168" height="168" fill="#fff" />
+          <polygon className="m-cut1" points="42,55 48.93,43 140,43 140,55" fill="#000" />
+          <polygon className="m-cut2" points="86,73 79.07,85 -12,85 -12,73" fill="#000" />
+        </mask>
+      </defs>
+      <polygon className="m-hex" points="64,6 114.23,35 114.23,93 64,122 13.77,93 13.77,35" fill={fill} mask={`url(#${id})`} />
     </svg>
   );
 }

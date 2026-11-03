@@ -51,11 +51,13 @@ kbd { background: var(--bg3); border: 1px solid var(--line); border-radius: 4px;
 .splash { height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 14px; background: radial-gradient(circle at 50% 40%, var(--bg1), var(--bg0)); }
 .splash-name { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
 .splash-line { color: var(--textMuted); min-height: 1.4em; }
-.mark-anim .m-a, .mark-anim .m-b, .mark-anim .m-c { transform-box: fill-box; transform-origin: center; animation: gather 1.8s ease-in-out infinite; }
-.mark-anim .m-b { animation-delay: .15s; } .mark-anim .m-c { animation-delay: .3s; }
-.mark-anim .m-core { transform-box: fill-box; transform-origin: center; animation: beat 1.8s ease-in-out infinite; }
-@keyframes gather { 0%, 100% { transform: scale(.88); } 50% { transform: scale(1.04); } }
-@keyframes beat { 0%, 100% { transform: scale(.8); } 50% { transform: scale(1.15); } }
+.mark-anim .m-cut1 { animation: cut1 1.6s cubic-bezier(.6,0,.2,1) infinite; }
+.mark-anim .m-cut2 { animation: cut2 1.6s cubic-bezier(.6,0,.2,1) infinite; }
+.mark-anim .m-hex { transform-box: fill-box; transform-origin: center; animation: hexpulse 1.6s ease-in-out infinite; }
+@keyframes cut1 { 0% { transform: translateX(96px); } 45%, 100% { transform: none; } }
+@keyframes cut2 { 0%, 15% { transform: translateX(-96px); } 60%, 100% { transform: none; } }
+@keyframes hexpulse { 0%, 100% { transform: scale(.96); } 70% { transform: scale(1); } }
+.splash .mark { color: var(--accent); }
 
 /* auth */
 .auth { min-height: 100dvh; display: grid; grid-template-columns: 1fr minmax(320px, 440px); background: radial-gradient(circle at 20% 30%, var(--accent-soft), transparent 50%), var(--bg0); }

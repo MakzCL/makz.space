@@ -7,10 +7,11 @@
  * else.
  *
  * About the name: "Syndo" is a personal reference to Down syndrome. The
- * identity carries that quietly — the warm yellow and calm blue are the colours
- * long associated with Down syndrome awareness, and the mark is three voices
- * forming one conversation — while the public message stays on friendship,
- * community and communication.
+ * public identity stays on friendship, community and communication. The mark
+ * is a sharp hexagonal "S" — one solid shape, cut by two channels into a path
+ * that flows from one side to the other, like a conversation passing between
+ * people. The warm yellow and calm blue (colours long associated with Down
+ * syndrome awareness) remain in the palette.
  */
 export const BRAND = {
   name: "Syndo",
@@ -71,6 +72,7 @@ export const BRAND = {
 
   assets: {
     logo: "/brand/syndo-mark.svg",
+    appIcon256: "/brand/syndo-icon-256.png",
     wordmark: "/brand/syndo-wordmark.svg",
     appIcon: "/brand/syndo-icon.svg",
     appIcon192: "/brand/syndo-icon-192.png",
