@@ -1133,10 +1133,10 @@ p { margin: 0; }
   .nav-kimera + .nav-kimera { margin-top: 0.5rem; }
   .nav-trotan { background: color-mix(in srgb, #ff5a3c 12%, transparent); }
   .nav-trotan:hover { background: color-mix(in srgb, #ff5a3c 22%, transparent); }
-  .nav-kimera .t-glyph { flex: none; width: 34px; height: 34px; display: block; }
+  .nav-kimera .t-logo { flex: none; width: 34px; display: block; }
 }
 .k-lockup .k-logo { display: block; flex: none; }
-.login-brand .k-logo { display: block; }
+.login-brand .k-logo, .login-brand .t-logo { display: block; }
 /* Kortana shares the Skalarki navy; its violet → berry sweep echoes the SK red. */
 .is-kimera .btn.primary { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); border-color: transparent; }
 .is-kimera .k-nav button em, .is-kimera .splash-bar i { background: linear-gradient(90deg, var(--k-accent), var(--k-berry)); }
@@ -1163,6 +1163,7 @@ select.cell-input { width: 92px; padding-right: 1.7rem; text-align: left; backgr
 label.k-check { display: inline-flex; align-items: center; gap: 0.5rem; width: auto; white-space: nowrap; text-align: left; }
 label.k-check input { width: auto; }
 .k-access th.c, .k-access td.c { text-align: center; }
+.k-sub { margin: 0.6rem 0 0; font-size: 1rem; font-weight: 600; }
 .k-access td.c input { width: 18px; height: 18px; accent-color: var(--accent, #8b5cf6); cursor: pointer; }
 .k-access td.c input:disabled { cursor: default; }
 .k-rank { display: inline-flex; align-items: center; gap: 0.1rem; margin-right: 0.3rem; }

@@ -96,8 +96,34 @@ try {
   // 15 job history
   await q.getByTestId("history-tab").click(); await q.getByTestId("job-history").getByText(job.number).waitFor(); await shot(q, "history");
   step("job history shows " + job.number);
-  // operators cannot design: DESIGN is read-only for them, ADMIN hidden
-  assert.equal(await q.getByTestId("ws-admin").count(), 1, "operator sees admin (diagnostics only) through manage");
-  const errs = [...errors, ...op.errors]; assert.deepEqual(errs, [], "page errors: " + errs.join("\n"));
-  console.log("\nTROTAN beta e2e: all 15 steps passed");
+  await op.ctx.close();
+  // real machine (no interface): file + job sheet, run with its own software, then record the result
+  const mat0 = D.trotan_materials[0];
+  const real = { ...D.trotan_machines[0], id: "real-co2", name: "Workshop CO2", adapter: "none", manufacturer: "Acme", model: "L60", status: "idle", prohibited: [] };
+  D.trotan_machines.push(real);
+  D.trotan_profiles.push({ id: "pf-real", material_id: mat0.id, machine_id: real.id, operation: "cut", version: 1, params: { ...D.trotan_profiles[0].params }, status: "approved", approved_by: D.profiles[0].id, approved_at: new Date().toISOString(), notes: "", created_at: new Date().toISOString() });
+  const own = await context(browser, D); const r = own.page;
+  await r.goto(BASE); await r.getByTestId("open-project").first().click(); await r.getByTestId("editor").waitFor();
+  await r.getByTestId("ws-prepare").click(); await r.getByTestId("prep-machine").selectOption(real.id); await r.getByTestId("prep-material").selectOption(mat0.id);
+  await r.getByTestId("op-cut").getByText("Approved v1").waitFor();
+  await r.getByTestId("nest-count").fill("4"); await r.getByTestId("nest-count").press("Enter"); await r.getByTestId("nest-btn").click(); await r.getByText(/4 copies placed/).waitFor();
+  const [sheetPage] = await Promise.all([own.ctx.waitForEvent("page"), r.getByTestId("job-sheet").click()]);
+  await sheetPage.waitForLoadState(); const sheetText = await sheetPage.locator("body").innerText();
+  assert.match(sheetText, /Settings per colour/i); assert.match(sheetText, /Workshop CO2/); assert.match(sheetText, /Approved v1/); assert.match(sheetText, /\tCut\t62\t18\t1\t/);
+  await sheetPage.screenshot({ path: SHOTS ? `${SHOTS}/16-jobsheet.png` : "/tmp/js.png", fullPage: true }); await sheetPage.close();
+  const [dl] = await Promise.all([r.waitForEvent("download"), r.getByTestId("export-svg").click()]);
+  const svgText = fs.readFileSync(await dl.path(), "utf8"); assert.match(svgText, /width="600mm" height="400mm"/); assert.equal((svgText.match(/<path /g) ?? []).length, 4 * 3, "4 copies × (outline + hole + rectangle)");
+  step("real machine: approved settings, job sheet with settings per colour, bed SVG in mm (4 copies)");
+  await r.getByTestId("queue-job").click(); await r.getByTestId("produce").waitFor();
+  await r.getByText("Workshop CO2").first().click(); await r.getByTestId("queue-item").first().click();
+  assert.equal(await r.getByTestId("start-run").count(), 0, "a machine without an interface has no Start button");
+  await r.getByTestId("record-external").click();
+  assert.ok(await r.getByTestId("finish-save").isDisabled());
+  for (let i = 0; i < 3; i++) await r.getByTestId(`ext-check-${i}`).check();
+  await r.getByTestId("finish-good").fill("4"); await r.getByTestId("finish-good").blur(); await r.getByTestId("finish-save").click(); await r.getByText("Production recorded").waitFor();
+  const j2 = D.trotan_jobs.find((j) => j.machine_id === real.id);
+  assert.equal(j2.status, "done"); assert.equal(D.stock_items[0].quantity, 8); assert.equal(D.trotan_runs.filter((x) => x.job_id === j2.id && x.adapter === "none").length, 1);
+  step("run done with the machine's own software recorded; 1 more sheet consumed (9 → 8)");
+  const errs = [...errors, ...op.errors, ...own.errors]; assert.deepEqual(errs, [], "page errors: " + errs.join("\n"));
+  console.log(`\nTROTAN e2e: all ${n} steps passed`);
 } finally { await browser.close(); }

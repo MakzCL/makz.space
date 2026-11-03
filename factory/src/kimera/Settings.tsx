@@ -12,8 +12,9 @@ import type { AuditEntry, KimeraSection, Role } from "../lib/types";
 import { useKimera } from "./actions";
 import { PageHead, SubTabs } from "./kit";
 
-type View = "company" | "tax" | "activity" | "access" | "locations" | "integrations";
+type View = "company" | "tax" | "activity" | "access" | "locations" | "integrations" | "trotan";
 import { Integrations } from "./Integrations";
+import { TrotanAccess } from "./TrotanAccess";
 
 /** Kortana → Settings (ADMIN-06): company defaults, tax rates and the activity log. */
 export function Settings() {
@@ -26,8 +27,9 @@ export function Settings() {
         tabs={<SubTabs value={view} onChange={setView} tabs={[
           ...(isOwner(me.role) ? [{ value: "access" as View, label: t("Access") }] : []),
           { value: "company", label: t("Company") }, { value: "locations", label: t("Locations") }, { value: "tax", label: t("Tax rates") }, { value: "activity", label: t("Activity") },
+          ...(isOwner(me.role) || me.role === "manager" ? [{ value: "trotan" as View, label: "TROTAN" }] : []),
           ...(isOwner(me.role) ? [{ value: "integrations" as View, label: t("Integrations") }] : [])]} />} />
-      {view === "integrations" && isOwner(me.role) ? <Integrations /> : view === "access" && isOwner(me.role) ? <Access /> : view === "locations" ? <LocationsSettings /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
+      {view === "trotan" && (isOwner(me.role) || me.role === "manager") ? <TrotanAccess /> : view === "integrations" && isOwner(me.role) ? <Integrations /> : view === "access" && isOwner(me.role) ? <Access /> : view === "locations" ? <LocationsSettings /> : view === "company" || view === "access" ? <Company /> : view === "tax" ? <TaxRates /> : <Activity />}
     </div>
   );
 }

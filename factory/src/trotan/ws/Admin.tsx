@@ -22,7 +22,7 @@ export function Admin({ go }: { go: (w: "design" | "prepare") => void }) {
   const admin = T.can("admin"), approve = T.can("approve");
   const tabs: { v: Tab; label: string; ok: boolean }[] = [
     { v: "settings", label: "Laser settings", ok: admin || approve }, { v: "tests", label: "Material tests", ok: approve },
-    { v: "machines", label: "Machines", ok: admin }, { v: "materials", label: "Materials", ok: admin }, { v: "access", label: "Access", ok: admin },
+    { v: "machines", label: "Machines", ok: admin }, { v: "materials", label: "Materials", ok: admin }, { v: "access", label: "Access", ok: admin || T.can("manage") },
     { v: "audit", label: "Audit log", ok: admin }, { v: "diagnostics", label: "Diagnostics", ok: true },
   ];
   const allowed = tabs.filter((t) => t.ok);
@@ -45,19 +45,15 @@ function useSave() {
 }
 
 function Access() {
-  const T = useT(); const save = useSave(); const { me } = useStore();
-  const owner = me.role === "boss" || me.role === "developer";
+  const T = useT(); const { db } = useStore();
   const roles = ROLE_ORDER.filter((r) => r !== "boss" && r !== "developer");
   return (
     <div className="t-table-wrap">
-      <p className="t-note">Owner and Developer always have every section. The server enforces these rights; hiding a button is never the only protection.</p>
+      <p className="t-note">Access to TROTAN is managed in <b>Kortana → Settings → TROTAN</b> by the Owner, a Developer or a Manager — per role, with exceptions for individual people. Owner and Developer always have everything.</p>
+      <a className="t-btn primary" href="https://kortana.makz.space/#settings" target="_blank" rel="noreferrer">Open Kortana settings</a>
+      <h4>Current access by role</h4>
       <table className="t-table"><thead><tr><th>Role</th>{SECTIONS.map((s) => <th key={s}>{SECTION_LABEL[s]}</th>)}</tr></thead>
-        <tbody>{roles.map((r) => {
-          const row = T.access.find((a) => a.role === r); const secs = row?.sections ?? [];
-          return <tr key={r}><td>{ROLE_META[r].label}</td>{SECTIONS.map((s) => <td key={s}><input type="checkbox" aria-label={`${ROLE_META[r].label}: ${SECTION_LABEL[s]}`} disabled={!owner} checked={secs.includes(s)}
-            onChange={(e) => { const next = e.target.checked ? [...secs, s] : secs.filter((x) => x !== s); save(() => T.sb.from("trotan_access").upsert({ role: r, sections: next }), "Access updated", "access"); }} /></td>)}</tr>;
-        })}</tbody></table>
-      {!owner && <p className="t-note">Only the Owner or a Developer can change access.</p>}
+        <tbody>{roles.map((r) => { const secs = T.access.find((a) => a.role === r)?.sections ?? []; return <tr key={r}><td>{ROLE_META[r].label} <small className="t-muted">· {db.profiles.filter((p) => p.role === r && p.active).length}</small></td>{SECTIONS.map((s) => <td key={s}>{secs.includes(s) ? "✓" : ""}</td>)}</tr>; })}</tbody></table>
     </div>
   );
 }

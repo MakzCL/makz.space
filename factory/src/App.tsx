@@ -10,8 +10,7 @@ import { useMine } from "./lib/actions";
 import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
 import { KIMERA_URL, TROTAN_URL, can, tabsFor, type Tab } from "./lib/roles";
-import { TrotanMark } from "./trotan/Mark";
-import { KLogo } from "./components/Logo";
+import { KLogo, TLogo } from "./components/Logo";
 import { useDesktop } from "./lib/media";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
 import type { Job } from "./lib/types";
@@ -86,7 +85,10 @@ function Member({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCod
 }
 
 function Main({ signOut }: { signOut: () => void }) {
-  const { db, me, ready } = useStore();
+  const { db, me, ready, backend } = useStore();
+  // TROTAN link only for people who have access to it (Kortana → Settings → TROTAN)
+  const [trotan, setTrotan] = useState(false);
+  useEffect(() => { backend.rpc<string[]>("trotan_my_sections", {}).then((s) => setTrotan((s ?? []).length > 0)).catch(() => setTrotan(false)); }, [backend, me.role, me.active]);
   const desktop = useDesktop();
   const tabs = tabsFor(me.role, desktop);
   const [tab, setTab] = useState<Tab>(() => (tabs.includes(getPrefs().startTab) ? getPrefs().startTab : "home"));
@@ -228,7 +230,7 @@ function Main({ signOut }: { signOut: () => void }) {
       <BottomNav tabs={tabs} tab={profile ? ("" as Tab) : tab} onTab={go} badges={badges}
         foot={desktop ? <>
           {can.editStock(me.role) && <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kortana</b><small>{t("Inventory")}</small></span></a>}
-          <a className="nav-kimera nav-trotan" href={TROTAN_URL}><TrotanMark bare size={20} className="t-glyph" /><span><b>TROTAN</b><small>{t("Laser cutting")}</small></span></a>
+          {trotan && <a className="nav-kimera nav-trotan" href={TROTAN_URL}><TLogo size={20} /><span><b>TROTAN</b><small>{t("Laser cutting")}</small></span></a>}
         </> : undefined} />
 
       <JobSheet job={job} onClose={() => setJob(null)}

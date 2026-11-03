@@ -6648,28 +6648,85 @@ end $$;
 --     through the view trotan_mo_activity (no writes into SK Factory tables).
 -- ============================================================================
 
--- ---- access matrix (owner edits it; Owner/Developer always have everything)
+-- ---- access: per role, with per-person overrides. Owner/Developer always have everything; Owner,
+-- Developer and Manager change it (Kortana → Settings → TROTAN) through the functions below.
 create table if not exists public.trotan_access (
   role public.staff_role primary key,
   sections text[] not null default '{}',
   updated_at timestamptz not null default now(),
   updated_by uuid references public.profiles(id) on delete set null
 );
+-- first install: TROTAN is closed to everyone except Owner, Developer and Manager until access is given
 insert into public.trotan_access (role, sections) values
-  ('manager', '{manage,design,prepare,produce,admin,approve}'), ('office', '{manage,design,prepare,produce}'),
-  ('assistant', '{manage,design,prepare,produce}'), ('support', '{manage}'), ('operator', '{manage,produce}')
+  ('manager', '{manage,design,prepare,produce,admin,approve}'), ('office', '{}'), ('assistant', '{}'), ('support', '{}'), ('operator', '{}')
 on conflict (role) do nothing;
+-- installs from before per-person access opened TROTAN to every role; close rows nobody has changed since
+update public.trotan_access set sections = '{}' where role in ('office', 'assistant', 'support', 'operator') and updated_by is null and sections <> '{}';
+create table if not exists public.trotan_person_access (
+  profile_id uuid primary key references public.profiles(id) on delete cascade,
+  sections text[] not null default '{}',   -- replaces the role's sections for this person ('{}' = no access)
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null
+);
+create or replace function public.trotan_sections_of(p_profile uuid) returns text[]
+language sql stable security definer set search_path = public as $$
+  select case
+    when not coalesce(pr.active, false) then '{}'::text[]
+    when pr.role in ('boss', 'developer') then array['manage', 'design', 'prepare', 'produce', 'admin', 'approve']
+    else coalesce((select pa.sections from public.trotan_person_access pa where pa.profile_id = pr.id),
+                  (select a.sections from public.trotan_access a where a.role = pr.role), '{}') end
+  from public.profiles pr where pr.id = p_profile
+$$;
+revoke all on function public.trotan_sections_of(uuid) from public, anon, authenticated;
 create or replace function public.trotan_can(p text) returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.is_active() and (public.my_role() in ('boss', 'developer')
-    or exists (select 1 from public.trotan_access a where a.role = public.my_role() and p = any(a.sections)))
+  select coalesce(p = any(public.trotan_sections_of(auth.uid())), false)
 $$;
+revoke all on function public.trotan_can(text) from public, anon;
 grant execute on function public.trotan_can(text) to authenticated;
+create or replace function public.trotan_my_sections() returns text[]
+language sql stable security definer set search_path = public as $$ select coalesce(public.trotan_sections_of(auth.uid()), '{}') $$;
+revoke all on function public.trotan_my_sections() from public, anon;
+grant execute on function public.trotan_my_sections() to authenticated;
+create or replace function public.trotan_access_admin() returns boolean
+language sql stable security definer set search_path = public as $$ select public.is_active() and public.my_role() in ('boss', 'developer', 'manager') $$;
+revoke all on function public.trotan_access_admin() from public, anon;
+grant execute on function public.trotan_access_admin() to authenticated;
 alter table public.trotan_access enable row level security;
+alter table public.trotan_person_access enable row level security;
 drop policy if exists "read" on public.trotan_access;
 drop policy if exists "owner writes" on public.trotan_access;
 create policy "read" on public.trotan_access for select to authenticated using (public.is_active());
-create policy "owner writes" on public.trotan_access for all to authenticated using (public.my_role() in ('boss', 'developer')) with check (public.my_role() in ('boss', 'developer'));
+drop policy if exists "read" on public.trotan_person_access;
+create policy "read" on public.trotan_person_access for select to authenticated using (profile_id = auth.uid() or public.trotan_access_admin());
+-- writes only through these two functions
+create or replace function public.set_trotan_role_access(p_role public.staff_role, p_sections text[]) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.trotan_access_admin() then raise exception 'Only the Owner, a Developer or a Manager can change TROTAN access'; end if;
+  if p_role in ('boss', 'developer') then raise exception 'Owner and Developer always have full access'; end if;
+  if exists (select 1 from unnest(coalesce(p_sections, '{}')) x where x not in ('manage', 'design', 'prepare', 'produce', 'admin', 'approve')) then raise exception 'Unknown TROTAN section'; end if;
+  insert into public.trotan_access (role, sections, updated_at, updated_by) values (p_role, coalesce(p_sections, '{}'), now(), auth.uid())
+    on conflict (role) do update set sections = excluded.sections, updated_at = now(), updated_by = auth.uid();
+end $$;
+revoke all on function public.set_trotan_role_access(public.staff_role, text[]) from public, anon;
+grant execute on function public.set_trotan_role_access(public.staff_role, text[]) to authenticated;
+-- p_sections null = remove the override (the person follows their role again)
+create or replace function public.set_trotan_person_access(p_person uuid, p_sections text[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.staff_role;
+begin
+  if not public.trotan_access_admin() then raise exception 'Only the Owner, a Developer or a Manager can change TROTAN access'; end if;
+  select role into r from public.profiles where id = p_person;
+  if r is null then raise exception 'Person not found'; end if;
+  if r in ('boss', 'developer') then raise exception 'Owner and Developer always have full access'; end if;
+  if p_sections is null then delete from public.trotan_person_access where profile_id = p_person; return; end if;
+  if exists (select 1 from unnest(p_sections) x where x not in ('manage', 'design', 'prepare', 'produce', 'admin', 'approve')) then raise exception 'Unknown TROTAN section'; end if;
+  insert into public.trotan_person_access (profile_id, sections, updated_at, updated_by) values (p_person, p_sections, now(), auth.uid())
+    on conflict (profile_id) do update set sections = excluded.sections, updated_at = now(), updated_by = auth.uid();
+end $$;
+revoke all on function public.set_trotan_person_access(uuid, text[]) from public, anon;
+grant execute on function public.set_trotan_person_access(uuid, text[]) to authenticated;
 
 -- ---- projects & revisions
 create sequence if not exists public.trotan_project_seq;
@@ -6842,7 +6899,7 @@ do $$
 declare t text[];
 begin
   foreach t slice 1 in array array[array['trotan_projects', 'doc'], array['trotan_machines', ''], array['trotan_materials', ''], array['trotan_profiles', ''],
-                                   array['trotan_jobs', 'placements,validation'], array['trotan_runs', ''], array['trotan_reservations', ''], array['trotan_access', '']] loop
+                                   array['trotan_jobs', 'placements,validation'], array['trotan_runs', ''], array['trotan_reservations', ''], array['trotan_access', ''], array['trotan_person_access', '']] loop
     execute format('drop trigger if exists audit_row on public.%I', t[1]);
     if t[2] = '' then execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t[1]);
     else execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row(%s)', t[1],
@@ -6852,7 +6909,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['trotan_projects', 'trotan_jobs', 'trotan_runs', 'trotan_machines', 'trotan_profiles', 'trotan_materials'] loop
+  foreach t in array array['trotan_projects', 'trotan_jobs', 'trotan_runs', 'trotan_machines', 'trotan_profiles', 'trotan_materials', 'trotan_access', 'trotan_person_access'] loop
     if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
        and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
@@ -7069,6 +7126,34 @@ end $$;
 revoke all on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) from public, anon;
 grant execute on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) to authenticated;
 
+-- ---- runs done on a real machine with its own software (TROTAN never controls hardware): the operator
+-- confirms the checks and records the result; material is consumed exactly as for a simulated run.
+create or replace function public.trotan_record_external(p_job uuid, p_checks jsonb, p_status text, p_good int, p_scrap int, p_seconds numeric, p_sheets numeric, p_notes text default '', p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare j public.trotan_jobs; mc public.trotan_machines; rid uuid; prev text; res text;
+begin
+  if not public.trotan_can('produce') then raise exception 'Your role cannot run laser jobs'; end if;
+  if p_status not in ('done', 'failed', 'aborted') then raise exception 'Unknown result'; end if;
+  prev := public.claim_op('trotan_external', p_key); if prev is not null then return prev; end if;
+  select * into j from public.trotan_jobs where id = p_job for update;
+  if j.id is null then raise exception 'Job not found'; end if;
+  if j.status <> 'queued' then raise exception 'Only a queued job can be recorded — it is %', j.status; end if;
+  select * into mc from public.trotan_machines where id = j.machine_id;
+  if mc.adapter <> 'none' then raise exception 'Run simulated machines from TROTAN; this is for machines run with their own software'; end if;
+  if jsonb_typeof(p_checks) <> 'array' or jsonb_array_length(p_checks) = 0 or exists (select 1 from jsonb_array_elements(p_checks) c where (c->>'ok')::boolean is not true) then
+    raise exception 'Confirm every check first';
+  end if;
+  if exists (select 1 from public.trotan_runs where machine_id = mc.id and status = 'running') then raise exception '% has a run in progress', mc.name; end if;
+  insert into public.trotan_runs (job_id, machine_id, adapter, checks) values (j.id, mc.id, 'none', p_checks) returning id into rid;
+  perform set_config('trotan.engine', 'on', true);
+  update public.trotan_jobs set status = 'running', started_at = now(), operator = auth.uid(), error = null where id = j.id;
+  perform set_config('trotan.engine', 'off', true);
+  res := public.trotan_finish(rid, p_status, p_good, p_scrap, p_seconds, p_sheets, p_notes, null);
+  return public.finish_op('trotan_external', p_key, res);
+end $$;
+revoke all on function public.trotan_record_external(uuid, jsonb, text, int, int, numeric, numeric, text, text) from public, anon;
+grant execute on function public.trotan_record_external(uuid, jsonb, text, int, int, numeric, numeric, text, text) to authenticated;
+
 -- ---- first-install data: a virtual laser and common materials. Nothing here is a validated recipe:
 -- materials start without settings; settings are created, tested and approved by an authorised operator.
 insert into public.trotan_machines (name, adapter, manufacturer, model, caps, notes)
@@ -7097,8 +7182,6 @@ create or replace view public.trotan_mo_activity with (security_invoker = on) as
    where j.mo_job_id is not null;
 grant select on public.trotan_mo_activity to authenticated;
 -- only signed-in staff call TROTAN helpers; trigger functions are never called directly
-revoke all on function public.trotan_can(text) from public, anon;
-grant execute on function public.trotan_can(text) to authenticated;
 revoke all on function public.trotan_guard_job(), public.trotan_guard_profile(), public.trotan_release_on_leave() from public, anon, authenticated;
 
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).

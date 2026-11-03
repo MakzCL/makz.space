@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useEffect, useMemo } from "react";
-import { AssemblingLogo, IS_KIMERA, MARK } from "./Logo";
+import { AssemblingLogo, IS_KIMERA, IS_TROTAN, MARK } from "./Logo";
 
 /**
  * Opened as an installed app on a phone, Android shows its own launch screen first:
@@ -22,7 +22,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, handoff ? 2600 : 2400); return () => clearTimeout(t); }, [onDone, handoff]);
   // The splash now shows the same frame: drop the static one from index.html.
   useEffect(() => { document.getElementById("boot")?.remove(); }, []);
-  const word = IS_KIMERA ? <>Kortana <span>Inventory</span></> : <>Skalarki <span>Electronics</span></>;
+  const word = IS_KIMERA ? <>Kortana <span>Inventory</span></> : IS_TROTAN ? <>TROTAN <span>Laser</span></> : <>Skalarki <span>Electronics</span></>;
 
   if (handoff) {
     const tile = Math.min(innerWidth, innerHeight) * TILE_VW / 100;
@@ -32,7 +32,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
         {/* The halo grows out from where the launch-screen tile was. */}
         <motion.div className="splash-disc" initial={{ scale: tile / 380, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 90, damping: 18 }} />
         {/* Frame 0 = Android's launch screen: the same icon, same size, same place. */}
-        <motion.img className="handoff-tile" src={IS_KIMERA ? "/kimera-maskable-512.png" : "/icon-maskable-512.png"} alt=""
+        <motion.img className="handoff-tile" src={IS_KIMERA ? "/kimera-maskable-512.png" : IS_TROTAN ? "/trotan-maskable-512.png" : "/icon-maskable-512.png"} alt=""
           style={{ width: tile, height: tile, marginLeft: -tile / 2, marginTop: -tile / 2 }}
           initial={{ opacity: 1, scale: 1 }} animate={{ opacity: 0, scale: 0.92 }} transition={{ delay: 0.12, duration: 0.45, ease: [0.4, 0, 0.2, 1] }} />
         <div className="handoff-mark" style={{ height: markH * MARK.pad, marginTop: -(markH * MARK.pad) / 2 }}>
@@ -52,7 +52,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
   return (
     <motion.div className="splash" exit={{ opacity: 0, y: -24 }} transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }} onClick={onDone}>
       <motion.div className="splash-disc" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 90, damping: 16 }} />
-      <AssemblingLogo size={IS_KIMERA ? 92 : 78} delay={0.15} />
+      <AssemblingLogo size={IS_KIMERA || IS_TROTAN ? 92 : 78} delay={0.15} />
       <motion.div className="splash-word" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8, type: "spring", stiffness: 160, damping: 18 }}>
         {word}
       </motion.div>

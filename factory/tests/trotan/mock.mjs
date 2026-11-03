@@ -25,7 +25,10 @@ const KEYS = ["power", "speed", "freq", "passes", "focus", "dpi", "air"];
 export function rpcs(D, who) {
   const ops = new Map();
   const once = (k, fn) => { if (k && ops.has(k)) return ops.get(k); const r = fn(); if (k) ops.set(k, r); return r; };
-  return {
+  const ALL = ["manage", "design", "prepare", "produce", "admin", "approve"];
+  const this_ = {
+    trotan_my_sections: () => { const pr = D.profiles.find((x) => x.id === who()); if (!pr?.active) return []; if (["boss", "developer"].includes(pr.role)) return ALL;
+      return D.trotan_person_access?.find((x) => x.profile_id === pr.id)?.sections ?? D.trotan_access.find((a) => a.role === pr.role)?.sections ?? []; },
     trotan_save: ({ p_project, p_base, p_doc, p_note, p_revision }) => {
       const p = D.trotan_projects.find((x) => x.id === p_project) ?? fail("Project not found");
       if (p.version !== p_base) fail(`Someone else saved this project (now version ${p.version}) — reload to see their changes`);
@@ -68,6 +71,16 @@ export function rpcs(D, who) {
       const r = { id: randomUUID(), job_id: j.id, machine_id: m.id, adapter: m.adapter, status: "running", started_by: who(), started_at: now(), finished_at: null, seconds: null, good: null, scrap: null, sheets_used: null, waste_sheets: null, notes: "", checks: p_checks, created_at: now() };
       D.trotan_runs.push(r); m.status = "busy"; Object.assign(j, { status: "running", started_at: now(), operator: who() }); return r.id;
     }),
+    trotan_record_external: ({ p_job, p_checks, p_status, p_good, p_scrap, p_seconds, p_sheets, p_notes, p_key }) => once(p_key, () => {
+      const j = D.trotan_jobs.find((x) => x.id === p_job) ?? fail("Job not found");
+      if (j.status !== "queued") fail("Only a queued job can be recorded");
+      const m = D.trotan_machines.find((x) => x.id === j.machine_id);
+      if (m.adapter !== "none") fail("Run simulated machines from TROTAN");
+      if (!Array.isArray(p_checks) || !p_checks.length || p_checks.some((c) => c.ok !== true)) fail("Confirm every check first");
+      const r = { id: randomUUID(), job_id: j.id, machine_id: m.id, adapter: "none", status: "running", started_by: who(), started_at: now(), checks: p_checks, created_at: now() };
+      D.trotan_runs.push(r); j.status = "running";
+      return this_.trotan_finish({ p_run: r.id, p_status, p_good, p_scrap, p_seconds, p_sheets, p_notes });
+    }),
     trotan_finish: ({ p_run, p_status, p_good, p_scrap, p_seconds, p_sheets, p_notes, p_key }) => once(p_key, () => {
       const r = D.trotan_runs.find((x) => x.id === p_run) ?? fail("Run not found");
       if (r.status !== "running") return r.status;
@@ -84,6 +97,7 @@ export function rpcs(D, who) {
       return p_status;
     }),
   };
+  return this_;
 }
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 /** Signed-in browser context whose Supabase traffic is served from D. */
@@ -92,7 +106,7 @@ export async function context(browser, D, { user = OWNER, w = 1440, h = 900, dsf
   const exp = Math.floor(Date.now() / 1000) + 36000;
   const tok = b64({ alg: "HS256", typ: "JWT" }) + "." + b64({ sub: user, exp, role: "authenticated", aud: "authenticated" }) + ".sig";
   const sess = { access_token: tok, refresh_token: "r", expires_at: exp, expires_in: 36000, token_type: "bearer", user: { id: user, aud: "authenticated", role: "authenticated", email: "t@x.test", app_metadata: {}, user_metadata: {} } };
-  await ctx.addInitScript(([k, v]) => { localStorage.setItem(k, v); localStorage.setItem("skf-perms-v1", "done"); sessionStorage.setItem("skf-splashed", "1"); }, [`sb-${REF}-auth-token`, JSON.stringify(sess)]);
+  await ctx.addInitScript(([k, v]) => { localStorage.setItem(k, v); localStorage.setItem("skf-perms-v1", "done"); sessionStorage.setItem("skf-splashed", "1"); sessionStorage.setItem("trotan-splashed", "1"); }, [`sb-${REF}-auth-token`, JSON.stringify(sess)]);
   const R = rpcs(D, () => user);
   await ctx.route("https://api.fontshare.com/**", (r) => r.abort());
   await ctx.route(`https://${REF}.supabase.co/**`, async (r) => {

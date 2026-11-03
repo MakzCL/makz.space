@@ -20,7 +20,7 @@ export interface RunRow { id: string; job_id: string; machine_id: string; adapte
 export interface ReservationRow { id: string; job_id: string; stock_item_id: string; quantity: number; status: "reserved" | "consumed" | "released"; consumed: number | null; created_at: string; closed_at: string | null }
 export interface AccessRow { role: string; sections: Section[] }
 
-interface TState { projects: ProjectRow[]; machines: MachineRow[]; materials: MaterialRow[]; profiles: ProfileRow[]; jobs: JobRow[]; runs: RunRow[]; reservations: ReservationRow[]; access: AccessRow[]; ready: boolean; error: string | null }
+interface TState { mine: Section[]; projects: ProjectRow[]; machines: MachineRow[]; materials: MaterialRow[]; profiles: ProfileRow[]; jobs: JobRow[]; runs: RunRow[]; reservations: ReservationRow[]; access: AccessRow[]; ready: boolean; error: string | null }
 const PROJECT_COLS = "id,number,name,customer,notes,tags,template,mo_job_id,version,archived,created_by,created_at,updated_by,updated_at";
 const TABLES = { projects: ["trotan_projects", PROJECT_COLS], machines: ["trotan_machines", "*"], materials: ["trotan_materials", "*"], profiles: ["trotan_profiles", "*"], jobs: ["trotan_jobs", "*"], runs: ["trotan_runs", "*"], reservations: ["trotan_reservations", "*"], access: ["trotan_access", "role,sections"] } as const;
 type Key = keyof typeof TABLES;
@@ -44,7 +44,7 @@ const OWNER = new Set(["boss", "developer"]);
 export function TrotanProvider({ children }: { children: ReactNode }) {
   const { backend, me } = useStore();
   const sb = useMemo(() => sbOf(backend), [backend]);
-  const [st, setSt] = useState<TState>({ projects: [], machines: [], materials: [], profiles: [], jobs: [], runs: [], reservations: [], access: [], ready: false, error: null });
+  const [st, setSt] = useState<TState>({ mine: [], projects: [], machines: [], materials: [], profiles: [], jobs: [], runs: [], reservations: [], access: [], ready: false, error: null });
   const load = useCallback(async (k: Key) => {
     const [t, cols] = TABLES[k];
     let q = sb.from(t).select(cols);
@@ -53,16 +53,21 @@ export function TrotanProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
     setSt((s) => ({ ...s, [k]: data ?? [] }));
   }, [sb]);
+  const loadMine = useCallback(async () => {
+    const { data, error } = await sb.rpc("trotan_my_sections");
+    if (error) throw error;
+    setSt((s) => ({ ...s, mine: (data ?? []) as Section[] }));
+  }, [sb]);
   const refresh = useCallback(async (k?: Key) => {
-    try { await Promise.all((k ? [k] : (Object.keys(TABLES) as Key[])).map(load)); setSt((s) => ({ ...s, ready: true, error: null })); }
+    try { await Promise.all([...(k ? [k] : (Object.keys(TABLES) as Key[])).map(load), ...(!k || k === "access" ? [loadMine()] : [])]); setSt((s) => ({ ...s, ready: true, error: null })); }
     catch (e) { setSt((s) => ({ ...s, ready: true, error: errText(e) })); }
-  }, [load]);
+  }, [load, loadMine]);
   useEffect(() => { refresh(); }, [refresh]);
   // live updates from other people and machines
   const pend = useRef(new Set<Key>()); const timer = useRef<number | null>(null);
   useEffect(() => {
     const ch = sb.channel("trotan-live");
-    const byTable = Object.fromEntries((Object.keys(TABLES) as Key[]).map((k) => [TABLES[k][0], k])) as Record<string, Key>;
+    const byTable = { ...Object.fromEntries((Object.keys(TABLES) as Key[]).map((k) => [TABLES[k][0], k])), trotan_person_access: "access" } as Record<string, Key>;
     ch.on("postgres_changes", { event: "*", schema: "public" }, (p: { table: string }) => {
       const k = byTable[p.table]; if (!k) return;
       pend.current.add(k);
@@ -72,7 +77,8 @@ export function TrotanProvider({ children }: { children: ReactNode }) {
     ch.subscribe();
     return () => { sb.removeChannel(ch); };
   }, [sb, refresh]);
-  const can = useCallback((s: Section) => !!me.active && (OWNER.has(me.role) || !!st.access.find((a) => a.role === me.role)?.sections.includes(s)), [me, st.access]);
+  // what this person may do, as the server decides it (role + personal setting); the server re-checks every action
+  const can = useCallback((s: Section) => !!me.active && (OWNER.has(me.role) || st.mine.includes(s)), [me, st.mine]);
   const rpc = useCallback(async <T,>(fn: string, args: Record<string, unknown>) => { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(error.message); return data as T; }, [sb]);
   const loadDoc = useCallback(async (id: string) => {
     const { data, error } = await sb.from("trotan_projects").select(`${PROJECT_COLS},doc`).eq("id", id).single();

@@ -2,7 +2,9 @@
 // keeps its own data (projects, machines, materials, settings, jobs) behind server-enforced rights.
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { FullLoader } from "../components/Loader";
+import { Splash } from "../components/Splash";
 import { ToastProvider } from "../components/Toast";
 import { createBackend, type Backend } from "../lib/backend";
 import { ROLE_META } from "../lib/roles";
@@ -35,12 +37,15 @@ export function TrotanApp() {
   const [backend, setBackend] = useState<Backend | null>(null);
   const [user, setUser] = useState<string | null | undefined>(undefined);
   const [theme, setTheme] = useState<"dark" | "light">(getTheme);
+  const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem("trotan-splashed"); } catch { return true; } });
+  const endSplash = useCallback(() => { try { sessionStorage.setItem("trotan-splashed", "1"); } catch { /* storage blocked */ } setSplash(false); }, []);
   useEffect(() => { createBackend().then(setBackend); }, []);
   useEffect(() => { document.documentElement.dataset.trotanTheme = theme; try { localStorage.setItem("trotan-theme", theme); } catch { /* ignore */ } }, [theme]);
   const check = useCallback(async () => { if (backend) setUser(await backend.currentUser()); }, [backend]);
   useEffect(() => { if (!backend) return; check(); return backend.onAuthChange(check); }, [backend, check]);
   return (
     <ToastProvider>
+      <AnimatePresence>{splash && <Splash key="splash" onDone={endSplash} />}</AnimatePresence>
       <div className={`trotan ${theme}`}>
         {!backend || user === undefined ? <FullLoader label="Starting TROTAN…" />
           : user === null ? <div className="t-login"><Login backend={backend} onIn={check} brand={{ name: "TROTAN", sub: "Laser design & production · Skalarki Electronics Ltd", logo: <TrotanMark size={34} /> }} /></div>
@@ -69,7 +74,7 @@ function Shell({ theme, setTheme, signOut }: { theme: "dark" | "light"; setTheme
   if (!T.ready) return <FullLoader label="Loading TROTAN…" />;
   if (!allowed.length) return (
     <div className="t-locked"><TrotanMark size={56} /><h2>TROTAN is not open for your role yet</h2>
-      <p className="t-note">The Owner can give your role access in TROTAN → Administration → Access.</p>
+      <p className="t-note">Ask the Owner, a Developer or a Manager: they give access in Kortana → Settings → TROTAN.</p>
       {T.error && <p className="t-note err">{T.error}</p>}
       <div className="t-row"><a className="t-btn" href={FACTORY_URL}>Open SK Factory</a><Btn onClick={signOut}>Sign out</Btn></div></div>
   );

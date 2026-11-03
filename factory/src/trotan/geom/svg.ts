@@ -201,7 +201,7 @@ export function exportSvg(doc: Doc, opts: { only?: Set<string> } = {}): string {
     const body = items.map(({ o, m }) => o.kind === "image"
       ? `<image href="${esc(o.src)}" width="${o.w}" height="${o.h}" transform="${mStr(m)}" preserveAspectRatio="none"/>`
       : `<path d="${pathData(transformPaths(localPaths(o), m))}"/>`).join("\n    ");
-    parts.push(`  <g id="${esc(l.id)}" data-name="${esc(l.name)}" data-operation="${l.op}" fill="none" stroke="${l.color}" stroke-width="0.1">\n    ${body}\n  </g>`);
+    parts.push(`  <g id="${esc(l.id)}" data-name="${esc(l.name)}" data-operation="${l.op}" fill="${l.op === "raster" ? l.color : "none"}" stroke="${l.color}" stroke-width="0.1">\n    ${body}\n  </g>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}mm" height="${doc.height}mm" viewBox="0 0 ${doc.width} ${doc.height}">\n${parts.join("\n")}\n</svg>\n`;
 }

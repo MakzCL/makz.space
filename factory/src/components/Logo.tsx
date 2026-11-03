@@ -17,11 +17,22 @@ export const K_PATHS = [
 ];
 export const K_VIEWBOX = "86 60 614 358";
 
+/** TROTAN "T": the SK top blade as the bar, cut through by a kerf, over a leaning stem (K-stem corner). */
+export const T_PATHS = [
+  "M96 150 C104 98 146 66 206 66 L368 66 L352 150 Z",
+  "M384 66 L620 66 C600 117 560 150 504 150 L368 150 Z",
+  "M290 154 L456 154 L404 412 L278 412 C248 412 228 392 234 362 Z",
+];
+export const T_VIEWBOX = "86 60 564 358";
+
 /** Kortana runs on kortana.makz.space (or /kimera): loaders and splash use the K there. */
 export const IS_KIMERA = typeof location !== "undefined" && (/^(kortana|kimera)\./.test(location.hostname) || location.pathname.startsWith("/kimera"));
+/** TROTAN runs on trotan.makz.space (or /trotan). */
+export const IS_TROTAN = !IS_KIMERA && typeof location !== "undefined" && (/^trotan\./.test(location.hostname) || location.pathname.startsWith("/trotan"));
 export interface Mark { paths: string[]; viewBox: string; ratio: number; /** viewBox height ÷ drawn mark height */ pad: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
 export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, pad: 368 / 347, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
 export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, pad: 358 / 346, fill: "k-grad", hi: "#e7a3ff", from: [], origin: "390px 240px" };
+export const T_MARK: Mark = { paths: [], viewBox: "86 60 564 358", ratio: 564 / 358, pad: 358 / 346, fill: "t-grad", hi: "#ffd28a", from: [], origin: "360px 240px" };
 
 export function Logo({ size = 44, className = "" }: { size?: number; className?: string }) {
   return (
@@ -41,14 +52,17 @@ const FROM = [
 
 SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
 K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
-export const MARK = IS_KIMERA ? K_MARK : SK_MARK;
+T_MARK.paths = T_PATHS; T_MARK.from = [{ x: -280, y: -80, rotate: -12 }, { x: 300, y: -70, rotate: 12 }, { x: -60, y: 240, rotate: 10 }];
+export const MARK = IS_KIMERA ? K_MARK : IS_TROTAN ? T_MARK : SK_MARK;
 
 /** Kortana's violet → berry sweep, continuous across the whole K.
  *  Every SVG gets its own gradient id: a shared id resolves to the first copy on the
  *  page, and if that one sits in a hidden element the K renders invisible. */
 const useGradId = () => `k-grad-${useId().replace(/:/g, "")}`;
 /** A mark's fill: SK is a solid colour, the K points at this SVG's own gradient. */
-export const fillOf = (mark: Mark, gid: string) => (mark.fill === "k-grad" ? `url(#${gid})` : mark.fill);
+export const fillOf = (mark: Mark, gid: string) => (mark.fill === "k-grad" ? `url(#${gid})` : mark.fill === "t-grad" ? `url(#${gid}-t)` : mark.fill);
+/** TROTAN's amber → laser red. */
+export const TGrad = ({ id }: { id: string }) => <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="640" y2="412"><stop offset="0" stopColor="#ffb03a" /><stop offset="1" stopColor="#ff3d2e" /></linearGradient>;
 export const KGrad = ({ id }: { id: string }) => <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="691" y2="412"><stop offset="0" stopColor="#8a6bff" /><stop offset="1" stopColor="#c7368f" /></linearGradient>;
 
 /** Plain Kortana K (no tile) — for headers, the sidebar button and the notch. */
@@ -58,6 +72,17 @@ export function KLogo({ size = 24, className = "" }: { size?: number; className?
     <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kortana">
       <defs><KGrad id={gid} /></defs>
       {K_PATHS.map((d) => <path key={d} d={d} fill={`url(#${gid})`} />)}
+    </svg>
+  );
+}
+
+/** Plain TROTAN T (no tile). */
+export function TLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
+  const gid = useGradId();
+  return (
+    <svg viewBox={T_VIEWBOX} width={size * T_MARK.ratio} height={size} className={`t-logo ${className}`} aria-label="TROTAN">
+      <defs><TGrad id={gid} /></defs>
+      {T_PATHS.map((d) => <path key={d} d={d} fill={`url(#${gid})`} />)}
     </svg>
   );
 }
@@ -72,7 +97,7 @@ export function AssemblingLogo({ size = 96, delay = 0, mark = MARK, burst = fals
   return (
     <svg viewBox={mark.viewBox} width={size * mark.ratio} height={size} className="sk-logo" style={{ overflow: "visible" }}>
       <defs>
-        <KGrad id={gid} />
+        <KGrad id={gid} /><TGrad id={`${gid}-t`} />
         <linearGradient id="sk-shine" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
           <stop offset="0.5" stopColor="#fff" stopOpacity="0.55" />

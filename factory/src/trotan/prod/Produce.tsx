@@ -10,6 +10,7 @@ import { buildToolpath, type Toolpath } from "../geom/laser";
 import { errText, fmtTime, useT, type JobRow, type MachineRow, type RunRow } from "../data";
 import { Btn, Check, Empty, Modal, Num, Pill, Text } from "../ui";
 import { Workbed } from "./Workbed";
+import { ExportPanel } from "./ExportPanel";
 
 const OPERATOR_CHECKS = ["Material is on the bed, flat and inside the marked area", "Focus is set for this material", "Extraction and air assist are running", "Lid is closed and the area is clear", "I am at the machine and can stop it"];
 const key = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
@@ -32,6 +33,7 @@ export function Produce({ dark }: { dark: boolean }) {
   const [finish, setFinish] = useState<{ run: RunRow; status: "done" | "failed" | "aborted"; seconds: number } | null>(null);
   const canRun = T.can("produce"), canPrep = T.can("prepare");
   const [tab, setTab] = useState<"queue" | "history">("queue");
+  const [external, setExternal] = useState(false);
   useEffect(() => () => abort.current?.abort(), []);
 
   if (!T.machines.length) return <div className="t-page"><Empty title="No machines" hint="An administrator adds machines in ADMINISTRATION → Machines." /></div>;
@@ -85,14 +87,20 @@ export function Produce({ dark }: { dark: boolean }) {
         {prog && <div className="t-progress" data-testid="sim-progress"><div style={{ width: `${(prog.t / prog.total) * 100}%` }} /><span>{prog.state === "running" ? `Simulating ${prog.item}/${prog.items} · ${fmtTime(prog.t)} of ${fmtTime(prog.total)} (20× speed)` : prog.state}</span></div>}
       </div>}
       {tab === "queue" && <div className="t-prod-r">
-        {info && <section><h4>Machine</h4><p className="t-note">{info.notes}</p>{machine?.adapter === "none" && <p className="t-note warn">Export the job from PREPARE and run it with the manufacturer's software, using the machine's own start button and safety procedure.</p>}</section>}
+        {info && <section><h4>Machine</h4><p className="t-note">{info.notes}</p>{machine?.adapter === "none" && <p className="t-note warn">TROTAN does not control this machine. Download the bed file and print the job sheet below, run the job with the machine's own software and start button, then record the result here.</p>}</section>}
         {job && <section>
           <h4>{job.number}</h4>
           <dl className="t-dl"><dt>Project</dt><dd>{project(job.project_id)?.name} · design v{job.revision}</dd><dt>Material</dt><dd>{material(job.material_id)?.name ?? "—"} · {Number(job.sheets)} sheet(s)</dd>
             <dt>Copies</dt><dd>{job.copies}</dd><dt>Estimate</dt><dd>{fmtTime(job.estimate_s)} <Pill tone="info">estimate</Pill></dd>
             <dt>Stock</dt><dd>{(() => { const r = T.reservations.find((x) => x.job_id === job.id); return r ? `${Number(r.quantity)} reserved in KORTANA (${r.status})` : "No KORTANA link"; })()}</dd>
             {job.mo_job_id && <><dt>SK Factory</dt><dd>{db.jobs.find((x) => x.id === job.mo_job_id)?.code ?? "linked job"}</dd></>}</dl>
-          {job.status === "queued" && <PreRun machine={machine!} canRun={canRun && !!adapter && machine?.adapter === "virtual" && machine.status === "idle" && !!tp} blocked={!canRun ? "Your role cannot run jobs" : machine?.adapter !== "virtual" ? "No validated interface for this machine" : machine.status !== "idle" ? `Machine is ${machine.status}` : !tp ? "Loading…" : null} onStart={startRun} />}
+          {job.status === "queued" && machine?.adapter === "none" && doc && <>
+            <h4>Run it on the machine</h4>
+            <ExportPanel doc={doc} placements={job.placements} tp={tp} ops={job.ops} machine={machine} material={material(job.material_id) ?? null} test={job.test} job={job.number} project={project(job.project_id)?.name ?? ""}
+              revision={job.revision} copies={job.copies} sheets={Number(job.sheets)} kerf={Number(job.kerf)} commonLine={job.common_line} estimate={job.estimate_s} moJobId={job.mo_job_id} />
+            <Btn tone="primary" disabled={!canRun} onClick={() => setExternal(true)} testid="record-external" title={canRun ? "After running it with the machine's own software" : "Your role cannot run jobs"}>Record the run…</Btn>
+          </>}
+          {job.status === "queued" && machine?.adapter !== "none" && <PreRun machine={machine!} canRun={canRun && !!adapter && machine?.adapter === "virtual" && machine.status === "idle" && !!tp} blocked={!canRun ? "Your role cannot run jobs" : machine?.adapter !== "virtual" ? "No validated interface for this machine" : machine.status !== "idle" ? `Machine is ${machine.status}` : !tp ? "Loading…" : null} onStart={startRun} />}
           {job.status === "queued" && canPrep && <div className="t-row"><Btn small onClick={() => back(job, "ready")}>Back to ready</Btn><Btn small tone="danger" onClick={() => back(job, "cancelled")}>Cancel job</Btn></div>}
           {run && <>
             <p className="t-note">Running since {new Date(run.started_at).toLocaleTimeString("en-GB")}.</p>
@@ -102,6 +110,7 @@ export function Produce({ dark }: { dark: boolean }) {
         </section>}
       </div>}
       {finish && job && <FinishForm job={job} f={finish} onClose={() => { setFinish(null); setProg(null); }} />}
+      {external && job && <FinishForm job={job} external f={{ run: { id: "" } as RunRow, status: "done", seconds: Number(job.estimate_s ?? 0) }} onClose={() => setExternal(false)} />}
     </div>
   );
 }
@@ -124,18 +133,24 @@ function PreRun({ machine, canRun, blocked, onStart }: { machine: MachineRow; ca
   );
 }
 
-function FinishForm({ job, f, onClose }: { job: JobRow; f: { run: RunRow; status: "done" | "failed" | "aborted"; seconds: number }; onClose: () => void }) {
+const EXTERNAL_CHECKS = ["I ran this job with the machine's own software and start button", "The settings from the job sheet were entered for every colour", "The machine's safety procedure was followed"];
+function FinishForm({ job, f, onClose, external }: { job: JobRow; f: { run: RunRow; status: "done" | "failed" | "aborted"; seconds: number }; onClose: () => void; external?: boolean }) {
+  const [ticks, setTicks] = useState(EXTERNAL_CHECKS.map(() => false));
   const T = useT(); const toast = useToast();
   const [status, setStatus] = useState(f.status); const [good, setGood] = useState(f.status === "done" ? job.copies : 0); const [scrap, setScrap] = useState(0);
   const [secs, setSecs] = useState(f.seconds); const [sheets, setSheets] = useState(f.status === "done" ? Number(job.sheets) : 0); const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false); const k = useRef(key());
   const save = async () => {
     setBusy(true);
-    try { await T.rpc("trotan_finish", { p_run: f.run.id, p_status: status, p_good: good, p_scrap: scrap, p_seconds: secs, p_sheets: sheets, p_notes: notes, p_key: k.current }); await T.refresh(); toast(status === "done" ? "Production recorded" : "Run recorded as " + status, "ok"); onClose(); }
+    try {
+      if (external) await T.rpc("trotan_record_external", { p_job: job.id, p_checks: EXTERNAL_CHECKS.map((c, i) => ({ name: c, ok: ticks[i] })), p_status: status, p_good: good, p_scrap: scrap, p_seconds: secs, p_sheets: sheets, p_notes: notes, p_key: k.current });
+      else await T.rpc("trotan_finish", { p_run: f.run.id, p_status: status, p_good: good, p_scrap: scrap, p_seconds: secs, p_sheets: sheets, p_notes: notes, p_key: k.current });
+      await T.refresh(); toast(status === "done" ? "Production recorded" : "Run recorded as " + status, "ok"); onClose(); }
     catch (e) { toast(errText(e), "error"); } finally { setBusy(false); }
   };
   return (
-    <Modal title={`Record result · ${job.number}`} onClose={onClose} foot={<><Btn onClick={onClose}>Later</Btn><Btn tone="primary" disabled={busy || good + scrap > 100000} onClick={save} testid="finish-save">Save result</Btn></>}>
+    <Modal title={`Record result · ${job.number}`} onClose={onClose} foot={<><Btn onClick={onClose}>Later</Btn><Btn tone="primary" disabled={busy || good + scrap > 100000 || (external && !ticks.every(Boolean))} onClick={save} testid="finish-save">Save result</Btn></>}>
+      {external && <div className="t-prerun">{EXTERNAL_CHECKS.map((c, i) => <Check key={c} on={ticks[i]} onChange={(v) => setTicks((t) => t.map((x, j) => (j === i ? v : x)))} label={c} testid={`ext-check-${i}`} />)}</div>}
       <div className="t-seg">{(["done", "failed", "aborted"] as const).map((s) => <button key={s} type="button" className={status === s ? "on" : ""} onClick={() => setStatus(s)}>{{ done: "Finished", failed: "Failed", aborted: "Stopped" }[s]}</button>)}</div>
       <div className="t-grid2">
         <Num label="Good parts" value={good} min={0} step={1} digits={0} onCommit={(v) => setGood(Math.round(v))} testid="finish-good" />

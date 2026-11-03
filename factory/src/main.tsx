@@ -25,7 +25,7 @@ if (trotan) {
   document.documentElement.classList.add("is-trotan");
   document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/trotan.webmanifest");
   document.querySelector('link[rel="icon"]')?.setAttribute("href", "/trotan.svg");
-  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", "/trotan-192.png");
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", "/trotan-apple-touch.png");
   document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "TROTAN");
   const f = document.createElement("link"); f.rel = "stylesheet"; f.href = "https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap"; document.head.appendChild(f);
 }

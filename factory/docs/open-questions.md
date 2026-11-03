@@ -105,10 +105,10 @@ default shown in brackets. Every default can be changed later.
 
 ## Added 3 Nov (TROTAN laser app)
 
-42. **Which laser machines do you have?** For each one: maker and model, bed size, laser type and power (e.g. CO₂ 60 W), and the software you run it with today. TROTAN will add each as "No validated interface": it prepares and exports jobs for it but never controls it.
+42. **Which laser machines do you have?** For each one: maker and model, bed size, laser type and power (e.g. CO₂ 60 W), and the software you run it with today. Each is added as "No validated interface": TROTAN prepares the job, gives a bed file (SVG/DXF) and a printed job sheet with the settings per colour, and records the result. The machine itself is always run with its own software.
     *(Default: only the virtual laser (simulation) is set up.)*
-43. **Who may approve laser settings?** Approving power and speed for a material is a safety decision. Which roles (or which people) should have "Approve settings"?
-    *(Default: Owner and Developer always; Manager has it too. Nobody else.)*
+43. **Who may approve laser settings?** Approving power and speed for a material is a safety decision. Which roles (or which people) should have "Approve laser settings"? Set it in Kortana → Settings → TROTAN.
+    *(Default: Owner, Developer and Manager only. TROTAN is closed to all other roles until you give access.)*
 44. **Materials and stock:** which sheet materials do you cut (type, thickness, sheet size), and are they already items in Kortana? TROTAN reserves the sheets when a job is queued and takes them out of stock only when the run is recorded as finished.
     *(Default: seven common materials without stock links. Link each one to a Kortana item in TROTAN → Administration → Materials.)*
 45. **Prohibited materials:** PVC/vinyl is blocked on the virtual laser. Which other materials must never go on your machines (for example polycarbonate, ABS, coated or unknown plastics)?

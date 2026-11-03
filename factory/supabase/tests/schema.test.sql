@@ -1285,6 +1285,32 @@ update public.profiles set active = true, role = 'office' where id = '00000000-0
 update public.profiles set active = true, role = 'operator' where id = '00000000-0000-0000-0000-0000000000e2';
 update public.profiles set active = true, role = 'support' where id = '00000000-0000-0000-0000-0000000000e3';
 update public.profiles set active = true, role = 'boss' where id = '00000000-0000-0000-0000-00000000000b';
+-- access: closed by default; Owner/Developer/Manager open it per role or per person
+select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
+select pg_temp.check(public.trotan_my_sections() = '{}' and not public.trotan_can('manage'), 'TROTAN closed to operators until access is given');
+select pg_temp.expect_fail($$select public.set_trotan_role_access('operator', '{manage,produce}')$$, 'TROTAN an operator cannot open TROTAN for themselves');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.expect_fail($$select public.set_trotan_role_access('office', '{manage}')$$, 'TROTAN office cannot change TROTAN access');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select pg_temp.check(cardinality(public.trotan_my_sections()) = 6, 'TROTAN the Owner always has every section');
+select public.set_trotan_role_access('operator', '{manage,produce}');
+select public.set_trotan_role_access('office', '{manage,design,prepare,produce}');
+select public.set_trotan_role_access('support', '{manage}');
+select pg_temp.expect_fail($$select public.set_trotan_role_access('support', '{manage,fly}')$$, 'TROTAN unknown sections are refused');
+select pg_temp.expect_fail($$select public.set_trotan_person_access('00000000-0000-0000-0000-00000000000b', '{}')$$, 'TROTAN the Owner cannot be restricted');
+select public.set_trotan_person_access('00000000-0000-0000-0000-0000000000e3', '{manage,produce}');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e3');
+select pg_temp.check(public.trotan_can('produce'), 'TROTAN a person override grants more than the role');
+select pg_temp.check((select count(*) from public.trotan_person_access) = 1, 'TROTAN people see only their own override');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select public.set_trotan_person_access('00000000-0000-0000-0000-0000000000e1', '{}');
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.check(not public.trotan_can('manage'), 'TROTAN an empty person override removes access');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select public.set_trotan_person_access('00000000-0000-0000-0000-0000000000e1', null);
+select public.set_trotan_person_access('00000000-0000-0000-0000-0000000000e3', null);
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.check(public.trotan_can('design'), 'TROTAN removing the override returns the person to their role');
 select pg_temp.become('00000000-0000-0000-0000-00000000000b');
 insert into public.stock_items (sku, name, kind, unit) values ('PLY3-SHEET', 'Plywood 3 mm sheet 600×400', 'material', 'sheet') returning id as tply \gset
 select public.opening_stock(:'tply', 5, 4.20);
@@ -1379,6 +1405,11 @@ insert into public.trotan_jobs (project_id, revision, machine_id, material_id, s
 select public.trotan_queue(:'tj3');
 select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
 select pg_temp.expect_fail($$select public.trotan_start('$$ || :'tj3' || $$', '[{"name":"x","ok":true}]')$$, 'TROTAN a machine without a validated interface can never be started from TROTAN');
+select pg_temp.expect_fail($$select public.trotan_record_external('$$ || :'tj3' || $$', '[{"name":"Ran with the machine software","ok":false}]', 'done', 3, 0, 120, 0)$$, 'TROTAN recording a real-machine run needs the checks confirmed');
+select pg_temp.check(public.trotan_record_external(:'tj3', '[{"name":"Ran with the machine software","ok":true}]', 'done', 3, 0, 120, 0, '', 'ext-1') = 'done', 'TROTAN a run done with the machine''s own software is recorded');
+select pg_temp.check(public.trotan_record_external(:'tj3', '[{"name":"x","ok":true}]', 'done', 3, 0, 120, 0, '', 'ext-1') = 'done', 'TROTAN recording again with the same key does nothing twice');
+select pg_temp.check((select status = 'done' and qty_good = 3 from public.trotan_jobs where id = :'tj3') and (select count(*) = 1 and bool_and(adapter = 'none' and status = 'done') from public.trotan_runs where job_id = :'tj3'), 'TROTAN real-machine run: one run, job done');
+select pg_temp.expect_fail($$select public.trotan_record_external('$$ || :'tj2' || $$', '[{"name":"x","ok":true}]', 'done', 1, 0, 1, 0)$$, 'TROTAN simulated machines cannot be recorded as real runs');
 select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
 delete from public.trotan_jobs where id = :'tj';
 select pg_temp.check((select count(*) = 1 from public.trotan_jobs where id = :'tj'), 'TROTAN a finished job cannot be deleted');

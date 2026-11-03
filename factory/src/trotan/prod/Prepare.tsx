@@ -11,6 +11,7 @@ import { useSession } from "../session";
 import { Btn, Check, Empty, Num, Pill, Sel } from "../ui";
 import { Workbed } from "./Workbed";
 import { sameParams } from "./sameParams";
+import { ExportPanel } from "./ExportPanel";
 
 export { sameParams };
 export const usedOps = (doc: Doc): OpType[] => {
@@ -198,6 +199,12 @@ export function Prepare({ dark, go }: { dark: boolean; go: (w: "manage" | "desig
           {!canPrep && <p className="t-note">Your role can view preparation but not save or queue jobs.</p>}
           <p className="t-note">Queuing reserves material in KORTANA. Stock is only consumed when production is recorded as finished.</p>
         </section>
+        {machine && <section>
+          <h4>Machine file &amp; job sheet</h4>
+          <ExportPanel doc={doc} placements={prep.placements} tp={tp} ops={jobOps} machine={machine} material={material} test={prep.test} job={job?.number ?? "New job"} project={S.project.name}
+            revision={job?.revision ?? null} copies={prep.placements.length} sheets={prep.sheets} kerf={prep.kerf} commonLine={prep.commonLine} estimate={est?.seconds ?? null} moJobId={prep.moJobId}
+            disabled={errors.length ? "Fix the validation errors first — the file and sheet are only for jobs that pass every check." : null} />
+        </section>}
       </div>
     </div>
   );

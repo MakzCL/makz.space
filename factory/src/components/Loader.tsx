@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useId } from "react";
-import { KGrad, MARK, fillOf } from "./Logo";
+import { KGrad, MARK, TGrad, fillOf } from "./Logo";
 
 /** Branded buffer: the four blades pulse in sequence while a stroke traces the mark. */
 export function Loader({ size = 40, label }: { size?: number; label?: string }) {
@@ -8,7 +8,7 @@ export function Loader({ size = 40, label }: { size?: number; label?: string }) 
   return (
     <div className="loader" role="status" aria-live="polite">
       <svg viewBox={MARK.viewBox} width={size * MARK.ratio} height={size} style={{ overflow: "visible" }}>
-        <defs><KGrad id={gid} /></defs>
+        <defs><KGrad id={gid} /><TGrad id={`${gid}-t`} /></defs>
         {MARK.paths.map((d, i) => (
           <g key={d}>
             <motion.path d={d} fill={fillOf(MARK, gid)}

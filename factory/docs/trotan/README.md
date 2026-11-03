@@ -49,8 +49,31 @@ Beyond the beta:
 - [ ] PDF export. Shown as "not available yet".
 - [ ] True-shape nesting. Nesting is currently by bounding box, and the UI says so.
 - [ ] Raster dithering and preview of greyscale levels. Rasters are engraved as filled areas in the estimate and simulation.
+- [x] Real machines: bed file (SVG/DXF), printable job sheet with settings per colour, and recording runs done with the machine's own software.
+- [x] Access per role and per person, set in Kortana → Settings → TROTAN.
 - [ ] Controlling a real machine. Not built, by design (see the adapter API below).
 - [ ] Laser activity in the SK Factory job screen. The `trotan_mo_activity` view is ready; no UI shows it yet.
+
+## Running jobs on real machines
+
+TROTAN never controls hardware. For a machine with no validated interface (the normal case), the operator:
+
+1. Prepares and queues the job as usual. Queuing needs approved settings for that material on that machine, and reserves the sheets in KORTANA.
+2. In PRODUCE, downloads the **bed file**. The SVG has engraving fills and cut lines; the DXF is vector work only. Every copy is on it, in millimetres, in cutting order, with kerf and common-line already applied, and one colour per layer.
+3. Prints the **job sheet**. It lists the exact settings to enter for each colour, who approved them and when, the material, sheet and copies, and a checklist to complete at the machine. A test job is marked as a test; colour clashes are flagged.
+4. Runs the job with the machine's own software, start button and safety procedure.
+5. Uses **Record the run…** to confirm three checks and enter good parts, scrap, time and sheets. The server function `trotan_record_external` writes the run and consumes the material from KORTANA once only (an idempotency key stops a repeated save counting twice). It only accepts machines that have no interface.
+
+## Access
+
+Access is managed in **Kortana → Settings → TROTAN**, by the Owner, a Developer or a Manager:
+
+- Each role gets a set of sections (Manage, Design, Prepare, Produce, Administration, Approve laser settings).
+- Any individual person can be given their own set, which replaces their role's. "Use role" removes it.
+- Owner and Developer always have everything.
+- A fresh install opens TROTAN only to Owner, Developer and Manager.
+- Changes go through `set_trotan_role_access` and `set_trotan_person_access`, which only those three roles may call. Every TROTAN table and function checks access through `trotan_can` on the server.
+- In SK Factory, the TROTAN link in the sidebar is only shown to people who have access.
 
 ## Precision
 
