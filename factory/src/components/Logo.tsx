@@ -17,11 +17,9 @@ export const K_PATHS = [
 ];
 export const K_VIEWBOX = "86 60 614 358";
 
-/** TROTAN "T": the SK top blade as the bar, cut through by a kerf, over a leaning stem (K-stem corner). */
+/** TROTAN "T": one solid shape, the SK swept top blade running straight into a leaning stem (no kerf, no seam). */
 export const T_PATHS = [
-  "M96 150 C104 98 146 66 206 66 L368 66 L352 150 Z",
-  "M384 66 L620 66 C600 117 560 150 504 150 L368 150 Z",
-  "M290 154 L456 154 L404 412 L278 412 C248 412 228 392 234 362 Z",
+  "M96 150 C104 98 146 66 206 66 L620 66 C600 117 560 150 504 150 L456 150 L404 412 L278 412 C248 412 228 392 234 362 L290 150 Z",
 ];
 export const T_VIEWBOX = "86 60 564 358";
 
@@ -52,7 +50,7 @@ const FROM = [
 
 SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
 K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
-T_MARK.paths = T_PATHS; T_MARK.from = [{ x: -280, y: -80, rotate: -12 }, { x: 300, y: -70, rotate: 12 }, { x: -60, y: 240, rotate: 10 }];
+T_MARK.paths = T_PATHS; T_MARK.from = [{ x: 0, y: -60, rotate: -6 }];
 export const MARK = IS_KIMERA ? K_MARK : IS_TROTAN ? T_MARK : SK_MARK;
 
 /** Kortana's violet → berry sweep, continuous across the whole K.
