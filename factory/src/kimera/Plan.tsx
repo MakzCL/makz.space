@@ -9,6 +9,8 @@ import { fmtQty, money, stockLevels } from "../screens/Inventory";
 import { useKimera } from "./actions";
 import { PageHead, Pill, shortDate } from "./kit";
 import { analyse } from "./status";
+import { ForecastView } from "./Forecast";
+import { SubTabs } from "./kit";
 
 /** What to make and what to buy so every open sales order can ship. */
 export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy: () => void }) {
@@ -19,6 +21,8 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
   const info = useMemo(() => analyse(db), [db]);
   const lv = useMemo(() => stockLevels(db), [db]);
   const editable = can.admin(me.role);
+  const [view, setView] = useState<"now" | "forecast">("now");
+  const tabs = <SubTabs value={view} onChange={setView} tabs={[{ value: "now", label: t("Open orders") }, { value: "forecast", label: t("Forecast") }]} />;
 
   const toMake = [...info.values()].filter((o) => o.rank !== null)
     .flatMap((o) => o.lines.filter((l) => !l.mo && l.sales.action === "make").map((l) => ({ o, l })))
@@ -44,9 +48,15 @@ export function Plan({ onOrder, onBuy }: { onOrder: (id: string) => void; onBuy:
   const bySup = new Map<string, typeof short>();
   for (const r of short) { const key = r.s.supplier_id ?? ""; bySup.set(key, [...(bySup.get(key) ?? []), r]); }
 
+  if (view === "forecast") return (
+    <div className="k-page">
+      <PageHead title={t("Plan")} sub={t("Weeks ahead: projected stock, demand forecast and what to buy or make, and when.")} tabs={tabs} />
+      <ForecastView onBuy={onBuy} />
+    </div>
+  );
   return (
     <div className="k-page">
-      <PageHead title={t("Plan")} sub={t("Open sales orders in rank order: what needs making, and what needs buying.")} />
+      <PageHead title={t("Plan")} sub={t("Open sales orders in rank order: what needs making, and what needs buying.")} tabs={tabs} />
       <Section title={<span className="row gap-s"><Factory size={17} /> {t("To make")}</span>}
         action={editable && toMake.length > 1 ? <Btn small tone="primary" busy={busy === "all"} onClick={async () => { setBusy("all"); for (const x of toMake) await k.makeLine(x.l.line.id); setBusy(null); }}>{t("Make all ({n})", { n: toMake.length })}</Btn> : undefined}>
         {toMake.length ? (

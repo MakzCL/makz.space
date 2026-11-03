@@ -1182,3 +1182,14 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .mo-mat .grow small { color: var(--muted, #8a91c4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mo-mat .num { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .mo-mat .num small { color: var(--muted, #8a91c4); white-space: nowrap; }
+/* forecast (phase 6a) */
+.fc-chart { margin: 0; } .fc-chart svg { width: 100%; height: auto; display: block; }
+.fc-grid { stroke: var(--line); stroke-width: 1; } .fc-zero { stroke: var(--muted, #8a91c4); stroke-width: 1; }
+.fc-axis { fill: var(--muted, #8a91c4); font-size: 11px; }
+.fc-bar { fill: #8a6bff; } .fc-bar.low { fill: #e5484d; }
+.fc-reorder { stroke: var(--text); stroke-width: 2; stroke-dasharray: 6 4; opacity: .7; }
+.fc-tip rect { fill: var(--surface); stroke: var(--line); } .fc-tip text { fill: var(--text); font-size: 11px; } .fc-tip text.b { font-weight: 700; }
+.fc-hist { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; align-items: end; height: 70px; }
+.fc-hist > div { height: 100%; display: flex; align-items: flex-end; } .fc-hist i { display: block; width: 100%; background: #8a6bff; border-radius: 4px 4px 0 0; opacity: .8; }
+.fc-hist small { grid-column: 1 / -1; }
+.fc-rec { border-left: 3px solid #e5484d; }

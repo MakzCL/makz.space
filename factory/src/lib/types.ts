@@ -359,6 +359,18 @@ export interface WhTask {
   done_at: string | null;
   done_by: string | null;
 }
+/** Manual demand forecast (PLAN-03/04): replaces the automatic forecast for that week or month. */
+export interface ForecastOverride {
+  id: string;
+  item_id: string;
+  location_id: string | null;
+  period: "week" | "month";
+  period_start: string;
+  quantity: number;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+}
 /** Materials a contractor uses per piece on an outsourced PO line; consumed at their location on receipt. */
 export interface PoMaterial {
   id: string;
@@ -646,6 +658,7 @@ export interface Tables {
   mo_materials: MoMaterial;
   po_materials: PoMaterial;
   wh_tasks: WhTask;
+  forecast_overrides: ForecastOverride;
   product_operations: ProductOperation;
   lots: Lot;
   lot_levels: LotLevel;
@@ -672,7 +685,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "forecast_overrides", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

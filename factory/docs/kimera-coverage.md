@@ -152,8 +152,8 @@ advisory lock per item, so concurrent requests serialise.
 | MFG-14 | Partial | material cost per MO from its consume movements (tested 7.35) | Operation/labour costs (phase 4) | — |
 | MFG-15 | Partial | work_sessions / participants person-time per job | Not costed | Extend |
 | MFG-16 | Partial | Factory app Jobs (phone) | — | Reuse |
-| MFG-17 | Partial | tasks, stage progress, time | No consumption/output entry | Extend |
-| MFG-18 | Missing | — | — | Implement |
+| MFG-17 | Complete (5c) | tasks, stage progress, time; crew books picking, output (actual usage) and returns from the SK Factory job sheet | — | Done |
+| MFG-18 | Complete (5c) | scan MO traveller labels to open the job; labels printed from the MO sheet | — | Done |
 
 ## G. Outsourced manufacturing — OUT-01 … OUT-06: **Complete (core), phase 4d**
 
@@ -180,11 +180,18 @@ advisory lock per item, so concurrent requests serialise.
 | WH-09 | Complete | realtime store; tasks auto-close when their PO is received, order shipped or transfer received (`wh_autoclose`) |
 | WH-10 | Missing | |
 
-## I. Planning — PLAN-01..05, 07, 08: **Missing**; PLAN-06: **Partial** (Plan "To make /
-To buy" quantities, no timing). Forecast method to implement: weekly buckets, simple
-moving average of the last N weeks of shipped quantities (N shown), manual overrides
-stored separately and always shown as "manual". No forecast without ≥ 8 weeks history
-unless manual.
+## I. Planning — PLAN-01..08: **Complete (core), phase 6a — not yet published**
+
+| ID | Status | Evidence |
+|---|---|---|
+| PLAN-01 | Complete | `plan_item()` week-by-week: opening (excl. in transit / WIP) + POs (incl. outsourced) + open MOs + transfers in − sales lines − MO ingredients − outsourced-PO materials − draft transfers out |
+| PLAN-02 | Complete | automatic forecast = weighted average of the last 12 complete weeks of shipments (weights 1..12), from the ledger (`demand_history`) |
+| PLAN-03 | Complete | `forecast_overrides` weekly (Monday) or monthly (1st, spread over the month's days); office only |
+| PLAN-04 | Complete | items with < 4 weeks of shipment history get no automatic forecast ("No history"); a manual month/week forecast drives them |
+| PLAN-05 | Complete | every week carries `forecast_source` auto / manual / none, shown as badges |
+| PLAN-06 | Complete | recommendation buy/make (recipe → make), quantity back up to the reorder point rounded to the batch, order-by = shortage week − lead time; Draft PO / Create MO buttons |
+| PLAN-07 | Complete | overrides flow straight into projection and recommendation (tested: 13 → 21) |
+| PLAN-08 | Complete | any function call can be limited to one location; Plan → Forecast has a location filter |
 
 ## J. Reporting
 
@@ -349,6 +356,8 @@ key per intent and disables the button while it runs.
 
 - 2026-11-03 — **Phase 5b — barcodes — built, not yet published.** `lib/scan.ts`: code resolution (barcode → SKU → batch/serial → MO → PO → order → transfer → supplier part no.), Code-128 labels (items, batches, bins, MO travellers; 50×25 mm print sheet), handheld-scanner listener with priority (an open task beats the header); `components/Scanner.tsx` camera sheet with typed fallback. Tests: `tests/barcode.test.mjs` — every label decodes back with ZXing (ALL PASSED); browser: scan ticks pick lines, wrong code refused, header scan opens item/PO, camera fallback finds a batch, 84 labels printed — no errors.
 - 2026-11-03 — **Phase 5c — shop floor — built, not yet published.** MFG-17 → Complete: the crew records picking, pieces made (with actual usage) and returns from the SK Factory job sheet (shared `MoProduction`, compact on phones; server `can_work_mo` already allows the crew on the job). MFG-18 → Complete: scan an MO traveller label on the Jobs screen to open it; Kortana MO sheet prints the traveller label.
+
+- 2026-11-03 — **Phase 6a — planning — built, not yet published.** Section I. Booked sales use the forecast up (each week counts the larger), so demand is never counted twice. Tests: 11 new planning checks (hand-calculated scenario) ALL PASSED; browser: Plan → Forecast list, item sheet with chart (hover tooltip, reorder line), week table with Auto/Manual badges — no errors.
 
 ## Next steps (continuation plan)
 
