@@ -1177,3 +1177,8 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .scan-aim i { width: 72%; height: 34%; border-radius: 14px; border: 3px solid rgba(255,255,255,.9); box-shadow: 0 0 0 9999px rgba(0,0,0,.35); }
 .scan-last { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; font: 600 14px ui-monospace, monospace; color: #fff; }
 .scan-last.ok { background: rgba(22,163,74,.9); } .scan-last.bad { background: rgba(220,38,38,.9); }
+.mo-mat { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.2rem; border-bottom: 1px solid var(--line); }
+.mo-mat .grow { min-width: 0; display: flex; flex-direction: column; }
+.mo-mat .grow small { color: var(--muted, #8a91c4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mo-mat .num { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.mo-mat .num small { color: var(--muted, #8a91c4); white-space: nowrap; }

@@ -14,6 +14,10 @@ import { clock, dayLabel, hm, human, jobStats, participantMs } from "../lib/time
 import type { Job } from "../lib/types";
 import { InviteSheet, JobCard, STATUS, jobCode, priorityLabel, statusLabel } from "./parts";
 import { ProductionSheet } from "./Production";
+import { MoProduction } from "../kimera/MoProduction";
+import { moIngredients } from "../kimera/status";
+import { ScanButton } from "../components/Scanner";
+import { resolveCode } from "../lib/scan";
 
 export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew: () => void }) {
   const { db, me } = useStore();
@@ -46,7 +50,11 @@ export function Jobs({ onOpenJob, onNew }: { onOpenJob: (j: Job) => void; onNew:
       <SceneTabs kind="line" value={view} onChange={setView} title={lead ? t("All jobs") : t("My jobs")} sub={t("Sorted by manufacturing priority")}
         actions={lead ? <RoundBtn label={t("Production setup")} onClick={() => setSetup(true)}><Settings2 size={18} /></RoundBtn> : undefined}
         tabs={[{ value: "active", label: t("Active") }, { value: "done", label: t("Done") }]} />
-      <div className="searchbar"><Search size={18} /><input placeholder={t("Search order, product, customer…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="row gap">
+        <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search order, product, customer…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <ScanButton label="" continuous={false} title={t("Scan an order label")} hint={t("Scan the label on the job card or traveller to open it.")}
+          onCode={(code) => { const h = resolveCode(db, code); if (h.kind !== "job") return false; onOpenJob(h.job); return true; }} />
+      </div>
       {lead && stations.list.length > 0 && view === "active" && (
         <div className="station-strip">
           <button type="button" className={station === "any" ? "on" : ""} onClick={() => setStation("any")}><b>{db.jobs.filter((j) => j.status !== "done").length}</b><small>{t("All stations")}</small></button>
@@ -226,6 +234,8 @@ export function JobSheet({ job, onClose, onEdit, onReport }: { job: Job | null; 
                 </div>
               </div>
             )}
+
+            {j.sku && (j.assignees.includes(me.id) || lead || can.editStock(me.role)) && moIngredients(db, j).length > 0 && <MoProduction job={j} compact />}
 
             <div className="card flat">
               <small className="label">{t("Assigned")}</small>

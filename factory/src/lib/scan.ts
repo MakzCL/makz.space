@@ -29,7 +29,7 @@ export function resolveCode(db: DB, raw: string): ScanHit {
   if (bySku) return { kind: "item", item: bySku };
   const lot = db.lots.find((l) => l.code.toLowerCase() === lc);
   if (lot) return { kind: "lot", lot, item: db.stock_items.find((s) => s.id === lot.item_id) };
-  const job = db.jobs.find((j) => j.code.toLowerCase() === lc || `mo-${j.code}`.toLowerCase() === lc);
+  const job = db.jobs.find((j) => j.code.toLowerCase() === lc || `mo-${j.code.replace(/^#/, "").replace(/^SO-/i, "")}`.toLowerCase() === lc);
   if (job) return { kind: "job", job };
   const po = db.purchase_orders.find((p) => p.number.toLowerCase() === lc);
   if (po) return { kind: "po", po };

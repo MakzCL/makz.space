@@ -1079,4 +1079,10 @@ export const PL: Record<string, string> = {
   "How many labels?": "Ile etykiet?",
   "Print label": "Drukuj etykietę",
   "exp.": "ważne do",
+  "Scan an order label": "Skanuj etykietę zlecenia",
+  "Scan the label on the job card or traveller to open it.": "Zeskanuj etykietę na karcie zlecenia, aby je otworzyć.",
+  "A label for the job card: scanning it on the floor opens this order": "Etykieta na kartę zlecenia: skan na hali otwiera to zlecenie",
+  "Print traveller label": "Drukuj etykietę zlecenia",
+  "on the floor": "na hali",
+  "pc": "szt.",
 };

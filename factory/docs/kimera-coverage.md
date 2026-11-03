@@ -173,10 +173,10 @@ advisory lock per item, so concurrent requests serialise.
 | WH-01 | Complete (5a) | Kortana → Stock → Tasks works on phones: task list, one sheet per task with the work inside it |
 | WH-02 | Complete (5a) | `wh_tasks` (receive / pick & pack / ship / transfer / count), office assigns to Assistant-or-above, due date + note; one open task per document |
 | WH-03 | Complete (5a) | `wh_task_step()` start / done (assignee or office); pick done → order Packed; assigned assistants may ship that order (`my_wh_task` in `ship_lines`) |
-| WH-04 / WH-05 | Partial | task flows done; barcode scanning is 5b |
-| WH-06 | Partial | bins per item+location (phase 3); pick and count lists sorted by bin; scan-to-bin is 5b |
+| WH-04 / WH-05 | Complete (5b) | scan in receive (each scan +1 on the line), pick (ticks the line at its quantity, wrong item refused), ship (fills quantities); camera (BarcodeDetector, ZXing fallback for iPhone) + handheld scanners (`useWedgeScanner`) |
+| WH-06 | Complete (5b) | bins per item+location; pick/count lists sorted by bin; `BIN:` labels jump to that bin; bin labels printable per location |
 | WH-07 | Complete | partial receive and partial ship (per-line quantities) from the task |
-| WH-08 | Partial | count tasks book counts per location; scanning is 5b |
+| WH-08 | Complete (5b) | scan to count (+1 per scan, unlisted items added), scan to check transfers; header Scan opens any item/batch/MO/PO/order/transfer |
 | WH-09 | Complete | realtime store; tasks auto-close when their PO is received, order shipped or transfer received (`wh_autoclose`) |
 | WH-10 | Missing | |
 
@@ -346,6 +346,9 @@ key per intent and disables the button while it runs.
 - 2026-11-03 — **Phase 5a — warehouse tasks — built, not yet published.** See section H. Tests: 398 schema checks ALL PASSED, concurrency PASSED, tsc clean, build ok, browser smoke of Stock → Tasks, pick sheet, count sheet and New task (desktop + phone) — no errors.
 
 - 2026-11-03 — **Phase 5a + rename to Kortana published** (migration `kortana_phase5a_warehouse_tasks`, deploy of `1745d6b`). Restore point: `backup_20261103_phase5a` (56 tables) + branch `backup/pre-phase5a-kortana-2026-11-03` (7aa10f4). New address kortana.makz.space (DNS CNAME + Pages custom domain, certificate active); kimera.makz.space forwards to the same path there. Live check: wh_tasks present, ship guard active, costs still hidden, 0 stock mismatches.
+
+- 2026-11-03 — **Phase 5b — barcodes — built, not yet published.** `lib/scan.ts`: code resolution (barcode → SKU → batch/serial → MO → PO → order → transfer → supplier part no.), Code-128 labels (items, batches, bins, MO travellers; 50×25 mm print sheet), handheld-scanner listener with priority (an open task beats the header); `components/Scanner.tsx` camera sheet with typed fallback. Tests: `tests/barcode.test.mjs` — every label decodes back with ZXing (ALL PASSED); browser: scan ticks pick lines, wrong code refused, header scan opens item/PO, camera fallback finds a batch, 84 labels printed — no errors.
+- 2026-11-03 — **Phase 5c — shop floor — built, not yet published.** MFG-17 → Complete: the crew records picking, pieces made (with actual usage) and returns from the SK Factory job sheet (shared `MoProduction`, compact on phones; server `can_work_mo` already allows the crew on the job). MFG-18 → Complete: scan an MO traveller label on the Jobs screen to open it; Kortana MO sheet prints the traveller label.
 
 ## Next steps (continuation plan)
 
