@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
-import { Boxes, ClipboardCheck, Download, History, MapPin, Minus, Plus, Search, Trash2, Upload } from "lucide-react";
+import { Boxes, ClipboardCheck, Download, History, MapPin, Minus, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
+import { BIN_PREFIX, itemCode, printLabels } from "../lib/scan";
 import { useMemo, useState } from "react";
 import { SceneTabs } from "../components/Scene";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet, list } from "../components/ui";
@@ -154,6 +155,12 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
         <Btn tone="soft" icon={<Download size={17} />} onClick={() => download(`stock-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(
           ["SKU", "Name", "Type", "Category", "Location", "Unit", "In stock", "Committed", "Expected", "Available", "Reorder point", ...(costs ? ["Average cost", "Value"] : []), "Supplier"],
           rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.bin, r.s.unit, r.qty, r.committed, r.expected, r.available, r.s.min_quantity, ...(costs ? [r.s.avg_cost ?? "", r.value.toFixed(2)] : []), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
+        <Btn tone="soft" icon={<Tags size={17} />} title={t("Print a barcode label for every item shown (max 200)")} disabled={!rows.length} onClick={() => {
+          const its = rows.slice(0, 200).map((r) => r.s);
+          const bins = locF ? [...new Set(rows.map((r) => r.bin).filter(Boolean))] : [];
+          const ask = bins.length ? window.confirm(t("Print the {n} bin labels at this location too?", { n: bins.length })) : false;
+          printLabels([...its.map((s) => ({ code: itemCode(s), title: s.name, sub: s.sku })), ...(ask ? bins.map((b) => ({ code: BIN_PREFIX + b, title: t("Bin {b}", { b }), sub: places.find((l) => l.id === locF)?.name })) : [])]);
+        }}>{t("Labels")}</Btn>
         {can.editStock(me.role) && <Btn tone="primary" icon={<Plus size={18} />} onClick={() => setOpen("new")}>{t("New item")}</Btn>}
       </div>
       <div className="row between wrap">
@@ -230,6 +237,10 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
       <div className="stack">
         {live && (
           <>
+            {live.kind !== "service" && <div className="row end"><Btn small tone="ghost" icon={<Tags size={15} />} onClick={() => {
+              const n = Math.max(1, Math.min(200, Number(window.prompt(t("How many labels?"), "1")) || 0));
+              if (n) printLabels([{ code: itemCode(live), title: live.name, sub: live.sku }], n);
+            }}>{t("Print label")}</Btn></div>}
             <div className="tri">
               <div className="hl"><small>{t("In stock")}</small><b>{fmtQty(live.quantity)}</b><em>{live.unit}</em></div>
               <div><small>{t("Available")}</small><b>{fmtQty(live.quantity - (lv.committed.get(live.id) ?? 0))}</b><em>{t("{n} committed", { n: fmtQty(lv.committed.get(live.id) ?? 0) })}</em></div>

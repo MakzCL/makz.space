@@ -13,7 +13,10 @@ import { t } from "../lib/i18n";
 import { setPrefs, usePrefs } from "../lib/prefs";
 import { ROLE_META, can, kimeraSections } from "../lib/roles";
 import { StoreProvider, useHasStore, useStore } from "../lib/store";
-import { HistoryView, ImportSheet, ItemsView, RecipesView, stockLevels } from "../screens/Inventory";
+import { HistoryView, ImportSheet, ItemSheet, ItemsView, RecipesView, stockLevels } from "../screens/Inventory";
+import { ScanButton } from "../components/Scanner";
+import { resolveCode } from "../lib/scan";
+import type { StockItem } from "../lib/types";
 import { Login } from "../screens/Login";
 import { ProductionSheet } from "../screens/Production";
 import { PoSheet, PurchasingView, SuppliersView } from "../screens/Purchasing";
@@ -117,6 +120,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   const [routes, setRoutes] = useState(false);
   const [jobPeek, setJobPeek] = useState<string | null>(null);
   const [poPeek, setPoPeek] = useState<string | null>(null);
+  const [itemPeek, setItemPeek] = useState<StockItem | null>(null);
   const main = useRef<HTMLElement>(null);
   // Section access is chosen by the owner in Settings → Access (Owner/Developer always see all).
   const allowed = kimeraSections(me.role, db.kimera_access) as Tab[];
@@ -131,6 +135,18 @@ function Shell({ signOut }: { signOut: () => void }) {
     window.addEventListener("pointerdown", close); return () => window.removeEventListener("pointerdown", close);
   }, [menu]);
   const openOrder = (id: string) => { setOrder(id); const o = db.orders.find((x) => x.id === id); if (o) setSellKind(o.kind); go("sell"); };
+  /** Scan anything (item, batch, MO, PO, order, transfer) and open it. */
+  const onScan = (code: string) => {
+    const h = resolveCode(db, code);
+    if (h.kind === "item") setItemPeek(h.item);
+    else if (h.kind === "lot" && h.item) setItemPeek(h.item);
+    else if (h.kind === "job") setJobPeek(h.job.id);
+    else if (h.kind === "po") setPoPeek(h.po.id);
+    else if (h.kind === "order" && allowed.includes("sell")) openOrder(h.order.id);
+    else if (h.kind === "transfer" && allowed.includes("stock")) { setStockView("transfers"); go("stock"); }
+    else return false;
+    return true;
+  };
 
   const lv = stockLevels(db);
   const badges: Partial<Record<Tab, number>> = {
@@ -191,6 +207,7 @@ function Shell({ signOut }: { signOut: () => void }) {
           ))}
         </nav>
         <div className="k-right">
+          {(allowed.includes("stock") || allowed.includes("items")) && <ScanButton small label="" onCode={onScan} continuous={false} title={t("Scan anything")} hint={t("An item, batch, bin, MO, PO, order or transfer label.")} />}
           {admin && (
             <div className="k-menu-wrap">
               <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setMenu(menu === "create" ? null : "create")}>{t("Create")}</Btn>
@@ -227,6 +244,7 @@ function Shell({ signOut }: { signOut: () => void }) {
           </motion.div>
         )}
       </main>
+      <ItemSheet item={itemPeek ? db.stock_items.find((x) => x.id === itemPeek.id) ?? itemPeek : null} onClose={() => setItemPeek(null)} />
       <PoSheet po={poPeek ? db.purchase_orders.find((p) => p.id === poPeek) ?? null : null} onClose={() => setPoPeek(null)} />
       <ImportSheet open={importing} onClose={() => setImporting(false)} />
       <ProductionSheet open={routes} onClose={() => setRoutes(false)} />

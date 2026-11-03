@@ -1,4 +1,5 @@
-import { ArrowDownLeft, ArrowUpRight, Factory, Package, Route, Truck } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Factory, Package, Route, Tags, Truck } from "lucide-react";
+import { printLabels } from "../lib/scan";
 import { useEffect, useState } from "react";
 import { Badge, Btn, Sheet } from "../components/ui";
 import { useDocLink } from "../lib/doclink";
@@ -44,7 +45,8 @@ export function ItemLots({ item }: { item: StockItem }) {
                     : <span className={expired ? "red-t" : ""}>{day(l.expiry)}</span>}{expired && <Badge tone="red">{t("Expired")}</Badge>}</td>
                   <td className="muted">{lv.map((x) => locs.get(x.location_id)).join(", ") || "—"}</td>
                   <td className="num"><b>{q(total)}</b></td>
-                  <td><Btn small tone="ghost" icon={<Route size={14} />} onClick={() => setTrace(l.id)}>{t("Trace")}</Btn></td>
+                  <td className="row gap-s"><Btn small tone="ghost" icon={<Route size={14} />} onClick={() => setTrace(l.id)}>{t("Trace")}</Btn>
+                    <button type="button" className="icon-btn subtle" title={t("Print label")} aria-label={t("Print label")} onClick={() => printLabels([{ code: l.code, title: item.name, sub: `${item.sku}${l.expiry ? ` · ${t("exp.")} ${l.expiry}` : ""}` }], Math.max(1, Math.round(total)))}><Tags size={14} /></button></td>
                 </tr>);
             })}</tbody>
           </table>

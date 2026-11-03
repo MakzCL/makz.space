@@ -1169,3 +1169,11 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .card.wh-line .grow { min-width: 0; display: flex; flex-direction: column; }
 .wh-line.done { opacity: 0.55; }
 .wh-line input[type="checkbox"] { width: 22px; height: 22px; flex: none; }
+.card.wh-line.hot { box-shadow: 0 0 0 2px var(--accent, #8a6bff) inset; }
+/* camera scanner (phase 5b) */
+.scan-view { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 60vh; border-radius: 18px; overflow: hidden; background: #000; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-aim { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.scan-aim i { width: 72%; height: 34%; border-radius: 14px; border: 3px solid rgba(255,255,255,.9); box-shadow: 0 0 0 9999px rgba(0,0,0,.35); }
+.scan-last { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; font: 600 14px ui-monospace, monospace; color: #fff; }
+.scan-last.ok { background: rgba(22,163,74,.9); } .scan-last.bad { background: rgba(220,38,38,.9); }

@@ -11,6 +11,14 @@ import { dayLabel } from "../lib/time";
 import type { DB, Role, TableName, WhTask } from "../lib/types";
 import { ItemPicker, fmtQty } from "../screens/Inventory";
 import { placeList } from "../components/LocationSelect";
+import { ScanButton } from "../components/Scanner";
+import { hitItem, resolveCode } from "../lib/scan";
+
+/** Last scan result shown under the Scan button. */
+function ScanMsg({ m }: { m: { text: string; ok: boolean } | null }) {
+  return m ? <small className={m.ok ? "ok-t" : "red-t"} role="status">{m.text}</small> : null;
+}
+type Msg = { text: string; ok: boolean } | null;
 
 /* Phase 5a — warehouse tasks (WH-01/02/03/07/09). Office assigns; the assignee works the task on a phone. */
 
@@ -222,15 +230,28 @@ function ReceiveWork({ w, canWork }: { w: WhTask; canWork: boolean }) {
   const at = useAt(w.location_id);
   const [qty, setQty] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState<Msg>(null);
+  const [hot, setHot] = useState("");
   const keys = useRef(new Map<string, string>());
   const lines = db.po_lines.filter((l) => l.po_id === w.source_id).sort((x, y) => x.created_at.localeCompare(y.created_at));
   const items = new Map(db.stock_items.map((s) => [s.id, s]));
+  const scanned = useRef<Record<string, number>>({});
+  const onScan = (code: string) => {
+    const it = hitItem(resolveCode(db, code));
+    const l = it && (lines.find((x) => x.item_id === it.id && x.quantity > x.received) ?? lines.find((x) => x.item_id === it.id));
+    if (!l) { setMsg({ text: t("{c} is not on this delivery", { c: code }), ok: false }); return false; }
+    const n = (scanned.current[l.id] ?? 0) + 1; scanned.current[l.id] = n;
+    setQty((q) => ({ ...q, [l.id]: String(n) })); setHot(l.id);
+    setMsg({ text: t("{sku}: {n} scanned", { sku: it!.sku, n }), ok: true });
+    return true;
+  };
   return (
     <div className="stack">
+      {canWork && lines.some((l) => l.quantity > l.received) && <div className="row gap wrap"><ScanButton onCode={onScan} title={t("Scan what arrived")} hint={t("Each scan adds one to that line. Book it in when you're done.")} /><ScanMsg m={msg} /></div>}
       {lines.map((l) => {
         const it = items.get(l.item_id); const left = Math.max(0, l.quantity - l.received); const bin = at(l.item_id).bin;
         return (
-          <div key={l.id} className="card flat wh-line">
+          <div key={l.id} className={`card flat wh-line ${hot === l.id ? "hot" : ""}`}>
             <div className="grow"><b><span className="code">{it?.sku}</span> {it?.name}</b>
               <small className="muted">{t("{r} of {q} received", { r: fmtQty(l.received), q: fmtQty(l.quantity) })}{bin ? ` · ${t("bin")} ${bin}` : ""}</small></div>
             {left > 0 && canWork ? (
@@ -239,7 +260,7 @@ function ReceiveWork({ w, canWork }: { w: WhTask; canWork: boolean }) {
                 <Btn small tone="primary" busy={busy === l.id} disabled={!!busy} onClick={async () => {
                   const v = Number(cleanNumber(qty[l.id] ?? String(left))); if (!(v > 0)) return;
                   let k = keys.current.get(l.id); if (!k) { k = opKey(); keys.current.set(l.id, k); }
-                  setBusy(l.id); if (await a.receive(l, v, k, v > left)) keys.current.delete(l.id); setBusy("");
+                  setBusy(l.id); if (await a.receive(l, v, k, v > left)) { keys.current.delete(l.id); delete scanned.current[l.id]; setQty((q) => { const n = { ...q }; delete n[l.id]; return n; }); } setBusy("");
                 }}>{t("Book in")}</Btn>
               </span>
             ) : left === 0 ? <PackageCheck size={18} className="ok-t" /> : null}
@@ -262,6 +283,23 @@ function OrderWork({ w, canWork, onDone }: { w: WhTask; canWork: boolean; onDone
     .sort((x, y) => (at(x.item_id ?? "").bin || "~").localeCompare(at(y.item_id ?? "").bin || "~") || x.sort - y.sort);
   const o = db.orders.find((x) => x.id === w.source_id);
   const all = lines.length > 0 && lines.every((l) => ticked[l.id]);
+  const [got, setGot] = useState<Record<string, number>>({});
+  const [msg, setMsg] = useState<Msg>(null);
+  const [bin, setBin] = useState("");
+  const onScan = (code: string) => {
+    const h = resolveCode(db, code);
+    if (h.kind === "bin") { setBin(h.bin); setMsg({ text: t("Bin {b}", { b: h.bin }), ok: true }); return true; }
+    const it = hitItem(h);
+    const l = it && (lines.find((x) => x.item_id === it.id && (got[x.id] ?? 0) < x.quantity - x.shipped) ?? lines.find((x) => x.item_id === it.id));
+    if (!l) { setMsg({ text: t("{c} is not on this order", { c: code }), ok: false }); return false; }
+    const left = l.quantity - l.shipped, n = (got[l.id] ?? 0) + 1;
+    if (n > left) { setMsg({ text: t("{sku}: only {n} needed", { sku: it!.sku, n: fmtQty(left) }), ok: false }); return false; }
+    setGot((g) => ({ ...g, [l.id]: n }));
+    if (w.kind === "ship") setQty((q) => ({ ...q, [l.id]: String(n) }));
+    if (n >= left) setTicked((x) => ({ ...x, [l.id]: true }));
+    setMsg({ text: `${it!.sku}: ${fmtQty(n)} / ${fmtQty(left)}`, ok: true });
+    return true;
+  };
   const ship = () => {
     const ls = lines.map((l) => ({ line: l.id, qty: Number(cleanNumber(qty[l.id] ?? String(l.quantity - l.shipped))) })).filter((x) => x.qty > 0);
     return run("ship", () => B.rpc("ship_lines", { p_order: w.source_id, p_lines: ls, p_key: key.current }), ["orders", "order_lines", "stock_items", "stock_levels", "stock_movements"])
@@ -270,17 +308,18 @@ function OrderWork({ w, canWork, onDone }: { w: WhTask; canWork: boolean; onDone
   return (
     <div className="stack">
       {o && <small className="muted">{o.company || o.customer}{o.ship_to ? ` · ${o.ship_to}` : ""}{o.shipping_method ? ` · ${o.shipping_method}` : ""}</small>}
-      {w.kind === "pick" && <small className="muted">{t("Sorted by bin. Tick each line as you take it off the shelf.")}</small>}
+      {w.kind === "pick" && <small className="muted">{t("Sorted by bin. Tick each line as you take it off the shelf — or scan each piece.")}</small>}
+      {canWork && lines.length > 0 && <div className="row gap wrap"><ScanButton onCode={onScan} title={w.kind === "pick" ? t("Scan as you pick") : t("Scan what goes in the box")} hint={t("Scan a bin label to jump to it, then each piece.")} /><ScanMsg m={msg} /></div>}
       {lines.map((l) => {
         const it = items.get(l.item_id ?? ""); const left = l.quantity - l.shipped; const here = at(l.item_id ?? "");
         return (
-          <label key={l.id} className={`card flat wh-line ${ticked[l.id] ? "done" : ""}`}>
+          <label key={l.id} className={`card flat wh-line ${ticked[l.id] ? "done" : ""} ${bin && here.bin === bin && !ticked[l.id] ? "hot" : ""}`}>
             {w.kind === "pick" && <input type="checkbox" disabled={!canWork} checked={!!ticked[l.id]} onChange={(e) => setTicked({ ...ticked, [l.id]: e.target.checked })} />}
             <div className="grow"><b><span className="code">{it?.sku ?? l.sku}</span> {it?.name ?? l.name}</b>
               <small className={here.quantity < left ? "red-t" : "muted"}>{here.bin ? `${t("bin")} ${here.bin} · ` : ""}{t("{n} on the shelf", { n: fmtQty(here.quantity) })}</small></div>
             {w.kind === "ship" && canWork
               ? <input className="qty-input" inputMode="decimal" value={qty[l.id] ?? String(left)} onChange={(e) => setQty({ ...qty, [l.id]: e.target.value })} aria-label={t("Quantity")} />
-              : <b className="num">× {fmtQty(left)}</b>}
+              : <b className="num">{got[l.id] ? `${fmtQty(got[l.id])} / ` : "× "}{fmtQty(left)}</b>}
           </label>
         );
       })}
@@ -300,15 +339,28 @@ function TransferWork({ w, canWork }: { w: WhTask; canWork: boolean }) {
   const items = new Map(db.stock_items.map((s) => [s.id, s]));
   const name = (id: string) => db.locations.find((l) => l.id === id)?.name ?? "";
   const bin = (item: string, loc: string) => db.stock_levels.find((s) => s.item_id === item && s.location_id === loc)?.bin ?? "";
+  const [got, setGot] = useState<Record<string, number>>({});
+  const [msg, setMsg] = useState<Msg>(null);
   if (!tr) return null;
+  const trLines = db.transfer_lines.filter((l) => l.transfer_id === tr.id);
+  const onScan = (code: string) => {
+    const it = hitItem(resolveCode(db, code));
+    const l = it && (trLines.find((x) => x.item_id === it.id && (got[x.id] ?? 0) < x.quantity) ?? trLines.find((x) => x.item_id === it.id));
+    if (!l) { setMsg({ text: t("{c} is not on this transfer", { c: code }), ok: false }); return false; }
+    const n = (got[l.id] ?? 0) + 1;
+    if (n > l.quantity) { setMsg({ text: t("{sku}: only {n} needed", { sku: it!.sku, n: fmtQty(l.quantity) }), ok: false }); return false; }
+    setGot((g) => ({ ...g, [l.id]: n })); setMsg({ text: `${it!.sku}: ${fmtQty(n)} / ${fmtQty(l.quantity)}`, ok: true });
+    return true;
+  };
   const post = (action: "dispatch" | "receive") => run(action, () => B.rpc("post_transfer", { p_id: tr.id, p_action: action, p_key: key.current }),
     ["stock_transfers", "stock_levels", "stock_items", "stock_movements"]).then((ok) => { if (ok) key.current = opKey(); });
   return (
     <div className="stack">
       <small className="muted">{name(tr.from_location)} → {name(tr.to_location)}</small>
-      {db.transfer_lines.filter((l) => l.transfer_id === tr.id).map((l) => {
-        const it = items.get(l.item_id); const b = bin(l.item_id, tr.status === "draft" ? tr.from_location : tr.to_location);
-        return <div key={l.id} className="card flat wh-line"><div className="grow"><b><span className="code">{it?.sku}</span> {it?.name}</b>{b && <small className="muted">{t("bin")} {b}</small>}</div><b className="num">× {fmtQty(l.quantity)}</b></div>;
+      {canWork && ["draft", "in_transit"].includes(tr.status) && <div className="row gap wrap"><ScanButton onCode={onScan} title={t("Scan to check the goods")} /><ScanMsg m={msg} /></div>}
+      {trLines.map((l) => {
+        const it = items.get(l.item_id); const b = bin(l.item_id, tr.status === "draft" ? tr.from_location : tr.to_location); const n = got[l.id] ?? 0;
+        return <div key={l.id} className={`card flat wh-line ${n >= l.quantity ? "done" : ""}`}><div className="grow"><b><span className="code">{it?.sku}</span> {it?.name}</b>{b && <small className="muted">{t("bin")} {b}</small>}</div><b className="num">{n ? `${fmtQty(n)} / ` : "× "}{fmtQty(l.quantity)}</b></div>;
       })}
       {err && <p className="hint red-t">{err}</p>}
       {canWork && tr.status === "draft" && <Btn tone="primary" wide icon={<Truck size={17} />} busy={busy === "dispatch"} disabled={!!busy} onClick={() => post("dispatch")}>{t("Dispatch")}</Btn>}
@@ -323,8 +375,19 @@ function CountWork({ w, canWork }: { w: WhTask; canWork: boolean }) {
   const [val, setVal] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [extra, setExtra] = useState<string[]>([]);
+  const [msg, setMsg] = useState<Msg>(null);
   const levels = db.stock_levels.filter((s) => s.location_id === w.location_id);
-  const ids = w.items.length ? w.items : levels.filter((s) => s.quantity !== 0).map((s) => s.item_id);
+  const ids = [...new Set([...(w.items.length ? w.items : levels.filter((s) => s.quantity !== 0).map((s) => s.item_id)), ...extra])];
+  const onScan = (code: string) => {
+    const it = hitItem(resolveCode(db, code));
+    if (!it || it.kind === "service") { setMsg({ text: t("{c} is not a stock item", { c: code }), ok: false }); return false; }
+    if (!ids.includes(it.id)) setExtra((x) => [...x, it.id]);
+    setSaved((x) => ({ ...x, [it.id]: false }));
+    let n = 0; setVal((v) => { n = Number(cleanNumber(v[it.id] ?? "0")) + 1; return { ...v, [it.id]: String(n) }; });
+    setMsg({ text: t("{sku} +1", { sku: it.sku }), ok: true });
+    return true;
+  };
   const items = new Map(db.stock_items.map((s) => [s.id, s]));
   const rows = ids.map((id) => ({ it: items.get(id), lv: levels.find((s) => s.item_id === id) })).filter((r) => r.it)
     .sort((x, y) => (x.lv?.bin || "~").localeCompare(y.lv?.bin || "~") || x.it!.sku.localeCompare(y.it!.sku));
@@ -332,6 +395,7 @@ function CountWork({ w, canWork }: { w: WhTask; canWork: boolean }) {
   return (
     <div className="stack">
       <small className="muted">{t("Count what is physically there. Saving books the difference as a stock count.")}</small>
+      {canWork && <div className="row gap wrap"><ScanButton onCode={onScan} title={t("Scan to count")} hint={t("Each scan adds one. Items not on the list are added.")} /><ScanMsg m={msg} /></div>}
       {rows.map(({ it, lv }) => (
         <div key={it!.id} className={`card flat wh-line ${saved[it!.id] ? "done" : ""}`}>
           <div className="grow"><b><span className="code">{it!.sku}</span> {it!.name}</b>
