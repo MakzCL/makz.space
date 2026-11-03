@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 128" role="img" aria-label="Syndo">
+  <title>Syndo</title>
+  <g>
+    <path d="M27 104 L32 84 L46 92 Z" fill="#3D6BFF"/>
+    <circle cx="64" cy="42" r="23" fill="#FFC93C"/>
+    <circle cx="43" cy="76" r="23" fill="#3D6BFF"/>
+    <circle cx="85" cy="76" r="23" fill="#FF8A6B"/>
+    <circle cx="64" cy="65" r="10.5" fill="#FFFFFF"/>
+  </g>
+  <text x="128" y="88" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="68" font-weight="800" letter-spacing="-2" fill="currentColor">syndo</text>
+</svg>
