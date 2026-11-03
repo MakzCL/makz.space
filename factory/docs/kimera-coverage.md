@@ -340,6 +340,8 @@ key per intent and disables the button while it runs.
 - 2026-11-02 — Fix: Kimera "Create" menu opened to the right and went off-screen; it now opens leftwards from the button and is capped to the screen width.
 - 2026-11-02 — **Phase 4d + Create-menu fix published** (migration `kimera_phase4d_outsourcing`, deploy of `9a5f22d`). Restore point: `backup_20261102_phase4d` (55 tables) + branch `backup/pre-phase4d-2026-11-02` (aa64aa5). Live check: po_materials + outsourced PO columns present, costs still hidden, 0 stock mismatches.
 
+- 2026-11-03 — **Staff removal published** (migration `sk_factory_remove_staff`, deploy of `7aa10f4`). Restore point: `backup_20261103_staffremoval` (56 tables) + branch `backup/pre-staff-removal-2026-11-03` (9a5f22d). `remove_staff()` / `restore_staff()`: access gone at once (inactive, signed out, clocked out, off their jobs and stations), history kept, restorable; role rules in `can_remove_staff()`. Tests: 383 checks ALL PASSED.
+
 ## Next steps (continuation plan)
 
 1. **Publish phase 1** when you say so: backup schema `backup_<date>_phase1`, branch

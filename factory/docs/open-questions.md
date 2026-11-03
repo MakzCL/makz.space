@@ -89,3 +89,5 @@ default shown in brackets. Every default can be changed later.
     *(Default: anyone with stock rights; one pick list per order, sorted by bin.)*
 34. **Shop-floor time:** keep booking time per job as now, or should operators start and stop each operation (cutting, coating, assembly…) on a tablet at each station?
     *(Default: per job as now, plus optional per-operation start/stop for stations that have a tablet.)*
+35. **Who may remove staff:** Owner/Developer can remove anyone (except themselves, and never the last Owner/Developer). Manager and Office can remove anyone except Owner/Developer. Assistants can remove Operators and Support only. Is that right, or should Assistants be able to remove other roles too?
+    *(Default: as described. Removing someone keeps all their history, and they can be restored from Team → Removed staff.)*
