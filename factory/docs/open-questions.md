@@ -113,7 +113,6 @@ default shown in brackets. Every default can be changed later.
     *(Default: seven common materials without stock links. Link each one to a Kortana item in TROTAN → Administration → Materials.)*
 45. **Prohibited materials:** PVC/vinyl is blocked on the virtual laser. Which other materials must never go on your machines (for example polycarbonate, ABS, coated or unknown plastics)?
     *(Default: PVC/vinyl only, until you add more.)*
-46. **Web address for TROTAN:** is trotan.makz.space right? Until it is set up, TROTAN opens at factory.makz.space/trotan.
-    *(Default: trotan.makz.space, added when you say "publish".)*
+46. ~~**Web address for TROTAN**~~ Answered: TROTAN is at trotan.makz.space (also factory.makz.space/trotan).
 47. **File formats:** TROTAN imports SVG, DXF, PNG, JPG and BMP, and exports SVG, DXF, PNG and its own .trotan file. PDF, AI, EPS and CorelDRAW files are not supported yet. Which formats do your customers send most often?
     *(Default: no PDF/AI import. Ask senders for SVG or DXF.)*
