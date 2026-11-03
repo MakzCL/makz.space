@@ -142,7 +142,7 @@ export async function authRoutes(app: FastifyInstance) {
     const id = newId();
     await q("insert into users(id, username, email, password_hash, display_name) values ($1,$2,$3,$4,$5)",
       [id, body.username, body.email, await hashPassword(body.password), body.display_name || null]);
-    await sendVerification(id, body.email);
+    
     const s = await createSession(id, req, false);
     setCookie(reply, s.token);
     return { user: selfOut(await q1("select * from users where id = $1", [id])), token: s.token };

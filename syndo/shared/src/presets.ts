@@ -17,7 +17,7 @@ export const PRESETS: ThemeDoc[] = [
     panels: {
       rail: glassPanel(35, 18), sidebar: glassPanel(40, 18), dmSidebar: glassPanel(40, 18), chat: glassPanel(25, 10), header: glassPanel(35, 16),
       composer: { ...glassPanel(55, 16), radius: 14 }, members: glassPanel(35, 18), panels: glassPanel(45, 18), userPanel: glassPanel(55, 16),
-      call: glassPanel(30, 10), profileCard: glassPanel(70, 20), settings: glassPanel(80, 24), overlay: glassPanel(80, 24),
+      call: glassPanel(30, 10), profileCard: glassPanel(70, 20), settings: glassPanel(48, 24), overlay: glassPanel(48, 24),
     },
     background: { dark: { kind: "image", asset: "builtin:dunes", fit: "cover", x: 50, y: 50, zoom: 1, brightness: 90, saturation: 110, blur: 0, tint: "#0B1020", overlay: 20, vignette: 30 }, target: "app" },
     layout: { panelStyle: "floating", gap: 8, margin: 8, radius: 14 },

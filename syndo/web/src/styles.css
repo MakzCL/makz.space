@@ -827,3 +827,43 @@ input[type="color"]:focus-visible { outline: 2px solid var(--text); outline-offs
   .settings-scroll-body { flex: 1; }
   .effects-workbench { grid-template-columns: 1fr; }
 }
+html[data-desktop] .desktop-titlebar { display: flex; position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 120; align-items: center; background: var(--r-header-bg,var(--bg1)); backdrop-filter: var(--r-header-blur); color: var(--textMuted); -webkit-app-region: drag; user-select: none; }
+html[data-desktop]:has(.desktop-titlebar) body { padding-top: 32px; }
+html[data-desktop]:has(.desktop-titlebar) .shell, html[data-desktop]:has(.desktop-titlebar) .splash { height: calc(100dvh - 32px); }
+html[data-desktop]:has(.desktop-titlebar) .modal-back, html[data-desktop]:has(.desktop-titlebar) .studio-back { top: 32px; }
+.desktop-titlebar nav, .desktop-window-controls { display: flex; height: 100%; -webkit-app-region: no-drag; }
+.desktop-titlebar button { border: 0; background: transparent; color: inherit; display: grid; place-items: center; cursor: pointer; width: 34px; padding: 0; -webkit-app-region: no-drag; }
+.desktop-titlebar button:hover { background: #ffffff12; color: var(--text); }
+.desktop-titlebar .desktop-title { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; }
+.desktop-title .send-wordmark { width: 48px; opacity: .65; }
+.desktop-window-controls { margin-left: auto; }
+.desktop-window-controls button { width: 46px; }
+.desktop-titlebar .window-close:hover { background: #d63b40; color: white; }
+.profile-media-edit { position: relative; }
+.profile-media-edit .profile-pencil { position: absolute; z-index: 5; background: #171921d9; color: #fff; width: 30px; height: 30px; border: 0; border-radius: 9px; display: grid; place-items: center; opacity: 0; transition: opacity .16s; cursor: pointer; }
+.profile-media-edit:hover .profile-pencil, .profile-media-edit:focus-within .profile-pencil { opacity: 1; }
+.profile-banner-pencil { right: 10px; top: 10px; }
+.profile-avatar-pencil { left: 70px; top: 134px; }
+.profile-media-edit .profile-pencil:hover { background: #393c48; }
+@media(hover:none) { .profile-media-edit .profile-pencil { opacity: 1; } }
+.dm-privacy { padding: 8px 16px; background: color-mix(in srgb,var(--bg1) 75%,transparent); font-size: .7rem; color: var(--textMuted); }
+.dm-privacy .stack { padding: 16px 0 8px; }
+.key-fingerprint { font-size: .72rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.9; letter-spacing: .06em; }
+.dm-key-settings { padding-bottom: 24px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.encryption-mark { font-size: .62rem; opacity: .65; }
+@font-face { font-family: 'Cabinet Grotesk'; src: url('/fonts/CabinetGrotesk-Variable.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
+body, button, input, select, textarea { font-family: 'Cabinet Grotesk', system-ui, sans-serif; }
+.modal-back, .studio-back { background: #0005; }
+.modal { background: var(--r-overlay-bg,var(--bg2)); backdrop-filter: var(--r-overlay-blur); }
+.modal:has(.settings) { background: var(--r-settings-bg,var(--bg2)); backdrop-filter: var(--r-settings-blur); }
+.settings-body { background: transparent; backdrop-filter: none; }
+.settings .card, .studio .card, .effects-workbench { background: color-mix(in srgb,var(--text) 4%,transparent); }
+.settings-nav button.active, .settings-nav button:hover { background: color-mix(in srgb,var(--text) 10%,transparent); color: var(--text); }
+.settings input:not([type='color']):not([type='range']):not([type='checkbox']):not([type='radio']), .settings select, .settings textarea, .studio select, .studio textarea { background: color-mix(in srgb,var(--text) 7%,transparent); border-radius: 10px; }
+.settings input:focus, .settings select:focus, .settings textarea:focus { background: color-mix(in srgb,var(--text) 12%,transparent); }
+.btn { font-weight: 600; border-radius: 10px; background: color-mix(in srgb,var(--text) 8%,transparent); padding: 9px 15px; }
+.btn:hover { background: color-mix(in srgb,var(--text) 14%,transparent); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.danger { background: color-mix(in srgb,var(--danger,var(--brand-danger)) 70%,transparent); }
+.settings-nav .danger { background: transparent; }
+.effects-heading h3 { font-family: 'Cabinet Grotesk',system-ui,sans-serif; font-weight: 500; }

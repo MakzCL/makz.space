@@ -17,15 +17,10 @@ describe("Scenario 1 — accounts, friends, DMs, reconnect and history", () => {
   const ana = client("ana"), ben = client("ben");
   let dm: any;
 
-  it("registers two users and verifies email through the outbox", async () => {
+  it("registers users without requiring a verification email", async () => {
     await ana.register(); await ben.register();
-    assert.equal(ana.user.email_verified, false);
-    const token = await mailToken(ana, "ana@example.test", "verify");
-    assert.ok(token, "verification email recorded");
-    const r = await ana.post("/api/auth/verify-email", { token });
-    assert.equal(r.status, 200);
-    assert.equal((await ana.get("/api/users/@me")).body.email_verified, true);
-    assert.equal((await ana.post("/api/auth/verify-email", { token })).status, 400, "token is single-use");
+    assert.equal((await ana.get("/api/users/@me")).status, 200);
+    assert.equal(ana.user.email_verified, false, "verification is not fabricated");
   });
 
   it("rejects duplicate usernames and bad passwords without leaking which accounts exist", async () => {

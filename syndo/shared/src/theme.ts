@@ -34,6 +34,7 @@ export type RegionId = (typeof REGIONS)[number]["id"];
 export const REGION_IDS = REGIONS.map((r) => r.id) as RegionId[];
 
 export const FONTS = {
+  cabinet: { label: "Cabinet Grotesk", stack: `"Cabinet Grotesk", system-ui, sans-serif` },
   system: { label: "System sans", stack: `"Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif` },
   rounded: { label: "Rounded", stack: `ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", "Segoe UI", system-ui, sans-serif` },
   serif: { label: "Serif", stack: `"Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif` },
@@ -123,7 +124,7 @@ export const DEFAULT_THEME: ThemeDoc = {
     accent: "#3D6BFF", accent2: "#FFC93C", mention: "#FFC93C", link: "#7EA2FF", danger: "#E5484D", success: "#2FBF71", warning: "#F2B33D",
   },
   panels: {},
-  typography: { font: "system", size: 15, lineHeight: 1.4, letterSpacing: 0 },
+  typography: { font: "cabinet", size: 15, lineHeight: 1.4, letterSpacing: 0 },
   layout: DEFAULT_LAYOUT,
   background: { dark: null, light: null, target: "app" },
   effects: { animatedBackground: false, glow: 0, blurScale: 1 },

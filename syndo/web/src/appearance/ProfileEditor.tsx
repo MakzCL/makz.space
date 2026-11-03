@@ -1,7 +1,7 @@
 import { CollectionArt } from "./CollectionArt.tsx";
 import { Range } from "../components/Range.tsx";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, Plus, Trash2, Pencil } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import {
   DECORATIONS, DEFAULT_PROFILE_THEME, EFFECT_KINDS, ENTRANCES, FRAMES, NAMEPLATES, NAME_STYLES, P, RING_STYLES, STATUS_SHAPES, has,
   type EffectLayer, type ProfileTheme, type User,
@@ -45,6 +45,17 @@ export function ProfileCardView({ d, serverTheme, statusDot }: { d: CardData; se
       </div>
     </div>
   );
+}
+
+export function ProfileMediaEdit({ children, avatar, banner }: { children: React.ReactNode; avatar: React.ChangeEventHandler<HTMLInputElement>; banner: React.ChangeEventHandler<HTMLInputElement> }) {
+  const av = useRef<HTMLInputElement>(null), bg = useRef<HTMLInputElement>(null);
+  const accept = "image/png,image/jpeg,image/gif,image/webp,image/avif";
+  return <div className="profile-media-edit">{children}
+    <input hidden type="file" ref={av} accept={accept} onChange={avatar} aria-label="Upload avatar image or GIF"/>
+    <input hidden type="file" ref={bg} accept={accept} onChange={banner} aria-label="Upload banner image or GIF"/>
+    <button className="profile-pencil profile-banner-pencil" aria-label="Edit banner" title="Upload image or GIF" onClick={() => bg.current?.click()}><Pencil size={15}/></button>
+    <button className="profile-pencil profile-avatar-pencil" aria-label="Edit avatar" title="Upload image or GIF" onClick={() => av.current?.click()}><Pencil size={15}/></button>
+  </div>;
 }
 
 /* ----------------------------------------------------------- cosmetics -- */
@@ -149,17 +160,13 @@ function GlobalProfile() {
         <label className="field"><span className="field-l">Pronouns</span><input value={f.pronouns} maxLength={40} onChange={(e) => setF({ ...f, pronouns: e.target.value })} /></label>
         <label className="field"><span className="field-l">About me</span><textarea value={f.bio} maxLength={400} rows={3} onChange={(e) => setF({ ...f, bio: e.target.value })} /></label>
         <label className="field"><span className="field-l">Status</span><input value={f.status} maxLength={128} onChange={(e) => setF({ ...f, status: e.target.value })} /></label>
-        <div className="row wrap">
-          <label className="btn sm">Avatar (static or animated)<input type="file" hidden accept="image/png,image/jpeg,image/gif,image/webp,image/avif" onChange={file("avatar")} /></label>
-          <label className="btn sm">Banner (static or animated)<input type="file" hidden accept="image/png,image/jpeg,image/gif,image/webp,image/avif" onChange={file("banner")} /></label>
-          {pct !== null && <progress max={1} value={pct} />}
-        </div>
+        {pct !== null && <progress max={1} value={pct} />}
         <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects" } }))}>Explore profile effects</button>
         <button className="btn primary" onClick={save}>Save profile</button>
       </div>
       <div className="stack">
         <small className="muted">Preview — how others see you</small>
-        <ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} />
+        <ProfileMediaEdit avatar={file("avatar")} banner={file("banner")}><ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} /></ProfileMediaEdit>
       </div>
     </div>
   );
@@ -207,7 +214,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
       <div className="stack">
         <p className="muted small">Only shown inside <strong>{guild.name}</strong>. Editing here never changes your global profile.</p>
         <U k="nick" label="Nickname">{canNick ? <input value={d.nick ?? ""} maxLength={32} onChange={(e) => setD({ ...d, nick: e.target.value })} /> : <span className="muted small">This server doesn't let you change your nickname.</span>}</U>
-        {media("avatar")}{media("banner")}
+        
         <U k="pronouns" label="Pronouns"><input value={d.pronouns ?? ""} maxLength={40} onChange={(e) => setD({ ...d, pronouns: e.target.value })} /></U>
         <U k="bio" label="Bio"><textarea value={d.bio ?? ""} maxLength={400} rows={3} onChange={(e) => setD({ ...d, bio: e.target.value })} /></U>
         <U k="status" label="Status"><input value={d.status ?? ""} maxLength={128} onChange={(e) => setD({ ...d, status: e.target.value })} /></U>
@@ -217,7 +224,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
       </div>
       <div className="stack">
         <small className="muted">Preview — how members of {guild.name} see you</small>
-        <ProfileCardView d={{ user: me, name: d.nick || displayName(me), username: me.username, pronouns: d.pronouns ?? me.pronouns, bio: d.bio ?? me.bio, avatar: server.avatar ?? me.avatar, banner: server.banner ?? me.banner, theme, status: d.status ?? me.custom_status?.text }} serverTheme={theme} />
+        <ProfileMediaEdit avatar={e => { const x = e.target.files?.[0]; if (x) { const fd = new FormData(); fd.append("file", x); upload(`/api/guilds/${guildId}/members/@me/avatar`, fd, () => {}).promise.then(load).catch(er => toast(errMsg(er), "error")); } e.target.value = ""; }} banner={e => { const x = e.target.files?.[0]; if (x) { const fd = new FormData(); fd.append("file", x); upload(`/api/guilds/${guildId}/members/@me/banner`, fd, () => {}).promise.then(load).catch(er => toast(errMsg(er), "error")); } e.target.value = ""; }}><ProfileCardView d={{ user: me, name: d.nick || displayName(me), username: me.username, pronouns: d.pronouns ?? me.pronouns, bio: d.bio ?? me.bio, avatar: server.avatar ?? me.avatar, banner: server.banner ?? me.banner, theme, status: d.status ?? me.custom_status?.text }} serverTheme={theme} /></ProfileMediaEdit>
       </div>
     </div>
   );

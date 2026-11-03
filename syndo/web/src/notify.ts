@@ -45,7 +45,7 @@ export function initNotifications() {
     if (prefs.sounds !== false && !visible) ping();
     if (visible || !prefs.desktop || typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const title = isDm ? (ch && ch.type === 3 ? `${displayName(m.author)} in ${dmTitle(ch)}` : displayName(m.author)) : `${displayName(m.author)} (#${ch?.name ?? "channel"})`;
-    const n = new Notification(title, { body: plainText(m.content).slice(0, 200) || "Sent an attachment", icon: BRAND.assets.appIcon192, tag: m.channel_id });
+    const n = new Notification(title, { body: isDm ? "New private message" : plainText(m.content).slice(0, 200) || "Sent an attachment", icon: BRAND.assets.appIcon192, tag: m.channel_id });
     n.onclick = () => { window.focus(); navigate(`/channels/${m.guild_id ?? "@me"}/${m.channel_id}/${m.id}`); n.close(); };
   });
   onEvent("CALL_UPDATE", (c) => {

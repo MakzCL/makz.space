@@ -87,6 +87,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean }; big?: boolean; onFocus: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const users = useStore((s) => s.users);
+  const me = useStore(s => s.me);
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
   const [menu, setMenu] = useState(false);
   useEffect(() => {
@@ -97,7 +98,7 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
   const pip = () => (ref.current as any)?.requestPictureInPicture?.().catch(() => {});
   return (
     <figure className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`} onDoubleClick={fullscreen}>
-      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={users[t.uid]} size={big ? 120 : 72} /></div>}
+      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : 72} /></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis">{t.name}</span></figcaption>
       <div className="tile-tools">
         <button className="icon-btn sm" onClick={onFocus} aria-label={big ? "Unfocus" : `Focus ${t.name}`}><Pin size={14} /></button>

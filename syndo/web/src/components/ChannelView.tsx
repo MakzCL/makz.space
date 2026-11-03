@@ -1,3 +1,4 @@
+import { DmPrivacyBar } from "./DmPrivacy.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
   AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Phone, Pin, PinOff,
@@ -95,7 +96,8 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       <div className="ch-body">
         <div className="ch-main" data-region="chat">
           {bg && target === "chat" && <Backdrop bg={bg} className="chat-bd" />}
-          <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
+          {!channel.guild_id && <DmPrivacyBar channel={channel.id}/>}
+        <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
@@ -211,6 +213,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
+              {!m.guild_id && m.type === 0 && <small className="muted encryption-mark">{m._encrypted ? " · Encrypted" : m._encryptionError ? " · Locked" : " · Older unencrypted message"}</small>}
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
@@ -270,6 +273,22 @@ function SystemMessage({ m, channel }: { m: UIMessage; channel: Channel }) {
 }
 
 function AttachmentView({ a }: { a: Message["attachments"][number] }) {
+  const [url, setUrl] = useState<string | null>(a.encryption ? null : a.url);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!a.encryption) { setUrl(a.url); return; }
+    let local: string | null = null, stopped = false; const controller = new AbortController();
+    fetch(a.url, { credentials: "same-origin", signal: controller.signal }).then(r => { if (!r.ok) throw Error("Download failed"); return r.arrayBuffer(); }).then(async bytes => {
+      const { decryptFile } = await import("../crypto/core.ts"); const clear = await decryptFile(new Uint8Array(bytes), a.encryption!.key, a.encryption!.nonce);
+      if (!stopped) { local = URL.createObjectURL(new Blob([new Uint8Array(clear)], { type: a.content_type })); setUrl(local); }
+    }).catch(() => { if (!stopped) setError(true); });
+    return () => { stopped = true; controller.abort(); if (local) URL.revokeObjectURL(local); };
+  }, [a.url, a.encryption?.key]);
+  if (error) return <span className="muted">Encrypted attachment could not be opened.</span>;
+  if (!url) return <span className="muted">Decrypting attachment…</span>;
+  return <AttachmentContent a={{ ...a, url }} />;
+}
+function AttachmentContent({ a }: { a: Message["attachments"][number] }) {
   const [open, setOpen] = useState(false);
   if (a.content_type.startsWith("image/")) return (
     <>

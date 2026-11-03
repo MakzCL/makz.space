@@ -15,6 +15,7 @@ const on = <T>(channel: string, cb: (v: T) => void) => {
 if (location.protocol === "file:") {
   // Local pages bundled with the app.
   contextBridge.exposeInMainWorld("syndoLocal", {
+    windowControl: (action: "minimize" | "maximize" | "close") => ipcRenderer.invoke("desktop:window", action),
     setServer: (url: string) => ipcRenderer.invoke("connect:set-server", String(url)),
     connectInfo: () => ipcRenderer.invoke("connect:info"),
     pickerSources: () => ipcRenderer.invoke("picker:sources"),
@@ -28,6 +29,7 @@ if (location.protocol === "file:") {
     setPushToTalk: (code: string | null) => ipcRenderer.invoke("desktop:set-ptt", code),
     onPushToTalk: (cb: (down: boolean) => void) => on<boolean>("ptt", (v) => cb(!!v)),
     setWindowMaterial: (m: "none" | "mica" | "acrylic") => ipcRenderer.invoke("desktop:set-material", m),
+    windowControl: (action: "minimize" | "maximize" | "close") => ipcRenderer.invoke("desktop:window", action),
     setPerformance: (v: { hardwareAcceleration?: boolean; reduceBackgroundWork?: boolean }) => ipcRenderer.invoke("desktop:set-performance", v),
     setLaunchOnStartup: (v: boolean) => ipcRenderer.invoke("desktop:set-startup", v),
     restart: () => ipcRenderer.invoke("desktop:restart"),

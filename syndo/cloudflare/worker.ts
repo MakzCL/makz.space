@@ -37,7 +37,7 @@ export class SENDBackend extends DurableObject<Env> {
     if (!c.running) c.start({image:"cloudflare/debian-trixie",instance:"basic",enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
       DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
       SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
-      SYNDO_AUTO_MIGRATE:"0", SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
+      SYNDO_AUTO_MIGRATE:"0", SYNDO_REQUIRE_DM_E2EE:"1", SYNDO_SFU_APP_ID:this.env.SFU_APP_ID, SYNDO_SFU_SECRET:this.env.SFU_APP_SECRET, SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
       SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT,
     }});
     await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
@@ -59,12 +59,12 @@ export class SENDBackend extends DurableObject<Env> {
         return await this.ctx.container.getTcpPort(3900).fetch("http://container/api/health", { signal: AbortSignal.timeout(2500) });
       } catch { /* Cold process: start or retry readiness below. */ }
     }
-    this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
+    if (!this.ready || !this.ctx.container?.running) this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
     if (new URL(request.url).pathname === "/api/health" && !this.ready) {
-      this.ctx.waitUntil(this.starting.catch(error => console.error("startup_failed",error.message)));
+      this.ctx.waitUntil(this.starting!.catch(error => console.error("startup_failed",error.message)));
       return Response.json({ok:false,status:"starting"},{status:503,headers:{"retry-after":"10"}});
     }
-    await this.starting;
+    if (this.starting) await this.starting;
     const url = new URL(request.url); url.protocol = "http:"; url.host = "container";
     const forwarded = new Request(url, request); forwarded.headers.delete("host");
     forwarded.headers.set("x-forwarded-for", request.headers.get("cf-connecting-ip") ?? "127.0.0.1");

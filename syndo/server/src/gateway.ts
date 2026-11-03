@@ -1,3 +1,4 @@
+import { removeFromRoom } from "./media.ts";
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { ChannelType, P, has, isDmType, isVoiceType, type VoiceState } from "@syndo/shared";
@@ -139,7 +140,7 @@ export async function publishVoice(uid: string, prev: VoiceState | null, next: V
 export async function setVoice(uid: string, sessionId: string, d: any): Promise<string | null> {
   const prev = voice.get(uid) ?? null;
   if (!d?.channel_id) {
-    if (prev) { voice.delete(uid); await publishVoice(uid, prev, null); }
+    if (prev) { voice.delete(uid); await removeFromRoom(prev.channel_id,uid); await publishVoice(uid, prev, null); }
     return null;
   }
   const ch = await getChannel(String(d.channel_id));

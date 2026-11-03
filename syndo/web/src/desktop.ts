@@ -10,11 +10,12 @@ export interface DesktopUpdate { state: "idle" | "checking" | "available" | "dow
 export interface DesktopSettings { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; hardwareAcceleration: boolean; reduceBackgroundWork: boolean; launchOnStartup: boolean; restartRequired: boolean }
 export interface SENDDesktop {
   version: string; platform: string;
-  capabilities: { globalPtt: boolean; systemAudio: boolean; windowMaterial: boolean; autoUpdate: boolean; tray: boolean };
+  capabilities: { customTitlebar?: boolean; globalPtt: boolean; systemAudio: boolean; windowMaterial: boolean; autoUpdate: boolean; tray: boolean };
   setPushToTalk(code: string | null): Promise<{ ok: boolean; reason?: string }>;
   onPushToTalk(cb: (down: boolean) => void): () => void;
   setWindowMaterial(m: "none" | "mica" | "acrylic"): Promise<{ ok: boolean }>;
   getSettings(): Promise<DesktopSettings>;
+  windowControl?(action: "minimize" | "maximize" | "close"): Promise<{ maximized: boolean }>;
   setPerformance?(v: { hardwareAcceleration?: boolean; reduceBackgroundWork?: boolean }): Promise<{ ok: boolean; restartRequired: boolean }>;
   setLaunchOnStartup?(v: boolean): Promise<{ ok: boolean }>;
   restart?(): Promise<void>;

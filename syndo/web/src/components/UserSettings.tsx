@@ -1,3 +1,4 @@
+import { DmKeySettings } from "./DmPrivacy.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -56,7 +57,7 @@ function Account() {
     <div className="stack">
       <h2>My account</h2>
       <div className="card row"><Avatar user={me} size={56} /><div><strong>{displayName(me)}</strong><div className="muted">@{me.username} · {me.email}</div>
-        {!me.email_verified && <p className="warn-text small">Email not verified. <button className="link" onClick={() => run(() => api.post("/api/auth/resend-verification"), "Verification email sent.")}>Resend</button></p>}</div></div>
+</div></div>
       <Field label="Username"><div className="add-row"><input defaultValue={me.username} id="uname" maxLength={32} /><button className="btn" onClick={() => run(() => api.patch("/api/users/@me", { username: (document.getElementById("uname") as HTMLInputElement).value }), "Username updated.")}>Save</button></div></Field>
       <h3>Password</h3>
       <form className="row wrap" onSubmit={(e) => { e.preventDefault(); run(() => api.post("/api/auth/change-password", pw), "Password changed. Other devices were signed out.").then((ok) => ok && setPw({ current: "", next: "" })); }}>
@@ -148,7 +149,7 @@ function Privacy() {
   const save = (p: Partial<typeof me.privacy>) => run(() => api.patch("/api/users/@me", { privacy: p }));
   return (
     <div className="stack">
-      <h2>Privacy & safety</h2>
+      <h2>Privacy & safety</h2><DmKeySettings />
       <Field label="Who can send you friend requests"><select value={me.privacy.friend_requests} onChange={(e) => save({ friend_requests: e.target.value as any })}>
         <option value="everyone">Everyone</option><option value="server_members">People in my servers and friends of friends</option><option value="friends_of_friends">Friends of friends</option><option value="nobody">Nobody</option></select></Field>
       <Toggle label="Allow direct messages from server members" hint="Friends can always message you. Blocked people never can." checked={me.privacy.dms_from_server_members} onChange={(v) => save({ dms_from_server_members: v })} />
@@ -200,6 +201,7 @@ function VoiceTab() {
       </Field>
       <Toggle label="Stereo (music mode)" hint="Needs a stereo source and turn off echo cancellation for true stereo; the receiver's device must play stereo." checked={s.stereo} onChange={(v) => updateVoiceSettings({ stereo: v, presetId: "custom" })} />
       <Toggle label="Echo cancellation" checked={s.echoCancellation} onChange={(v) => updateVoiceSettings({ echoCancellation: v, presetId: "custom" })} />
+      <div className="card stack"><strong>Noise suppression</strong><p className="muted small">Built-in processing runs locally. For Krisp, choose its virtual microphone below after installing the Krisp desktop app. Embedded Krisp SDK processing requires a separate licence.</p><button className="btn" onClick={() => { const device = devices.find(d => d.kind === "audioinput" && /krisp/i.test(d.label)); if (device) switchDevice("audioinput", device.deviceId); else toast("Krisp microphone not found. Start Krisp, allow microphone access, then refresh your devices.", "info"); }}>Use Krisp microphone</button></div>
       <Toggle label="Noise suppression" checked={s.noiseSuppression} onChange={(v) => updateVoiceSettings({ noiseSuppression: v, presetId: "custom" })} />
       <Toggle label="Automatic gain control" checked={s.autoGainControl} onChange={(v) => updateVoiceSettings({ autoGainControl: v, presetId: "custom" })} />
       <Toggle label="Save bandwidth in silence (DTX)" hint="Good for speech, bad for quiet music." checked={s.dtx} onChange={(v) => updateVoiceSettings({ dtx: v, presetId: "custom" })} />

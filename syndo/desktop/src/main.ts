@@ -59,6 +59,7 @@ let pendingDeepLink: string | null = null;
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 420, minHeight: 520,
+    frame: false,
     title: "SEND", icon: join(STATIC, "icon.png"), show: !config.startHidden,
     backgroundColor: config.material !== "none" && MATERIAL_OK ? "#00000000" : "#0E1220",
     autoHideMenuBar: true,
@@ -221,8 +222,15 @@ function registerIpc() {
   ipcMain.on("desktop:info", (e) => {
     e.returnValue = {
       version: app.getVersion(), platform: process.platform, osBuild: winBuild,
-      capabilities: { globalPtt: !!hook, systemAudio: isWin, windowMaterial: MATERIAL_OK, autoUpdate: app.isPackaged, tray: true },
+      capabilities: { customTitlebar: true, globalPtt: !!hook, systemAudio: isWin, windowMaterial: MATERIAL_OK, autoUpdate: app.isPackaged, tray: true },
     };
+  });
+  ipcMain.handle("desktop:window", (e, action: unknown) => {
+    if (e.sender !== win?.webContents || !win) return;
+    if (action === "minimize") win.minimize();
+    else if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize();
+    else if (action === "close") win.close();
+    return { maximized: win.isMaximized() };
   });
   ipcMain.handle("desktop:set-ptt", (_e, code: unknown) => {
     if (code === null) { pttKey = null; sendPtt(false); return { ok: true }; }
