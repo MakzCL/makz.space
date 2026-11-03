@@ -17,7 +17,7 @@ const fs = require('node:fs'), cp = require('node:child_process');
   child.on('exit', code => process.exit(code ?? 1));
 })().catch(e => {console.error(e.message);process.exit(1)});
 `;
-export class SyndoBackend extends DurableObject<Env> {
+export class SENDBackend extends DurableObject<Env> {
   private starting?: Promise<void>;
   private ready = false;
   constructor(ctx: DurableObjectState, env: Env) {
@@ -28,10 +28,13 @@ export class SyndoBackend extends DurableObject<Env> {
     const c = this.ctx.container;
     if (!c) throw new Error("Container not configured");
     if (c.running && await this.ctx.storage.get("active-source-commit") !== this.env.SOURCE_COMMIT) {
+      // Record the revision before stopping; a transient allocation failure must
+      // not repeatedly destroy the replacement instance on subsequent retries.
+      await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
       await c.destroy();
       this.ready = false;
     }
-    if (!c.running) c.start({enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
+    if (!c.running) c.start({image:"cloudflare/debian-trixie",instance:"basic",enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
       DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
       SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
       SYNDO_AUTO_MIGRATE:"0", SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,

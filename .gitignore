@@ -17,3 +17,5 @@ syndo/web/dist/
 syndo/desktop/dist/
 syndo/desktop/release/
 .wrangler/
+
+.dev.vars*
