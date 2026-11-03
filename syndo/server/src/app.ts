@@ -10,7 +10,7 @@ import { ZodError } from "zod";
 import { BRAND } from "@syndo/shared";
 import { authRoutes, sessionHook } from "./auth.ts";
 import { config } from "./config.ts";
-import { pool } from "./db.ts";
+import { dbTiming, pool } from "./db.ts";
 import { ApiError, notFound } from "./errors.ts";
 import { attachGateway } from "./gateway.ts";
 import * as storage from "./storage.ts";
@@ -32,6 +32,11 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     errorResponseBuilder: (_req, ctx) => ({ statusCode: 429, code: "rate_limited", message: `Slow down — try again in ${Math.ceil(ctx.ttl / 1000)}s.`, retry_after: Math.ceil(ctx.ttl / 1000) }),
   });
 
+  app.addHook("onRequest", (req, _reply, done) => { (req as any).__t0 = performance.now(); const t = { n: 0, ms: 0 }; (req as any).__db = t; dbTiming.run(t, done); });
+  app.addHook("onSend", async (req, reply) => {
+    const t = (req as any).__db as { n: number; ms: number } | undefined;
+    if (t) reply.header("server-timing", `db;dur=${t.ms.toFixed(1)};desc="${t.n} queries", app;dur=${(performance.now() - (req as any).__t0).toFixed(1)}`);
+  });
   app.addHook("onRequest", async (req, reply) => {
     reply.header("x-content-type-options", "nosniff");
     reply.header("referrer-policy", "same-origin");
@@ -61,6 +66,14 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   app.get("/api/health", async () => {
     await pool.query("select 1");
     return { ok: true, name: BRAND.name };
+  });
+  /** Where this backend runs and how far the database is — the single biggest factor in API latency. */
+  let colo: Promise<string> | null = null;
+  app.get("/api/health/latency", async () => {
+    colo ??= fetch("https://www.cloudflare.com/cdn-cgi/trace", { signal: AbortSignal.timeout(3000) }).then((r) => r.text()).then((t) => /colo=(\w+)/.exec(t)?.[1] ?? "unknown").catch(() => { colo = null; return "unknown"; });
+    const samples: number[] = [];
+    for (let i = 0; i < 5; i++) { const s = performance.now(); await pool.query("select 1"); samples.push(Math.round((performance.now() - s) * 10) / 10); }
+    return { colo: await colo, db_roundtrip_ms: samples, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } };
   });
   /** Instance metadata — identical limits for every account, published openly. */
   app.get("/api/instance", async () => ({ name: BRAND.name, tagline: BRAND.tagline, limits: config.limits, registration: true }));
