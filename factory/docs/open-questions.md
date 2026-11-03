@@ -96,3 +96,9 @@ default shown in brackets. Every default can be changed later.
     *(Default: nothing is connected until you add a key or webhook.)*
 38. **Forecast settings:** the automatic forecast uses the last 12 weeks of shipments. Is 12 weeks right for your business, or is it seasonal (e.g. busy before Christmas) so a longer history would be better?
     *(Default: 12 weeks; override any week or month by hand in Plan → Forecast.)*
+39. **Details for printed documents:** which company address (and VAT / company number, if wanted) should appear on purchase orders, packing slips and pick lists? Enter it in Kortana → Settings → Company, or send it and it will be added.
+    *(Default: company name only, until an address is entered.)*
+40. **Custom order fields:** which extra fields do you want on every sales order (e.g. customer PO number, aircraft type, installation date, installer)? Which of them must be filled in?
+    *(Default: none. Add them yourself in Settings → Company → Custom order fields.)*
+41. **Sub-assembly orders:** when a manufacturing order needs a part you make yourself (e.g. a pedestal box) and there are not enough, should Kortana create the linked order for that part automatically, or only when someone presses "Create sub-assembly orders"?
+    *(Default: only when pressed. Switch on automatic in Settings → Company.)*

@@ -13,24 +13,24 @@ Status key: **Complete** = core workflow works end to end with persistent data �
 results · **Unverified** = cannot be established from here.
 Action key: **Reuse / Extend / Repair / Implement**.
 
-## Current status — re-audited 3 Nov 2026 (supersedes the per-section tables below, which record the 2 Nov starting audit)
+## Current status — re-audited 3 Nov 2026, after phase 7 (supersedes the per-section tables below, which record the 2 Nov starting audit)
 
-**Complete and live:** CAT-01, 03, 04, 05, 07, 08 · INV-01–07, 09–15 · ALLOC-01–07 · SALES-02–06, 08, 10 · BUY-01–09 · MFG-01, 03–06, 08, 10–18 · OUT-01–06 · WH-01–09 · PLAN-01–08 · REP-01–09 · INT-01, 06–09 · ADMIN-01–05, 08
-(evidence for each: the phase sections in the progress log and tests in `supabase/tests/schema.test.sql`, 459 checks).
+**Complete and live:** CAT-01–08 · INV-01–15 · ALLOC-01–07 · SALES-02–10 · BUY-01–09 · MFG-01–18 · OUT-01–06 · WH-01–09 · PLAN-01–08 · REP-01–09 · INT-01, 06–09 · ADMIN-01–08
+(evidence for each: the phase sections in the progress log and tests in `supabase/tests/schema.test.sql`, 479 checks).
 
-**Still open — can be built now (no answers needed):**
+Phase 7 added:
 
-| ID | Gap |
-|---|---|
-| CAT-02 / CAT-06 | product variants (one product with option values, e.g. colour × version) and recipes per variant — today every variant is its own SKU |
-| SALES-07 | kits and bundles (sold as one line, components taken from stock, availability from the components) |
-| SALES-09 | custom fields on sales orders |
-| INV-08 | stocktake sessions: count first, review the differences, then post them together |
-| MFG-02 | sub-assembly MOs created and linked automatically from a parent MO |
-| MFG-07 | routings with steps that run at the same time |
-| MFG-09 | finish dates that take station capacity and the queue into account (today: operation time only) |
-| ADMIN-06 / 07 | printable documents (PO, pick list, packing slip, MO traveller sheet); workflow settings |
-| INT-10 | optional: ask questions about the business in plain language (permission-aware) |
+| ID | What now works | Where |
+|---|---|---|
+| CAT-02 / CAT-06 | product families with option names; each variant keeps its own SKU, stock, recipe and operations; "New variant" copies recipe, operations, suppliers and route | Items → item → Details → Family (`create_variant`) |
+| SALES-07 | kind **Kit**: sold as one line, never stocked; shipping, part-shipping, unshipping and returns move the components; availability and planning count component demand; sales report counts kits once | Items → Kit; `ship_lines`, `availability`, `plan_item`, `report` |
+| SALES-09 | custom order fields (text, number, date, choice, required) set by the office; on the order, new-order form, packing slip and `GET /orders` | Settings → Company; order sheet |
+| INV-08 | stocktake sessions per location: count by hand or scanner, see differences, post only counted lines against stock at the moment of posting, or cancel | Stock → Stocktakes (`start_stocktake`, `post_stocktake`) |
+| MFG-02 | linked sub-assembly orders for made-in-house parts that are short (on demand or automatically), shown both ways on the MO | MO sheet → Linked orders; Settings → Company |
+| MFG-07 / MFG-09 | operations with the same parallel group run together; planned finish counts the queue ahead at each station and the crew size, Mon–Fri working days | Recipe → Operations; MO sheet → Schedule (`mo_schedule`) |
+| ADMIN-06 / 07 | printable A4 documents with barcode: purchase / subcontract order, pick list (by bin, kits exploded), packing slip, production traveller; company name and address for documents | buttons on PO, order and MO sheets |
+
+**Still open — optional:** INT-10 (ask questions about the business in plain language, permission-aware).
 
 **Waiting for your answers:** SALES-01 / SALES-11 / SALES-12 / INT-02 (Shopify secret + sync, Q2–Q3) · INT-03 (QuickBooks or Xero, Q1) · INT-04 / 05 (HubSpot, shipping, marketplaces, Q12) · WH-10 (outside warehouse / 3PL).
 
