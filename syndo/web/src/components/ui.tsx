@@ -1,3 +1,4 @@
+import { CollectionArt } from "../appearance/CollectionArt.tsx";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BRAND_ART } from "../brand-art.ts";
@@ -35,6 +36,7 @@ export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { u
     <span className={`avatar ${decorClasses(theme, animate)}`} style={{ width: size, height: size, ...decorVars(theme) }}>
       {url ? <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
         : <span className="avatar-fallback" style={{ background: hue(user?.id ?? "0"), fontSize: size * 0.38 }} aria-hidden>{initials(user)}</span>}
+      {theme?.collection && <CollectionArt id={theme.collection} animate={animate} />}
       {status !== undefined && status !== null && <StatusDot status={status || presence} size={Math.max(10, size * 0.3)} />}
     </span>
   );

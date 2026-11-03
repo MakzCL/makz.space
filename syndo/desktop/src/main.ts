@@ -27,13 +27,16 @@ const winBuild = isWin ? Number(release().split(".")[2] ?? 0) : 0;
 const MATERIAL_OK = isWin && winBuild >= 22621; // Windows 11 22H2+
 
 /* -------------------------------------------------------------- config -- */
-interface Config { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; startHidden: boolean }
+interface Config { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; startHidden: boolean; hardwareAcceleration: boolean; reduceBackgroundWork: boolean }
 const CONFIG_PATH = () => join(app.getPath("userData"), "config.json");
-let config: Config = { serverUrl: BAKED_URL, closeToTray: true, material: "none", startHidden: false };
+let config: Config = { serverUrl: BAKED_URL, closeToTray: true, material: "none", startHidden: false, hardwareAcceleration: true, reduceBackgroundWork: true };
 function loadConfig() {
   try { if (existsSync(CONFIG_PATH())) config = { ...config, ...JSON.parse(readFileSync(CONFIG_PATH(), "utf8")) }; } catch { /* corrupt → defaults */ }
   if (!config.serverUrl) config.serverUrl = BAKED_URL;
 }
+loadConfig();
+const initialHardwareAcceleration = config.hardwareAcceleration !== false;
+if (!initialHardwareAcceleration) app.disableHardwareAcceleration();
 const saveConfig = () => { try { writeFileSync(CONFIG_PATH(), JSON.stringify(config, null, 2)); } catch { /* read-only profile */ } };
 const appOrigin = () => { try { return new URL(config.serverUrl).origin; } catch { return null; } };
 
@@ -62,7 +65,7 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true, spellcheck: true,
-      backgroundThrottling: false, // keep voice and screen share running when minimised
+      backgroundThrottling: config.reduceBackgroundWork, // Chromium keeps real-time media active; decorative work can sleep
     },
   });
   if (MATERIAL_OK && config.material !== "none") win.setBackgroundMaterial(config.material);
@@ -236,7 +239,23 @@ function registerIpc() {
     win?.setBackgroundMaterial(m);
     return { ok: true };
   });
-  ipcMain.handle("desktop:settings", () => ({ ...config, serverUrl: config.serverUrl }));
+  ipcMain.handle("desktop:settings", () => ({ ...config, launchOnStartup: isWin ? app.getLoginItemSettings().openAtLogin : false, restartRequired: config.hardwareAcceleration !== initialHardwareAcceleration }));
+  ipcMain.handle("desktop:set-performance", (e, input: unknown) => {
+    if (e.sender !== win?.webContents || !input || typeof input !== "object") return { ok: false };
+    const p = input as Record<string, unknown>;
+    if (Object.keys(p).some(k => !["hardwareAcceleration", "reduceBackgroundWork"].includes(k)) || Object.values(p).some(v => typeof v !== "boolean")) return { ok: false };
+    if (typeof p.hardwareAcceleration === "boolean") config.hardwareAcceleration = p.hardwareAcceleration;
+    if (typeof p.reduceBackgroundWork === "boolean") { config.reduceBackgroundWork = p.reduceBackgroundWork; win.webContents.setBackgroundThrottling(config.reduceBackgroundWork); }
+    saveConfig();
+    return { ok: true, restartRequired: config.hardwareAcceleration !== initialHardwareAcceleration };
+  });
+  ipcMain.handle("desktop:set-startup", (e, enabled: unknown) => {
+    if (!isWin || e.sender !== win?.webContents || typeof enabled !== "boolean") return { ok: false };
+    app.setLoginItemSettings({ openAtLogin: enabled });
+    return { ok: true };
+  });
+  ipcMain.handle("desktop:restart", e => { if (e.sender === win?.webContents) { quitting = true; app.relaunch(); app.quit(); } });
+  ipcMain.handle("desktop:refresh", e => { if (e.sender === win?.webContents) win.webContents.reloadIgnoringCache(); });
   ipcMain.handle("desktop:set-close-to-tray", (_e, v: unknown) => { config.closeToTray = v === true; saveConfig(); buildTrayMenu(); return { ok: true }; });
   ipcMain.handle("desktop:update-status", () => updateStatus);
   ipcMain.handle("desktop:check-updates", async () => { if (!autoUpdater) return updateStatus; await autoUpdater.checkForUpdates().catch(() => {}); return updateStatus; });
@@ -275,7 +294,6 @@ else {
   app.setAppUserModelId(APP_ID); // native Windows toasts for web notifications
   app.setAsDefaultProtocolClient("syndo");
   app.whenReady().then(() => {
-    loadConfig();
     handleDeepLink(process.argv);
     registerIpc();
     setupSession();

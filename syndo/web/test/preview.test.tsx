@@ -76,3 +76,24 @@ test("Studio keeps its SEND identity, toggles its preview and cancels without a 
     assert.equal(networkCalls, 0);
   } finally { view.unmount(); }
 });
+
+test("profile collections preview independently, filter, save and retain validated artwork", async () => {
+  dom.window.HTMLCanvasElement.prototype.getContext = (() => null) as any;
+  const { EffectsGallery } = await import("../src/appearance/EffectsGallery.tsx");
+  const { validateProfileTheme } = await import("@syndo/shared");
+  const user = userEvent.setup(); const view = render(<EffectsGallery />);
+  try {
+    const before = useStore.getState().me!.profile_theme;
+    await user.click(screen.getByRole("button", { name: "Preview Rose Court" }));
+    assert.equal(useStore.getState().me!.profile_theme, before, "preview does not change the public profile");
+    await user.click(screen.getByRole("button", { name: "Botanical", exact: true }));
+    assert.equal(screen.queryByRole("button", { name: "Preview Lunar Eclipse" }), null);
+    assert.ok(screen.getByRole("button", { name: "Preview Wisteria Night" }));
+    await user.click(screen.getByRole("button", { name: "Save effects", exact: true }));
+    assert.equal(useStore.getState().me!.profile_theme?.collection, "rosecourt");
+    const profile = await api.get<any>("/api/users/@me");
+    assert.equal(validateProfileTheme(profile.profile_theme).value?.collection, "rosecourt");
+    assert.ok(validateProfileTheme({ collection: "untrusted-art" }).issues.length);
+    assert.equal(networkCalls, 0);
+  } finally { view.unmount(); }
+});

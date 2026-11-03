@@ -1,3 +1,4 @@
+import { CollectionArt } from "./CollectionArt.tsx";
 import { Range } from "../components/Range.tsx";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -32,6 +33,7 @@ export function ProfileCardView({ d, serverTheme, statusDot }: { d: CardData; se
       style={t ? ({ "--pc1": t.primary, "--pc2": t.secondary } as React.CSSProperties) : undefined}>
       <div className={`pc-banner ${t && animate && t.bannerAnimation !== "none" ? `banner-${t.bannerAnimation}` : ""}`}
         style={d.banner ? { backgroundImage: `url(${d.banner})` } : { background: t ? `linear-gradient(135deg, ${t.primary}, ${t.secondary})` : d.user.accent_color ?? "var(--accent)" }} />
+      {t?.collection && <CollectionArt id={t.collection} frame animate={animate} />}
       {t && t.effects.length > 0 && <EffectsLayer layers={t.effects} animate={animate} hovered={hover} />}
       <div className="pc-av"><Avatar user={d.user} size={80} status={statusDot ?? undefined} src={d.avatar} serverTheme={t} /></div>
       <div className="pc-body">
@@ -152,7 +154,7 @@ function GlobalProfile() {
           <label className="btn sm">Banner (static or animated)<input type="file" hidden accept="image/png,image/jpeg,image/gif,image/webp,image/avif" onChange={file("banner")} /></label>
           {pct !== null && <progress max={1} value={pct} />}
         </div>
-        <CosmeticsEditor value={theme} onChange={setTheme} />
+        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects" } }))}>Explore profile effects</button>
         <button className="btn primary" onClick={save}>Save profile</button>
       </div>
       <div className="stack">
@@ -209,7 +211,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
         <U k="pronouns" label="Pronouns"><input value={d.pronouns ?? ""} maxLength={40} onChange={(e) => setD({ ...d, pronouns: e.target.value })} /></U>
         <U k="bio" label="Bio"><textarea value={d.bio ?? ""} maxLength={400} rows={3} onChange={(e) => setD({ ...d, bio: e.target.value })} /></U>
         <U k="status" label="Status"><input value={d.status ?? ""} maxLength={128} onChange={(e) => setD({ ...d, status: e.target.value })} /></U>
-        <U k="theme" label="Colours, effects & decorations">{d.theme && <CosmeticsEditor value={d.theme} onChange={(t) => setD({ ...d, theme: t })} />}</U>
+        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects", target: { kind: "guild", id: guildId, label: guild.name } } }))}>Explore server profile effects</button>
         <div className="row"><button className="btn primary" onClick={save}>Save server profile</button>
           <button className="btn" onClick={async () => { if (!confirm("Reset your whole server profile to your global profile?")) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>
       </div>

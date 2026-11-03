@@ -1,3 +1,4 @@
+import { EffectsGallery } from "./EffectsGallery.tsx";
 import { ScrollArea } from "../components/ScrollArea.tsx";
 import { Range } from "../components/Range.tsx";
 import { Copy, Download, Heart, ImagePlus, Redo2, RefreshCcw, Trash2, Undo2, Upload, X } from "lucide-react";
@@ -20,7 +21,7 @@ import {
 
 const SECTIONS = [
   ["gallery", "Theme gallery"], ["colors", "Colours & type"], ["panels", "Panels & transparency"], ["backgrounds", "Backgrounds"], ["layout", "Layout"],
-  ["profile", "Profile & effects"], ["servers", "Per-server"], ["conversations", "Per-conversation"], ["presets", "Presets & import/export"],
+  ["profile", "Profile"], ["effects", "Profile effects"], ["servers", "Per-server"], ["conversations", "Per-conversation"], ["presets", "Presets & import/export"],
   ["access", "Accessibility & performance"], ["advanced", "Advanced"],
 ] as const;
 type Section = (typeof SECTIONS)[number][0];
@@ -54,7 +55,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
   return (
     <TargetCtx.Provider value={target}>
       <div className="studio-back" data-region="settings" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-        <div className={`studio ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
+        <div className={`studio ${section === "effects" ? "studio-effects" : ""} ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
           <header className="studio-h">
             <h2 className="studio-brand" aria-label="SEND Studio"><Wordmark /><span>Studio</span></h2>
             <TargetPicker target={target} onChange={setTarget} />
@@ -78,15 +79,16 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
               {section === "backgrounds" && <BackgroundsSection />}
               {section === "layout" && <LayoutSection />}
               {section === "profile" && <ProfileEditor embedded />}
+              {section === "effects" && <EffectsGallery initialGuild={target.kind === "guild" ? target.id : undefined} />}
               {section === "servers" && <ScopeList kind="guild" onPick={(t) => { setTarget(t); setSection("colors"); }} />}
               {section === "conversations" && <ScopeList kind="channel" onPick={(t) => { setTarget(t); setSection("backgrounds"); }} />}
               {section === "presets" && <PresetsSection />}
               {section === "access" && <AccessSection />}
               {section === "advanced" && <AdvancedSection />}
-              <footer className="studio-f">
+              {section !== "effects" && <footer className="studio-f">
                 {sectionKeys && <button className="btn sm" onClick={() => resetSection(target, sectionKeys)}><RefreshCcw size={14} /> Reset this section{target.kind !== "global" ? " for this scope" : ""}</button>}
                 <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
-              </footer>
+              </footer>}
             </ScrollArea>
             {showPreview && <ScrollArea id="studio-live-preview" className="studio-preview-area" viewportClassName="studio-preview-wrap" role="complementary" aria-label="Live preview">
               <Preview onRegion={(r) => { setRegion(r); setSection("panels"); }} selected={section === "panels" ? region : null} />

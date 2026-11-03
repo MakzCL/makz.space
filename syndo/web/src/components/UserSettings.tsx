@@ -1,3 +1,4 @@
+import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@syndo/shared";
 import { api, errMsg, upload } from "../api.ts";
@@ -7,12 +8,12 @@ import { applyPreset, captureCapabilities } from "../voice/settings.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { PRESETS, type A11yPrefs } from "@syndo/shared";
-import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate } from "../desktop.ts";
+import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate, type DesktopSettings } from "../desktop.ts";
 import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
-const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -26,6 +27,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
         <section className="settings-body" role="tabpanel">
           {tab === "account" && <Account />}
           {tab === "profile" && <ProfileEditor />}
+          {tab === "effects" && <EffectsGallery />}
           {tab === "privacy" && <Privacy />}
           {tab === "appearance" && <AppearanceTab onClose={onClose} />}
           {tab === "accessibility" && <AccessibilityTab />}
@@ -228,7 +230,7 @@ function VoiceTab() {
 
 function DesktopTab() {
   const [u, setU] = useState<DesktopUpdate | null>(null);
-  const [cfg, setCfg] = useState<{ serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic" } | null>(null);
+  const [cfg, setCfg] = useState<DesktopSettings | null>(null);
   useEffect(() => {
     if (!desktop) return;
     desktop.getUpdateStatus().then(setU); desktop.getSettings().then(setCfg);
@@ -245,6 +247,14 @@ function DesktopTab() {
         {u?.state === "ready" ? <button className="btn primary" onClick={() => d.restartToUpdate()}>Restart to update</button>
           : <button className="btn" disabled={u?.state === "checking" || u?.state === "downloading" || u?.state === "disabled"} onClick={() => d.checkForUpdates().then(setU)}>Check for updates</button>}</div>
       {cfg && <Toggle label="Keep running in the tray when closed" hint="Calls and notifications keep working." checked={cfg.closeToTray} onChange={(v) => { d.setCloseToTray(v); setCfg({ ...cfg, closeToTray: v }); }} />}
+      {cfg && d.setPerformance && <>
+        <h3>Performance</h3>
+        <Toggle label="Hardware acceleration" hint="Use your graphics card for rendering. Restart SEND to apply changes." checked={cfg.hardwareAcceleration} onChange={async v => { const r = await d.setPerformance!({ hardwareAcceleration: v }); if (r.ok) setCfg({ ...cfg, hardwareAcceleration: v, restartRequired: r.restartRequired }); }} />
+        <Toggle label="Reduce background activity" hint="Let animations and timers sleep while SEND is hidden. Calls remain active." checked={cfg.reduceBackgroundWork} onChange={async v => { const r = await d.setPerformance!({ reduceBackgroundWork: v }); if (r.ok) setCfg({ ...cfg, reduceBackgroundWork: v }); }} />
+        {cfg.restartRequired && <div className="row"><span className="muted small">Restart to apply your graphics setting.</span><button className="btn" onClick={() => d.restart?.()}>Restart SEND</button></div>}
+      </>}
+      {cfg && desktop.platform === "win32" && d.setLaunchOnStartup && <Toggle label="Open SEND when Windows starts" checked={cfg.launchOnStartup} onChange={async v => { const r = await d.setLaunchOnStartup!(v); if (r.ok) setCfg({ ...cfg, launchOnStartup: v }); }} />}
+      {d.refreshInterface && <div className="row"><button className="btn" onClick={() => d.refreshInterface?.()}>Refresh to latest interface</button><span className="muted small">Load the latest Cloudflare update.</span></div>}
       {desktop.capabilities.windowMaterial ? (
         <Field label="Window material (Windows 11)" hint="Lets the desktop show through the app background. Panels keep the transparency you set in SEND Studio.">
           <select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
