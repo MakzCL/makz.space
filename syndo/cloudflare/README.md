@@ -1,8 +1,10 @@
 # SEND beta hosting
 
 The web app and renamed preview APK are published on the existing Pages project.
-The production API is not yet verified. Activating the prepared `send-beta-api`
-container requires approval for Cloudflare's metered hosting charges.
+The `send-beta-api` container is active with approval for Cloudflare hosting
+charges. Public health, registration, cookie sessions, invites, two-account
+realtime messaging, author permissions and private R2 uploads were verified.
+Pages proxies the API and gateway through the same app origin.
 
 The prepared architecture runs the existing Node/Fastify server in a Cloudflare
 managed container, PostgreSQL in the separate `syndo-beta` Supabase project, and
@@ -22,9 +24,10 @@ when deploying backend changes. Container startup installs locked production
 dependencies and sleeps after an hour of inactivity. The first cold start may
 be slow; the health endpoint returns 503 with Retry-After while starting.
 
-After approval, activate the container and public Worker endpoint, verify health,
-registration, two-account messaging, gateway reconnects and private uploads, then
-point Pages `SYNDO_API_ORIGIN` to that verified endpoint and redeploy Pages.
+Pages `SYNDO_API_ORIGIN` points to
+`https://send-beta-api.kuklinskikarol04.workers.dev`.
+The superseded `syndo-beta-api` container application remains pending explicit
+cleanup approval; deleting it was blocked by automatic approval review.
 Voice/video still requires LiveKit, and email delivery still requires SMTP.
 
 Cloudflare pricing: https://developers.cloudflare.com/containers/platform/pricing/

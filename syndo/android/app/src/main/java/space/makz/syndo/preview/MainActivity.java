@@ -38,14 +38,14 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this); bar.setGravity(android.view.Gravity.CENTER_VERTICAL); bar.setPadding(dp(12),0,dp(4),0);
         ImageView title = new ImageView(this); title.setImageResource(space.makz.syndo.preview.R.drawable.send_wordmark); title.setContentDescription("SEND"); title.setScaleType(ImageView.ScaleType.FIT_START);
         bar.addView(title, new LinearLayout.LayoutParams(0, dp(30), 1));
-        Button update = new Button(this); update.setText("Update"); update.setTextColor(Color.rgb(247,186,0)); update.setContentDescription("Load latest Cloudflare preview");
-        update.setOnClickListener(v -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?preview=1&build=" + System.currentTimeMillis()); });
+        Button update = new Button(this); update.setText("Update"); update.setTextColor(Color.rgb(247,186,0)); update.setContentDescription("Load latest SEND beta");
+        update.setOnClickListener(v -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1&build=" + System.currentTimeMillis()); });
         bar.addView(update);
         Button menu = new Button(this); menu.setText("⋮"); menu.setContentDescription("App menu"); bar.addView(menu, new LinearLayout.LayoutParams(dp(48), dp(48)));
         menu.setOnClickListener(v -> {
             PopupMenu popup = new PopupMenu(this, menu);
             popup.getMenu().add("Local interface preview").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); return true; });
-            popup.getMenu().add("Open live SEND").setOnMenuItemClickListener(item -> { web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
+            popup.getMenu().add("Open live SEND").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
             popup.getMenu().add("Open in browser").setOnMenuItemClickListener(item -> { browse(Uri.parse(BuildConfig.HOSTED_URL)); return true; });
             popup.show();
         });
@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        if (state == null) web.loadUrl(getPreferences(MODE_PRIVATE).getBoolean("hosted", false) ? BuildConfig.HOSTED_URL + "/?preview=1" : LOCAL); else if (web.restoreState(state) == null) web.loadUrl(LOCAL);
+        if (state == null) web.loadUrl(getPreferences(MODE_PRIVATE).getBoolean("hosted", true) ? BuildConfig.HOSTED_URL + "/?live=1" : LOCAL); else if (web.restoreState(state) == null) web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1");
     }
     private void grantMedia() {
         PermissionRequest request = pendingPermission; pendingPermission = null; if (request == null) return;

@@ -71,7 +71,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
             <ScrollArea className="studio-nav-area" viewportClassName="settings-nav" role="tablist" aria-orientation="vertical" aria-label="Studio sections">
               {SECTIONS.map(([id, label]) => <button key={id} role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>{label}</button>)}
             </ScrollArea>
-            <ScrollArea className="studio-editor-area" viewportClassName="studio-editor" role="tabpanel">
+            <ScrollArea key={section} className="studio-editor-area" viewportClassName="studio-editor" role="tabpanel">
               {section === "gallery" && <Gallery />}
               {section === "colors" && <ColorsSection />}
               {section === "panels" && <PanelsSection region={region} setRegion={setRegion} />}
