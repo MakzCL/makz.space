@@ -30,7 +30,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
   const [section, setSection] = useState<Section>(initial ?? "gallery");
   const [target, setTarget] = useState<Target>(initialTarget ?? { kind: "global" });
   const [region, setRegion] = useState<RegionId>("chat");
-  const [showPreview, setShowPreview] = useState(() => window.matchMedia("(min-width: 1200px)").matches);
+  const [showPreview, setShowPreview] = useState(false);
   const draft = useAppearance((s) => s.draft);
   const past = useAppearance((s) => s.past.length), future = useAppearance((s) => s.future.length);
   const saveState = useAppearance((s) => s.saveState);
