@@ -7096,6 +7096,10 @@ create or replace view public.trotan_mo_activity with (security_invoker = on) as
     from public.trotan_jobs j join public.trotan_projects p on p.id = j.project_id join public.trotan_machines m on m.id = j.machine_id
    where j.mo_job_id is not null;
 grant select on public.trotan_mo_activity to authenticated;
+-- only signed-in staff call TROTAN helpers; trigger functions are never called directly
+revoke all on function public.trotan_can(text) from public, anon;
+grant execute on function public.trotan_can(text) to authenticated;
+revoke all on function public.trotan_guard_job(), public.trotan_guard_profile(), public.trotan_release_on_leave() from public, anon, authenticated;
 
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
