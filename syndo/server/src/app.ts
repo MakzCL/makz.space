@@ -17,6 +17,7 @@ import { guildRoutes, inviteRoutes } from "./routes/guilds.ts";
 import { attachmentDownloadRoute, messageRoutes } from "./routes/messages.ts";
 import { userRoutes } from "./routes/users.ts";
 import { voiceRoutes } from "./routes/voice.ts";
+import { appearanceAssetRoute, appearanceRoutes } from "./routes/appearance.ts";
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: process.env.SYNDO_TRUST_PROXY === "1", bodyLimit: 1024 * 1024 });
@@ -42,7 +43,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     }
     if (err instanceof ApiError) {
       if ((err as any).retryAfter) reply.header("retry-after", (err as any).retryAfter);
-      return reply.code(err.status).send({ code: err.code, message: err.message, retry_after: (err as any).retryAfter });
+      const x = err as any;
+      return reply.code(err.status).send({ code: err.code, message: err.message, retry_after: x.retryAfter, issues: x.issues, current: x.current, references: x.references });
     }
     // Malformed ids / values that reach Postgres are client errors, not server faults.
     if ((err as any).code === "22P02" || (err as any).code === "22003") return reply.code(400).send({ code: "invalid", message: "Invalid id or value." });
@@ -64,7 +66,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   /** Public profile media (avatars, banners, server icons). Unguessable keys; attachments never use this route. */
   app.get<{ Params: { "*": string } }>("/api/media/*", async (req, reply) => {
     const key = req.params["*"];
-    if (!/^(avatars|banners|guild-icons|guild-banners|role-icons|emoji|stickers)\/\d+\/\d+\.(png|jpg|gif|webp|avif)$/.test(key)) throw notFound("File");
+    if (!/^(avatars|banners|member-avatars|member-banners|guild-icons|guild-banners|role-icons|emoji|stickers)\/\d+\/\d+\.(png|jpg|gif|webp|avif)$/.test(key)) throw notFound("File");
     try { reply.header("content-length", await storage.size(key)); } catch { throw notFound("File"); }
     const ext = key.split(".").pop()!;
     reply.header("content-type", ({ png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif" } as Record<string, string>)[ext]);
@@ -81,6 +83,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(messageRoutes);
   await app.register(attachmentDownloadRoute);
   await app.register(voiceRoutes);
+  await app.register(appearanceRoutes);
+  await app.register(appearanceAssetRoute);
 
   // Serve the built web client when present (single-origin deployment).
   const web = new URL("../../web/dist/", import.meta.url).pathname;

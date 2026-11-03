@@ -34,6 +34,7 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
       guild_id: g.id, user: userOut(u), nick: member.nick, roles: member.roles, joined_at: member.joined_at,
       communication_disabled_until: member.communication_disabled_until ?? null, mute: member.mute, deaf: member.deaf,
       guild_avatar: mediaUrl(member.avatar_key), guild_bio: member.bio ?? null,
+      guild_banner: mediaUrl(member.banner_key), guild_pronouns: member.pronouns ?? null, guild_profile_theme: member.profile_theme ?? null, guild_status: member.custom_status ?? null,
     },
   };
 }

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { DEFAULT_PRIVACY, RelationshipType } from "@syndo/shared";
+import { DEFAULT_PRIVACY, RelationshipType, validateProfileTheme } from "@syndo/shared";
 import { config } from "../config.ts";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, revokeSessions, uid } from "../auth.ts";
@@ -13,12 +13,13 @@ import * as storage from "../storage.ts";
 import { readImage } from "../uploads.ts";
 
 const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-const THEME = z.object({
-  primary: HEX, secondary: HEX,
-  effect: z.string().max(32).nullable().optional(),
-  decoration: z.string().max(32).nullable().optional(),
-  nameStyle: z.string().max(32).nullable().optional(),
-}).nullable();
+/** Public profile cosmetics are validated by the shared schema (no markup, no URLs, bounded values). */
+const THEME = z.unknown().transform((v, ctx) => {
+  const r = validateProfileTheme(v);
+  const errs = r.issues.filter((i) => i.level === "error");
+  if (errs.length) { ctx.addIssue({ code: "custom", message: `profile_theme.${errs[0]!.path} ${errs[0]!.message}` }); return z.NEVER; }
+  return r.value;
+});
 
 async function audience(userId: string) {
   const online = onlineUserIds();
@@ -145,7 +146,7 @@ export async function userRoutes(app: FastifyInstance) {
     let member = null;
     if (req.query.guild_id && /^\d+$/.test(req.query.guild_id)) {
       const shared = await q1("select 1 from members where guild_id = $1 and user_id = $2", [req.query.guild_id, me]);
-      if (shared) member = await q1<any>("select nick, joined_at, avatar_key, bio, (select array_agg(role_id::text) from member_roles where guild_id = $1 and user_id = $2) as roles from members where guild_id = $1 and user_id = $2", [req.query.guild_id, u.id]);
+      if (shared) member = await q1<any>("select nick, joined_at, avatar_key, banner_key, bio, pronouns, profile_theme, custom_status, (select array_agg(role_id::text) from member_roles where guild_id = $1 and user_id = $2) as roles from members where guild_id = $1 and user_id = $2", [req.query.guild_id, u.id]);
     }
     return {
       user: userOut(u),
@@ -155,7 +156,10 @@ export async function userRoutes(app: FastifyInstance) {
       relationship: await rel(me, u.id),
       mutual_guilds: mutual_guilds.map((g) => ({ id: g.id, name: g.name, icon: mediaUrl(g.icon_key), nick: g.nick })),
       mutual_friends: mutual_friends.map(userOut),
-      member: member && { nick: member.nick, joined_at: member.joined_at, avatar: mediaUrl(member.avatar_key), bio: member.bio, roles: member.roles ?? [] },
+      member: member && {
+        nick: member.nick, joined_at: member.joined_at, avatar: mediaUrl(member.avatar_key), banner: mediaUrl(member.banner_key), bio: member.bio,
+        pronouns: member.pronouns, profile_theme: member.profile_theme, custom_status: member.custom_status, roles: member.roles ?? [],
+      },
     };
   });
 

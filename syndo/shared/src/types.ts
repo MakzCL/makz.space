@@ -1,3 +1,4 @@
+import type { ProfileTheme } from "./theme.ts";
 /** Wire types shared by the Syndo server and clients. IDs are decimal strings (64-bit, time-ordered). */
 
 export const ChannelType = {
@@ -36,7 +37,6 @@ export interface User {
   bot?: boolean;
 }
 
-export interface ProfileTheme { primary: string; secondary: string; effect?: string | null; decoration?: string | null; nameStyle?: string | null }
 
 export interface SelfUser extends User {
   email: string;
@@ -111,6 +111,11 @@ export interface Member {
   deaf: boolean;
   guild_avatar: string | null;
   guild_bio: string | null;
+  /** Server-specific public profile. null = uses the global value. */
+  guild_banner?: string | null;
+  guild_pronouns?: string | null;
+  guild_profile_theme?: ProfileTheme | null;
+  guild_status?: { text: string; emoji?: string | null } | null;
 }
 
 export interface Guild {
@@ -155,6 +160,8 @@ export interface Message {
   guild_id: string | null;
   author: User;
   member_nick?: string | null;
+  /** Author's server profile in this server (null fields = global). */
+  member?: { avatar: string | null; profile_theme: ProfileTheme | null } | null;
   content: string;
   type: number;
   created_at: string;

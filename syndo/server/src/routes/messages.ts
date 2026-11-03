@@ -9,7 +9,7 @@ import { ApiError, bad, forbidden, notFound, tooMany } from "../errors.ts";
 import { newId } from "../ids.ts";
 import { isOnline, toChannel, toUser } from "../gateway.ts";
 import { getChannel, guildPermData, permsFor, requireChannel, viewers, type ChanRow } from "../perms.ts";
-import { prefixedCols, prefixedUser } from "../serialize.ts";
+import { mediaUrl, prefixedCols, prefixedUser } from "../serialize.ts";
 import * as storage from "../storage.ts";
 import { safeName } from "../uploads.ts";
 
@@ -33,6 +33,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
     return {
       id: r.id, channel_id: r.channel_id, guild_id: r.guild_id, author: prefixedUser(r, "a_") ?? { id: "0", username: "unknown", display_name: "Unknown", avatar: null, banner: null, bio: "", pronouns: "", accent_color: null, profile_theme: null },
       member_nick: r.member_nick ?? null,
+      member: r.guild_id && (r.member_avatar_key || r.member_profile_theme) ? { avatar: mediaUrl(r.member_avatar_key), profile_theme: r.member_profile_theme ?? null } : null,
       content: r.deleted_at ? "" : r.content, type: r.type, created_at: r.created_at, edited_at: r.edited_at, pinned: r.pinned,
       reply_to: r.reply_to_id ? (rep ? { id: rep.id, author: prefixedUser(rep, "a_"), content: rep.deleted_at ? "" : String(rep.content).slice(0, 200), deleted: !!rep.deleted_at } : { id: String(r.reply_to_id), author: null, content: "", deleted: true }) : null,
       mentions: (r.mentions ?? []).map(String), mention_roles: (r.mention_roles ?? []).map(String), mention_everyone: r.mention_everyone,
@@ -45,7 +46,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
   });
 }
 
-const SELECT = `select m.*, ${prefixedCols("u", "a_")}, mem.nick as member_nick
+const SELECT = `select m.*, ${prefixedCols("u", "a_")}, mem.nick as member_nick, mem.avatar_key as member_avatar_key, mem.profile_theme as member_profile_theme
   from messages m left join users u on u.id = m.author_id left join members mem on mem.guild_id = m.guild_id and mem.user_id = m.author_id`;
 
 export async function messageById(id: string, viewer: string | null) {

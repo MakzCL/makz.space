@@ -17,6 +17,7 @@ import { guildFor } from "../ready.ts";
 import { USER_COLS, channelOut, mediaUrl, roleOut, userOut } from "../serialize.ts";
 import * as storage from "../storage.ts";
 import { readImage } from "../uploads.ts";
+import { validateProfileTheme } from "@syndo/shared";
 import { createSystemMessage } from "./messages.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);
@@ -54,14 +55,19 @@ export async function resyncGuild(guildId: string, only?: string[]) {
 
 async function memberOut(guildId: string, userId: string) {
   const r = await q1<any>(
-    `select m.*, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
+    `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
        from members m join users u on u.id = m.user_id where m.guild_id = $1 and m.user_id = $2`, [guildId, userId]);
   return r && {
     guild_id: guildId, user: userOut(r), nick: r.nick, roles: r.roles, joined_at: r.joined_at,
     communication_disabled_until: r.communication_disabled_until, mute: r.mute, deaf: r.deaf,
-    guild_avatar: mediaUrl(r.avatar_key), guild_bio: r.bio, presence: presenceOf(userId),
+    guild_avatar: mediaUrl(r.m_avatar_key), guild_bio: r.m_bio, presence: presenceOf(userId), ...serverProfile(r),
   };
 }
+
+/** Server-specific profile fields. null = the member uses their global value. */
+export const serverProfile = (r: any) => ({
+  guild_banner: mediaUrl(r.m_banner_key), guild_pronouns: r.m_pronouns ?? null, guild_profile_theme: r.m_profile_theme ?? null, guild_status: r.m_custom_status ?? null,
+});
 
 /** Add a member (invite accept / create). Throws if banned or limits hit. */
 export async function addMember(guildId: string, userId: string) {
@@ -244,7 +250,7 @@ export async function guildRoutes(app: FastifyInstance) {
     const limit = Math.min(Math.max(Number(req.query.limit ?? 1000) || 1000, 1), 1000);
     const search = req.query.q?.trim().toLowerCase().slice(0, 32) || null;
     const rows = await q<any>(
-      `select m.*, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
+      `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
          from members m join users u on u.id = m.user_id
         where m.guild_id = $1 and ($2::text is null or u.username ilike $2 || '%' or lower(coalesce(m.nick, u.display_name, '')) like '%' || $2 || '%')
           and ($3::bigint is null or m.user_id > $3)
@@ -252,7 +258,7 @@ export async function guildRoutes(app: FastifyInstance) {
     return rows.map((r) => ({
       guild_id: req.params.id, user: userOut(r), nick: r.nick, roles: r.roles, joined_at: r.joined_at,
       communication_disabled_until: r.communication_disabled_until, mute: r.mute, deaf: r.deaf,
-      guild_avatar: mediaUrl(r.avatar_key), guild_bio: r.bio, presence: presenceOf(r.id),
+      guild_avatar: mediaUrl(r.m_avatar_key), guild_bio: r.m_bio, presence: presenceOf(r.id), ...serverProfile(r),
     }));
   });
 
@@ -270,6 +276,9 @@ export async function guildRoutes(app: FastifyInstance) {
       deaf: z.boolean().optional(),
       channel_id: ID.nullable().optional(),
       bio: z.string().max(400).nullable().optional(),
+      pronouns: z.string().max(40).nullable().optional(),
+      profile_theme: z.unknown().optional(),
+      custom_status: z.object({ text: z.string().max(128), emoji: z.string().max(64).nullable().optional() }).nullable().optional(),
       reason: z.string().max(512).optional(),
     }).strict().parse(req.body);
     const self = target === me;
@@ -280,9 +289,25 @@ export async function guildRoutes(app: FastifyInstance) {
       await q("update members set nick = $3 where guild_id = $1 and user_id = $2", [ctx.guild.id, target, b.nick || null]);
       changes.nick = b.nick;
     }
-    if (b.bio !== undefined) {
-      if (!self) throw forbidden();
-      await q("update members set bio = $3 where guild_id = $1 and user_id = $2", [ctx.guild.id, target, b.bio || null]);
+    if (b.bio !== undefined || b.pronouns !== undefined || b.profile_theme !== undefined || b.custom_status !== undefined) {
+      if (!self) throw forbidden("Only you can edit your server profile.");
+      let theme: unknown = undefined;
+      if (b.profile_theme !== undefined) {
+        if (b.profile_theme === null) theme = null;
+        else {
+          const r = validateProfileTheme(b.profile_theme);
+          const errs = r.issues.filter((i) => i.level === "error");
+          if (errs.length) throw bad(`profile_theme.${errs[0]!.path} ${errs[0]!.message}`);
+          theme = r.value;
+        }
+      }
+      // Each field: undefined = leave, null/"" = use global value.
+      await q(`update members set
+                 bio = case when $3::boolean then $4 else bio end, pronouns = case when $5::boolean then $6 else pronouns end,
+                 profile_theme = case when $7::boolean then $8::jsonb else profile_theme end, custom_status = case when $9::boolean then $10::jsonb else custom_status end
+               where guild_id = $1 and user_id = $2`,
+        [ctx.guild.id, target, b.bio !== undefined, b.bio || null, b.pronouns !== undefined, b.pronouns || null,
+          theme !== undefined, theme ? JSON.stringify(theme) : null, b.custom_status !== undefined, b.custom_status ? JSON.stringify(b.custom_status) : null]);
     }
     if (b.roles) {
       if (!has(ctx.perms, P.MANAGE_ROLES)) throw forbidden();
@@ -341,6 +366,29 @@ export async function guildRoutes(app: FastifyInstance) {
     if (b.roles || b.communication_disabled_until !== undefined) await resyncGuild(ctx.guild.id, [target]);
     return m;
   });
+
+  /** Server-specific avatar / banner (static or animated). DELETE = use the global one. */
+  for (const kind of ["avatar", "banner"] as const) {
+    app.post<{ Params: { id: string } }>(`/api/guilds/:id/members/@me/${kind}`, async (req) => {
+      const ctx = await requireGuild(uid(req), req.params.id);
+      const img = await readImage(req, config.maxAvatarBytes);
+      const key = `member-${kind}s/${uid(req)}/${newId()}.${img.ext}`;
+      await storage.put(key, img.buf);
+      const old = await q1<any>(`select ${kind}_key as k from members where guild_id = $1 and user_id = $2`, [ctx.guild.id, uid(req)]);
+      await q(`update members set ${kind}_key = $3 where guild_id = $1 and user_id = $2`, [ctx.guild.id, uid(req), key]);
+      if (old?.k) await storage.remove(old.k).catch(() => {});
+      await toGuild(ctx.guild.id, "GUILD_MEMBER_UPDATE", await memberOut(ctx.guild.id, uid(req)));
+      return { url: mediaUrl(key), animated: img.animated };
+    });
+    app.delete<{ Params: { id: string } }>(`/api/guilds/:id/members/@me/${kind}`, async (req) => {
+      const ctx = await requireGuild(uid(req), req.params.id);
+      const old = await q1<any>(`select ${kind}_key as k from members where guild_id = $1 and user_id = $2`, [ctx.guild.id, uid(req)]);
+      await q(`update members set ${kind}_key = null where guild_id = $1 and user_id = $2`, [ctx.guild.id, uid(req)]);
+      if (old?.k) await storage.remove(old.k).catch(() => {});
+      await toGuild(ctx.guild.id, "GUILD_MEMBER_UPDATE", await memberOut(ctx.guild.id, uid(req)));
+      return { ok: true };
+    });
+  }
 
   app.delete<{ Params: { id: string; uid: string }; Querystring: { reason?: string } }>("/api/guilds/:id/members/:uid", async (req) => {
     const ctx = await requireGuild(uid(req), req.params.id, P.KICK_MEMBERS);
