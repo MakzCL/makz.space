@@ -132,6 +132,8 @@ export interface Job {
   /** Shopify order this job came from (one job per order line). */
   order_id: string | null;
   sku: string | null;
+  /** Sub-assembly MO: the order it feeds (MFG-02). */
+  parent_id: string | null;
   /** Stations the job passes through, in order; empty = a plain job. */
   route: string[];
   /** Index into route of the station working on it now. */
@@ -171,6 +173,8 @@ export interface ProductOperation {
   unit_minutes: number;
   fixed_cost: number | null;
   sort: number;
+  /** Operations with the same step run in parallel (MFG-07). */
+  step: number | null;
   created_at: string;
 }
 
@@ -213,6 +217,8 @@ export interface Order {
   prices_include_tax: boolean;
   /** Ships from here (null = default location). */
   location_id: string | null;
+  /** Values of the custom order fields. */
+  custom: Record<string, string>;
   /** Priority: lower goes first (Sell → arrows). */
   rank: number | null;
   source: "shopify" | "manual";
@@ -407,6 +413,12 @@ export interface CompanySettings {
   /** Labour cost per person-hour (actual MO labour from logged time). */
   labour_rate: number;
   work_hours_per_day: number;
+  /** Extra fields shown on every sales order (SALES-09). */
+  order_fields: { key: string; label: string; type: "text" | "number" | "date" | "select"; options?: string[]; required?: boolean }[];
+  /** Raise orders for sub-assemblies automatically when an MO is created (MFG-02). */
+  auto_sub_mos: boolean;
+  company_name: string;
+  company_address: string;
   updated_at: string;
 }
 export interface IssueComment {
@@ -478,7 +490,7 @@ export interface Issue {
   created_at: string;
 }
 
-export type ItemKind = "material" | "product" | "part" | "service";
+export type ItemKind = "material" | "product" | "part" | "service" | "kit";
 
 export interface StockItem {
   id: string;
@@ -507,9 +519,44 @@ export interface StockItem {
   make_min: number;
   /** Build this many at a time. */
   make_batch: number;
+  /** Variant family (CAT-02) and this item's option values, e.g. {"Kolor":"Czarny"}. */
+  family_id: string | null;
+  variant: Record<string, string>;
   updated_by: string | null;
   updated_at: string;
   created_at: string;
+}
+
+export interface ProductFamily {
+  id: string;
+  name: string;
+  /** Option names, e.g. ["Kolor", "Rozmiar"]. */
+  options: string[];
+  category: string;
+  created_at: string;
+}
+
+export interface Stocktake {
+  id: string;
+  number: string;
+  location_id: string | null;
+  status: "counting" | "posted" | "cancelled";
+  note: string;
+  created_by: string | null;
+  posted_by: string | null;
+  posted_at: string | null;
+  created_at: string;
+}
+
+export interface StocktakeLine {
+  id: string;
+  stocktake_id: string;
+  item_id: string;
+  counted: number | null;
+  system_at_post: number | null;
+  note: string;
+  counted_by: string | null;
+  counted_at: string | null;
 }
 
 export interface Supplier {
@@ -658,6 +705,9 @@ export interface Tables {
   mo_materials: MoMaterial;
   po_materials: PoMaterial;
   wh_tasks: WhTask;
+  product_families: ProductFamily;
+  stocktakes: Stocktake;
+  stocktake_lines: StocktakeLine;
   forecast_overrides: ForecastOverride;
   product_operations: ProductOperation;
   lots: Lot;
@@ -685,7 +735,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "forecast_overrides", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "product_families", "stocktakes", "stocktake_lines", "forecast_overrides", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",

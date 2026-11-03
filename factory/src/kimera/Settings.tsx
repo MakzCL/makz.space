@@ -1,7 +1,9 @@
 import { History, Lock, Percent, Plus, RefreshCw, Settings2 } from "lucide-react";
 import { LocationsSettings } from "./Locations";
 import { useEffect, useState } from "react";
-import { Badge, Btn, Empty, Field } from "../components/ui";
+import { Badge, Btn, Empty, Field, Toggle } from "../components/ui";
+import { Trash2 } from "lucide-react";
+import type { CompanySettings } from "../lib/types";
 import { cleanNumber } from "../lib/csv";
 import { t } from "../lib/i18n";
 import { KIMERA_SECTIONS, ROLE_META, ROLE_ORDER, can, isOwner, kimeraSections } from "../lib/roles";
@@ -57,6 +59,43 @@ function Company() {
           onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v <= 24 && v !== s.work_hours_per_day) k.saveSettings({ work_hours_per_day: v }); }} /></Field>
       </div>
       <p className="fine">{t("Labour cost turns the time people log on a job in the Factory app into actual MO cost. Working hours set how many days an MO's remaining operations take.")}</p>
+      <div className="row between"><span>{t("Raise sub-assembly orders automatically")}</span><Toggle on={s.auto_sub_mos} onChange={(v) => k.saveSettings({ auto_sub_mos: v })} /></div>
+      <p className="fine">{t("When a manufacturing order needs a part you make yourself and there isn't enough of it, a linked order for that part is created at the same time.")}</p>
+      <small className="label">{t("On printed documents")}</small>
+      <Field label={t("Company name")}><input defaultValue={s.company_name} key={`cn-${s.company_name}`} onBlur={(e) => e.target.value !== s.company_name && k.saveSettings({ company_name: e.target.value.trim() })} /></Field>
+      <Field label={t("Address")}><textarea rows={3} defaultValue={s.company_address} key={`ca-${s.company_address}`} onBlur={(e) => e.target.value !== s.company_address && k.saveSettings({ company_address: e.target.value.trim() })} /></Field>
+      <OrderFields s={s} save={(order_fields) => k.saveSettings({ order_fields })} />
+    </div>
+  );
+}
+
+/** SALES-09: extra fields on every sales order. */
+function OrderFields({ s, save }: { s: CompanySettings; save: (f: CompanySettings["order_fields"]) => void }) {
+  const [rows, setRows] = useState(s.order_fields ?? []);
+  const [src, setSrc] = useState(s.order_fields);
+  if (src !== s.order_fields) { setSrc(s.order_fields); setRows(s.order_fields ?? []); }
+  const dirty = JSON.stringify(rows) !== JSON.stringify(s.order_fields ?? []);
+  const set = (i: number, p: Partial<CompanySettings["order_fields"][number]>) => setRows(rows.map((r, j) => j === i ? { ...r, ...p } : r));
+  const keyOf = (label: string, i: number) => label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || `field_${i + 1}`;
+  return (
+    <div className="stack">
+      <small className="label">{t("Custom order fields")}</small>
+      <p className="fine">{t("Extra boxes on every sales order — e.g. PO reference, installer, aircraft type. They show on the order, the packing slip and in the API.")}</p>
+      {rows.map((r, i) => (
+        <div key={i} className="card flat" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.5rem 0.8rem", alignItems: "end" }}>
+          <Field label={t("Label")}><input value={r.label} onChange={(e) => set(i, { label: e.target.value, key: r.key && s.order_fields?.some((x) => x.key === r.key) ? r.key : keyOf(e.target.value, i) })} /></Field>
+          <Field label={t("Type")}><select value={r.type} onChange={(e) => set(i, { type: e.target.value as "text" })}>
+            <option value="text">{t("Text")}</option><option value="number">{t("Number")}</option><option value="date">{t("Date")}</option><option value="select">{t("Choice")}</option></select></Field>
+          {r.type === "select" && <Field label={t("Choices")} hint={t("Comma-separated")}><input defaultValue={(r.options ?? []).join(", ")} onBlur={(e) => set(i, { options: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} /></Field>}
+          <div className="row between" style={{ paddingBottom: 8 }}><label className="row gap-s"><input type="checkbox" checked={!!r.required} onChange={(e) => set(i, { required: e.target.checked })} /> {t("Required")}</label>
+          <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 size={15} /></button></div>
+        </div>
+      ))}
+      <div className="row gap">
+        <Btn small tone="soft" icon={<Plus size={15} />} onClick={() => setRows([...rows, { key: "", label: "", type: "text" }])}>{t("Add field")}</Btn>
+        {dirty && <Btn small tone="primary" disabled={rows.some((r) => !r.label.trim()) || new Set(rows.map((r, i) => r.key || keyOf(r.label, i))).size !== rows.length}
+          onClick={() => save(rows.map((r, i) => ({ ...r, label: r.label.trim(), key: r.key || keyOf(r.label, i) })))}>{t("Save fields")}</Btn>}
+      </div>
     </div>
   );
 }

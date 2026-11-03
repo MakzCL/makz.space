@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { TransfersView } from "./Locations";
 import { WarehouseTasksView } from "./Warehouse";
+import { StocktakesView } from "./Stocktakes";
 import { BarChart3, Boxes, CalendarClock, ChevronDown, Factory, LifeBuoy, LogOut, Moon, Package, Plus, Settings2, ShoppingCart, Sun, Tag, Upload, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
@@ -113,7 +114,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   const [newMo, setNewMo] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
   const [menu, setMenu] = useState<"create" | "me" | null>(null);
-  const [stockView, setStockView] = useState<"inventory" | "history" | "transfers" | "tasks">(() => db.wh_tasks.some((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)) && !can.admin(me.role) ? "tasks" : "inventory");
+  const [stockView, setStockView] = useState<"inventory" | "history" | "transfers" | "tasks" | "stocktakes">(() => db.wh_tasks.some((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)) && !can.admin(me.role) ? "tasks" : "inventory");
   const [itemsView, setItemsView] = useState<"products" | "materials" | "recipes">("products");
   const [buyView, setBuyView] = useState<"pos" | "suppliers">("pos");
   const [importing, setImporting] = useState(false);
@@ -174,9 +175,9 @@ function Shell({ signOut }: { signOut: () => void }) {
       case "stock": return (
         <div className="k-page">
           <div className="k-head"><div><h1>{t("Stock")}</h1><p className="muted">{t("What's on the shelf, what's committed to jobs and what's on the way.")}</p></div>
-            <div className="k-subtabs"><SubTabs value={stockView} onChange={setStockView} tabs={[{ value: "inventory", label: t("Inventory") }, { value: "tasks", label: t("Tasks"), count: db.wh_tasks.filter((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)).length }, { value: "transfers", label: t("Transfers"), count: db.stock_transfers.filter((x) => x.status === "in_transit").length }, { value: "history", label: t("Stock movements") }]} /></div>
+            <div className="k-subtabs"><SubTabs value={stockView} onChange={setStockView} tabs={[{ value: "inventory", label: t("Inventory") }, { value: "tasks", label: t("Tasks"), count: db.wh_tasks.filter((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)).length }, { value: "transfers", label: t("Transfers"), count: db.stock_transfers.filter((x) => x.status === "in_transit").length }, { value: "stocktakes", label: t("Stocktakes"), count: db.stocktakes.filter((x) => x.status === "counting").length }, { value: "history", label: t("Stock movements") }]} /></div>
             <div className="row gap"><Btn tone="soft" icon={<Upload size={16} />} onClick={() => setImporting(true)}>{t("Import CSV")}</Btn></div></div>
-          {stockView === "inventory" ? <ItemsView /> : stockView === "tasks" ? <WarehouseTasksView /> : stockView === "transfers" ? <TransfersView /> : <HistoryView />}
+          {stockView === "inventory" ? <ItemsView /> : stockView === "tasks" ? <WarehouseTasksView /> : stockView === "transfers" ? <TransfersView /> : stockView === "stocktakes" ? <StocktakesView /> : <HistoryView />}
         </div>
       );
       case "items": return (
@@ -184,7 +185,7 @@ function Shell({ signOut }: { signOut: () => void }) {
           <div className="k-head"><div><h1>{t("Items")}</h1><p className="muted">{t("Products you sell, materials you buy, their recipes and production routes.")}</p></div>
             <div className="k-subtabs"><SubTabs value={itemsView} onChange={setItemsView} tabs={[{ value: "products", label: t("Products") }, { value: "materials", label: t("Materials") }, { value: "recipes", label: t("Recipes") }]} /></div>
             {admin && <div className="row gap"><Btn tone="soft" icon={<Wrench size={16} />} onClick={() => setRoutes(true)}>{t("Stations & routes")}</Btn></div>}</div>
-          {itemsView === "products" ? <ItemsView key="p" kinds={["product", "part", "service"]} /> : itemsView === "materials" ? <ItemsView key="m" kinds={["material"]} /> : <RecipesView />}
+          {itemsView === "products" ? <ItemsView key="p" kinds={["product", "kit", "part", "service"]} /> : itemsView === "materials" ? <ItemsView key="m" kinds={["material"]} /> : <RecipesView />}
         </div>
       );
       case "plan": return <Plan onOrder={openOrder} onBuy={() => { setBuyView("pos"); go("buy"); }} />;
@@ -248,7 +249,7 @@ function Shell({ signOut }: { signOut: () => void }) {
       <PoSheet po={poPeek ? db.purchase_orders.find((p) => p.id === poPeek) ?? null : null} onClose={() => setPoPeek(null)} />
       <ImportSheet open={importing} onClose={() => setImporting(false)} />
       <ProductionSheet open={routes} onClose={() => setRoutes(false)} />
-      <MoSheet job={jobPeek ? db.jobs.find((j) => j.id === jobPeek) ?? null : null} onClose={() => setJobPeek(null)} onOrder={(id) => { setJobPeek(null); setTicket(null); openOrder(id); }} />
+      <MoSheet job={jobPeek ? db.jobs.find((j) => j.id === jobPeek) ?? null : null} onClose={() => setJobPeek(null)} onOrder={(id) => { setJobPeek(null); setTicket(null); openOrder(id); }} onOpenJob={setJobPeek} />
     </div>
   );
 }

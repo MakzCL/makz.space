@@ -15,11 +15,12 @@ import { useStore } from "../lib/store";
 import { clock, dayLabel } from "../lib/time";
 import type { DB, ItemKind, MoveReason, StockItem } from "../lib/types";
 import { PurchasingView, SuppliersView } from "./Purchasing";
+import { VariantPanel, variantLabel } from "../kimera/Variants";
 
 /* ------------------------------------------------------------- helpers -- */
 export const fmtQty = (n: number) => (Math.round(n * 1000) / 1000).toLocaleString("en-GB", { maximumFractionDigits: 3 });
 export const money = (n: number | null | undefined) => n === null || n === undefined ? "—" : `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const KIND: Record<ItemKind, string> = { product: "Product", material: "Material", part: "Part", service: "Service" };
+const KIND: Record<ItemKind, string> = { product: "Product", material: "Material", part: "Part", service: "Service", kit: "Kit" };
 export const kindLabel = (k: ItemKind) => t(KIND[k]);
 const REASON: Record<MoveReason, string> = {
   adjust: "Adjustment", count: "Stocktake", receive: "Received", consume: "Used in job", produce: "Made", import: "Import", opening: "Opening stock",
@@ -165,7 +166,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
       </div>
       <div className="row between wrap">
         <div className="chips">
-          {(["all", "product", "material", "part", "service"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 4) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
+          {(["all", "product", "kit", "material", "part", "service"] as const).filter((k) => k === "all" || (allowed(k) && (kinds?.length ?? 5) > 1)).map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k === "all" ? t("All") : kindLabel(k)}</Chip>)}
           <Chip on={low} onClick={() => setLow(!low)}>{t("To reorder")}{lowCount ? ` · ${lowCount}` : ""}</Chip>
         </div>
         <small className="muted">{t("{n} items", { n: rows.length })}{costs && <> · {t("stock value")} <b>{money(total)}</b></>}</small>
@@ -184,7 +185,7 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
                 return (
                   <tr key={r.s.id} onClick={() => setOpen(r.s)} className={isLow ? "low" : ""}>
                     <td><span className="code">{r.s.sku}</span></td>
-                    <td><b>{r.s.name}</b>{r.s.kind !== "material" && <Badge tone={r.s.kind === "product" ? "blue" : "muted"}>{kindLabel(r.s.kind)}</Badge>}</td>
+                    <td><b>{r.s.name}</b>{r.s.family_id && Object.keys(r.s.variant ?? {}).length > 0 && <small className="muted"> · {variantLabel(r.s, db.product_families.find((f) => f.id === r.s.family_id)?.options)}</small>}{r.s.kind !== "material" && <Badge tone={r.s.kind === "product" ? "blue" : r.s.kind === "kit" ? "moon" : "muted"}>{kindLabel(r.s.kind)}</Badge>}</td>
                     <td className="muted">{r.s.category}</td><td className="muted">{r.bin}</td>
                     <td className="num"><b>{fmtQty(r.qty)}</b> <small>{r.s.unit}</small></td>
                     <td className="num muted">{r.committed ? fmtQty(r.committed) : ""}</td>
@@ -200,12 +201,12 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
           </table>
         </div>
       ) : <Empty icon={<Boxes size={28} />} title={db.stock_items.length ? t("Nothing found") : t("No stock yet")} hint={db.stock_items.length ? t("Try another search.") : t("Import your Katana export with the upload button above.")} />}
-      <ItemSheet item={open} onClose={() => setOpen(null)} />
+      <ItemSheet item={open} onClose={() => setOpen(null)} onOpenItem={setOpen} />
     </div>
   );
 }
 
-export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; onClose: () => void }) {
+export function ItemSheet({ item, onClose, onOpenItem }: { item: StockItem | "new" | null; onClose: () => void; onOpenItem?: (it: StockItem) => void }) {
   const { db, me, person } = useStore();
   const a = useActions();
   const live = item && item !== "new" ? db.stock_items.find((s) => s.id === item.id) ?? item : null;
@@ -241,19 +242,20 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
               const n = Math.max(1, Math.min(200, Number(window.prompt(t("How many labels?"), "1")) || 0));
               if (n) printLabels([{ code: itemCode(live), title: live.name, sub: live.sku }], n);
             }}>{t("Print label")}</Btn></div>}
-            <div className="tri">
+            {live.kind !== "kit" && <div className="tri">
               <div className="hl"><small>{t("In stock")}</small><b>{fmtQty(live.quantity)}</b><em>{live.unit}</em></div>
               <div><small>{t("Available")}</small><b>{fmtQty(live.quantity - (lv.committed.get(live.id) ?? 0))}</b><em>{t("{n} committed", { n: fmtQty(lv.committed.get(live.id) ?? 0) })}</em></div>
               {live.avg_cost !== null
                 ? <div><small>{t("Value")}</small><b>{money(live.quantity * live.avg_cost)}</b><em>{t("avg {cost}", { cost: money(live.avg_cost) })}</em></div>
                 : <div><small>{t("Reorder at")}</small><b>{live.min_quantity ? fmtQty(live.min_quantity) : "—"}</b><em>{live.unit}</em></div>}
-            </div>
+            </div>}
             <div className="seg-full"><Segmented value={tab} onChange={setTab} options={[
-              { value: "stock", label: t("Stock") }, { value: "details", label: t("Details") }, ...(live.kind !== "material" ? [{ value: "recipe" as const, label: t("Recipe") }] : []),
+              { value: "stock", label: t("Stock") }, { value: "details", label: t("Details") }, ...(live.kind !== "material" ? [{ value: "recipe" as const, label: live.kind === "kit" ? t("Components") : t("Recipe") }] : []),
             ]} /></div>
           </>
         )}
-        {live && tab === "stock" && (
+        {live && tab === "stock" && live.kind === "kit" && <KitStock kit={live} />}
+        {live && tab === "stock" && live.kind !== "kit" && (
           <>
             {editable && (
               <div className="card flat">
@@ -287,8 +289,9 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
             <div className="row gap">
               <Field label="SKU"><input required value={f.sku ?? ""} onChange={(e) => setF({ ...f, sku: e.target.value })} disabled={!editable} /></Field>
               <Field label={t("Type")}><select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as ItemKind })} disabled={!editable}>
-                {(["material", "product", "part", "service"] as const).map((x) => <option key={x} value={x}>{kindLabel(x)}</option>)}</select></Field>
+                {(["material", "product", "part", "kit", "service"] as const).map((x) => <option key={x} value={x}>{kindLabel(x)}</option>)}</select></Field>
             </div>
+            {f.kind === "kit" && <p className="fine" style={{ textAlign: "left" }}>{t("A kit is sold as one line but is never stocked itself: its components (Recipe tab) are picked and shipped together.")}</p>}
             <Field label={t("Name")}><input required value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} disabled={!editable} /></Field>
             <div className="row gap">
               <Field label={t("Category")}><input value={f.category ?? ""} onChange={(e) => setF({ ...f, category: e.target.value })} list="inv-cats" disabled={!editable} /></Field>
@@ -317,7 +320,8 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
                 <Field label={t("Unit cost (£)")}><input inputMode="decimal" value={open0.cost} onChange={(e) => setOpen0({ ...open0, cost: e.target.value })} placeholder="0.00" /></Field>
               </div>
             )}
-            {f.kind !== "material" && (
+            {live && live.kind !== "material" && live.kind !== "service" && <VariantPanel item={live} onOpen={onOpenItem} />}
+            {f.kind !== "material" && f.kind !== "kit" && (
               <div className="card flat stack">
                 <small className="label">{t("Keep ready (automatic builds)")}</small>
                 <p className="fine">{t("When fewer than this are on the shelf or being built, a make-to-stock job is raised for the crew — e.g. always one frame ready upstairs. 0 = off.")}</p>
@@ -332,7 +336,7 @@ export function ItemSheet({ item, onClose }: { item: StockItem | "new" | null; o
             {live && editable && <HoldButton tone="danger" icon={<Trash2 size={16} />} onConfirm={async () => { await a.saveStock({ id: live.id, archived: true }); onClose(); }}>{t("Hold to archive item")}</HoldButton>}
           </form>
         )}
-        {live && tab === "recipe" && <><RecipeEditor product={live} /><OperationsEditor product={live} /></>}
+        {live && tab === "recipe" && <><RecipeEditor product={live} />{live.kind !== "kit" && <OperationsEditor product={live} />}</>}
         {live && <p className="fine">{t("Last change")} {dayLabel(live.updated_at)} {clock(live.updated_at)}{live.updated_by ? ` · ${person(live.updated_by)?.full_name ?? ""}` : ""}</p>}
       </div>
     </Sheet>
@@ -755,14 +759,15 @@ function OperationsEditor({ product }: { product: StockItem }) {
   return (
     <div className="card flat stack">
       <small className="label">{t("Operations")}</small>
-      <p className="fine" style={{ textAlign: "left" }}>{t("The steps to make one batch: setup happens once per manufacturing order, the per-unit time for each piece. Station rates (Stations & routes) turn the minutes into cost.")}</p>
+      <p className="fine" style={{ textAlign: "left" }}>{t("The steps to make one batch: setup happens once per manufacturing order, the per-unit time for each piece. Station rates (Stations & routes) turn the minutes into cost.")} {t("Give steps the same parallel group number when they happen at the same time.")}</p>
       {ops.length > 0 && (
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>{t("Step")}</th><th>{t("Station")}</th><th className="num">{t("Setup (min)")}</th><th className="num">{t("Per unit (min)")}</th>{costs && <th className="num">{t("Fixed £")}</th>}{editable && <th />}</tr></thead>
+            <thead><tr><th>{t("Step")}</th><th className="num" title={t("Operations with the same number run at the same time")}>{t("Parallel group")}</th><th>{t("Station")}</th><th className="num">{t("Setup (min)")}</th><th className="num">{t("Per unit (min)")}</th>{costs && <th className="num">{t("Fixed £")}</th>}{editable && <th />}</tr></thead>
             <tbody>{ops.map((o) => (
               <tr key={o.id} className="static">
                 <td>{editable ? <input className="cell-input wide" defaultValue={o.name} key={o.name} onBlur={(e) => e.target.value !== o.name && save(() => B.update("product_operations", o.id, { name: e.target.value }))} /> : o.name}</td>
+                <td className="num">{editable ? <input className="cell-input" inputMode="numeric" placeholder="—" defaultValue={o.step ?? ""} key={`p${o.step}`} onBlur={(e) => { const v = e.target.value.trim() ? Math.max(1, Math.round(Number(e.target.value)) || 1) : null; if (v !== o.step) save(() => B.update("product_operations", o.id, { step: v })); }} /> : o.step ?? "—"}</td>
                 <td>{editable ? <select value={o.station_id ?? ""} onChange={(e) => save(() => B.update("product_operations", o.id, { station_id: e.target.value || null }))}>
                   <option value="">—</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select> : stations.find((s) => s.id === o.station_id)?.name ?? "—"}</td>
                 <td className="num">{editable ? <input className="cell-input" inputMode="decimal" defaultValue={o.setup_minutes} key={`s${o.setup_minutes}`} onBlur={(e) => { const v = num(e.target.value); if (v !== null && v !== o.setup_minutes) save(() => B.update("product_operations", o.id, { setup_minutes: v })); }} /> : fmtQty(o.setup_minutes)}</td>
@@ -776,6 +781,21 @@ function OperationsEditor({ product }: { product: StockItem }) {
       )}
       {editable && <Btn small tone="soft" icon={<Plus size={15} />} onClick={() => save(() => B.insert("product_operations", { product_id: product.id, name: t("Step {n}", { n: ops.length + 1 }), station_id: stations[ops.length]?.id ?? stations[0]?.id ?? null, sort: ops.length }))}>{t("Add step")}</Btn>}
       {err && <p className="hint red-t">{err}</p>}
+    </div>
+  );
+}
+
+/** A kit has no stock of its own: show how many could be put together from component stock. */
+function KitStock({ kit }: { kit: StockItem }) {
+  const { db } = useStore();
+  const lines = db.bom_lines.filter((b) => b.product_id === kit.id).map((b) => ({ b, m: db.stock_items.find((s) => s.id === b.material_id) }));
+  const n = lines.length ? Math.floor(Math.min(...lines.map(({ b, m }) => (m ? m.quantity : 0) / (b.quantity || 1)))) : 0;
+  return (
+    <div className="card flat stack">
+      <small className="label">{t("Kit")}</small>
+      <p className="fine" style={{ textAlign: "left" }}>{lines.length ? t("Enough components on the shelf for {n} kits.", { n: Math.max(0, n) }) : t("Add the components on the Components tab.")}</p>
+      {lines.length > 0 && <div className="tbl-wrap"><table className="tbl"><thead><tr><th>{t("Component")}</th><th className="num">{t("Per kit")}</th><th className="num">{t("In stock")}</th></tr></thead>
+        <tbody>{lines.map(({ b, m }) => <tr key={b.id} className="static"><td><span className="code">{m?.sku}</span> {m?.name}</td><td className="num">{fmtQty(b.quantity)}</td><td className="num">{fmtQty(m?.quantity ?? 0)}</td></tr>)}</tbody></table></div>}
     </div>
   );
 }

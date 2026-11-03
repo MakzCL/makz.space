@@ -1,5 +1,6 @@
-import { CheckCircle2, ChevronDown, ChevronUp, Factory, Plus, RotateCcw, Search, Tags, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Factory, FileText, Layers, Plus, RotateCcw, Search, Tags, Trash2 } from "lucide-react";
 import { printLabels } from "../lib/scan";
+import { printTraveller } from "../lib/printdoc";
 import { moCell, useAvailability } from "./availability";
 import { LocationSelect } from "../components/LocationSelect";
 import { useEffect, useMemo, useState } from "react";
@@ -99,7 +100,7 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
         </div>
       ) : <Empty icon={<Factory size={28} />} title={done ? t("Nothing finished yet") : t("No open manufacturing orders")} hint={t("Make one from a sales order line, or build for stock.")} />}
       <NewMoSheet open={creating} onClose={() => setCreating(false)} onMade={(id) => { setCreating(false); onOpen(id); }} />
-      <MoSheet job={cur} onClose={() => onOpen(null)} onOrder={onOrder} />
+      <MoSheet job={cur} onClose={() => onOpen(null)} onOrder={onOrder} onOpenJob={onOpen} />
     </div>
   );
 }
@@ -137,8 +138,8 @@ function NewMoSheet({ open, onClose, onMade }: { open: boolean; onClose: () => v
   );
 }
 
-export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: () => void; onOrder?: (id: string) => void }) {
-  const { db, me, person } = useStore();
+export function MoSheet({ job, onClose, onOrder, onOpenJob }: { job: Job | null; onClose: () => void; onOrder?: (id: string) => void; onOpenJob?: (id: string) => void }) {
+  const { db, me, person, backend: B } = useStore();
   const k = useKimera();
   const editable = can.admin(me.role);
   const stations = new Map(db.stations.map((s) => [s.id, s.name]));
@@ -150,7 +151,11 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
       {job && (
         <div className="stack">
           <div className="row end"><Btn small tone="ghost" icon={<Tags size={15} />} title={t("A label for the job card: scanning it on the floor opens this order")}
-            onClick={() => printLabels([{ code: job.code, title: job.title, sub: [jobCode(job), job.customer, job.quantity ? `× ${job.quantity}` : ""].filter(Boolean).join(" · ") }])}>{t("Print traveller label")}</Btn></div>
+            onClick={() => printLabels([{ code: job.code, title: job.title, sub: [jobCode(job), job.customer, job.quantity ? `× ${job.quantity}` : ""].filter(Boolean).join(" · ") }])}>{t("Print traveller label")}</Btn>
+            {job.sku && <Btn small tone="ghost" icon={<FileText size={15} />} title={t("A4 sheet with materials, bins and operations")} onClick={async () => {
+              const sc = await B.rpc<{ finish?: string }>("mo_schedule", { p_job: job.id }).catch(() => null);
+              printTraveller(db, job.id, sc);
+            }}>{t("Print traveller")}</Btn>}</div>
           <div className="tri">
             <div className="hl"><small>{t("Quantity")}</small><b>{job.quantity ?? 1}</b><em>{job.sku ?? ""}</em></div>
             <div><small>{t("Deadline")}</small><b>{fullDate(job.due_date)}</b><em>{t("Priority")} P{job.priority}</em></div>
@@ -186,6 +191,8 @@ export function MoSheet({ job, onClose, onOrder }: { job: Job | null; onClose: (
             </div>
           ) : <p className="muted">{t("No recipe for this product yet — add one under Items › Recipes.")}</p>}
           {job.sku && ingr.length > 0 && <MoProduction job={job} />}
+          {job.sku && <MoSchedule job={job} />}
+          {job.sku && <SubMos job={job} editable={editable} onOpen={onOpenJob} />}
           {job.sku && <MoCost job={job} />}
           <small className="label">{t("Crew")}</small>
           <div className="chips">{job.assignees.length ? job.assignees.map((id) => <Badge key={id}><Avatar p={person(id)} size={18} />{person(id)?.full_name}</Badge>) : <span className="muted">{t("Nobody yet — add people to the station in Factory › Jobs › Production setup.")}</span>}</div>
@@ -302,6 +309,60 @@ function MoCost({ job }: { job: Job }) {
       </div>
       {!c.operations.length && <p className="fine" style={{ textAlign: "left" }}>{t("Add operations to this product (Items → Recipe) to plan time, cost and finish dates.")}</p>}
       {!c.labour_rate && <p className="fine" style={{ textAlign: "left" }}>{t("Set a labour cost per hour in Settings → Company to cost the time logged on jobs.")}</p>}
+    </div>
+  );
+}
+
+interface Schedule { finish: string; working_days: number; minutes: number; late: boolean;
+  steps: { step: number; parallel: boolean; days: number; operations: { operation: string; station: string | null; minutes: number; queue_minutes: number; crew: number }[] }[] }
+
+/** MFG-07/09: steps (parallel ones side by side), the queue in front at each station and the planned finish. */
+function MoSchedule({ job }: { job: Job }) {
+  const { backend: B, db } = useStore();
+  const [sc, setSc] = useState<Schedule | null>(null);
+  const sig = `${job.id}|${job.status}|${job.produced}|${job.quantity}|${job.rank}|${db.product_operations.length}|${db.jobs.filter((j) => j.status !== "done").length}`;
+  useEffect(() => {
+    let live = true;
+    B.rpc<Schedule>("mo_schedule", { p_job: job.id }).then((r) => live && setSc(r)).catch(() => live && setSc(null));
+    return () => { live = false; };
+  }, [B, sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!sc || job.status === "done" || !sc.steps?.length) return null;
+  const h = (m: number) => m >= 60 ? `${Math.floor(m / 60)} h ${Math.round(m % 60)} min` : `${Math.round(m)} min`;
+  return (
+    <div className="card flat stack">
+      <div className="row between"><small className="label">{t("Schedule")}</small>
+        <span className={sc.late ? "red-t" : "muted"}>{t("Planned finish {d}", { d: shortDate(sc.finish) })} · {t("{n} working days", { n: sc.working_days })}{sc.late ? ` · ${t("after the deadline")}` : ""}</span></div>
+      <ol className="k-steps">
+        {sc.steps.map((g, i) => (
+          <li key={i} className={g.parallel ? "par" : ""}>
+            {g.parallel && <small className="muted">{t("At the same time")}</small>}
+            {g.operations.map((o, j) => (
+              <div key={j} className="row between wrap" style={{ gap: "0 0.8rem" }}>
+                <span><b>{o.operation}</b>{o.station && <small className="muted"> · {o.station}</small>}</span>
+                <small className="muted">{h(o.minutes)}{o.queue_minutes > 0 ? ` · ${t("{q} queued ahead", { q: h(o.queue_minutes) })}` : ""}{o.crew > 1 ? ` · ${t("{n} people", { n: o.crew })}` : ""}</small>
+              </div>))}
+          </li>))}
+      </ol>
+    </div>
+  );
+}
+
+/** MFG-02: orders for the sub-assemblies this MO needs, linked both ways. */
+function SubMos({ job, editable, onOpen }: { job: Job; editable: boolean; onOpen?: (id: string) => void }) {
+  const { db } = useStore();
+  const k = useKimera();
+  const kids = db.jobs.filter((j) => j.parent_id === job.id);
+  const parent = job.parent_id ? db.jobs.find((j) => j.id === job.parent_id) : undefined;
+  const prod = db.stock_items.find((s) => s.sku === job.sku);
+  const subs = prod ? db.bom_lines.filter((b) => b.product_id === prod.id && db.bom_lines.some((x) => x.product_id === b.material_id)).length : 0;
+  if (!parent && !kids.length && (!subs || !editable || job.status === "done")) return null;
+  return (
+    <div className="card flat stack">
+      <small className="label">{t("Linked orders")}</small>
+      {parent && <div className="row between"><span>{t("Feeds into")} <button type="button" className="link" onClick={() => onOpen?.(parent.id)}>{jobCode(parent)}</button> {parent.title}</span><Badge tone={STATUS[parent.status].tone} dot>{statusLabel(parent.status)}</Badge></div>}
+      {kids.map((c) => <div key={c.id} className="row between"><span>{t("Sub-assembly")} <button type="button" className="link" onClick={() => onOpen?.(c.id)}>{jobCode(c)}</button> {c.title} × {c.quantity ?? 1}</span><Badge tone={STATUS[c.status].tone} dot>{statusLabel(c.status)}</Badge></div>)}
+      {editable && subs > 0 && job.status !== "done" && <Btn small tone="soft" icon={<Layers size={15} />} onClick={() => k.subMos(job.id)}>{t("Create sub-assembly orders")}</Btn>}
+      {editable && subs > 0 && job.status !== "done" && <p className="fine" style={{ textAlign: "left" }}>{t("Only for parts you make yourself and don't have enough of on the shelf or already on order.")}</p>}
     </div>
   );
 }

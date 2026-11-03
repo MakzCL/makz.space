@@ -1,5 +1,6 @@
-import { Factory, PackageCheck, Plus, Search, Send, ShoppingCart, Trash2, Truck, Undo2, Users } from "lucide-react";
+import { Factory, FileText, PackageCheck, Plus, Search, Send, ShoppingCart, Trash2, Truck, Undo2, Users } from "lucide-react";
 import { useToast } from "../components/Toast";
+import { printPurchaseOrder } from "../lib/printdoc";
 import { LocationSelect } from "../components/LocationSelect";
 import { useMemo, useRef, useState } from "react";
 import { Badge, Btn, Chip, Empty, Field, Sheet } from "../components/ui";
@@ -152,6 +153,7 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
   return (
     <Sheet open={!!po} onClose={onClose} tall title={<span className="row gap-s"><span className="code">{p.number}</span><Badge tone={PO_STATUS[p.status].tone}>{t(PO_STATUS[p.status].label)}</Badge></span>}>
       <div className="stack">
+        <div className="row end"><Btn small tone="ghost" icon={<FileText size={15} />} onClick={() => printPurchaseOrder(db, p.id, !hidden)}>{t("Print / PDF")}</Btn></div>
         <div className="row gap">
           <Field label={t("Supplier")}>
             <select value={p.supplier_id ?? ""} disabled={!editable || !draft} onChange={(e) => { const sup = db.suppliers.find((s) => s.id === e.target.value); const c = sup?.currency && sup.currency !== base ? sup.currency : null; a.savePo({ id: p.id, supplier_id: e.target.value || null, ...(c !== p.currency ? { currency: c, fx_rate: 1 } : {}) }); }}>

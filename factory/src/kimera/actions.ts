@@ -29,6 +29,7 @@ export function useKimera() {
       addLine: (row: Partial<OrderLine>) => run(() => B.insert("order_lines", row), ["order_lines"]),
       updateLine: (id: string, patch: Partial<OrderLine>) => run(() => B.update("order_lines", id, patch), ["order_lines"]),
       removeLine: (id: string) => run(() => B.remove("order_lines", id), ["order_lines"]),
+      subMos: (jobId: string) => run(async () => { const n = await B.rpc<number>("create_sub_mos", { p_job: jobId }); if (!n) throw new Error(t("Nothing to make — enough sub-assemblies are on the shelf or on order")); return n; }, ["jobs"], t("Sub-assembly orders created")),
       makeLine: (lineId: string) =>
         run(() => B.rpc<string>("create_mo", { p_sku: null, p_title: null, p_qty: null, p_due: null, p_line: lineId, p_route: null }), ["jobs"], t("Manufacturing order created")),
       createMo: (sku: string, title: string, qty: number, due: string | null, route: string[] | null) =>

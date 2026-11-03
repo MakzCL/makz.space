@@ -1044,6 +1044,10 @@ p { margin: 0; }
 .k-route { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.4rem; counter-reset: st; }
 .k-route li { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0; counter-increment: st; }
 .k-route li::before { content: counter(st); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 600; background: var(--surface-3); color: var(--muted); flex: none; }
+.k-steps { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin: 0; padding: 0; counter-reset: ks; }
+.k-steps li { position: relative; padding: 0.45rem 0.6rem 0.45rem 2.3rem; border-radius: 10px; background: var(--surface-2); counter-increment: ks; display: flex; flex-direction: column; gap: 0.2rem; }
+.k-steps li::before { content: counter(ks); position: absolute; left: 0.6rem; top: 0.5rem; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; font-weight: 600; background: var(--surface-3); color: var(--muted); }
+.k-steps li.par { border-left: 3px solid var(--accent, #6d5efc); }
 .k-route li.done::before { content: "✓"; background: color-mix(in srgb, var(--k-ok) 22%, transparent); color: var(--k-ok); }
 .k-route li.now::before { background: var(--k-accent); color: #fff; }
 .k-route li b { font-weight: 600; min-width: 140px; }

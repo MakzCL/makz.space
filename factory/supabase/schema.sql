@@ -5772,8 +5772,8 @@ begin
           src.lead_days, '', 0, src.make_batch, src.tracking, src.family_id, coalesce(p_variant, '{}'))
   returning id into nid;
   insert into public.bom_lines (product_id, material_id, quantity, notes) select nid, material_id, quantity, notes from public.bom_lines where product_id = src.id;
-  insert into public.product_operations (product_id, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort)
-    select nid, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort from public.product_operations where product_id = src.id;
+  insert into public.product_operations (product_id, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort, step)
+    select nid, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort, step from public.product_operations where product_id = src.id;
   insert into public.item_suppliers (item_id, supplier_id, supplier_sku, unit_cost, lead_days, preferred)
     select nid, supplier_id, '', unit_cost, lead_days, preferred from public.item_suppliers where item_id = src.id;
   if exists (select 1 from public.products where sku = src.sku) then

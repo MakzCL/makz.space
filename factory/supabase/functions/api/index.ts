@@ -18,7 +18,7 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 const fail = (status: number, error: string) => json(status, { error });
 
 const ITEM = "id, sku, name, kind, category, unit, quantity, min_quantity, sale_price, barcode, tracking, lead_days, archived, updated_at";
-const ORDER = "id, order_number, customer, company, email, ship_to, shipping_method, status, delivery, tracking, currency, source, ordered_at, delivery_deadline, shipped_at, delivered_at, created_at";
+const ORDER = "id, order_number, customer, company, email, ship_to, shipping_method, status, delivery, tracking, currency, source, custom, ordered_at, delivery_deadline, shipped_at, delivered_at, created_at";
 const LINE = "sku, name, quantity, shipped, returned, unit_price";
 
 function page(u: URL) {

@@ -77,7 +77,7 @@ export function analyse(db: DB, av?: Avail | null) {
         else if (o.delivery === "packed") sales = S("Picked", "ok");
         else if (!item) sales = S("Not tracked", "none");
         else if (item.kind === "service") sales = S("Service", "none");
-        else if (av && open && av.lines?.[line.id]) sales = lineCell(av.lines[line.id]!, item.kind !== "material");
+        else if (av && open && av.lines?.[line.id]) sales = lineCell(av.lines[line.id]!, item.kind !== "material" && item.kind !== "kit");
         else {
           const need = line.quantity - line.shipped;
           const f = free.get(item.id) ?? 0;
@@ -87,7 +87,7 @@ export function analyse(db: DB, av?: Avail | null) {
             if (open) free.set(item.id, Math.max(0, f) - Math.min(need, Math.max(0, f)));
             const e = freeExp.get(item.id) ?? 0;
             if (e >= short) { freeExp.set(item.id, e - short); sales = S("Expected", "warn", poDate.get(item.id) ?? null); }
-            else sales = S("Not available", "bad", null, item.kind !== "material" ? "make" : undefined);
+            else sales = S("Not available", "bad", null, item.kind !== "material" && item.kind !== "kit" ? "make" : undefined);
           }
         }
       }

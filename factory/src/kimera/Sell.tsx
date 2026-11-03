@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChevronDown, ChevronUp, Download, Factory, PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2 } from "lucide-react";
+import { ArrowRightLeft, ClipboardList, FileText, ChevronDown, ChevronUp, Download, Factory, PackageCheck, Plus, Search, ShoppingCart, Trash2, Truck, Undo2 } from "lucide-react";
 import { useAvailability } from "./availability";
 import { LocationSelect } from "../components/LocationSelect";
 import { useMemo, useState } from "react";
@@ -15,6 +15,7 @@ import { useKimera } from "./actions";
 import { Channel, PageHead, Pill, SubTabs, fullDate, shortDate } from "./kit";
 import { CustomerPicker, CustomersView } from "./Customers";
 import { analyse, orderTotals, type OrderInfo } from "./status";
+import { printPackingSlip, printPickList } from "../lib/printdoc";
 
 type Kind = "order" | "quote" | "customers";
 type OrderKind = "order" | "quote";
@@ -105,13 +106,17 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
 function NewOrderSheet({ kind, onClose, onMade }: { kind: OrderKind | null; onClose: () => void; onMade: (o: Order) => void }) {
   const k = useKimera();
   const blank = { customer: "", company: "", email: "", phone: "", ship_to: "", delivery_deadline: "", customer_id: null as string | null };
+  const { db } = useStore();
   const [f, setF] = useState(blank);
+  const [custom, setCustom] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   return (
     <Sheet open={!!kind} onClose={onClose} title={kind === "quote" ? t("New quote") : t("New sales order")}>
       <form className="stack" onSubmit={async (e) => {
         e.preventDefault(); setBusy(true);
-        const o = await k.createOrder(kind!, { ...f, delivery_deadline: f.delivery_deadline || null });
+        const miss = (db.company_settings[0]?.order_fields ?? []).find((x) => x.required && !custom[x.key]?.trim());
+        if (miss) { window.alert(t("Fill in {f}", { f: miss.label })); return; }
+        const o = await k.createOrder(kind!, { ...f, delivery_deadline: f.delivery_deadline || null, custom });
         setBusy(false);
         if (o) { setF(blank); onMade(o); }
       }}>
@@ -127,6 +132,7 @@ function NewOrderSheet({ kind, onClose, onMade }: { kind: OrderKind | null; onCl
         </div>
         <Field label={t("Ship to")}><textarea rows={2} value={f.ship_to} onChange={(e) => setF({ ...f, ship_to: e.target.value })} /></Field>
         <Field label={t("Delivery deadline")}><input type="date" value={f.delivery_deadline} onChange={(e) => setF({ ...f, delivery_deadline: e.target.value })} /></Field>
+        <CustomInputs values={custom} onChange={setCustom} />
         <Btn type="submit" tone="primary" wide busy={busy}>{t("Create and add items")}</Btn>
       </form>
     </Sheet>
@@ -159,6 +165,10 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
         {o.status !== "open" && <Badge tone={o.status === "done" ? "ok" : "muted"}>{o.status === "done" ? t("Done") : t("Cancelled")}</Badge>}</span>)}>
       {info && o && (
         <div className="stack">
+          {o.kind === "order" && o.status !== "cancelled" && <div className="row end gap-s">
+            <Btn small tone="ghost" icon={<ClipboardList size={15} />} onClick={() => printPickList(db, o.id)}>{t("Pick list")}</Btn>
+            <Btn small tone="ghost" icon={<FileText size={15} />} onClick={() => printPackingSlip(db, o.id)}>{t("Packing slip")}</Btn>
+          </div>}
           <div className="tri">
             <div className="hl"><small>{t("Amount")}</small><b>{money(info.amount)}</b><em>{o.currency}</em></div>
             <div><small>{o.kind === "quote" ? t("Created") : t("Ordered")}</small><b>{fullDate(o.ordered_at ?? o.created_at)}</b><em>{o.source === "shopify" ? "Shopify" : "Kortana"}</em></div>
@@ -198,7 +208,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
                     <td><Pill cell={sales} />{sales.why && sales.tone !== "ok" && <small className="muted k-why">{sales.why}</small>}</td>
                     {o.kind === "order" && <td>{mo
                       ? <span className="row gap-s"><span className="code">{jobCode(mo)}</span><small className="muted">{mo.status === "done" ? t("Done") : db.stations.find((s) => s.id === mo.station_id)?.name ?? ""}</small></span>
-                      : editable && o.status === "open" && o.delivery === "not_shipped" ? <Btn small tone={sales.action === "make" ? "primary" : "soft"} icon={<Factory size={14} />} onClick={() => k.makeLine(line.id)}>{t("Make")}</Btn> : <span className="muted">—</span>}</td>}
+                      : editable && o.status === "open" && o.delivery === "not_shipped" && it?.kind !== "kit" && it?.kind !== "service" ? <Btn small tone={sales.action === "make" ? "primary" : "soft"} icon={<Factory size={14} />} onClick={() => k.makeLine(line.id)}>{t("Make")}</Btn> : <span className="muted">—</span>}</td>}
                     {editable && <td>{!mo && o.status === "open" && o.delivery === "not_shipped" && <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => k.removeLine(line.id)}><Trash2 size={15} /></button>}</td>}
                   </tr>
                 ))}
@@ -254,6 +264,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
           {field("ship_to", t("Ship to"))}
           <div className="row gap">{field("delivery_deadline", t("Delivery deadline"), "date")}</div>
           {field("note", t("Notes"))}
+          <CustomFields order={o} editable={editable} onSave={(custom) => k.updateOrder(o.id, { custom })} />
 
           {editable && (
             <div className="stack">
@@ -340,4 +351,35 @@ function rateOptions(rates: { rate: number; name: string; archived: boolean }[],
   if (cur !== null && !out.some((x) => Number(x.v) === cur)) out.push({ v: String(cur), label: `${Math.round(cur * 10000) / 100}%` });
   const seen = new Set<string>();
   return out.filter((x) => { const k = String(Number(x.v)); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+type FieldDef = NonNullable<ReturnType<typeof useStore>["db"]["company_settings"][number]>["order_fields"][number];
+
+/** SALES-09: the company's own order fields (Settings → Company). */
+function CustomInputs({ values, onChange, disabled, onBlur }: { values: Record<string, string>; onChange: (v: Record<string, string>) => void; disabled?: boolean; onBlur?: (v: Record<string, string>) => void }) {
+  const { db } = useStore();
+  const defs: FieldDef[] = db.company_settings[0]?.order_fields ?? [];
+  if (!defs.length) return null;
+  return (
+    <div className="row gap wrap">
+      {defs.map((d) => {
+        const set = (v: string) => { const n = { ...values, [d.key]: v }; onChange(n); return n; };
+        return (
+          <Field key={d.key} label={`${d.label}${d.required ? " *" : ""}`}>
+            {d.type === "select"
+              ? <select value={values[d.key] ?? ""} disabled={disabled} onChange={(e) => { const n = set(e.target.value); onBlur?.(n); }}><option value="">—</option>{(d.options ?? []).map((x) => <option key={x}>{x}</option>)}</select>
+              : <input type={d.type === "number" ? "text" : d.type} inputMode={d.type === "number" ? "decimal" : undefined} value={values[d.key] ?? ""} disabled={disabled}
+                  onChange={(e) => set(e.target.value)} onBlur={() => onBlur?.(values)} />}
+          </Field>
+        );
+      })}
+    </div>
+  );
+}
+
+function CustomFields({ order, editable, onSave }: { order: Order; editable: boolean; onSave: (v: Record<string, string>) => void }) {
+  const [v, setV] = useState<Record<string, string>>(order.custom ?? {});
+  const [key, setKey] = useState(order.id);
+  if (key !== order.id) { setKey(order.id); setV(order.custom ?? {}); }
+  return <CustomInputs values={v} onChange={setV} disabled={!editable} onBlur={(n) => { if (JSON.stringify(n) !== JSON.stringify(order.custom ?? {})) onSave(n); }} />;
 }
