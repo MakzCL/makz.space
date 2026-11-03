@@ -1018,11 +1018,16 @@ export const PROFILE_CATALOG = [
     "name": "League of Legends Arcane",
     "category": "RPG, MMO, MOBA & Adventure",
     "brief": "Hextech crystal frame; Jinx’s graffiti and fireworks",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2e1",
     "secondary": "#1d4343",
     "motif": "crystal",
-    "motion": "ember"
+    "motion": "ember",
+    "art": "/collections/bundle-72.jpg",
+    "artTitle": "Arcane: League of Legends",
+    "source": "https://www.tvmaze.com/shows/55138/arcane-league-of-legends",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-73",
@@ -1540,11 +1545,16 @@ export const PROFILE_CATALOG = [
     "name": "Roblox",
     "category": "Sandbox, Survival & Casual",
     "brief": "“oof” frame; blocky avatar bounce",
-    "ready": false,
-    "primary": "#b68ce2",
+    "ready": true,
+    "primary": "#d8dbe5",
     "secondary": "#2f1d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-108.svg",
+    "artTitle": "Roblox",
+    "source": "https://www.roblox.com",
+    "provider": "Simple Icons / Roblox",
+    "kind": "logo"
   },
   {
     "id": "bundle-109",
@@ -2076,11 +2086,16 @@ export const PROFILE_CATALOG = [
     "name": "Barbie",
     "category": "Movies",
     "brief": "pink dreamhouse frame; glitter convertible",
-    "ready": false,
+    "ready": true,
     "primary": "#e2d68c",
     "secondary": "#433e1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-141.webp",
+    "artTitle": "Barbie",
+    "source": "https://www.rottentomatoes.com/m/barbie",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-142",
@@ -2088,11 +2103,16 @@ export const PROFILE_CATALOG = [
     "name": "Oppenheimer",
     "category": "Movies",
     "brief": "Trinity fire ring; atomic flash",
-    "ready": false,
+    "ready": true,
     "primary": "#bd8ce2",
     "secondary": "#321d43",
     "motif": "flame",
-    "motion": "ember"
+    "motion": "ember",
+    "art": "/collections/bundle-142.webp",
+    "artTitle": "Oppenheimer (2023)",
+    "source": "https://www.rottentomatoes.com/m/oppenheimer_2023",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-143",
@@ -2100,11 +2120,16 @@ export const PROFILE_CATALOG = [
     "name": "Dune",
     "category": "Movies",
     "brief": "sandworm emerging; spice particles",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2a4",
     "secondary": "#1d4327",
     "motif": "crystal",
-    "motion": "snow"
+    "motion": "snow",
+    "art": "/collections/bundle-143.webp",
+    "artTitle": "Dune (2021)",
+    "source": "https://www.rottentomatoes.com/m/dune_2021",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-144",
@@ -2112,11 +2137,16 @@ export const PROFILE_CATALOG = [
     "name": "John Wick",
     "category": "Movies",
     "brief": "pencil and gold coin; neon nightclub",
-    "ready": false,
+    "ready": true,
     "primary": "#e28c8e",
     "secondary": "#431d1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-144.webp",
+    "artTitle": "John Wick",
+    "source": "https://www.rottentomatoes.com/m/john_wick",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-145",
@@ -2124,11 +2154,16 @@ export const PROFILE_CATALOG = [
     "name": "The Matrix",
     "category": "Movies",
     "brief": "green code rain; red/blue pill choice",
-    "ready": false,
+    "ready": true,
     "primary": "#8ca7e2",
     "secondary": "#1d2943",
     "motif": "crystal",
-    "motion": "snow"
+    "motion": "snow",
+    "art": "/collections/bundle-145.webp",
+    "artTitle": "The Matrix",
+    "source": "https://www.rottentomatoes.com/m/matrix",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-146",
@@ -2136,11 +2171,16 @@ export const PROFILE_CATALOG = [
     "name": "Jurassic Park",
     "category": "Movies",
     "brief": "amber mosquito; T-Rex footstep ripple in water",
-    "ready": false,
+    "ready": true,
     "primary": "#c0e28c",
     "secondary": "#34431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-146.webp",
+    "artTitle": "Jurassic Park",
+    "source": "https://www.rottentomatoes.com/m/jurassic_park",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-147",
@@ -2148,11 +2188,16 @@ export const PROFILE_CATALOG = [
     "name": "Back to the Future",
     "category": "Movies",
     "brief": "flux capacitor; DeLorean fire tracks",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cd9",
     "secondary": "#431d3f",
     "motif": "flame",
-    "motion": "ember"
+    "motion": "ember",
+    "art": "/collections/bundle-147.webp",
+    "artTitle": "Back to the Future",
+    "source": "https://www.rottentomatoes.com/m/back_to_the_future",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-148",
@@ -2160,11 +2205,16 @@ export const PROFILE_CATALOG = [
     "name": "Ghostbusters",
     "category": "Movies",
     "brief": "no-ghost sign; proton stream",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2d2",
     "secondary": "#1d433c",
     "motif": "ghost",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-148.webp",
+    "artTitle": "Ghostbusters",
+    "source": "https://www.rottentomatoes.com/m/ghostbusters",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-149",
@@ -2172,11 +2222,16 @@ export const PROFILE_CATALOG = [
     "name": "Harry Potter",
     "category": "Movies",
     "brief": "Hogwarts house crests (four variants); Patronus",
-    "ready": false,
+    "ready": true,
     "primary": "#e2b98c",
     "secondary": "#43311d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-149.webp",
+    "artTitle": "Harry Potter and the Sorcerer's Stone",
+    "source": "https://www.rottentomatoes.com/m/harry_potter_and_the_sorcerers_stone",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-150",
@@ -2184,11 +2239,16 @@ export const PROFILE_CATALOG = [
     "name": "The Deathly Hallows",
     "category": "Movies",
     "brief": "symbol; Elder Wand sparks",
-    "ready": false,
+    "ready": true,
     "primary": "#a08ce2",
     "secondary": "#261d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-150.webp",
+    "artTitle": "Harry Potter and the Deathly Hallows: Part 2",
+    "source": "https://www.rottentomatoes.com/m/harry_potter_and_the_deathly_hallows_part_2",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-151",
@@ -2196,11 +2256,16 @@ export const PROFILE_CATALOG = [
     "name": "Lord of the Rings",
     "category": "Movies",
     "brief": "the One Ring with inscription glow; Eye of Sauron",
-    "ready": false,
+    "ready": true,
     "primary": "#92e28c",
     "secondary": "#1f431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-151.webp",
+    "artTitle": "The Lord of the Rings: The Fellowship of the Ring",
+    "source": "https://www.rottentomatoes.com/m/the_lord_of_the_rings_the_fellowship_of_the_ring",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-152",
@@ -2208,11 +2273,16 @@ export const PROFILE_CATALOG = [
     "name": "The Hobbit",
     "category": "Movies",
     "brief": "Smaug’s gold hoard",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cab",
     "secondary": "#431d2a",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-152.webp",
+    "artTitle": "The Hobbit: An Unexpected Journey",
+    "source": "https://www.rottentomatoes.com/m/the_hobbit_an_unexpected_journey",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-153",
@@ -2220,11 +2290,16 @@ export const PROFILE_CATALOG = [
     "name": "Pirates of the Caribbean",
     "category": "Movies",
     "brief": "compass; cursed-gold moonlight",
-    "ready": false,
+    "ready": true,
     "primary": "#8cc4e2",
     "secondary": "#1d3643",
     "motif": "moon",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-153.webp",
+    "artTitle": "Pirates of the Caribbean: The Curse of the Black Pearl",
+    "source": "https://www.rottentomatoes.com/m/pirates_of_the_caribbean_the_curse_of_the_black_pearl",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-154",
@@ -2232,11 +2307,16 @@ export const PROFILE_CATALOG = [
     "name": "Batman (The Dark Knight)",
     "category": "Movies",
     "brief": "Bat-Signal in clouds; Joker card",
-    "ready": false,
+    "ready": true,
     "primary": "#dde28c",
     "secondary": "#41431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-154.webp",
+    "artTitle": "The Dark Knight",
+    "source": "https://www.rottentomatoes.com/m/the_dark_knight",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-155",
@@ -2244,11 +2324,16 @@ export const PROFILE_CATALOG = [
     "name": "The Batman (2022)",
     "category": "Movies",
     "brief": "red-on-black rain and riddle cards",
-    "ready": false,
+    "ready": true,
     "primary": "#ce8ce2",
     "secondary": "#3a1d43",
     "motif": "filigree",
-    "motion": "rain"
+    "motion": "rain",
+    "art": "/collections/bundle-155.webp",
+    "artTitle": "The Batman",
+    "source": "https://www.rottentomatoes.com/m/the_batman",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-156",
@@ -2256,11 +2341,16 @@ export const PROFILE_CATALOG = [
     "name": "Joker",
     "category": "Movies",
     "brief": "stairs-dance spotlight",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2b5",
     "secondary": "#1d432f",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-156.webp",
+    "artTitle": "Joker (2019)",
+    "source": "https://www.rottentomatoes.com/m/joker_2019",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-157",
@@ -2268,11 +2358,16 @@ export const PROFILE_CATALOG = [
     "name": "Superman",
     "category": "Movies",
     "brief": "S-shield; heat-vision beams",
-    "ready": false,
+    "ready": true,
     "primary": "#e29c8c",
     "secondary": "#43241d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-157.webp",
+    "artTitle": "Superman (2025)",
+    "source": "https://www.rottentomatoes.com/m/superman_2025",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-158",
@@ -2280,11 +2375,16 @@ export const PROFILE_CATALOG = [
     "name": "Wonder Woman",
     "category": "Movies",
     "brief": "Lasso of Truth ring",
-    "ready": false,
+    "ready": true,
     "primary": "#8c95e2",
     "secondary": "#1d2143",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-158.webp",
+    "artTitle": "Wonder Woman (2017)",
+    "source": "https://www.rottentomatoes.com/m/wonder_woman_2017",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-159",
@@ -2292,11 +2392,16 @@ export const PROFILE_CATALOG = [
     "name": "Fast & Furious",
     "category": "Movies",
     "brief": "NOS-bottle frame; nitro purge",
-    "ready": false,
+    "ready": true,
     "primary": "#aee28c",
     "secondary": "#2c431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-159.webp",
+    "artTitle": "The Fast and the Furious",
+    "source": "https://www.rottentomatoes.com/m/1108372-fast_and_the_furious",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-160",
@@ -2304,11 +2409,16 @@ export const PROFILE_CATALOG = [
     "name": "Top Gun: Maverick",
     "category": "Movies",
     "brief": "aviator-wing badge; jet flyby",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cc7",
     "secondary": "#431d37",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-160.webp",
+    "artTitle": "Top Gun: Maverick",
+    "source": "https://www.rottentomatoes.com/m/top_gun_maverick",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-161",
@@ -2316,11 +2426,16 @@ export const PROFILE_CATALOG = [
     "name": "Mission: Impossible",
     "category": "Movies",
     "brief": "self-destructing message; fuse-burn effect",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce0e2",
     "secondary": "#1d4343",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-161.webp",
+    "artTitle": "Mission: Impossible",
+    "source": "https://www.rottentomatoes.com/m/mission_impossible",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-162",
@@ -2328,11 +2443,16 @@ export const PROFILE_CATALOG = [
     "name": "James Bond 007",
     "category": "Movies",
     "brief": "gun-barrel iris intro",
-    "ready": false,
+    "ready": true,
     "primary": "#e2cb8c",
     "secondary": "#43391d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-162.webp",
+    "artTitle": "Casino Royale",
+    "source": "https://www.rottentomatoes.com/m/casino_royale",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-163",
@@ -2352,11 +2472,16 @@ export const PROFILE_CATALOG = [
     "name": "Godzilla vs Kong",
     "category": "Movies",
     "brief": "atomic breath; Kong roar",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce299",
     "secondary": "#1d4322",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-164.webp",
+    "artTitle": "Godzilla vs. Kong",
+    "source": "https://www.rottentomatoes.com/m/godzilla_vs_kong",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-165",
@@ -2364,11 +2489,16 @@ export const PROFILE_CATALOG = [
     "name": "Shrek",
     "category": "Movies",
     "brief": "swamp frame; “Get out of my swamp” sign",
-    "ready": false,
+    "ready": true,
     "primary": "#e28c99",
     "secondary": "#431d22",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-165.webp",
+    "artTitle": "Shrek",
+    "source": "https://www.rottentomatoes.com/m/shrek",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-166",
@@ -2376,11 +2506,16 @@ export const PROFILE_CATALOG = [
     "name": "Kung Fu Panda",
     "category": "Movies",
     "brief": "Dragon Warrior scroll; peach-blossom petals",
-    "ready": false,
+    "ready": true,
     "primary": "#8cb2e2",
     "secondary": "#1d2e43",
     "motif": "blossom",
-    "motion": "petals"
+    "motion": "petals",
+    "art": "/collections/bundle-166.webp",
+    "artTitle": "Kung Fu Panda",
+    "source": "https://www.rottentomatoes.com/m/kung_fu_panda",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-167",
@@ -2388,11 +2523,16 @@ export const PROFILE_CATALOG = [
     "name": "How to Train Your Dragon",
     "category": "Movies",
     "brief": "Toothless plasma blast",
-    "ready": false,
+    "ready": true,
     "primary": "#cbe28c",
     "secondary": "#39431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-167.webp",
+    "artTitle": "How to Train Your Dragon",
+    "source": "https://www.rottentomatoes.com/m/how_to_train_your_dragon",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-168",
@@ -2400,11 +2540,16 @@ export const PROFILE_CATALOG = [
     "name": "Despicable Me / Minions",
     "category": "Movies",
     "brief": "goggle frame; banana chaos",
-    "ready": false,
+    "ready": true,
     "primary": "#e08ce2",
     "secondary": "#421d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-168.webp",
+    "artTitle": "Minions",
+    "source": "https://www.rottentomatoes.com/m/minions",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-169",
@@ -2412,11 +2557,16 @@ export const PROFILE_CATALOG = [
     "name": "Spider-Man: Across the Spider-Verse",
     "category": "Movies",
     "brief": "Spot holes",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2c7",
     "secondary": "#1d4337",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-169.webp",
+    "artTitle": "Spider-Man: Across the Spider-Verse",
+    "source": "https://www.rottentomatoes.com/m/spider_man_across_the_spider_verse",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-170",
@@ -2424,11 +2574,16 @@ export const PROFILE_CATALOG = [
     "name": "Interstellar",
     "category": "Movies",
     "brief": "Gargantua black-hole ring",
-    "ready": false,
+    "ready": true,
     "primary": "#e2ae8c",
     "secondary": "#432c1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-170.webp",
+    "artTitle": "Interstellar (2014)",
+    "source": "https://www.rottentomatoes.com/m/interstellar_2014",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-171",
@@ -2436,11 +2591,16 @@ export const PROFILE_CATALOG = [
     "name": "Alien",
     "category": "Movies",
     "brief": "facehugger; motion-tracker beep",
-    "ready": false,
+    "ready": true,
     "primary": "#958ce2",
     "secondary": "#211d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-171.webp",
+    "artTitle": "Alien",
+    "source": "https://www.rottentomatoes.com/m/alien",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-172",
@@ -2448,11 +2608,16 @@ export const PROFILE_CATALOG = [
     "name": "Predator",
     "category": "Movies",
     "brief": "cloaking shimmer; tri-laser",
-    "ready": false,
+    "ready": true,
     "primary": "#9ce28c",
     "secondary": "#24431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-172.webp",
+    "artTitle": "Predator",
+    "source": "https://www.rottentomatoes.com/m/predator",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-173",
@@ -2460,11 +2625,16 @@ export const PROFILE_CATALOG = [
     "name": "Terminator",
     "category": "Movies",
     "brief": "T-800 HUD",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cb5",
     "secondary": "#431d2f",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-173.webp",
+    "artTitle": "The Terminator",
+    "source": "https://www.rottentomatoes.com/m/terminator",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-174",
@@ -2472,11 +2642,16 @@ export const PROFILE_CATALOG = [
     "name": "Scream",
     "category": "Movies",
     "brief": "Ghostface mask; phone ring",
-    "ready": false,
+    "ready": true,
     "primary": "#8ccee2",
     "secondary": "#1d3b43",
     "motif": "ghost",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-174.webp",
+    "artTitle": "Scream (2022)",
+    "source": "https://www.rottentomatoes.com/m/scream_2022",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-175",
@@ -2496,11 +2671,16 @@ export const PROFILE_CATALOG = [
     "name": "IT",
     "category": "Movies",
     "brief": "red balloon; sewer drain",
-    "ready": false,
+    "ready": true,
     "primary": "#c38ce2",
     "secondary": "#361d43",
     "motif": "filigree",
-    "motion": "rain"
+    "motion": "rain",
+    "art": "/collections/bundle-176.webp",
+    "artTitle": "It (2017)",
+    "source": "https://www.rottentomatoes.com/m/it_2017",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-177",
@@ -2508,11 +2688,16 @@ export const PROFILE_CATALOG = [
     "name": "Wicked",
     "category": "Movies",
     "brief": "Emerald City frame; green and pink “Defying Gravity”",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2aa",
     "secondary": "#1d432a",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-177.webp",
+    "artTitle": "Wicked (2024)",
+    "source": "https://www.rottentomatoes.com/m/wicked_2024",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-178",
@@ -2520,11 +2705,16 @@ export const PROFILE_CATALOG = [
     "name": "Gladiator",
     "category": "Movies",
     "brief": "laurel; Colosseum sand",
-    "ready": false,
+    "ready": true,
     "primary": "#e2918c",
     "secondary": "#431f1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-178.webp",
+    "artTitle": "Gladiator",
+    "source": "https://www.rottentomatoes.com/m/gladiator",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-179",
@@ -2532,11 +2722,16 @@ export const PROFILE_CATALOG = [
     "name": "Mad Max: Fury Road",
     "category": "Movies",
     "brief": "chrome spray; war rig dust storm",
-    "ready": false,
+    "ready": true,
     "primary": "#8ca0e2",
     "secondary": "#1d2643",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-179.webp",
+    "artTitle": "Mad Max: Fury Road",
+    "source": "https://www.rottentomatoes.com/m/mad_max_fury_road",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-180",
@@ -2544,11 +2739,16 @@ export const PROFILE_CATALOG = [
     "name": "Tron",
     "category": "Movies",
     "brief": "light-cycle trail ring",
-    "ready": false,
+    "ready": true,
     "primary": "#b9e28c",
     "secondary": "#31431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-180.webp",
+    "artTitle": "Tron",
+    "source": "https://www.rottentomatoes.com/m/tron",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-181",
@@ -2556,11 +2756,16 @@ export const PROFILE_CATALOG = [
     "name": "Blade Runner 2049",
     "category": "Movies",
     "brief": "orange haze hologram",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cd2",
     "secondary": "#431d3c",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-181.webp",
+    "artTitle": "Blade Runner 2049",
+    "source": "https://www.rottentomatoes.com/m/blade_runner_2049",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-182",
@@ -2568,11 +2773,16 @@ export const PROFILE_CATALOG = [
     "name": "Avatar",
     "category": "Movies",
     "brief": "Pandora bioluminescence",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2d9",
     "secondary": "#1d433f",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-182.webp",
+    "artTitle": "Avatar",
+    "source": "https://www.rottentomatoes.com/m/avatar",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-183",
@@ -2580,11 +2790,16 @@ export const PROFILE_CATALOG = [
     "name": "Hunger Games",
     "category": "Movies",
     "brief": "Mockingjay pin; fire-dress sparks",
-    "ready": false,
+    "ready": true,
     "primary": "#e2c08c",
     "secondary": "#43341d",
     "motif": "flame",
-    "motion": "ember"
+    "motion": "ember",
+    "art": "/collections/bundle-183.webp",
+    "artTitle": "The Hunger Games",
+    "source": "https://www.rottentomatoes.com/m/the_hunger_games",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-184",
@@ -2592,11 +2807,16 @@ export const PROFILE_CATALOG = [
     "name": "Twilight",
     "category": "Movies",
     "brief": "Cullen crest; sparkling skin",
-    "ready": false,
+    "ready": true,
     "primary": "#a78ce2",
     "secondary": "#291d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-184.webp",
+    "artTitle": "Twilight",
+    "source": "https://www.rottentomatoes.com/m/twilight",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-185",
@@ -2604,11 +2824,16 @@ export const PROFILE_CATALOG = [
     "name": "Studio Ghibli Collection",
     "category": "Movies",
     "brief": "Totoro, soot sprites, No-Face, Calcifer",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce28e",
     "secondary": "#1d431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-185.webp",
+    "artTitle": "My Neighbor Totoro",
+    "source": "https://www.rottentomatoes.com/m/my_neighbor_totoro",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-186",
@@ -2616,11 +2841,16 @@ export const PROFILE_CATALOG = [
     "name": "KPop Demon Hunters",
     "category": "Movies",
     "brief": "Honmoon barrier glow; idol stage lights",
-    "ready": false,
+    "ready": true,
     "primary": "#e28ca4",
     "secondary": "#431d27",
     "motif": "moon",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-186.webp",
+    "artTitle": "KPop Demon Hunters",
+    "source": "https://www.rottentomatoes.com/m/kpop_demon_hunters",
+    "provider": "Rotten Tomatoes / film promotional artwork",
+    "kind": "cover"
   },
   {
     "id": "bundle-187",
@@ -2747,11 +2977,16 @@ export const PROFILE_CATALOG = [
     "name": "Arcane",
     "category": "TV Shows & Streaming",
     "brief": "Jinx shark-rocket",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cc0",
     "secondary": "#431d34",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-194.jpg",
+    "artTitle": "Arcane: League of Legends",
+    "source": "https://www.tvmaze.com/shows/55138/arcane-league-of-legends",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-195",
@@ -2980,11 +3215,16 @@ export const PROFILE_CATALOG = [
     "name": "Money Heist",
     "category": "TV Shows & Streaming",
     "brief": "Dalí mask; red jumpsuit money rain",
-    "ready": false,
+    "ready": true,
     "primary": "#8cc8e2",
     "secondary": "#1d3743",
     "motif": "filigree",
-    "motion": "rain"
+    "motion": "rain",
+    "art": "/collections/bundle-208.jpg",
+    "artTitle": "La Casa de Papel",
+    "source": "https://www.tvmaze.com/shows/27436/la-casa-de-papel",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-209",
@@ -3043,11 +3283,16 @@ export const PROFILE_CATALOG = [
     "name": "Fallout (TV)",
     "category": "TV Shows & Streaming",
     "brief": "Vault Boy thumbs-up; Pip-Boy green CRT",
-    "ready": false,
+    "ready": true,
     "primary": "#e2988c",
     "secondary": "#43221d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-212.jpg",
+    "artTitle": "Fallout",
+    "source": "https://www.tvmaze.com/shows/49041/fallout",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-213",
@@ -3317,11 +3562,16 @@ export const PROFILE_CATALOG = [
     "name": "Spy x Family",
     "category": "Anime & Manga",
     "brief": "Anya peanut; “Waku waku”",
-    "ready": false,
+    "ready": true,
     "primary": "#8cd3e2",
     "secondary": "#1d3c43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-229.jpg",
+    "artTitle": "Spy×Family",
+    "source": "https://www.tvmaze.com/shows/59698/spyfamily",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-230",
@@ -3341,11 +3591,16 @@ export const PROFILE_CATALOG = [
     "name": "Evangelion",
     "category": "Anime & Manga",
     "brief": "Unit-01 horn; AT field hexagon",
-    "ready": false,
+    "ready": true,
     "primary": "#bf8ce2",
     "secondary": "#341d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-231.jpg",
+    "artTitle": "Neon Genesis Evangelion",
+    "source": "https://www.tvmaze.com/shows/1925/neon-genesis-evangelion",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-232",
@@ -3370,11 +3625,16 @@ export const PROFILE_CATALOG = [
     "name": "Frieren",
     "category": "Anime & Manga",
     "brief": "magic circle; flower field spell",
-    "ready": false,
+    "ready": true,
     "primary": "#e28d8c",
     "secondary": "#431d1d",
     "motif": "rose",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-233.jpg",
+    "artTitle": "Frieren: Beyond Journey's End",
+    "source": "https://www.tvmaze.com/shows/69956/frieren-beyond-journeys-end",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-234",
@@ -4072,11 +4332,16 @@ export const PROFILE_CATALOG = [
     "name": "Yamaha R1",
     "category": "Motorbikes",
     "brief": "tuning forks; MotoGP blue livery",
-    "ready": false,
-    "primary": "#8ce2bf",
+    "ready": true,
+    "primary": "#E60012",
     "secondary": "#1d4333",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-279.svg",
+    "artTitle": "Yamaha Motor Corporation",
+    "source": "https://commons.wikimedia.org/wiki/File:Yamaha_Motor_Logo_(full).svg",
+    "provider": "Simple Icons / Yamaha Motor Corporation",
+    "kind": "logo"
   },
   {
     "id": "bundle-280",
@@ -4308,11 +4573,16 @@ export const PROFILE_CATALOG = [
     "name": "Formula 1",
     "category": "Motorsport",
     "brief": "generic F1 frame; five red lights out",
-    "ready": false,
-    "primary": "#8cc5e2",
+    "ready": true,
+    "primary": "#E10600",
     "secondary": "#1d3643",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-297.svg",
+    "artTitle": "F1",
+    "source": "https://www.formula1.com",
+    "provider": "Simple Icons / F1",
+    "kind": "logo"
   },
   {
     "id": "bundle-298",
@@ -4400,11 +4670,16 @@ export const PROFILE_CATALOG = [
     "name": "Williams F1",
     "category": "Motorsport",
     "brief": "retro livery",
-    "ready": false,
+    "ready": true,
     "primary": "#b0e28c",
     "secondary": "#2d431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-303.webp",
+    "artTitle": "Williams Racing",
+    "source": "https://www.thesportsdb.com/team/134816",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-304",
@@ -4573,11 +4848,16 @@ export const PROFILE_CATALOG = [
     "name": "Real Madrid",
     "category": "Sports",
     "brief": "crest; Champions League stars",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cb7",
     "secondary": "#431d30",
     "motif": "star",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-317.webp",
+    "artTitle": "Real Madrid",
+    "source": "https://www.thesportsdb.com/team/133738",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-318",
@@ -4585,11 +4865,16 @@ export const PROFILE_CATALOG = [
     "name": "FC Barcelona",
     "category": "Sports",
     "brief": "blaugrana",
-    "ready": false,
+    "ready": true,
     "primary": "#8cd0e2",
     "secondary": "#1d3b43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-318.webp",
+    "artTitle": "Barcelona",
+    "source": "https://www.thesportsdb.com/team/133739",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-319",
@@ -4597,11 +4882,16 @@ export const PROFILE_CATALOG = [
     "name": "Manchester United",
     "category": "Sports",
     "brief": "Red Devil",
-    "ready": false,
+    "ready": true,
     "primary": "#e2db8c",
     "secondary": "#43401d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-319.webp",
+    "artTitle": "Manchester United",
+    "source": "https://www.thesportsdb.com/team/133612",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-320",
@@ -4609,11 +4899,16 @@ export const PROFILE_CATALOG = [
     "name": "Manchester City",
     "category": "Sports",
     "brief": "sky blue",
-    "ready": false,
+    "ready": true,
     "primary": "#c28ce2",
     "secondary": "#351d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-320.webp",
+    "artTitle": "Manchester City",
+    "source": "https://www.thesportsdb.com/team/133613",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-321",
@@ -4621,11 +4916,16 @@ export const PROFILE_CATALOG = [
     "name": "Liverpool",
     "category": "Sports",
     "brief": "Liver bird; YNWA",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2a9",
     "secondary": "#1d4329",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-321.webp",
+    "artTitle": "Liverpool",
+    "source": "https://www.thesportsdb.com/team/133602",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-322",
@@ -4633,11 +4933,16 @@ export const PROFILE_CATALOG = [
     "name": "Arsenal",
     "category": "Sports",
     "brief": "cannon",
-    "ready": false,
+    "ready": true,
     "primary": "#e2908c",
     "secondary": "#431e1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-322.webp",
+    "artTitle": "Arsenal",
+    "source": "https://www.thesportsdb.com/team/133604",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-323",
@@ -4657,11 +4962,16 @@ export const PROFILE_CATALOG = [
     "name": "Bayern Munich",
     "category": "Sports",
     "brief": "",
-    "ready": false,
+    "ready": true,
     "primary": "#bbe28c",
     "secondary": "#32431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-324.webp",
+    "artTitle": "Bayern Munich",
+    "source": "https://www.thesportsdb.com/team/133664",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-325",
@@ -4669,11 +4979,16 @@ export const PROFILE_CATALOG = [
     "name": "Juventus",
     "category": "Sports",
     "brief": "",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cd4",
     "secondary": "#431d3d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-325.webp",
+    "artTitle": "Juventus",
+    "source": "https://www.thesportsdb.com/team/133676",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-326",
@@ -4681,11 +4996,16 @@ export const PROFILE_CATALOG = [
     "name": "AC Milan / Inter",
     "category": "Sports",
     "brief": "",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2d7",
     "secondary": "#1d433e",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-326.webp",
+    "artTitle": "AC Milan",
+    "source": "https://www.thesportsdb.com/team/133667",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-327",
@@ -4722,11 +5042,16 @@ export const PROFILE_CATALOG = [
     "name": "Lakers / Warriors / Bulls / Celtics",
     "category": "Sports",
     "brief": "team variants",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce28c",
     "secondary": "#1d431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-329.webp",
+    "artTitle": "Los Angeles Lakers",
+    "source": "https://www.thesportsdb.com/team/134867",
+    "provider": "TheSportsDB / original team crest",
+    "kind": "badge"
   },
   {
     "id": "bundle-330",

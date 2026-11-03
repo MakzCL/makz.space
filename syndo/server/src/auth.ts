@@ -108,7 +108,7 @@ async function revokeSessions(userId: string, exceptId: string | null) {
   const { closeSession } = await import("./gateway.ts");
   const rows = await q<{ id: string }>(
     "update sessions set revoked_at = now() where user_id = $1 and revoked_at is null and ($2::bigint is null or id <> $2) returning id::text", [userId, exceptId]);
-  rows.forEach((r) => closeSession(r.id, "Signed out from another device"));
+  await Promise.all(rows.map((r) => closeSession(r.id, "Signed out from another device")));
 }
 
 function totp(secret: string) {
@@ -170,7 +170,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post("/api/auth/logout", async (req, reply) => {
     if (req.session) {
       await q("update sessions set revoked_at = now() where id = $1", [req.session.id]);
-      (await import("./gateway.ts")).closeSession(req.session.id, "Signed out");
+      await (await import("./gateway.ts")).closeSession(req.session.id, "Signed out");
     }
     reply.clearCookie(COOKIE, { path: "/" });
     return { ok: true };
@@ -230,7 +230,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>("/api/auth/sessions/:id", { preHandler: requireUser }, async (req) => {
     const r = await q1("update sessions set revoked_at = now() where id = $1 and user_id = $2 and revoked_at is null returning id", [req.params.id, uid(req)]);
     if (!r) throw notFound("Session");
-    (await import("./gateway.ts")).closeSession(req.params.id, "This session was signed out from another device");
+    await (await import("./gateway.ts")).closeSession(req.params.id, "This session was signed out from another device");
     return { ok: true };
   });
 

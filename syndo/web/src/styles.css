@@ -932,3 +932,6 @@ h1, h2, h3, h4, .ch-h h1, .effects-heading h3, .effects-selection h4, .desktop-d
 .send-select-option { padding-right:19px; }
 
 .call-notice { margin:8px 16px; padding:10px 12px; border-radius:10px; background:color-mix(in srgb,var(--text) 7%,transparent); color:var(--textMuted); font-size:.85rem; }
+
+.scene-badge .collection-cover { object-fit:contain; padding:24px; opacity:.6; }
+.collection-source-art.source-badge { opacity:.95; }

@@ -13,8 +13,9 @@ export async function sfuRoutes(app:FastifyInstance){app.addHook("preHandler",re
  app.post<{Params:{id:string;op:string}}>("/api/voice/sfu/:id/:op",async req=>{
   const p=sfuPeers.get(req.params.id);if(!p||p.user!==uid(req)||p.auth!==req.session!.id)throw forbidden("This media session is not yours.");
   const {channel,perms}=await requireChannel(uid(req),p.channel,P.CONNECT);p.touched=Date.now();
+  if(req.params.op==="leave"){await closeSfuUser(p.channel,p.user);return {ok:true};}
   return serial(p,async()=>{
-   if(req.params.op==="leave"){await closeSfuUser(p.channel,p.user);return {ok:true};}
+   if(sfuPeers.get(p.id)!==p)throw forbidden("This media session has ended.");
    if(req.params.op==="peers")return {peers:[...sfuPeers.values()].filter(x=>x.channel===p.channel&&x.id!==p.id).map(x=>({id:x.user,name:x.name,session:x.id,tracks:x.publications.map(t=>({name:t.name,kind:t.kind})),muted:voiceStates().find(v=>v.user_id===x.user)?.self_mute??false}))};
    if(req.params.op==="publish"){
     const b=z.object({sessionDescription:desc,tracks:z.array(z.object({mid:z.string().regex(/^\d+$/),kind:kinds,name:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/)})).max(4)}).parse(req.body);

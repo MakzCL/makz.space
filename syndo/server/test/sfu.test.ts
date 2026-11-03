@@ -2,7 +2,7 @@ import { before,after,test } from "node:test";
 import assert from "node:assert/strict";
 import { startServer,stopServer,Client } from "./helpers.ts";
 import { config } from "../src/config.ts";
-import { closeSfuUser } from "../src/sfu.ts";
+import { closeSfuUser, sfuPeers } from "../src/sfu.ts";
 before(startServer);after(stopServer);
 test("SFU signaling isolates accounts and channels, authorizes publishing and closes tracks",async()=>{
  const a=await new Client("voiceana").register(),b=await new Client("voiceben").register(),c=await new Client("voicecam").register();
@@ -19,5 +19,8 @@ test("SFU signaling isolates accounts and channels, authorizes publishing and cl
   assert.equal((await a.post(`/api/voice/sfu/${id}/subscribe`,{tracks:[{session:"not-in-channel",name:"secret"}]})).status,403);
   assert.equal((await a.post(`/api/voice/sfu/${id}/leave`,{})).status,200);assert.ok(closed>0);
   assert.equal((await a.post(`/api/voice/sfu/${id}/peers`,{})).status,403);
+  const again=await a.post("/api/voice/token",{channel_id:dm.id});assert.equal(again.status,200);const otherId=again.body.session;
+  assert.equal((await a.post(`/api/voice/sfu/${otherId}/publish`,{sessionDescription:{type:"offer",sdp:"test-sdp"},tracks:[{mid:"0",kind:"mic",name:"logout_test"}]})).status,200);
+  const beforeLogout=closed;assert.equal((await a.post("/api/auth/logout",{})).status,200);assert.equal(sfuPeers.has(otherId),false);assert.ok(closed>beforeLogout,"logout closes RTP tracks without a gateway connection");
  }finally{await closeSfuUser(dm.id,a.user.id);Object.assign(config.sfu,previous);globalThis.fetch=original;}
 });

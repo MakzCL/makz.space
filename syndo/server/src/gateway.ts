@@ -1,3 +1,4 @@
+import { closeSfuSession, closeSfuAccount } from "./sfu.ts";
 import { removeFromRoom } from "./media.ts";
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -105,14 +106,16 @@ export async function setStatus(uid: string, s: string) {
 }
 
 /** Terminate a session's live connections (revocation, logout, password change). */
-export function closeSession(sessionId: string, reason = "Session ended") {
+export async function closeSession(sessionId: string, reason = "Session ended") {
   for (const c of bySession.get(sessionId) ?? []) {
     sendRaw(c, "SESSION_REVOKED", { reason });
     c.ws.close(4004, reason);
   }
+  await closeSfuSession(sessionId);
 }
-export function closeUser(uid: string, reason = "Signed out") {
+export async function closeUser(uid: string, reason = "Signed out") {
   for (const c of byUser.get(uid) ?? []) { sendRaw(c, "SESSION_REVOKED", { reason }); c.ws.close(4004, reason); }
+  await closeSfuAccount(uid);
 }
 
 /* -------------------------------------------------------------- voice -- */

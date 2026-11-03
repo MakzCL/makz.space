@@ -1,6 +1,6 @@
 # SEND profile collections
 
-207 of the 430 requested collections currently have a selectable treatment. The other entries retain the requested design brief and are labelled upcoming in the gallery. These are SEND-made motion treatments around the sourced artwork, not official brand animation packs.
+272 of the 430 requested collections currently have a selectable treatment. The other entries retain the requested design brief and are labelled upcoming in the gallery. These are SEND-made motion treatments around the sourced artwork, not official brand animation packs.
 
 ## Artwork sources
 
@@ -58,6 +58,9 @@
 - **bundle-398 — Twitch**: https://brand.twitch.tv (Simple Icons / Twitch).
 - **bundle-399 — YouTube**: https://www.youtube.com/howyoutubeworks/resources/brand-resources/#logos-icons-and-colors (Simple Icons / YouTube).
 - **bundle-400 — Discord**: https://discord.com/branding (Simple Icons / Discord).
+- **bundle-108 — Roblox**: https://www.roblox.com (Simple Icons / Roblox).
+- **bundle-279 — Yamaha Motor Corporation**: https://commons.wikimedia.org/wiki/File:Yamaha_Motor_Logo_(full).svg (Simple Icons / Yamaha Motor Corporation).
+- **bundle-297 — F1**: https://www.formula1.com (Simple Icons / F1).
 - **bundle-34 — Call of Duty®: Black Ops III**: https://store.steampowered.com/app/311210/ (Steam / game publisher).
 - **bundle-43 — Apex Legends™**: https://store.steampowered.com/app/1172470/ (Steam / game publisher).
 - **bundle-47 — Counter-Strike 2**: https://store.steampowered.com/app/730/ (Steam / game publisher).
@@ -181,5 +184,67 @@
 - **bundle-236 — Haikyuu!!**: https://www.tvmaze.com/shows/5193/haikyuu (TVmaze / original distributor).
 - **bundle-237 — Sakamoto Days**: https://www.tvmaze.com/shows/77383/sakamoto-days (TVmaze / original distributor).
 - **bundle-238 — [Oshi no Ko]**: https://www.tvmaze.com/shows/67635/oshi-no-ko (TVmaze / original distributor).
+- **bundle-141 — Barbie**: https://www.rottentomatoes.com/m/barbie (Rotten Tomatoes / film promotional artwork).
+- **bundle-142 — Oppenheimer (2023)**: https://www.rottentomatoes.com/m/oppenheimer_2023 (Rotten Tomatoes / film promotional artwork).
+- **bundle-143 — Dune (2021)**: https://www.rottentomatoes.com/m/dune_2021 (Rotten Tomatoes / film promotional artwork).
+- **bundle-144 — John Wick**: https://www.rottentomatoes.com/m/john_wick (Rotten Tomatoes / film promotional artwork).
+- **bundle-145 — The Matrix**: https://www.rottentomatoes.com/m/matrix (Rotten Tomatoes / film promotional artwork).
+- **bundle-146 — Jurassic Park**: https://www.rottentomatoes.com/m/jurassic_park (Rotten Tomatoes / film promotional artwork).
+- **bundle-147 — Back to the Future**: https://www.rottentomatoes.com/m/back_to_the_future (Rotten Tomatoes / film promotional artwork).
+- **bundle-148 — Ghostbusters**: https://www.rottentomatoes.com/m/ghostbusters (Rotten Tomatoes / film promotional artwork).
+- **bundle-149 — Harry Potter and the Sorcerer's Stone**: https://www.rottentomatoes.com/m/harry_potter_and_the_sorcerers_stone (Rotten Tomatoes / film promotional artwork).
+- **bundle-150 — Harry Potter and the Deathly Hallows: Part 2**: https://www.rottentomatoes.com/m/harry_potter_and_the_deathly_hallows_part_2 (Rotten Tomatoes / film promotional artwork).
+- **bundle-151 — The Lord of the Rings: The Fellowship of the Ring**: https://www.rottentomatoes.com/m/the_lord_of_the_rings_the_fellowship_of_the_ring (Rotten Tomatoes / film promotional artwork).
+- **bundle-152 — The Hobbit: An Unexpected Journey**: https://www.rottentomatoes.com/m/the_hobbit_an_unexpected_journey (Rotten Tomatoes / film promotional artwork).
+- **bundle-153 — Pirates of the Caribbean: The Curse of the Black Pearl**: https://www.rottentomatoes.com/m/pirates_of_the_caribbean_the_curse_of_the_black_pearl (Rotten Tomatoes / film promotional artwork).
+- **bundle-154 — The Dark Knight**: https://www.rottentomatoes.com/m/the_dark_knight (Rotten Tomatoes / film promotional artwork).
+- **bundle-155 — The Batman**: https://www.rottentomatoes.com/m/the_batman (Rotten Tomatoes / film promotional artwork).
+- **bundle-156 — Joker (2019)**: https://www.rottentomatoes.com/m/joker_2019 (Rotten Tomatoes / film promotional artwork).
+- **bundle-157 — Superman (2025)**: https://www.rottentomatoes.com/m/superman_2025 (Rotten Tomatoes / film promotional artwork).
+- **bundle-158 — Wonder Woman (2017)**: https://www.rottentomatoes.com/m/wonder_woman_2017 (Rotten Tomatoes / film promotional artwork).
+- **bundle-159 — The Fast and the Furious**: https://www.rottentomatoes.com/m/1108372-fast_and_the_furious (Rotten Tomatoes / film promotional artwork).
+- **bundle-160 — Top Gun: Maverick**: https://www.rottentomatoes.com/m/top_gun_maverick (Rotten Tomatoes / film promotional artwork).
+- **bundle-161 — Mission: Impossible**: https://www.rottentomatoes.com/m/mission_impossible (Rotten Tomatoes / film promotional artwork).
+- **bundle-162 — Casino Royale**: https://www.rottentomatoes.com/m/casino_royale (Rotten Tomatoes / film promotional artwork).
+- **bundle-164 — Godzilla vs. Kong**: https://www.rottentomatoes.com/m/godzilla_vs_kong (Rotten Tomatoes / film promotional artwork).
+- **bundle-165 — Shrek**: https://www.rottentomatoes.com/m/shrek (Rotten Tomatoes / film promotional artwork).
+- **bundle-166 — Kung Fu Panda**: https://www.rottentomatoes.com/m/kung_fu_panda (Rotten Tomatoes / film promotional artwork).
+- **bundle-167 — How to Train Your Dragon**: https://www.rottentomatoes.com/m/how_to_train_your_dragon (Rotten Tomatoes / film promotional artwork).
+- **bundle-168 — Minions**: https://www.rottentomatoes.com/m/minions (Rotten Tomatoes / film promotional artwork).
+- **bundle-169 — Spider-Man: Across the Spider-Verse**: https://www.rottentomatoes.com/m/spider_man_across_the_spider_verse (Rotten Tomatoes / film promotional artwork).
+- **bundle-170 — Interstellar (2014)**: https://www.rottentomatoes.com/m/interstellar_2014 (Rotten Tomatoes / film promotional artwork).
+- **bundle-171 — Alien**: https://www.rottentomatoes.com/m/alien (Rotten Tomatoes / film promotional artwork).
+- **bundle-172 — Predator**: https://www.rottentomatoes.com/m/predator (Rotten Tomatoes / film promotional artwork).
+- **bundle-173 — The Terminator**: https://www.rottentomatoes.com/m/terminator (Rotten Tomatoes / film promotional artwork).
+- **bundle-174 — Scream (2022)**: https://www.rottentomatoes.com/m/scream_2022 (Rotten Tomatoes / film promotional artwork).
+- **bundle-176 — It (2017)**: https://www.rottentomatoes.com/m/it_2017 (Rotten Tomatoes / film promotional artwork).
+- **bundle-177 — Wicked (2024)**: https://www.rottentomatoes.com/m/wicked_2024 (Rotten Tomatoes / film promotional artwork).
+- **bundle-178 — Gladiator**: https://www.rottentomatoes.com/m/gladiator (Rotten Tomatoes / film promotional artwork).
+- **bundle-179 — Mad Max: Fury Road**: https://www.rottentomatoes.com/m/mad_max_fury_road (Rotten Tomatoes / film promotional artwork).
+- **bundle-180 — Tron**: https://www.rottentomatoes.com/m/tron (Rotten Tomatoes / film promotional artwork).
+- **bundle-181 — Blade Runner 2049**: https://www.rottentomatoes.com/m/blade_runner_2049 (Rotten Tomatoes / film promotional artwork).
+- **bundle-182 — Avatar**: https://www.rottentomatoes.com/m/avatar (Rotten Tomatoes / film promotional artwork).
+- **bundle-183 — The Hunger Games**: https://www.rottentomatoes.com/m/the_hunger_games (Rotten Tomatoes / film promotional artwork).
+- **bundle-184 — Twilight**: https://www.rottentomatoes.com/m/twilight (Rotten Tomatoes / film promotional artwork).
+- **bundle-185 — My Neighbor Totoro**: https://www.rottentomatoes.com/m/my_neighbor_totoro (Rotten Tomatoes / film promotional artwork).
+- **bundle-186 — KPop Demon Hunters**: https://www.rottentomatoes.com/m/kpop_demon_hunters (Rotten Tomatoes / film promotional artwork).
+- **bundle-317 — Real Madrid**: https://www.thesportsdb.com/team/133738 (TheSportsDB / original team crest).
+- **bundle-318 — Barcelona**: https://www.thesportsdb.com/team/133739 (TheSportsDB / original team crest).
+- **bundle-319 — Manchester United**: https://www.thesportsdb.com/team/133612 (TheSportsDB / original team crest).
+- **bundle-320 — Manchester City**: https://www.thesportsdb.com/team/133613 (TheSportsDB / original team crest).
+- **bundle-321 — Liverpool**: https://www.thesportsdb.com/team/133602 (TheSportsDB / original team crest).
+- **bundle-322 — Arsenal**: https://www.thesportsdb.com/team/133604 (TheSportsDB / original team crest).
+- **bundle-324 — Bayern Munich**: https://www.thesportsdb.com/team/133664 (TheSportsDB / original team crest).
+- **bundle-325 — Juventus**: https://www.thesportsdb.com/team/133676 (TheSportsDB / original team crest).
+- **bundle-326 — AC Milan**: https://www.thesportsdb.com/team/133667 (TheSportsDB / original team crest).
+- **bundle-329 — Los Angeles Lakers**: https://www.thesportsdb.com/team/134867 (TheSportsDB / original team crest).
+- **bundle-303 — Williams Racing**: https://www.thesportsdb.com/team/134816 (TheSportsDB / original team crest).
+- **bundle-72 — Arcane: League of Legends**: https://www.tvmaze.com/shows/55138/arcane-league-of-legends (TVmaze / original distributor).
+- **bundle-194 — Arcane: League of Legends**: https://www.tvmaze.com/shows/55138/arcane-league-of-legends (TVmaze / original distributor).
+- **bundle-208 — La Casa de Papel**: https://www.tvmaze.com/shows/27436/la-casa-de-papel (TVmaze / original distributor).
+- **bundle-212 — Fallout**: https://www.tvmaze.com/shows/49041/fallout (TVmaze / original distributor).
+- **bundle-229 — Spy×Family**: https://www.tvmaze.com/shows/59698/spyfamily (TVmaze / original distributor).
+- **bundle-231 — Neon Genesis Evangelion**: https://www.tvmaze.com/shows/1925/neon-genesis-evangelion (TVmaze / original distributor).
+- **bundle-233 — Frieren: Beyond Journey's End**: https://www.tvmaze.com/shows/69956/frieren-beyond-journeys-end (TVmaze / original distributor).
 
 Simple Icons SVGs are distributed under its CC0 package license. Brand artwork and trademarks remain with their owners; availability here does not grant reuse rights. TV and game cover art is sourced from the listed distributor catalogs. No external URLs are fetched by the profile renderer. All thumbnails are served locally.

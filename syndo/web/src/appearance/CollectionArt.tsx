@@ -25,7 +25,7 @@ export function CollectionArt({ id, frame = false, animate = true }: { id?: stri
     <defs><linearGradient id={uid} x1="0" y1="0" x2="1" y2="1"><stop stopColor={c.primary}/><stop offset=".5" stopColor={c.secondary}/><stop offset="1" stopColor={c.primary}/></linearGradient><linearGradient id={`${uid}-metal`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor="#FFF9EF"/><stop offset=".2" stopColor={c.primary}/><stop offset=".48" stopColor={c.secondary}/><stop offset=".65" stopColor={c.primary}/><stop offset="1" stopColor={c.secondary}/></linearGradient></defs>
     {c.art && <>
       <defs><clipPath id={`${uid}-cover`}><rect x={frame?12:4} y={frame?12:92} width={frame?276:42} height={frame?104:42} rx={frame?20:14}/></clipPath></defs>
-      <image className={`collection-source-art source-${c.artKind}`} href={c.art} x={frame?12:4} y={frame?12:92} width={frame?276:42} height={frame?104:42} preserveAspectRatio={c.artKind==="logo"?"xMidYMid meet":"xMidYMid slice"} clipPath={`url(#${uid}-cover)`}/>
+      <image className={`collection-source-art source-${c.artKind}`} href={c.art} x={frame?12:4} y={frame?12:92} width={frame?276:42} height={frame?104:42} preserveAspectRatio={c.artKind!=="cover"?"xMidYMid meet":"xMidYMid slice"} clipPath={`url(#${uid}-cover)`}/>
     </>}
     {frame ? <>
       <path d="M42 8H258Q292 8 292 42V378Q292 412 258 412H42Q8 412 8 378V42Q8 8 42 8Z" fill="none" stroke={`url(#${uid})`} strokeWidth="1.3"/>
