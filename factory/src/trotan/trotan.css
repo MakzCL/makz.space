@@ -176,3 +176,8 @@ html[data-trotan-theme="light"] { --t-bg: #f3f4fa; --t-panel: #ffffff; --t-panel
   .t-me, .t-applink { display: none; }
 }
 @media (max-width: 720px) { .t-nav button { padding: 6px 7px; letter-spacing: .02em; } .t-proj { display: none; } }
+/* toasts inside TROTAN: palette colours, green tick for success, bottom-centre so they never cover the module tabs */
+html[data-trotan-theme] .toasts { top: auto; bottom: 46px; }
+html[data-trotan-theme] .toast { background: var(--t-panel2); color: var(--t-text); border: 1px solid var(--t-line2); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .3); }
+html[data-trotan-theme] .toast.ok svg { color: var(--t-ok); } html[data-trotan-theme] .toast.info svg { color: var(--t-info); }
+html[data-trotan-theme] .toast.error { background: var(--t-err); color: #fff; border-color: transparent; } html[data-trotan-theme] .toast.error svg { color: #fff; }

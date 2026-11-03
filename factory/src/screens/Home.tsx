@@ -32,7 +32,7 @@ function Hero() {
       </Scene>
       <div className="hero-foot">
         <span className="role-tag">{t(ROLE_META[me.role].label)}</span>
-        <span className="muted">#{me.employee_code}</span>
+        {me.employee_code ? <span className="muted">#{me.employee_code}</span> : null}
       </div>
     </motion.div>
   );
