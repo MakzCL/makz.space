@@ -1,0 +1,320 @@
+import { useEffect, useRef, useState } from "react";
+import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@syndo/shared";
+import { api, errMsg, upload } from "../api.ts";
+import { logout, updateSettings } from "../actions.ts";
+import { displayName, toast, useStore } from "../store.ts";
+import { DEFAULT_APPEARANCE, applyAppearance, exportTheme, importTheme, validateAppearance, type Appearance } from "../theme.ts";
+import { applyPreset, captureCapabilities } from "../voice/settings.ts";
+import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
+import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
+
+const TABS = [["account", "My account"], ["profile", "Profile"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
+
+export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
+  const [tab, setTab] = useState(initial ?? "account");
+  return (
+    <Modal title="User settings" onClose={onClose} wide>
+      <div className="settings">
+        <nav className="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
+          {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
+          <hr /><button className="danger" onClick={() => { onClose(); logout(); }}>Sign out</button>
+        </nav>
+        <section className="settings-body" role="tabpanel">
+          {tab === "account" && <Account />}
+          {tab === "profile" && <ProfileTab />}
+          {tab === "privacy" && <Privacy />}
+          {tab === "appearance" && <AppearanceTab />}
+          {tab === "accessibility" && <AccessibilityTab />}
+          {tab === "voice" && <VoiceTab />}
+          {tab === "notifications" && <NotificationsTab />}
+          {tab === "about" && <About />}
+        </section>
+      </div>
+    </Modal>
+  );
+}
+
+const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
+
+function Account() {
+  const me = useStore((s) => s.me!);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [pw, setPw] = useState({ current: "", next: "" });
+  const [mfa, setMfa] = useState<{ secret: string; url: string } | null>(null);
+  const [code, setCode] = useState(""); const [codes, setCodes] = useState<string[] | null>(null);
+  const load = () => api.get<SessionInfo[]>("/api/auth/sessions").then(setSessions).catch(() => {});
+  useEffect(() => { load(); }, []);
+  return (
+    <div className="stack">
+      <h2>My account</h2>
+      <div className="card row"><Avatar user={me} size={56} /><div><strong>{displayName(me)}</strong><div className="muted">@{me.username} · {me.email}</div>
+        {!me.email_verified && <p className="warn-text small">Email not verified. <button className="link" onClick={() => run(() => api.post("/api/auth/resend-verification"), "Verification email sent.")}>Resend</button></p>}</div></div>
+      <Field label="Username"><div className="add-row"><input defaultValue={me.username} id="uname" maxLength={32} /><button className="btn" onClick={() => run(() => api.patch("/api/users/@me", { username: (document.getElementById("uname") as HTMLInputElement).value }), "Username updated.")}>Save</button></div></Field>
+      <h3>Password</h3>
+      <form className="row wrap" onSubmit={(e) => { e.preventDefault(); run(() => api.post("/api/auth/change-password", pw), "Password changed. Other devices were signed out.").then((ok) => ok && setPw({ current: "", next: "" })); }}>
+        <input type="password" placeholder="Current password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} aria-label="Current password" />
+        <input type="password" placeholder="New password" autoComplete="new-password" minLength={8} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} aria-label="New password" />
+        <button className="btn">Change password</button>
+      </form>
+      <h3>Two-factor authentication</h3>
+      {me.mfa_enabled ? (
+        <div className="row wrap"><span className="ok-text">On</span>
+          <input placeholder="Code to confirm" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Authenticator code" />
+          <button className="btn" onClick={() => run(async () => setCodes((await api.post("/api/auth/mfa/recovery-codes", { code })).recovery_codes))}>New recovery codes</button>
+          <button className="btn danger" onClick={() => run(() => api.post("/api/auth/mfa/disable", { code }), "Two-factor turned off.")}>Turn off</button></div>
+      ) : mfa ? (
+        <div className="stack">
+          <p className="small">Add this key to an authenticator app (or open the link on your phone), then enter the 6-digit code.</p>
+          <code className="selectable">{mfa.secret}</code><a href={mfa.url} className="small">Open in authenticator</a>
+          <div className="add-row"><input placeholder="123456" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Code" />
+            <button className="btn primary" onClick={() => run(async () => { setCodes((await api.post("/api/auth/mfa/enable", { code })).recovery_codes); setMfa(null); })}>Enable</button></div>
+        </div>
+      ) : <button className="btn" onClick={() => run(async () => { const r = await api.post("/api/auth/mfa/setup"); setMfa({ secret: r.secret, url: r.otpauth_url }); })}>Set up two-factor</button>}
+      {codes && <div className="card"><strong>Recovery codes — save these now.</strong><p className="small muted">Each works once if you lose your authenticator.</p><pre className="selectable">{codes.join("\n")}</pre></div>}
+      <h3>Devices & sessions</h3>
+      <ul className="sessions">
+        {sessions.map((s) => (
+          <li key={s.id}><div><strong>{describeUA(s.user_agent)}</strong>{s.current && <span className="tag">This device</span>}<div className="muted small">{s.ip ?? "unknown IP"} · last active {new Date(s.last_used_at).toLocaleString()}</div></div>
+            {!s.current && <button className="btn sm" onClick={() => run(() => api.del(`/api/auth/sessions/${s.id}`)).then(load)}>Sign out</button>}</li>
+        ))}
+      </ul>
+      {sessions.length > 1 && <button className="btn" onClick={() => run(() => api.post("/api/auth/sessions/revoke-others"), "Signed out of all other devices.").then(load)}>Sign out all other devices</button>}
+      <h3>Your data</h3>
+      <div className="row wrap">
+        <a className="btn" href="/api/users/@me/export" download>Download my data (JSON)</a>
+        <button className="btn danger" onClick={() => { const p = prompt("This permanently deletes your account. Messages remain but show as 'Deleted user'. Enter your password to confirm."); if (p) run(() => api.del("/api/users/@me", { password: p })).then((ok) => { if (ok) logout(); }); }}>Delete account</button>
+      </div>
+    </div>
+  );
+}
+const describeUA = (ua: string | null) => { if (!ua) return "Unknown device"; const b = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "App"; const os = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "device"; return `${b} on ${os}`; };
+
+/** The free cosmetic library — original styles, no purchases, ever. */
+export const DECORATIONS = [["", "None"], ["halo", "Sun halo"], ["sprout", "Sprout"], ["starlight", "Starlight"], ["bubbles", "Chat bubbles"], ["socks", "Odd socks"]] as const;
+export const EFFECTS = [["", "None"], ["glow", "Soft glow"], ["aurora", "Aurora"], ["sparkle", "Sparkle"]] as const;
+export const NAME_STYLES = [["", "Plain"], ["gradient", "Gradient"], ["glow", "Glow"], ["outline", "Outline"]] as const;
+
+function ProfileTab() {
+  const me = useStore((s) => s.me!);
+  const [f, setF] = useState({ display_name: me.display_name ?? "", bio: me.bio, pronouns: me.pronouns, accent_color: me.accent_color ?? BRAND.colors.blue });
+  const [theme, setTheme] = useState(me.profile_theme ?? { primary: BRAND.colors.blue, secondary: BRAND.colors.yellow, effect: null, decoration: null, nameStyle: null });
+  const [pct, setPct] = useState<number | null>(null);
+  const fileFor = (kind: "avatar" | "banner") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const fd = new FormData(); fd.append("file", file);
+    const u = upload(`/api/users/@me/${kind}`, fd, setPct);
+    u.promise.then(() => toast(`${kind === "avatar" ? "Avatar" : "Banner"} updated.`, "success")).catch((x) => toast(errMsg(x), "error")).finally(() => setPct(null));
+  };
+  const preview = { ...me, display_name: f.display_name || null, profile_theme: theme, accent_color: f.accent_color };
+  return (
+    <div className="profile-editor">
+      <div className="stack">
+        <h2>Profile</h2>
+        <p className="muted small">Animated avatars and banners (GIF, animated WebP/PNG), profile themes, decorations and effects are free for everyone.</p>
+        <Field label="Display name"><input value={f.display_name} maxLength={32} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
+        <Field label="Pronouns"><input value={f.pronouns} maxLength={40} onChange={(e) => setF({ ...f, pronouns: e.target.value })} /></Field>
+        <Field label="About me" hint={`${f.bio.length}/400`}><textarea value={f.bio} maxLength={400} rows={4} onChange={(e) => setF({ ...f, bio: e.target.value })} /></Field>
+        <div className="row wrap">
+          <label className="btn">Change avatar<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden onChange={fileFor("avatar")} /></label>
+          <label className="btn">Change banner<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden onChange={fileFor("banner")} /></label>
+          {me.avatar && <button className="btn" onClick={() => run(() => api.del("/api/users/@me/avatar"))}>Remove avatar</button>}
+          {pct !== null && <progress max={1} value={pct} />}
+        </div>
+        <div className="row wrap">
+          <Field label="Theme colour 1"><input type="color" value={theme.primary} onChange={(e) => setTheme({ ...theme, primary: e.target.value.toUpperCase() })} /></Field>
+          <Field label="Theme colour 2"><input type="color" value={theme.secondary} onChange={(e) => setTheme({ ...theme, secondary: e.target.value.toUpperCase() })} /></Field>
+          <Field label="Accent"><input type="color" value={f.accent_color} onChange={(e) => setF({ ...f, accent_color: e.target.value.toUpperCase() })} /></Field>
+        </div>
+        <Field label="Avatar decoration"><select value={theme.decoration ?? ""} onChange={(e) => setTheme({ ...theme, decoration: e.target.value || null })}>{DECORATIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+        <Field label="Profile effect"><select value={theme.effect ?? ""} onChange={(e) => setTheme({ ...theme, effect: e.target.value || null })}>{EFFECTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+        <Field label="Name style" hint="Animated styles respect reduced motion."><select value={theme.nameStyle ?? ""} onChange={(e) => setTheme({ ...theme, nameStyle: e.target.value || null })}>{NAME_STYLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+        <button className="btn primary" onClick={() => run(() => api.patch("/api/users/@me", { ...f, display_name: f.display_name || null, profile_theme: theme }), "Profile saved.")}>Save profile</button>
+      </div>
+      <div className={`profile-card static ${theme.effect ? `fx-${theme.effect}` : ""}`} style={{ "--pc1": theme.primary, "--pc2": theme.secondary } as any} aria-label="Preview">
+        <div className="pc-banner" style={me.banner ? { backgroundImage: `url(${me.banner})` } : { background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})` }} />
+        <div className="pc-av"><Avatar user={preview} size={80} status={me.status} /></div>
+        <div className="pc-body"><h2 className={theme.nameStyle ? `name-${theme.nameStyle}` : ""}>{f.display_name || me.username}</h2><div className="muted">@{me.username}{f.pronouns && ` · ${f.pronouns}`}</div>{f.bio && <p className="pre">{f.bio}</p>}</div>
+      </div>
+    </div>
+  );
+}
+
+function Privacy() {
+  const me = useStore((s) => s.me!);
+  const save = (p: Partial<typeof me.privacy>) => run(() => api.patch("/api/users/@me", { privacy: p }));
+  return (
+    <div className="stack">
+      <h2>Privacy & safety</h2>
+      <Field label="Who can send you friend requests"><select value={me.privacy.friend_requests} onChange={(e) => save({ friend_requests: e.target.value as any })}>
+        <option value="everyone">Everyone</option><option value="server_members">People in my servers and friends of friends</option><option value="friends_of_friends">Friends of friends</option><option value="nobody">Nobody</option></select></Field>
+      <Toggle label="Allow direct messages from server members" hint="Friends can always message you. Blocked people never can." checked={me.privacy.dms_from_server_members} onChange={(v) => save({ dms_from_server_members: v })} />
+      <Toggle label="Show mutual servers and friends on my profile" checked={me.privacy.show_mutuals} onChange={(v) => save({ show_mutuals: v })} />
+      <p className="muted small">Blocking someone hides their friend requests, stops new DMs and calls between you, and keeps them out of group conversations you're in. They aren't told.</p>
+    </div>
+  );
+}
+
+function useAppearance(): [Appearance, (p: Partial<Appearance>) => void] {
+  const a = useStore((s) => validateAppearance((s.me?.settings as any)?.appearance ?? DEFAULT_APPEARANCE));
+  return [a, (p) => { const next = validateAppearance({ ...a, ...p }); applyAppearance(next); updateSettings({ appearance: next }); }];
+}
+
+function AppearanceTab() {
+  const [a, set] = useAppearance();
+  const file = useRef<HTMLInputElement>(null);
+  return (
+    <div className="stack">
+      <h2>Appearance</h2>
+      <fieldset className="theme-pick"><legend className="field-l">Theme</legend>
+        {(["dark", "light", "system", "contrast", "custom"] as const).map((t) => (
+          <label key={t} className={`theme-sw sw-${t} ${a.theme === t ? "active" : ""}`}><input type="radio" name="theme" checked={a.theme === t} onChange={() => set({ theme: t })} /><span>{{ dark: "Night", light: "Day", system: "Sync with system", contrast: "High contrast", custom: "Custom" }[t]}</span></label>
+        ))}
+      </fieldset>
+      <Field label="Accent colour"><div className="row wrap">{[BRAND.colors.blue, BRAND.colors.yellowDeep, BRAND.colors.coral, "#2FBF71", "#9B6BFF", "#E5484D"].map((c) => <button key={c} className={`swatch ${a.accent === c ? "active" : ""}`} style={{ background: c }} aria-label={`Accent ${c}`} onClick={() => set({ accent: c })} />)}<input type="color" value={a.accent} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} aria-label="Custom accent" /></div></Field>
+      {a.theme === "custom" && (
+        <div className="row wrap">{(["bg0", "bg1", "bg2", "bg3", "line", "text", "textMuted"] as const).map((k) => (
+          <Field key={k} label={k}><input type="color" value={a.custom[k] ?? (getComputedStyle(document.documentElement).getPropertyValue(`--${k}`).trim() || "#000000")} onChange={(e) => set({ custom: { ...a.custom, [k]: e.target.value.toUpperCase() } })} /></Field>
+        ))}</div>
+      )}
+      <Field label="Chat background"><div className="row"><input type="color" value={a.chatBackground ?? "#1A2136"} onChange={(e) => set({ chatBackground: e.target.value.toUpperCase() })} /><button className="btn sm" onClick={() => set({ chatBackground: null })}>Reset</button></div></Field>
+      <Field label="Message density"><select value={a.density} onChange={(e) => set({ density: e.target.value as any })}><option value="compact">Compact</option><option value="cozy">Cozy</option><option value="spacious">Spacious</option></select></Field>
+      <Toggle label="Round avatars" checked={a.roundAvatars} onChange={(v) => set({ roundAvatars: v })} />
+      <h3>Share your theme</h3>
+      <p className="muted small">Themes are colour values only — imported files can't run code.</p>
+      <div className="row wrap">
+        <button className="btn" onClick={() => { const blob = new Blob([exportTheme(a)], { type: "application/json" }); const u = URL.createObjectURL(blob); const l = document.createElement("a"); l.href = u; l.download = "syndo-theme.json"; l.click(); URL.revokeObjectURL(u); }}>Export</button>
+        <button className="btn" onClick={() => file.current?.click()}>Import</button>
+        <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { const next = importTheme(await f.text(), a); set(next); toast("Theme imported.", "success"); } catch (x) { toast(errMsg(x), "error"); } e.target.value = ""; }} />
+        <button className="btn danger" onClick={() => set(DEFAULT_APPEARANCE)}>Reset to default</button>
+      </div>
+    </div>
+  );
+}
+
+function AccessibilityTab() {
+  const [a, set] = useAppearance();
+  return (
+    <div className="stack">
+      <h2>Accessibility</h2>
+      <Field label={`Text size — ${Math.round(a.fontScale * 100)}%`}><input type="range" min={0.8} max={1.4} step={0.05} value={a.fontScale} onChange={(e) => set({ fontScale: +e.target.value })} /></Field>
+      <Field label="Reduced motion"><select value={a.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.value as any })}><option value="system">Follow my system setting</option><option value="on">Always reduce motion</option><option value="off">Allow motion</option></select></Field>
+      <Toggle label="Play animated avatars, banners and emoji" checked={a.showAnimatedAvatars} onChange={(v) => set({ showAnimatedAvatars: v })} />
+      <Toggle label="High contrast theme" checked={a.theme === "contrast"} onChange={(v) => set({ theme: v ? "contrast" : "dark" })} />
+      <h3>Keyboard</h3>
+      <ul className="small keys">
+        <li><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> move between areas; a skip link jumps to messages.</li>
+        <li><kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> new line · <kbd>Esc</kbd> cancel reply/edit or close dialogs.</li>
+        <li><kbd>Alt+↑/↓</kbd> on a server icon reorders servers.</li>
+        <li><kbd>Ctrl+K</kbd> quick switcher.</li>
+      </ul>
+    </div>
+  );
+}
+
+function VoiceTab() {
+  const s = useVoice((v) => v.settings);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [level, setLevel] = useState<number | null>(null);
+  const caps = captureCapabilities();
+  const limits = useStore((x) => x.limits);
+  useEffect(() => { navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => {}); }, []);
+  const test = async () => {
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: s.inputDeviceId !== "default" ? s.inputDeviceId : undefined, echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl } });
+      setDevices(await navigator.mediaDevices.enumerateDevices());
+      const ctx = new AudioContext(); const an = ctx.createAnalyser(); ctx.createMediaStreamSource(st).connect(an);
+      const buf = new Uint8Array(an.fftSize); const end = Date.now() + 8000;
+      const tick = () => { an.getByteTimeDomainData(buf); let p = 0; for (const v of buf) p = Math.max(p, Math.abs(v - 128)); setLevel(Math.min(1, (p / 128) * s.inputGain)); if (Date.now() < end) requestAnimationFrame(tick); else { st.getTracks().forEach((t) => t.stop()); ctx.close(); setLevel(null); } };
+      tick();
+    } catch (e) { toast((await import("../voice/session.ts")).deviceError(e), "error"); }
+  };
+  const list = (kind: MediaDeviceKind) => devices.filter((d) => d.kind === kind);
+  const maxKbps = limits?.max_voice_bitrate_kbps ?? 510;
+  return (
+    <div className="stack">
+      <h2>Voice & video</h2>
+      {!limits?.media_enabled && <p className="warn-text">This server hasn't configured its media server yet, so calls can't connect. Settings still save.</p>}
+      <div className="row wrap">
+        <Field label="Microphone"><select value={s.inputDeviceId} onChange={(e) => switchDevice("audioinput", e.target.value)}><option value="default">Default</option>{list("audioinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microphone"}</option>)}</select></Field>
+        <Field label="Speaker"><select value={s.outputDeviceId} disabled={!caps.setSinkId} onChange={(e) => switchDevice("audiooutput", e.target.value)}><option value="default">Default</option>{list("audiooutput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Speaker"}</option>)}</select></Field>
+        <Field label="Camera"><select value={s.videoDeviceId} onChange={(e) => switchDevice("videoinput", e.target.value)}><option value="">Default</option>{list("videoinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}</select></Field>
+      </div>
+      {!caps.setSinkId && <p className="muted small">This browser can't choose a speaker; it uses the system default.</p>}
+      <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><input type="range" min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
+      <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
+      <Field label="Input mode"><select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></select></Field>
+      {s.mode === "ptt" && <Field label="Push-to-talk key" hint="Works while this window is focused. A system-wide key needs the desktop app."><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} aria-label="Press a key to set push-to-talk" /></Field>}
+      <h3>Audio quality — free for everyone</h3>
+      <Field label="Preset"><select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></select></Field>
+      <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">
+        <select value={Math.round(s.bitrate / 1000)} onChange={(e) => updateVoiceSettings({ bitrate: +e.target.value * 1000, presetId: "custom" })}>
+          {AUDIO_BITRATES_KBPS.filter((k) => k <= maxKbps).map((k) => <option key={k} value={k}>{k} kbps</option>)}
+        </select>
+      </Field>
+      <Toggle label="Stereo (music mode)" hint="Needs a stereo source and turn off echo cancellation for true stereo; the receiver's device must play stereo." checked={s.stereo} onChange={(v) => updateVoiceSettings({ stereo: v, presetId: "custom" })} />
+      <Toggle label="Echo cancellation" checked={s.echoCancellation} onChange={(v) => updateVoiceSettings({ echoCancellation: v, presetId: "custom" })} />
+      <Toggle label="Noise suppression" checked={s.noiseSuppression} onChange={(v) => updateVoiceSettings({ noiseSuppression: v, presetId: "custom" })} />
+      <Toggle label="Automatic gain control" checked={s.autoGainControl} onChange={(v) => updateVoiceSettings({ autoGainControl: v, presetId: "custom" })} />
+      <Toggle label="Save bandwidth in silence (DTX)" hint="Good for speech, bad for quiet music." checked={s.dtx} onChange={(v) => updateVoiceSettings({ dtx: v, presetId: "custom" })} />
+      <Toggle label="Redundant audio (RED)" hint="Survives packet loss better; roughly doubles audio traffic." checked={s.red} onChange={(v) => updateVoiceSettings({ red: v, presetId: "custom" })} />
+      <h3>Screen sharing defaults</h3>
+      <div className="row wrap">
+        <Field label="Resolution"><select value={String(s.stream.height)} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, height: e.target.value === "source" ? "source" : +e.target.value } })}>
+          {STREAM_HEIGHTS.filter((h) => h <= (limits?.max_stream_height ?? 2160)).map((h) => <option key={h} value={h}>{h === 2160 ? "2160p (4K)" : `${h}p`}</option>)}<option value="source">Source (native size)</option></select></Field>
+        <Field label="Frame rate"><select value={s.stream.fps} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, fps: +e.target.value as any } })}>{STREAM_FPS.filter((f) => f <= (limits?.max_stream_fps ?? 60)).map((f) => <option key={f} value={f}>{f} fps</option>)}</select></Field>
+        <Field label="Optimise for"><select value={s.stream.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, contentHint: e.target.value as any } })}><option value="detail">Readable text (keeps resolution)</option><option value="motion">Motion (keeps frame rate)</option></select></Field>
+        <Field label="Bitrate"><select value={s.stream.bitrate} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, bitrate: +e.target.value } })}><option value={0}>Automatic</option>{[2500, 4000, 6000, 8000, 12000, 16000, 20000].filter((k) => k <= (limits?.max_stream_bitrate_kbps ?? 20000)).map((k) => <option key={k} value={k * 1000}>{k / 1000} Mbps</option>)}</select></Field>
+        <Field label="Codec"><select value={s.stream.codec} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, codec: e.target.value as any } })}><option value="auto">Automatic</option><option value="av1">AV1</option><option value="vp9">VP9</option><option value="h264">H.264</option><option value="vp8">VP8</option></select></Field>
+      </div>
+      <Toggle label="Share audio with my screen" checked={s.stream.audio} onChange={(v) => updateVoiceSettings({ stream: { ...s.stream, audio: v } })} />
+      <h3>What this browser can do</h3>
+      <table className="caps"><tbody>
+        <tr><td>Screen sharing</td><td>{caps.canShare ? "Yes" : "No (mobile browsers can't share screens)"}</td></tr>
+        <tr><td>Tab audio</td><td>{caps.tabAudio ? "Yes" : "No"}</td></tr>
+        <tr><td>Whole-system audio</td><td>{caps.systemAudio ? "Yes (Windows, Chromium)" : "No"}</td></tr>
+        <tr><td>Single app window audio</td><td>No (needs the desktop app)</td></tr>
+        <tr><td>Choose speaker</td><td>{caps.setSinkId ? "Yes" : "No"}</td></tr>
+      </tbody></table>
+      {(caps.linuxNote || caps.macNote) && <p className="muted small">{caps.linuxNote ?? caps.macNote}</p>}
+      <p className="muted small">"Source" requests the captured surface at its native size. It's still compressed video, and very large sources are limited by your encoder, upload speed and viewers' devices — the in-call diagnostics show what was actually sent.</p>
+    </div>
+  );
+}
+
+function NotificationsTab() {
+  const n = useStore((s) => ((s.me?.settings as any)?.notifications ?? {}) as { desktop?: boolean; sounds?: boolean; quietStart?: string; quietEnd?: string });
+  const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
+  const set = (p: Partial<typeof n>) => updateSettings({ notifications: { ...n, ...p } });
+  return (
+    <div className="stack">
+      <h2>Notifications</h2>
+      <Toggle label="Desktop notifications" hint={perm === "denied" ? "Blocked by the browser — allow notifications for this site in its settings." : "Mentions, DMs and calls while this tab is in the background."} checked={!!n.desktop && perm === "granted"} disabled={perm === "denied"}
+        onChange={async (v) => { if (v && perm !== "granted") { const r = await Notification.requestPermission(); setPerm(r); if (r !== "granted") return; } set({ desktop: v }); }} />
+      <Toggle label="Notification sounds" checked={n.sounds !== false} onChange={(v) => set({ sounds: v })} />
+      <div className="row wrap"><Field label="Quiet hours from"><input type="time" value={n.quietStart ?? ""} onChange={(e) => set({ quietStart: e.target.value })} /></Field><Field label="until"><input type="time" value={n.quietEnd ?? ""} onChange={(e) => set({ quietEnd: e.target.value })} /></Field></div>
+      <p className="muted small">Do Not Disturb status also silences desktop notifications. Settings follow your account across devices.</p>
+    </div>
+  );
+}
+
+function About() {
+  const limits = useStore((s) => s.limits);
+  return (
+    <div className="stack">
+      <h2>About {BRAND.name}</h2>
+      <p>{BRAND.description}</p>
+      <p className="muted">There are no subscriptions, boosts or paid cosmetics. Every account gets the same limits, set by whoever runs this server based on what their hardware can handle:</p>
+      {limits && <table className="caps"><tbody>
+        <tr><td>Upload size</td><td>{Math.round(limits.max_upload_bytes / 1048576)} MB</td></tr>
+        <tr><td>Message length</td><td>{limits.max_message_length} characters</td></tr>
+        <tr><td>Servers per account</td><td>{limits.max_guilds_per_user}</td></tr>
+        <tr><td>Members per server</td><td>{limits.max_members_per_guild}</td></tr>
+        <tr><td>Group conversation size</td><td>{limits.max_group_dm_recipients}</td></tr>
+        <tr><td>Voice bitrate up to</td><td>{limits.max_voice_bitrate_kbps} kbps</td></tr>
+        <tr><td>Screen share up to</td><td>{limits.max_stream_height}p at {limits.max_stream_fps} fps, {limits.max_stream_bitrate_kbps / 1000} Mbps</td></tr>
+        <tr><td>Voice & video</td><td>{limits.media_enabled ? "Available" : "Not configured on this server"}</td></tr>
+      </tbody></table>}
+      <p className="muted small">{BRAND.name} is an independent platform. It doesn't connect to or interoperate with other chat services.</p>
+    </div>
+  );
+}

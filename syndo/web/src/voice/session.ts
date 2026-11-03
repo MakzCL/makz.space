@@ -123,7 +123,7 @@ async function buildMic(s: VoiceSettings): Promise<LocalAudioTrack> {
     echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl,
     channelCount: s.stereo ? 2 : 1, sampleRate: 48000, sampleSize: 16,
   };
-  if (s.inputGain === 1) return createLocalAudioTrack(constraints);
+  if (s.inputGain === 1) return createLocalAudioTrack(constraints as any);
   // Input gain via WebAudio; the processed track is what gets published.
   const raw = (await navigator.mediaDevices.getUserMedia({ audio: constraints })).getAudioTracks()[0]!;
   const ctx = new AudioContext({ sampleRate: 48000 });
