@@ -10,6 +10,7 @@ import { Backdrop } from "./Backdrop.tsx";
 import { BoolField, ColorField, RangeField, SelectField, TargetCtx, ctxOf, resetSection, useField, useTarget, type Target } from "./controls.tsx";
 import { assetUrl, themeCss } from "./engine.ts";
 import { ProfileEditor } from "./ProfileEditor.tsx";
+import { Wordmark } from "../components/ui.tsx";
 import {
   applyDraft, beginDraft, cancelDraft, editDraft, effective, isDirty, loadAssets, redo, resetAppearance, resolveFor, scopeKey, setDevice, themeFor, undo,
   useAppearance, type Asset,
@@ -29,6 +30,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
   const [section, setSection] = useState<Section>(initial ?? "gallery");
   const [target, setTarget] = useState<Target>(initialTarget ?? { kind: "global" });
   const [region, setRegion] = useState<RegionId>("chat");
+  const [showPreview, setShowPreview] = useState(() => window.matchMedia("(min-width: 1200px)").matches);
   const draft = useAppearance((s) => s.draft);
   const past = useAppearance((s) => s.past.length), future = useAppearance((s) => s.future.length);
   const saveState = useAppearance((s) => s.saveState);
@@ -49,12 +51,13 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
 
   return (
     <TargetCtx.Provider value={target}>
-      <div className="studio-back" data-region="settings">
-        <div className="studio" role="dialog" aria-modal="true" aria-label="SEND Studio">
+      <div className="studio-back" data-region="settings" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+        <div className={`studio ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
           <header className="studio-h">
-            <h2>SEND Studio</h2>
+            <h2 className="studio-brand"><Wordmark /><span>Studio</span></h2>
             <TargetPicker target={target} onChange={setTarget} />
             <div className="row studio-actions">
+              <button className="btn sm studio-preview-toggle" aria-expanded={showPreview} aria-controls="studio-live-preview" onClick={() => setShowPreview((v) => !v)}>Preview</button>
               <button className="icon-btn" onClick={undo} disabled={!past} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 size={18} /></button>
               <button className="icon-btn" onClick={redo} disabled={!future} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><Redo2 size={18} /></button>
               <span className={`save-state ss-${saveState}`} role="status">{isDirty() ? "Unsaved changes" : saveState === "error" ? "Save failed" : "Saved"}</span>
@@ -83,9 +86,9 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
                 <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-midnight", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
               </footer>
             </section>
-            <aside className="studio-preview-wrap" aria-label="Live preview">
+            {showPreview && <aside id="studio-live-preview" className="studio-preview-wrap" aria-label="Live preview">
               <Preview onRegion={(r) => { setRegion(r); setSection("panels"); }} selected={section === "panels" ? region : null} />
-            </aside>
+            </aside>}
           </div>
         </div>
       </div>

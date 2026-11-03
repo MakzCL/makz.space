@@ -10,6 +10,8 @@ for (const key of ["window", "document", "navigator", "location", "history", "lo
 Object.assign(globalThis, { requestAnimationFrame: (fn: FrameRequestCallback) => setTimeout(() => fn(Date.now()), 0), cancelAnimationFrame: clearTimeout, IS_REACT_ACT_ENVIRONMENT: true });
 dom.window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as any;
 Object.assign(globalThis, { matchMedia: dom.window.matchMedia });
+// JSDOM omits CSS.escape; the Studio's preset identifiers need CSS selectors.
+Object.assign(globalThis, { CSS: { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`) } });
 let networkCalls = 0;
 globalThis.fetch = (async () => { networkCalls++; throw new Error("Preview must stay offline"); }) as typeof fetch;
 Object.defineProperty(globalThis, "WebSocket", { value: class { constructor() { networkCalls++; throw new Error("Preview must not open a gateway"); } } });
@@ -51,4 +53,25 @@ test("preview rejects live-only actions and uploads without contacting the serve
   await assert.rejects(api.post("/api/voice/token", { channel_id: "3001" }), /needs the live server/);
   await assert.rejects(upload("/api/channels/3001/attachments", new FormData(), () => {}).promise, /Uploads need the live server/);
   assert.equal(networkCalls, 0);
+});
+
+test("Studio keeps its SEND identity, toggles its preview and cancels without a network call", async () => {
+  const { Studio } = await import("../src/appearance/Studio.tsx");
+  const { within } = await import("@testing-library/react");
+  const { useAppearance } = await import("../src/appearance/store.ts");
+  let closed = 0;
+  const view = render(<Studio onClose={() => { closed++; }} />);
+  try {
+    const dialog = within(screen.getByRole("dialog", { name: "SEND Studio" }));
+    assert.ok(dialog.getByRole("heading", { name: "SEND Studio" }));
+    assert.ok(dialog.getByRole("img", { name: "SEND", exact: true }));
+    assert.equal(dialog.queryByRole("complementary", { name: "Live preview" }), null);
+    const user = userEvent.setup();
+    await user.click(dialog.getByRole("button", { name: "Preview", exact: true }));
+    assert.ok(dialog.getByRole("complementary", { name: "Live preview" }));
+    await user.click(dialog.getByRole("button", { name: "Cancel", exact: true }));
+    assert.equal(closed, 1);
+    assert.equal(useAppearance.getState().draft, null);
+    assert.equal(networkCalls, 0);
+  } finally { view.unmount(); }
 });
