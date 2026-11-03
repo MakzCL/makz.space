@@ -8,7 +8,18 @@
 | Desktop shell (`Syndo-Setup-x.y.z.exe`) | Cloudflare R2 bucket (public) | The app checks the feed at start-up and every 4 hours, downloads in the background, then offers **Restart to update** (Settings → Desktop app, or the tray menu). Updates also install on quit |
 | API server + LiveKit | Your VM (see DEPLOYMENT.md) | `docker compose up -d --build` |
 
-## One-time setup
+## Current setup (done)
+
+| Item | Value |
+|---|---|
+| Pages project | `syndo-app` → https://syndo-app.pages.dev and https://syndo.makz.space (CNAME in the makz.space zone) |
+| R2 update bucket | `syndo-desktop`, public at https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev |
+| Desktop default server | https://syndo.makz.space |
+| Still needed | Deploy the API server and set `SYNDO_API_ORIGIN` in the Pages project (until then the web app reports "not connected to a server") |
+
+These defaults live in `.github/workflows/syndo.yml`; repository variables with the same names override them.
+
+## One-time setup (reference)
 
 1. **Server** — deploy the API (DEPLOYMENT.md). Note its public origin, e.g. `https://api.example.com`. Add the web app origin to `SYNDO_PUBLIC_URL` (and `SYNDO_EXTRA_ORIGINS` for previews).
 2. **Cloudflare Pages** — the `Syndo` workflow creates the `syndo-app` project on the first push (it uses the repo's existing `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets). In the Pages project → Settings → Variables, add `SYNDO_API_ORIGIN = https://api.example.com`. Optionally attach a custom domain such as `syndo.makz.space`.

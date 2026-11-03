@@ -2,6 +2,8 @@ name: Syndo — test, web app, Windows desktop app
 
 on:
   push:
+    # Branch pushes need an explicit branches filter: with only `tags`, GitHub ignores branch pushes.
+    branches: ["**"]
     paths: ["syndo/**", ".github/workflows/syndo.yml"]
     tags: ["syndo-desktop-v*"]
   workflow_dispatch:
@@ -52,8 +54,7 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && !startsWith(github.ref, 'refs/tags/')
         working-directory: syndo/web
         run: |
-          npx --yes wrangler@4 pages project create syndo-app --production-branch=main || true
-          npx --yes wrangler@4 pages deploy dist --project-name=syndo-app --branch="${GITHUB_REF_NAME}" --commit-dirty=true
+            npx --yes wrangler@4 pages deploy dist --project-name=syndo-app --branch="${GITHUB_REF_NAME}" --commit-dirty=true
       - name: Explain missing secrets
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::Web build OK. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to deploy to Cloudflare Pages."
@@ -65,9 +66,10 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      SYNDO_UPDATE_URL: ${{ vars.SYNDO_UPDATE_URL }}
-      SYNDO_APP_URL: ${{ vars.SYNDO_APP_URL }}
-      SYNDO_R2_BUCKET: ${{ vars.SYNDO_R2_BUCKET }}
+      # Public values; repository variables override them.
+      SYNDO_UPDATE_URL: ${{ vars.SYNDO_UPDATE_URL || 'https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev' }}
+      SYNDO_APP_URL: ${{ vars.SYNDO_APP_URL || 'https://syndo.makz.space' }}
+      SYNDO_R2_BUCKET: ${{ vars.SYNDO_R2_BUCKET || 'syndo-desktop' }}
       CSC_LINK: ${{ secrets.SYNDO_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.SYNDO_CSC_KEY_PASSWORD }}
     defaults: { run: { working-directory: syndo/desktop, shell: bash } }
