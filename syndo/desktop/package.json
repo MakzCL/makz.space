@@ -1,0 +1,31 @@
+{
+  "name": "syndo-desktop",
+  "productName": "Syndo",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Syndo for Windows — free chat, voice, video and screen sharing.",
+  "author": "Syndo",
+  "main": "dist/main.js",
+  "syndo": {
+    "appUrl": "",
+    "appId": "space.makz.syndo"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  },
+  "optionalDependencies": {
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.9.3"
+  }
+}

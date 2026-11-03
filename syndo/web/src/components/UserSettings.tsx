@@ -7,11 +7,12 @@ import { applyPreset, captureCapabilities } from "../voice/settings.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { PRESETS, type A11yPrefs } from "@syndo/shared";
+import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate } from "../desktop.ts";
 import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
-const TABS = [["account", "My account"], ["profile", "Profile"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -31,6 +32,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
           {tab === "voice" && <VoiceTab />}
           {tab === "notifications" && <NotificationsTab />}
           {tab === "about" && <About />}
+          {tab === "desktop" && <DesktopTab />}
         </section>
       </div>
     </Modal>
@@ -185,7 +187,7 @@ function VoiceTab() {
       <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><input type="range" min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
       <Field label="Input mode"><select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></select></Field>
-      {s.mode === "ptt" && <Field label="Push-to-talk key" hint="Works while this window is focused. A system-wide key needs the desktop app."><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} aria-label="Press a key to set push-to-talk" /></Field>}
+      {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when Syndo is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
       <h3>Audio quality — free for everyone</h3>
       <Field label="Preset"><select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></select></Field>
       <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">
@@ -214,11 +216,46 @@ function VoiceTab() {
         <tr><td>Screen sharing</td><td>{caps.canShare ? "Yes" : "No (mobile browsers can't share screens)"}</td></tr>
         <tr><td>Tab audio</td><td>{caps.tabAudio ? "Yes" : "No"}</td></tr>
         <tr><td>Whole-system audio</td><td>{caps.systemAudio ? "Yes (Windows, Chromium)" : "No"}</td></tr>
-        <tr><td>Single app window audio</td><td>No (needs the desktop app)</td></tr>
+        <tr><td>Single app window audio</td><td>No — not supported by browsers; the desktop app shares whole-system audio on Windows</td></tr>
+        <tr><td>Desktop app</td><td>{desktop ? `Yes (v${desktop.version})` : "No — running in a browser"}</td></tr>
         <tr><td>Choose speaker</td><td>{caps.setSinkId ? "Yes" : "No"}</td></tr>
       </tbody></table>
       {(caps.linuxNote || caps.macNote) && <p className="muted small">{caps.linuxNote ?? caps.macNote}</p>}
       <p className="muted small">"Source" requests the captured surface at its native size. It's still compressed video, and very large sources are limited by your encoder, upload speed and viewers' devices — the in-call diagnostics show what was actually sent.</p>
+    </div>
+  );
+}
+
+function DesktopTab() {
+  const [u, setU] = useState<DesktopUpdate | null>(null);
+  const [cfg, setCfg] = useState<{ serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic" } | null>(null);
+  useEffect(() => {
+    if (!desktop) return;
+    desktop.getUpdateStatus().then(setU); desktop.getSettings().then(setCfg);
+    return desktop.onUpdateStatus(setU);
+  }, []);
+  if (!desktop) return null;
+  const d = desktop;
+  const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: `Update ${u.version} found — downloading`, downloading: `Downloading ${u.version ?? ""} — ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
+  return (
+    <div className="stack">
+      <h2>Desktop app</h2>
+      <p className="muted">Syndo for {desktop.platform === "win32" ? "Windows" : desktop.platform} · version {desktop.version}. The interface updates automatically whenever the Syndo web app is updated; the app itself updates from the Syndo update feed.</p>
+      <div className="card row wrap"><span className="grow" role="status">{label}</span>
+        {u?.state === "ready" ? <button className="btn primary" onClick={() => d.restartToUpdate()}>Restart to update</button>
+          : <button className="btn" disabled={u?.state === "checking" || u?.state === "downloading" || u?.state === "disabled"} onClick={() => d.checkForUpdates().then(setU)}>Check for updates</button>}</div>
+      {cfg && <Toggle label="Keep running in the tray when closed" hint="Calls and notifications keep working." checked={cfg.closeToTray} onChange={(v) => { d.setCloseToTray(v); setCfg({ ...cfg, closeToTray: v }); }} />}
+      {desktop.capabilities.windowMaterial ? (
+        <Field label="Window material (Windows 11)" hint="Lets the desktop show through the app background. Panels keep the transparency you set in Syndo Studio.">
+          <select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
+            <option value="none">None</option><option value="mica">Mica</option><option value="acrylic">Acrylic</option></select></Field>
+      ) : <p className="muted small">See-through window materials need Windows 11 (22H2 or newer).</p>}
+      <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={() => confirm("Switch to a different Syndo server? You'll need to sign in there.") && d.changeServer()}>Change server</button></div></Field>
+      <ul className="small keys">
+        <li>Push-to-talk works globally — set it in Voice &amp; video.</li>
+        <li>Screen sharing can include whole-system audio{desktop.capabilities.systemAudio ? "" : " (Windows only)"}.</li>
+        <li><code>syndo://invite/CODE</code> links open invites in the app.</li>
+      </ul>
     </div>
   );
 }

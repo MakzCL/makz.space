@@ -68,10 +68,12 @@ export function captureCapabilities() {
   const mobile = /Android|iPhone|iPad|iPod/.test(ua);
   const isWin = /Windows/.test(ua), isMac = /Mac OS X/.test(ua) && !mobile, isLinux = /Linux/.test(ua) && !/Android/.test(ua);
   const canShare = !!navigator.mediaDevices?.getDisplayMedia && !mobile;
+  const desk = (window as any).syndoDesktop?.capabilities as { systemAudio?: boolean } | undefined;
   return {
     canShare,
     tabAudio: canShare && chromium,
-    systemAudio: canShare && chromium && isWin,
+    systemAudio: canShare && ((chromium && isWin) || !!desk?.systemAudio),
+    desktopApp: !!desk,
     windowAudio: false,
     linuxNote: isLinux && chromium ? "On Linux, Chromium can share tab audio; whole-system audio depends on PipeWire and browser version." : null,
     macNote: isMac ? "macOS browsers can't capture system audio; tab audio works in Chromium browsers." : null,

@@ -1,0 +1,108 @@
+name: Syndo — test, web app, Windows desktop app
+
+on:
+  push:
+    paths: ["syndo/**", ".github/workflows/syndo.yml"]
+    tags: ["syndo-desktop-v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: syndo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: syndo, POSTGRES_PASSWORD: syndo, POSTGRES_DB: syndo_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U syndo" --health-interval 5s --health-retries 10
+    defaults: { run: { working-directory: syndo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Server integration tests (real PostgreSQL)
+        run: npm test
+        env: { DATABASE_URL: "postgres://syndo:syndo@localhost:5432/syndo_test" }
+
+  web:
+    # Builds the web client and deploys it to Cloudflare Pages (project "syndo-app").
+    # main → production; other branches → preview URLs. Set SYNDO_API_ORIGIN in the Pages project.
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults: { run: { working-directory: syndo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && !startsWith(github.ref, 'refs/tags/')
+        working-directory: syndo/web
+        run: |
+          npx --yes wrangler@4 pages project create syndo-app --production-branch=main || true
+          npx --yes wrangler@4 pages deploy dist --project-name=syndo-app --branch="${GITHUB_REF_NAME}" --commit-dirty=true
+      - name: Explain missing secrets
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "::notice::Web build OK. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to deploy to Cloudflare Pages."
+
+  desktop:
+    # Builds Syndo-Setup-<version>.exe on Windows. On a tag (syndo-desktop-vX.Y.Z) it also
+    # publishes the installer + latest.yml to the Cloudflare R2 update bucket.
+    runs-on: windows-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SYNDO_UPDATE_URL: ${{ vars.SYNDO_UPDATE_URL }}
+      SYNDO_APP_URL: ${{ vars.SYNDO_APP_URL }}
+      SYNDO_R2_BUCKET: ${{ vars.SYNDO_R2_BUCKET }}
+      CSC_LINK: ${{ secrets.SYNDO_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.SYNDO_CSC_KEY_PASSWORD }}
+    defaults: { run: { working-directory: syndo/desktop, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/desktop/package-lock.json }
+      - run: npm ci
+      - name: Version from tag
+        if: startsWith(github.ref, 'refs/tags/syndo-desktop-v')
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#syndo-desktop-v}"
+      - name: Bake the default server address
+        if: env.SYNDO_APP_URL != ''
+        run: npm pkg set syndo.appUrl="$SYNDO_APP_URL"
+      - run: npm run build
+      - name: Package Windows installer
+        run: |
+          EXTRA=""
+          if [ -n "$SYNDO_UPDATE_URL" ]; then EXTRA="--config.publish.provider=generic --config.publish.url=$SYNDO_UPDATE_URL"; fi
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK CSC_KEY_PASSWORD; fi
+          npx electron-builder --win nsis --publish never $EXTRA
+      - name: List output
+        run: ls -la release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syndo-windows
+          path: |
+            syndo/desktop/release/*.exe
+            syndo/desktop/release/*.blockmap
+            syndo/desktop/release/latest.yml
+          if-no-files-found: error
+      - name: Publish update to Cloudflare R2
+        if: startsWith(github.ref, 'refs/tags/syndo-desktop-v') && env.CLOUDFLARE_API_TOKEN != '' && env.SYNDO_R2_BUCKET != '' && env.SYNDO_UPDATE_URL != ''
+        run: |
+          cd release
+          # Installer and blockmap first, latest.yml last, so clients never see a feed pointing at a missing file.
+          for f in *.exe *.blockmap; do npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/$f" --file "$f" --remote; done
+          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/latest.yml" --file latest.yml --content-type "text/yaml" --cache-control "no-cache" --remote

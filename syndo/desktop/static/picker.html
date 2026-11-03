@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<title>Share your screen · Syndo</title><link rel="stylesheet" href="style.css"></head>
+<body class="picker"><main class="card" aria-labelledby="h">
+  <h1 id="h">Choose what to share</h1>
+  <div class="tabs" role="tablist"><button role="tab" id="t-screen" aria-selected="true">Screens</button><button role="tab" id="t-window" aria-selected="false">Windows</button></div>
+  <div class="grid" id="grid" role="radiogroup" aria-label="Sources"></div>
+  <label class="row" id="audioRow"><input type="checkbox" id="audio" checked> Share system audio (everything you hear, from all apps)</label>
+  <p id="audioNote"></p>
+  <div class="row" style="justify-content:flex-end"><button class="ghost" id="cancel">Cancel</button><button id="share" disabled>Share</button></div>
+</main><script src="picker.js"></script></body></html>

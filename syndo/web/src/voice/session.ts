@@ -265,24 +265,38 @@ export function setUserVolume(key: string, v: number) {
   updateVoiceSettings({ userVolumes: { ...get().settings.userVolumes, [key]: Math.max(0, Math.min(2, v)) } });
 }
 
-/** Push-to-talk works while the window has focus. A global hotkey needs the desktop app (tracked as CLIENT-08). */
+/**
+ * Push-to-talk. In a browser it works while the window has focus. In the
+ * desktop app the shell reports the key globally (even when Syndo is in the
+ * background), using the same press/release functions.
+ */
 let pttTimer: number | null = null;
-window.addEventListener("keydown", (e) => {
+export function pttPress() {
   const s = get();
-  if (!room || s.settings.mode !== "ptt" || e.code !== s.settings.pttKey || e.repeat) return;
-  const t = e.target as HTMLElement | null;
-  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-  if (pttTimer) clearTimeout(pttTimer);
+  if (!room || s.settings.mode !== "ptt") return;
+  if (pttTimer) { clearTimeout(pttTimer); pttTimer = null; }
+  if (s.pttActive) return;
   set({ pttActive: true });
   if (!s.muted && !s.deafened) micTrack?.unmute();
   reportState();
-});
-window.addEventListener("keyup", (e) => {
+}
+export function pttRelease() {
   const s = get();
-  if (!room || s.settings.mode !== "ptt" || e.code !== s.settings.pttKey) return;
-  pttTimer = window.setTimeout(() => { set({ pttActive: false }); micTrack?.mute(); reportState(); }, s.settings.pttReleaseDelay);
+  if (!room || s.settings.mode !== "ptt" || !s.pttActive) return;
+  if (pttTimer) clearTimeout(pttTimer);
+  pttTimer = window.setTimeout(() => { pttTimer = null; set({ pttActive: false }); micTrack?.mute(); reportState(); }, s.settings.pttReleaseDelay);
+}
+const globalPtt = () => !!(window as any).syndoDesktop?.capabilities?.globalPtt && get().settings.mode === "ptt";
+window.addEventListener("keydown", (e) => {
+  const s = get();
+  if (e.code !== s.settings.pttKey || e.repeat || globalPtt()) return;
+  const t = e.target as HTMLElement | null;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  pttPress();
 });
-window.addEventListener("blur", () => { if (get().pttActive) { set({ pttActive: false }); micTrack?.mute(); reportState(); } });
+window.addEventListener("keyup", (e) => { if (e.code === get().settings.pttKey && !globalPtt()) pttRelease(); });
+// In a browser, losing focus means we can no longer see the key — release. The desktop shell keeps listening.
+window.addEventListener("blur", () => { if (!globalPtt() && get().pttActive) { set({ pttActive: false }); micTrack?.mute(); reportState(); } });
 
 export async function setMode(mode: "vad" | "ptt") {
   await updateVoiceSettings({ mode });

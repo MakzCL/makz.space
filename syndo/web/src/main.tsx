@@ -9,6 +9,7 @@ import { Splash } from "./components/Splash.tsx";
 import { QuickSwitcher } from "./components/QuickSwitcher.tsx";
 import { Toasts } from "./components/ui.tsx";
 import { initNotifications } from "./notify.ts";
+import { initDesktop } from "./desktop.ts";
 import { navigate, useRoute } from "./router.ts";
 import { useStore } from "./store.ts";
 import { restoreSnapshot } from "./appearance/engine.ts";
@@ -57,5 +58,6 @@ function App() {
 }
 
 initNotifications();
+initDesktop();
 boot();
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

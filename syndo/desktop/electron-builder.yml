@@ -1,0 +1,31 @@
+# Syndo desktop packaging. Build on Windows (GitHub Actions windows-latest): npm run dist:win
+appId: space.makz.syndo
+productName: Syndo
+copyright: Syndo
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - package.json
+asarUnpack:
+  - node_modules/uiohook-napi/**
+win:
+  target: [nsis]
+  icon: build/icon.png
+  artifactName: Syndo-Setup-${version}.${ext}
+  # Unsigned unless CSC_LINK / CSC_KEY_PASSWORD are provided (Windows SmartScreen will warn until then).
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Syndo
+  deleteAppDataOnUninstall: false
+protocols:
+  - name: Syndo invite
+    schemes: [syndo]
+# Auto-update feed: added at build time when SYNDO_UPDATE_URL is set (see .github/workflows/syndo.yml):
+#   --config.publish.provider=generic --config.publish.url=$SYNDO_UPDATE_URL
+# The feed is a public Cloudflare R2 bucket (or any static host) holding latest.yml + the installer.

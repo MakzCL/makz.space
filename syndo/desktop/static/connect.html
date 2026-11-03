@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'">
+<title>Connect · Syndo</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="card" aria-labelledby="h">
+  <div class="brand"><img src="icon.png" alt=""> Syndo</div>
+  <h1 id="h">Connect to a Syndo server</h1>
+  <p id="lead">Enter the address of the Syndo server you use, for example <b>https://chat.example.com</b>. You can change it later from the tray menu.</p>
+  <form id="f" class="row"><label for="u" style="position:absolute;left:-9999px">Server address</label>
+    <input id="u" style="flex:1" placeholder="https://chat.example.com" autocomplete="url" autofocus required>
+    <button id="go">Connect</button></form>
+  <p class="err" id="err" role="alert"></p>
+</main><script src="connect.js"></script></body></html>

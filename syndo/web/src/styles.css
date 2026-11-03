@@ -636,3 +636,6 @@ a, .md-p a { color: var(--link, var(--accent)); }
 }
 [data-nav="horizontal"] .rail-item .pill { height: 4px !important; top: auto; }
 [data-nav="horizontal"] .rail-item:not(.active):not(.unread):not(:hover) .pill { width: 0; }
+/* Desktop app: Windows 11 window material shows through the app background layer only. */
+html[data-desktop-material], html[data-desktop-material] body { background: transparent !important; }
+[data-desktop-material] .shell { background: transparent; }
