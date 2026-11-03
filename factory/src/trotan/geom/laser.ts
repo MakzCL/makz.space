@@ -1,6 +1,6 @@
 // Laser job model: operation parameters, machine capabilities, validation, toolpath ordering,
 // time estimates (always labelled as estimates), kerf, common-line cutting, arrays and nesting.
-import { I, apply, boxOfPaths, dist, flatten, leaves, localPaths, mul, objsBox, opOf, polyArea, polyLength, transformPaths, type Box, type Doc, type Mat, type OpType, type Vec } from "./core";
+import { I, apply, boxOfPaths, dist, flatten, leaves, localPaths, mul, objsBox, opOf, polyArea, polyLength, transformPaths, type Box, type Doc, type Layer, type Mat, type OpType, type Vec } from "./core";
 import { depths, duplicateSegments, kerfCompensate, openContours, selfIntersections } from "./ops";
 
 /* ---------------------------------------------------------- capabilities -- */
@@ -97,8 +97,8 @@ export function nestRects(doc: Doc, count: number, sheet: { w: number; h: number
 }
 
 /* -------------------------------------------------------------- toolpath -- */
-export interface PathItem { op: OpType; obj: string; pts: Vec[]; closed: boolean; pass: number; length: number }
-export interface RasterItem { op: "raster"; obj: string; box: Box; pass: number }
+export interface PathItem { op: OpType; obj: string; layer: string; pts: Vec[]; closed: boolean; pass: number; length: number }
+export interface RasterItem { op: "raster"; obj: string; layer: string; box: Box; pass: number }
 export interface Toolpath { items: (PathItem | RasterItem)[]; travel: { from: Vec; to: Vec }[]; issues: Issue[] }
 
 export interface BuildOpts { ops: Partial<Record<OpType, OpParams>>; kerf: number; commonLine: boolean; tol?: number }
@@ -106,17 +106,18 @@ export interface BuildOpts { ops: Partial<Record<OpType, OpParams>>; kerf: numbe
  * outlines; nearest-neighbour within each step; passes repeat each step. */
 export function buildToolpath(doc: Doc, placements: Placement[], o: BuildOpts): Toolpath {
   const tol = o.tol ?? 0.02;
-  const groups = new Map<OpType, { obj: string; pts: Vec[]; closed: boolean }[]>();
-  const rasters: { obj: string; box: Box }[] = [];
+  const groups = new Map<OpType, { obj: string; layer: string; pts: Vec[]; closed: boolean }[]>();
+  const rasters: { obj: string; layer: string; box: Box }[] = [];
   for (const pl of placements) {
     for (const { o: ob, m, top } of leaves(doc.objects.filter((x) => !x.hidden))) {
       const op = ob.op ?? top.op ?? opOf(doc, top.kind === "group" ? ob : top);
       if (op === "none") continue;
       const world = mul(pl.m, m);
       const paths = transformPaths(localPaths(ob), world);
-      if (op === "raster" || ob.kind === "image") { const b = boxOfPaths(paths); if (b) rasters.push({ obj: ob.id, box: b }); continue; }
+      const layer = top.kind === "group" ? ob.layer : top.layer;
+      if (op === "raster" || ob.kind === "image") { const b = boxOfPaths(paths); if (b) rasters.push({ obj: ob.id, layer, box: b }); continue; }
       const arr = groups.get(op) ?? []; groups.set(op, arr);
-      for (const p of flatten(paths, tol)) if (p.pts.length > 1) arr.push({ obj: ob.id, pts: p.pts, closed: p.closed });
+      for (const p of flatten(paths, tol)) if (p.pts.length > 1) arr.push({ obj: ob.id, layer, pts: p.pts, closed: p.closed });
     }
   }
   const issues: Issue[] = [];
@@ -126,7 +127,7 @@ export function buildToolpath(doc: Doc, placements: Placement[], o: BuildOpts): 
     if (o.kerf > 0) {
       const closed = cut.filter((c) => c.closed), open = cut.filter((c) => !c.closed);
       const comp = kerfCompensate(closed.map((c) => c.pts), o.kerf);
-      groups.set("cut", [...comp.map((pts, i) => ({ obj: closed[Math.min(i, closed.length - 1)]?.obj ?? "", pts, closed: true })), ...open]);
+      groups.set("cut", [...comp.map((pts, i) => ({ obj: closed[Math.min(i, closed.length - 1)]?.obj ?? "", layer: closed[Math.min(i, closed.length - 1)]?.layer ?? "", pts, closed: true })), ...open]);
       if (open.length) issues.push({ level: "warning", code: "kerf_open", msg: "Kerf compensation only applies to closed outlines; open cuts are cut as drawn." });
     }
     if (o.commonLine) {
@@ -146,7 +147,7 @@ export function buildToolpath(doc: Doc, placements: Placement[], o: BuildOpts): 
     for (let pass = 1; pass <= passes; pass++) {
       if (op === "raster") {
         for (const r of [...rasters].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x)) {
-          const s: Vec = [r.box.x, r.box.y]; travel.push({ from: lastEnd(items) ?? [0, 0], to: s }); items.push({ op: "raster", obj: r.obj, box: r.box, pass }); head = [r.box.x + r.box.w, r.box.y + r.box.h];
+          const s: Vec = [r.box.x, r.box.y]; travel.push({ from: lastEnd(items) ?? [0, 0], to: s }); items.push({ op: "raster", obj: r.obj, layer: r.layer, box: r.box, pass }); head = [r.box.x + r.box.w, r.box.y + r.box.h];
         }
         continue;
       }
@@ -163,7 +164,7 @@ export function buildToolpath(doc: Doc, placements: Placement[], o: BuildOpts): 
       } else rest = nearest(rest, head, (h) => { head = h; });
       for (const c of rest) {
         travel.push({ from: lastEnd(items) ?? [0, 0], to: c.pts[0] });
-        items.push({ op, obj: c.obj, pts: c.pts, closed: c.closed, pass, length: polyLength({ pts: c.pts, closed: c.closed }) });
+        items.push({ op, obj: c.obj, layer: c.layer, pts: c.pts, closed: c.closed, pass, length: polyLength({ pts: c.pts, closed: c.closed }) });
         head = c.closed ? c.pts[0] : c.pts[c.pts.length - 1];
       }
     }
@@ -188,9 +189,9 @@ function nearest<T extends { pts: Vec[]; closed: boolean }>(list: T[], from: Vec
   setHead(h); return out;
 }
 /** Common-line cutting: an edge shared by two parts is cut once. Remaining edges are re-chained. */
-export function removeSharedEdges(list: { obj: string; pts: Vec[]; closed: boolean }[], tol = 0.01): { obj: string; pts: Vec[]; closed: boolean }[] {
+export function removeSharedEdges<T extends { obj: string; layer?: string; pts: Vec[]; closed: boolean }>(list: T[], tol = 0.01): T[] {
   const q = (v: Vec) => `${Math.round(v[0] / tol)},${Math.round(v[1] / tol)}`;
-  const seen = new Set<string>(); const segs: { obj: string; a: Vec; b: Vec }[] = [];
+  const seen = new Set<string>(); const segs: { src: T; a: Vec; b: Vec }[] = [];
   let removed = 0;
   for (const c of list) {
     const pts = c.closed ? [...c.pts, c.pts[0]] : c.pts;
@@ -198,12 +199,12 @@ export function removeSharedEdges(list: { obj: string; pts: Vec[]; closed: boole
       const ka = q(pts[i - 1]), kb = q(pts[i]), k = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
       if (ka === kb) continue;
       if (seen.has(k)) { removed++; continue; }
-      seen.add(k); segs.push({ obj: c.obj, a: pts[i - 1], b: pts[i] });
+      seen.add(k); segs.push({ src: c, a: pts[i - 1], b: pts[i] });
     }
   }
   if (!removed) return list;
   // chain segments back into polylines
-  const out: { obj: string; pts: Vec[]; closed: boolean }[] = [];
+  const out: T[] = [];
   const used = new Array(segs.length).fill(false);
   const byStart = new Map<string, number[]>(); segs.forEach((s, i) => { const k = q(s.a); byStart.set(k, [...(byStart.get(k) ?? []), i]); });
   for (let i = 0; i < segs.length; i++) {
@@ -211,7 +212,7 @@ export function removeSharedEdges(list: { obj: string; pts: Vec[]; closed: boole
     const pts: Vec[] = [segs[i].a, segs[i].b]; let k = q(segs[i].b);
     for (;;) { const nx = (byStart.get(k) ?? []).find((j) => !used[j]); if (nx === undefined) break; used[nx] = true; pts.push(segs[nx].b); k = q(segs[nx].b); }
     const closed = pts.length > 3 && q(pts[0]) === q(pts[pts.length - 1]);
-    out.push({ obj: segs[i].obj, pts: closed ? pts.slice(0, -1) : pts, closed });
+    out.push({ ...segs[i].src, pts: closed ? pts.slice(0, -1) : pts, closed });
   }
   return out;
 }
@@ -220,11 +221,13 @@ export function removeSharedEdges(list: { obj: string; pts: Vec[]; closed: boole
 export interface Estimate { seconds: number; byOp: Partial<Record<OpType, number>>; travel: number; cutLength: number; label: "estimate" }
 /** Physics-based estimate: vector moves with acceleration ramps, raster lines with overscan, travel
  * at the travel speed. It is an estimate until calibrated against the real machine. */
-export function estimate(tp: Toolpath, ops: Partial<Record<OpType, OpParams>>, caps: MachineCaps): Estimate {
+export function estimate(tp: Toolpath, ops: Partial<Record<OpType, OpParams>>, caps: MachineCaps, layers: Layer[] = []): Estimate {
+  const lp = new Map(layers.map((l) => [l.id, l.params]));
   const byOp: Partial<Record<OpType, number>> = {}; let cutLength = 0;
   const ramp = (v: number) => v / caps.accel; // time lost per stop–start at speed v
   for (const it of tp.items) {
-    const p = ops[it.op]; if (!p) continue;
+    const base = ops[it.op]; if (!base) continue;
+    const p: OpParams = { ...base, ...(lp.get(it.layer) ?? {}) } as OpParams;
     let s = 0;
     if (it.op === "raster") {
       const b = (it as RasterItem).box, ls = lineSpacing(p.dpi), lines = Math.max(1, Math.ceil(b.h / ls));
@@ -269,6 +272,7 @@ export function validateJob(c: ValidateCtx): Issue[] {
     if (!p) { out.push({ level: "error", code: "no_params", msg: `${opLabel(op)}: no parameters set.` }); continue; }
     out.push(...checkParams(op, p, c.caps));
     const st = c.profileStatus[op] ?? "missing";
+    for (const l of c.doc.layers) if (l.op === op && l.params && Object.keys(l.params).length) for (const e of checkParams(op, { ...p, ...l.params } as OpParams, c.caps)) out.push({ ...e, msg: `Layer ${l.name} — ${e.msg}` });
     if (st !== "approved") out.push({ level: c.hardware ? "error" : "warning", code: "unverified", msg: `${opLabel(op)}: settings for this material and machine are ${st === "missing" ? "not set up" : st} — ${c.hardware ? "an authorised operator must approve them before production" : "simulation only until approved"}.` });
   }
   // bed & sheet boundaries, overlaps

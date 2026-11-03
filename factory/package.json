@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test:trotan": "esbuild tests/trotan/geom.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-geom.mjs --log-level=error && esbuild tests/trotan/actions.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-actions.mjs --log-level=error && node --test tests/.trotan-geom.mjs tests/.trotan-actions.mjs",
+    "e2e:trotan": "node tests/trotan/e2e.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -29,6 +31,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.2.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
     "vite": "^8.3.5"
   }

@@ -1,0 +1,15 @@
+{
+  "name": "TROTAN — laser design & production",
+  "short_name": "TROTAN",
+  "description": "Laser cutting and engraving: design, prepare, produce. Skalarki Electronics Ltd",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    { "src": "/trotan-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/trotan-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/trotan.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

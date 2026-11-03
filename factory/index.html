@@ -26,7 +26,7 @@
   </head>
   <body>
     <div id="boot"><img alt="" src="/icon-maskable-512.png" /></div>
-    <script>if(/^(kortana|kimera)\./.test(location.hostname)||location.pathname.indexOf("/kimera")===0)document.querySelector("#boot img").src="/kimera-maskable-512.png"</script>
+    <script>if(/^(kortana|kimera)\./.test(location.hostname)||location.pathname.indexOf("/kimera")===0)document.querySelector("#boot img").src="/kimera-maskable-512.png";if(/^trotan\./.test(location.hostname)||location.pathname.indexOf("/trotan")===0)document.getElementById("boot").remove()</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

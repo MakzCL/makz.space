@@ -102,3 +102,18 @@ default shown in brackets. Every default can be changed later.
     *(Default: none. Add them yourself in Settings → Company → Custom order fields.)*
 41. **Sub-assembly orders:** when a manufacturing order needs a part you make yourself (e.g. a pedestal box) and there are not enough, should Kortana create the linked order for that part automatically, or only when someone presses "Create sub-assembly orders"?
     *(Default: only when pressed. Switch on automatic in Settings → Company.)*
+
+## Added 3 Nov (TROTAN laser app)
+
+42. **Which laser machines do you have?** For each one: maker and model, bed size, laser type and power (e.g. CO₂ 60 W), and the software you run it with today. TROTAN will add each as "No validated interface": it prepares and exports jobs for it but never controls it.
+    *(Default: only the virtual laser (simulation) is set up.)*
+43. **Who may approve laser settings?** Approving power and speed for a material is a safety decision. Which roles (or which people) should have "Approve settings"?
+    *(Default: Owner and Developer always; Manager has it too. Nobody else.)*
+44. **Materials and stock:** which sheet materials do you cut (type, thickness, sheet size), and are they already items in Kortana? TROTAN reserves the sheets when a job is queued and takes them out of stock only when the run is recorded as finished.
+    *(Default: seven common materials without stock links. Link each one to a Kortana item in TROTAN → Administration → Materials.)*
+45. **Prohibited materials:** PVC/vinyl is blocked on the virtual laser. Which other materials must never go on your machines (for example polycarbonate, ABS, coated or unknown plastics)?
+    *(Default: PVC/vinyl only, until you add more.)*
+46. **Web address for TROTAN:** is trotan.makz.space right? Until it is set up, TROTAN opens at factory.makz.space/trotan.
+    *(Default: trotan.makz.space, added when you say "publish".)*
+47. **File formats:** TROTAN imports SVG, DXF, PNG, JPG and BMP, and exports SVG, DXF, PNG and its own .trotan file. PDF, AI, EPS and CorelDRAW files are not supported yet. Which formats do your customers send most often?
+    *(Default: no PDF/AI import. Ask senders for SVG or DXF.)*

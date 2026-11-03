@@ -14,7 +14,9 @@ export const OP_TYPES: OpType[] = ["cut", "kiss", "score", "vengrave", "mark", "
 export const OP_LABEL: Record<OpType, string> = {
   cut: "Cut", kiss: "Kiss cut", score: "Score", vengrave: "Vector engrave", mark: "Mark", raster: "Raster engrave", none: "Not processed",
 };
-export interface Layer { id: string; name: string; color: string; visible: boolean; locked: boolean; op: OpType }
+/** Optional per-layer parameter overrides (used by material test cards: one setting per cell). */
+export interface LayerParams { power?: number; speed?: number; passes?: number; freq?: number | null; focus?: number; dpi?: number; air?: boolean }
+export interface Layer { id: string; name: string; color: string; visible: boolean; locked: boolean; op: OpType; params?: LayerParams }
 
 interface Base { id: string; layer: string; name?: string; m: Mat; locked?: boolean; hidden?: boolean; op?: OpType | null }
 export type PathObj = Base & { kind: "path"; paths: SubPath[] };

@@ -1303,7 +1303,8 @@ select pg_temp.check(public.trotan_can('produce') and not public.trotan_can('des
 select pg_temp.expect_fail($$insert into public.trotan_projects (name, doc) values ('x', '{"format":"trotan","units":"mm","objects":[]}')$$, 'TROTAN operators cannot create designs');
 select pg_temp.expect_fail($$insert into public.trotan_machines (name, caps) values ('x', '{"bedW":1,"bedH":1,"maxSpeed":1}')$$, 'TROTAN operators cannot configure machines');
 select pg_temp.become('00000000-0000-0000-0000-0000000000e3');
-select pg_temp.check((select count(*) from public.trotan_machines) = 2 and not public.trotan_can('prepare'), 'TROTAN support can browse but not prepare');
+select pg_temp.check((select count(*) from public.trotan_machines) = 3 and not public.trotan_can('prepare'), 'TROTAN support can browse (seeded virtual laser + 2) but not prepare');
+select pg_temp.check((select count(*) from public.trotan_profiles where status = 'approved') = 0, 'TROTAN first install has no approved settings — nothing is presented as a validated recipe');
 select pg_temp.expect_fail($$select public.trotan_set_profile_status('$$ || :'tpf' || $$', 'approved')$$, 'TROTAN support cannot approve settings');
 
 -- office designs; saves are versioned and conflict-safe
@@ -1317,7 +1318,7 @@ select pg_temp.expect_fail($$select public.trotan_set_profile_status('$$ || :'tp
 
 -- jobs: validation errors, unapproved settings and missing stock all block the queue
 insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, copies, sheets, validation)
-  values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{"power":80,"speed":20}}', 6, 3, '[{"level":"error","code":"sheet"}]') returning id as tj \gset
+  values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{"power":80,"speed":20,"passes":1}}', 6, 3, '[{"level":"error","code":"sheet"}]') returning id as tj \gset
 select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj' || $$')$$, 'TROTAN a job with validation errors cannot be queued');
 update public.trotan_jobs set validation = '[{"level":"warning","code":"overlap"}]' where id = :'tj';
 select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj' || $$')$$, 'TROTAN a job without approved settings cannot be queued');
@@ -1327,17 +1328,30 @@ select pg_temp.expect_fail($$update public.trotan_profiles set params = '{"power
 insert into public.trotan_profiles (material_id, machine_id, operation, version, params) values (:'tmat', :'tm', 'cut', 2, '{"power":75,"speed":22,"passes":1}') returning id as tpf2 \gset
 select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
 select pg_temp.expect_fail($$update public.trotan_jobs set status = 'running' where id = '$$ || :'tj' || $$'$$, 'TROTAN a job cannot jump to running');
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, sheets) values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{"power":95,"speed":20,"passes":1}}', 0) returning id as tjx \gset
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tjx' || $$')$$, 'TROTAN settings that differ from the approved ones are refused');
+select public.trotan_save(:'tpr', 2, '{"format":"trotan","version":1,"units":"mm","width":200,"height":100,"layers":[{"id":"L","params":{"power":99}}],"objects":[],"guides":[]}', 'layer override', true);
+update public.trotan_jobs set revision = 3, ops = '{"cut":{"power":80,"speed":20,"passes":1}}' where id = :'tjx';
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tjx' || $$')$$, 'TROTAN per-layer settings only on material tests');
+delete from public.trotan_jobs where id = :'tjx';
 select pg_temp.check(public.trotan_queue(:'tj') = 'queued', 'TROTAN validated job with approved settings is queued');
 select pg_temp.check((select status = 'reserved' and quantity = 3 from public.trotan_reservations where job_id = :'tj'), 'TROTAN 3 sheets reserved in KORTANA');
 select pg_temp.check((select quantity = 5 from public.stock_items where id = :'tply'), 'TROTAN queuing does not deduct stock');
 select pg_temp.expect_fail($$update public.trotan_jobs set kerf = 0.2 where id = '$$ || :'tj' || $$'$$, 'TROTAN a queued job cannot be edited');
-insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, sheets) values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{}}', 3) returning id as tj2 \gset
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, sheets) values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"cut":{"power":80,"speed":20,"passes":1}}', 3) returning id as tj2 \gset
 select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj2' || $$')$$, 'TROTAN only 2 free sheets left — the second job is refused');
 update public.trotan_jobs set sheets = 2, material_id = :'tpvc' where id = :'tj2';
 select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tj2' || $$')$$, 'TROTAN prohibited material is refused');
 update public.trotan_jobs set material_id = :'tmat' where id = :'tj2';
 select public.trotan_queue(:'tj2');
 
+-- material test cards may use unapproved settings, but only an approver can queue them
+insert into public.trotan_jobs (project_id, revision, machine_id, material_id, status, ops, sheets, test) values (:'tpr', 2, :'tm', :'tmat', 'ready', '{"raster":{}}', 0, true) returning id as tjt \gset
+select pg_temp.expect_fail($$select public.trotan_queue('$$ || :'tjt' || $$')$$, 'TROTAN office cannot queue a material test with unapproved settings');
+select pg_temp.become('00000000-0000-0000-0000-00000000000b');
+select pg_temp.check(public.trotan_queue(:'tjt') = 'queued', 'TROTAN an approver can queue a material test card');
+update public.trotan_jobs set status = 'cancelled' where id = :'tjt';
+select pg_temp.become('00000000-0000-0000-0000-0000000000e1');
 -- production: operator confirms checks; one run per machine; finishing is idempotent
 select pg_temp.become('00000000-0000-0000-0000-0000000000e2');
 select pg_temp.expect_fail($$select public.trotan_start('$$ || :'tj' || $$', '[{"name":"Lid closed","ok":false}]')$$, 'TROTAN a run needs every pre-run check confirmed');

@@ -6771,6 +6771,7 @@ create table if not exists public.trotan_jobs (
   ops jsonb not null default '{}',
   kerf numeric(6,3) not null default 0 check (kerf >= 0 and kerf < 5),
   common_line boolean not null default false,
+  test boolean not null default false,  -- material test card: may use unapproved settings, queued only by an approver
   copies int not null default 1 check (copies >= 0),
   sheets numeric(10,3) not null default 1 check (sheets >= 0),
   estimate_s numeric(12,1),
@@ -6975,10 +6976,21 @@ begin
   if (select project_id from public.trotan_jobs where id = j.id) is not null and not exists (select 1 from public.trotan_revisions r where r.project_id = j.project_id and r.version = j.revision) then
     raise exception 'Save a revision of the design before queuing (the job must point at a saved version)';
   end if;
-  for op in select jsonb_object_keys(j.ops) loop
-    if not exists (select 1 from public.trotan_profiles p where p.material_id = j.material_id and p.machine_id = j.machine_id and p.operation = op and p.status = 'approved') then missing := missing || op; end if;
-  end loop;
-  if cardinality(missing) > 0 then raise exception 'No approved settings for % on this material and machine', array_to_string(missing, ', '); end if;
+  if j.test then
+    if not public.trotan_can('approve') then raise exception 'Only an authorised operator can queue a material test'; end if;
+  else
+    for op in select jsonb_object_keys(j.ops) loop
+      -- the job must use the approved settings exactly (power, speed, frequency, passes, focus, resolution, air)
+      if not exists (select 1 from public.trotan_profiles p where p.material_id = j.material_id and p.machine_id = j.machine_id and p.operation = op and p.status = 'approved'
+          and not exists (select 1 from unnest(array['power', 'speed', 'freq', 'passes', 'focus', 'dpi', 'air']) k
+                          where not (op <> 'raster' and k = 'dpi') and (j.ops->op->k) is distinct from (p.params->k))) then missing := missing || op; end if;
+    end loop;
+    if exists (select 1 from public.trotan_revisions r, jsonb_array_elements(coalesce(r.doc->'layers', '[]')) l
+               where r.project_id = j.project_id and r.version = j.revision and jsonb_typeof(l->'params') = 'object' and l->'params' <> '{}'::jsonb) then
+      raise exception 'Per-layer laser settings are only allowed on material test jobs';
+    end if;
+  end if;
+  if cardinality(missing) > 0 then raise exception 'No approved settings (or settings differ from the approved ones) for % on this material and machine', array_to_string(missing, ', '); end if;
   if mt.stock_item_id is not null and j.sheets > 0 then
     loc := public.default_location();
     select coalesce(sum(quantity), 0) into have from public.stock_levels where item_id = mt.stock_item_id and location_id not in (select id from public.locations where kind in ('transit', 'wip'));
@@ -7056,6 +7068,26 @@ begin
 end $$;
 revoke all on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) from public, anon;
 grant execute on function public.trotan_finish(uuid, text, int, int, numeric, numeric, text, text) to authenticated;
+
+-- ---- first-install data: a virtual laser and common materials. Nothing here is a validated recipe:
+-- materials start without settings; settings are created, tested and approved by an authorised operator.
+insert into public.trotan_machines (name, adapter, manufacturer, model, caps, notes)
+select 'Virtual CO2 laser 600×400', 'virtual', 'TROTAN', 'Simulator',
+  '{"bedW":600,"bedH":400,"laserType":"co2","maxPowerW":60,"maxSpeed":1000,"maxRasterSpeed":3000,"accel":10000,"travelSpeed":1000,"ops":["cut","kiss","score","vengrave","mark","raster"],"freq":{"min":1000,"max":60000},"dpi":[125,250,333,500,600,1000],"focus":{"min":-10,"max":10},"airAssist":true,"maxPasses":10}',
+  'Simulation only. Its limits are generic CO2 values for planning; real machines need their own verified capabilities.'
+where not exists (select 1 from public.trotan_machines);
+insert into public.trotan_materials (name, category, thickness_mm, sheet_w, sheet_h, notes)
+select * from (values ('Acrylic (cast) 3 mm', 'Acrylic', 3.0, 600.0, 400.0, 'No settings yet — test and approve before production.'),
+  ('Plywood (birch) 3 mm', 'Plywood', 3.0, 600.0, 400.0, 'No settings yet — test and approve before production.'),
+  ('MDF 3 mm', 'MDF', 3.0, 600.0, 400.0, 'No settings yet — test and approve before production.'),
+  ('Cardboard 2 mm', 'Cardboard', 2.0, 600.0, 400.0, 'No settings yet — test and approve before production.'),
+  ('Paper 160 g/m²', 'Paper', 0.2, 297.0, 210.0, 'No settings yet — test and approve before production.'),
+  ('Leather (vegetable-tanned) 2 mm', 'Leather', 2.0, null::numeric, null::numeric, 'No settings yet — test and approve before production.'),
+  ('PVC / vinyl', 'Prohibited', null::numeric, null::numeric, null::numeric, 'Never laser: releases chlorine gas that harms people and the machine.'))
+  as v(name, category, thickness_mm, sheet_w, sheet_h, notes)
+where not exists (select 1 from public.trotan_materials);
+update public.trotan_machines m set prohibited = array(select id from public.trotan_materials where category = 'Prohibited')
+ where m.prohibited = '{}' and exists (select 1 from public.trotan_materials where category = 'Prohibited');
 
 -- ---- SK Factory reads laser progress through this view (contract: columns are stable)
 create or replace view public.trotan_mo_activity with (security_invoker = on) as
