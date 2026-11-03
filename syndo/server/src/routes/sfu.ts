@@ -15,7 +15,7 @@ export async function sfuRoutes(app:FastifyInstance){app.addHook("preHandler",re
   const {channel,perms}=await requireChannel(uid(req),p.channel,P.CONNECT);p.touched=Date.now();
   return serial(p,async()=>{
    if(req.params.op==="leave"){await closeSfuUser(p.channel,p.user);return {ok:true};}
-   if(req.params.op==="peers")return {peers:[...sfuPeers.values()].filter(x=>x.channel===p.channel&&x.id!==p.id).map(x=>({id:x.user,session:x.id,tracks:x.publications.map(t=>({name:t.name,kind:t.kind})),muted:voiceStates().find(v=>v.user_id===x.user)?.self_mute??false}))};
+   if(req.params.op==="peers")return {peers:[...sfuPeers.values()].filter(x=>x.channel===p.channel&&x.id!==p.id).map(x=>({id:x.user,name:x.name,session:x.id,tracks:x.publications.map(t=>({name:t.name,kind:t.kind})),muted:voiceStates().find(v=>v.user_id===x.user)?.self_mute??false}))};
    if(req.params.op==="publish"){
     const b=z.object({sessionDescription:desc,tracks:z.array(z.object({mid:z.string().regex(/^\d+$/),kind:kinds,name:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/)})).max(4)}).parse(req.body);
     const member=channel.guild_id?await q1<any>("select mute from members where guild_id=$1 and user_id=$2",[channel.guild_id,p.user]):null;

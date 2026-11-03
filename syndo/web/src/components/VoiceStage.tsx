@@ -39,6 +39,8 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
     tiles.push({ key: `${p.id}:camera`, uid: p.id, name: displayName(users[p.id]) || p.name, track: p.camera, kind: "camera", speaking: p.speaking, muted: p.micMuted, local: false });
     if (p.screen) tiles.push({ key: `${p.id}:screen`, uid: p.id, name: `${displayName(users[p.id]) || p.name}'s screen`, track: p.screen, kind: "screen", speaking: false, muted: !p.screenAudio, local: false });
   }
+  // Show cached participants as soon as the gateway announces them, before media negotiation.
+  for(const state of states)if(state.user_id!==me.id&&!v.peers[state.user_id])tiles.push({key:`${state.user_id}:camera`,uid:state.user_id,name:displayName(users[state.user_id])||"Connecting…",track:null,kind:"camera",speaking:false,muted:state.self_mute,local:false});
   const focused = v.focus ? tiles.find((t) => t.key === v.focus) : null;
   const caps = captureCapabilities();
   const st = v.settings.stream;
@@ -52,6 +54,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           <button className={`icon-btn ${diag ? "active" : ""}`} aria-pressed={diag} aria-label="Connection diagnostics" onClick={() => setDiag(!diag)}><Activity size={20} /></button>
         </div>
       </header>
+      {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={tiles.length}>
         {focused && <VideoTile t={focused} big onFocus={() => useVoice.setState({ focus: null })} />}
