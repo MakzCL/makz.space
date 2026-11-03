@@ -127,7 +127,7 @@ function Shell() {
       <header className="n-head">
         <div className="n-brand"><Logo size={20} /><b>NUCLEUS</b></div>
         <nav className="n-menubar">{Object.keys(MENUS).map((m) => <button key={m} type="button" onClick={(e) => { const r = (e.target as HTMLElement).getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 2, items: MENUS[m] }); }} data-testid={`menu-${m}`}>{m}</button>)}</nav>
-        <div className="n-proj"><b>{S.pr.name}</b><span className="n-dim">rev {S.pr.revision} · {S.fileName ?? "not saved yet"}</span><span className={`n-save ${S.dirty ? "dirty" : ""}`}>{S.dirty ? "● unsaved" : "saved"}</span></div>
+        <div className="n-proj" title={`${S.pr.name}: revision ${S.pr.revision}, ${S.fileName ?? "not saved yet"}`}><b>{S.pr.name}</b><span className="n-dim">rev {S.pr.revision} · {S.fileName ?? "not saved yet"}</span><span className={`n-save ${S.dirty ? "dirty" : ""}`}>{S.dirty ? "● unsaved" : "saved"}</span></div>
         <div className="n-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((x) => <button key={x} type="button" className={palette === x ? "on" : ""} onClick={() => setPalette(x)} title={{ light: "Light", granat: "Granat", dark: "Dark" }[x]} data-testid={`theme-${x}`}>{{ light: "L", granat: "G", dark: "D" }[x]}</button>)}</div>
         <div className="n-qa">
           <button type="button" className="n-ib" onClick={S.undo} disabled={!S.canUndo} title={`Undo ${S.lastLabel} (${k("edit.undo")})`}>↶</button><button type="button" className="n-ib" onClick={S.redo} disabled={!S.canRedo} title={`Redo (${k("edit.redo")})`}>↷</button>

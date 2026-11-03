@@ -34,7 +34,7 @@ function richSeed() {
   D.sessions = [{ id: id(), user: OWNER, created_at: now(), last_active: now(), user_agent: "Mozilla/5.0 (Windows NT 10.0) Chrome/141.0", ip: "10.0.0.5", current: true }];
   return D;
 }
-const nav = async (p, labels) => { for (const l of labels) { const loc = typeof l === "function" ? l(p) : p.getByText(l, { exact: true }).filter({ visible: true }).first(); await loc.click({ timeout: 8000 }); await p.waitForTimeout(350); } };
+const nav = async (p, labels) => { for (const l of labels) { const loc = typeof l === "function" ? l(p) : p.getByRole("button", { name: new RegExp(`^${l}(\\s*\\d+)?$`) }).or(p.getByText(l, { exact: true })).filter({ visible: true }).first(); await loc.click({ timeout: 8000 }); await p.waitForTimeout(350); } };
 const SCREENS = {
   factory: { url: "/", screens: [["Home", []], ["Jobs", ["Jobs"]], ["Chat", ["Chat"]], ["Team", ["Team"]], ["Insights", ["Insights"]], ["Requests", ["Requests"]],
     ["Profile", [(p) => p.locator(".me-btn")]], ["Profile › Awards", [(p) => p.locator(".me-btn"), (p) => p.locator("[aria-label=Awards]").last()]], ["Profile › Settings", [(p) => p.locator(".me-btn"), (p) => p.locator("[aria-label=Settings]").last()]]] },

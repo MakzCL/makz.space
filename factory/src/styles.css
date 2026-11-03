@@ -718,7 +718,7 @@ p { margin: 0; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 .tbl th { position: sticky; top: 0; z-index: 1; background: var(--surface); text-align: left; font-weight: 500; font-size: 0.74rem; color: var(--muted); padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .sheet .tbl th, .card .tbl th { background: var(--surface-2); }
-.tbl th button { font-weight: inherit; color: inherit; }
+.tbl th button { font-weight: inherit; color: inherit; min-height: 28px; padding: 0 2px; } /* sort headers: a comfortable tap target */
 .tbl th.num, .tbl td.num { text-align: right; }
 .tbl td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .tbl td b { font-weight: 600; margin-right: 0.4rem; }
@@ -1168,7 +1168,8 @@ label.k-check input { width: auto; }
 .k-access td.c input { width: 18px; height: 18px; accent-color: var(--accent, #8b5cf6); cursor: pointer; }
 .k-access td.c input:disabled { cursor: default; }
 .k-rank { display: inline-flex; align-items: center; gap: 0.1rem; margin-right: 0.3rem; }
-.k-rank .icon-btn { width: 22px; height: 22px; }
+.k-rank .icon-btn { width: 28px; height: 28px; }
+@media (pointer: coarse) { .k-rank .icon-btn { width: 36px; height: 36px; } .tbl th button { min-height: 36px; } }
 .k-why { display: block; max-width: 260px; font-size: 0.72rem; line-height: 1.25; margin-top: 0.2rem; white-space: normal; }
 ul.trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
 ul.trace li { display: block; line-height: 1.45; }

@@ -12,7 +12,8 @@ export const STATIC_JS = () => {
   for (const e of document.querySelectorAll("button, a[href], [role=button], [role=tab], input:not([type=hidden]), select, textarea")) {
     if (!vis(e)) continue; const r = e.getBoundingClientRect();
     if (!name(e) && !(e.labels && e.labels.length) && !e.getAttribute("placeholder") && !e.closest("label")) out.push({ kind: "no-accessible-name", detail: path(e) });
-    if (r.right > W + 1 || r.left < -1) out.push({ kind: "off-screen-control", detail: `${path(e)} "${name(e)}" at x ${Math.round(r.left)}–${Math.round(r.right)}` });
+    const inScroller = (() => { for (let x = e.parentElement; x; x = x.parentElement) { const st = getComputedStyle(x); if (/(auto|scroll)/.test(st.overflowX) && x.scrollWidth > x.clientWidth + 1) return true; } return false; })();
+    if ((r.right > W + 1 || r.left < -1) && !inScroller) out.push({ kind: "off-screen-control", detail: `${path(e)} "${name(e)}" at x ${Math.round(r.left)}–${Math.round(r.right)}` });
     if (W <= 500 && (r.width < 24 || r.height < 24) && !["checkbox", "radio"].includes(e.type)) out.push({ kind: "small-tap-target", detail: `${path(e)} "${name(e)}" ${Math.round(r.width)}×${Math.round(r.height)}` });
   }
   // clipped text: an element whose text is cut (overflow hidden/ellipsis) — reported only when it has no title to reveal it
@@ -28,6 +29,7 @@ export const STATIC_JS = () => {
   for (const e of document.querySelectorAll("body *")) {
     if (!vis(e)) continue; const own = [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1); if (!own) continue;
     if (e.closest("canvas, svg, [aria-hidden=true]") || e.closest("button:disabled, [disabled], .disabled")) continue;
+    if (e.closest(".seg button.on, .k-seg button.on")) continue; // the selected segment's background is a sliding sibling pill
     const s = getComputedStyle(e); const fg = rgb(s.color), bg = bgOf(e); if (!fg || !bg) continue;
     const a = fg[3] === undefined ? 1 : fg[3]; const mix = fg.slice(0, 3).map((v, i) => v * a + bg[i] * (1 - a));
     const L1 = lum(mix), L2 = lum(bg); const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
@@ -49,7 +51,7 @@ export async function crawlScreen({ browser, newPage, open, app, screen, viewpor
   const controls = await page.evaluate((sel) => {
     const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden"; };
     // with a dialog/sheet open, only its own controls are reachable (as for a person)
-    const dlg = [...document.querySelectorAll("[role=dialog], .t-modal, .n-modal, .sheet-wrap, .k-sheet")].filter(vis).pop();
+    const dlg = [...document.querySelectorAll("[role=dialog], [role=menu], .t-modal, .n-modal, .sheet-wrap, .k-sheet")].filter(vis).pop();
     return [...document.querySelectorAll(sel)].filter(vis).map((e, i) => ({ i, e })).filter(({ e }) => !dlg || dlg.contains(e)).map(({ i, e }) => ({ i, tag: e.tagName.toLowerCase(), type: e.type || "",
       active: e.classList.contains("on") || e.classList.contains("active") || e.getAttribute("aria-selected") === "true" || e.getAttribute("aria-pressed") === "true" || e.getAttribute("aria-current") === "page",
       text: (e.getAttribute("aria-label") || e.innerText || e.title || e.value || "").trim().replace(/\s+/g, " ").slice(0, 50), testid: e.dataset.testid || "" }));
@@ -65,11 +67,11 @@ export async function crawlScreen({ browser, newPage, open, app, screen, viewpor
       await open(p); await p.waitForTimeout(400);
       const el = p.locator(CONTROLS).filter({ visible: true }).nth(c.i);
       if (!(await el.count())) continue;
-      const before = await p.evaluate(() => document.body.innerHTML.length + "|" + location.href + "|" + document.activeElement?.tagName);
+      const before = await p.evaluate(() => document.body.innerHTML.length + "|" + document.body.innerText + "|" + location.href + "|" + document.activeElement?.tagName);
       if (c.tag === "select") { const opts = await el.locator("option").evaluateAll((o) => o.map((x) => x.value)); const cur = await el.inputValue(); const other = opts.find((v) => v !== cur); if (other !== undefined) await el.selectOption(other, { timeout: 3000 }); }
       else await el.click({ timeout: 3000, trial: false });
       await p.waitForTimeout(600);
-      const after = await p.evaluate(() => document.body.innerHTML.length + "|" + location.href + "|" + document.activeElement?.tagName);
+      const after = await p.evaluate(() => document.body.innerHTML.length + "|" + document.body.innerText + "|" + location.href + "|" + document.activeElement?.tagName);
       const dl = e2.find((x) => x.kind === "download"); const pop = e2.find((x) => x.kind === "popup");
       const confirmed = e2.some((x) => x.kind === "dialog"); // a confirm() that the crawler cancelled
       if (before === after && !dl && !pop && !confirmed && !c.active && c.tag !== "select" && c.type !== "checkbox") add("dead-control", `"${label}" (${c.tag}) changes nothing visible`, { control: label });

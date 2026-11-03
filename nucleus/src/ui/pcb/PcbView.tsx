@@ -29,7 +29,7 @@ export function PcbView({ dark }: { dark: string }) {
   const [cursor, setCursor] = useState<P | null>(null); const [setup, setSetup] = useState(false); const [zoneDlg, setZoneDlg] = useState(false);
   const drag = useRef<{ k: "pan"; s: P; v: View } | { k: "move"; id: string; off: P; base: Project; moved: boolean } | null>(null);
 
-  useLayoutEffect(() => { const el = wrap.current!; const ro = new ResizeObserver(() => setSize({ W: el.clientWidth, H: el.clientHeight })); ro.observe(el); setSize({ W: el.clientWidth, H: el.clientHeight }); return () => ro.disconnect(); }, []);
+  useLayoutEffect(() => { const el = wrap.current; if (!el) return; /* no canvas until the board exists */ const ro = new ResizeObserver(() => setSize({ W: el.clientWidth, H: el.clientHeight })); ro.observe(el); setSize({ W: el.clientWidth, H: el.clientHeight }); return () => ro.disconnect(); }, [!!board]);
   const setBoard = useCallback((fn: (b: Board) => Board, label: string) => S.change((p) => { const b = boardOf(p) ?? newBoard(); const nb = fn(structuredClone(b)); return { ...p, pcb: nb, modified: new Date().toISOString() }; }, label), [S]);
   const fit = useCallback(() => {
     if (!board) return; const [x0, y0, x1, y1] = outlineBox(board); let X0 = x0, Y0 = y0, X1 = x1, Y1 = y1;

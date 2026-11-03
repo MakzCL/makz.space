@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { canSeeCosts } from "../lib/roles";
-import { t } from "../lib/i18n";
+import { t, plural } from "../lib/i18n";
 import { useStore } from "../lib/store";
 import { money, stockLevels } from "../screens/Inventory";
 import { PageHead, Stat, SubTabs } from "./kit";
@@ -58,7 +58,7 @@ export function KInsights({ onItem }: { onItem: (id: string) => void }) {
     <div className="k-page">
       <PageHead title={t("Insights")} sub={t("Sales, production and stock at a glance.")} tabs={tabs} />
       <div className="k-stats">
-        <Stat label={t("Sales this month")} value={money(monthSales)} sub={t("{n} orders", { n: sold.filter((o) => when(o) >= month0).length })} />
+        <Stat label={t("Sales this month")} value={money(monthSales)} sub={plural(sold.filter((o) => when(o) >= month0).length, ["order", "orders"], ["zamówienie", "zamówienia", "zamówień"])} />
         <Stat label={t("Open orders")} value={open.length} sub={money(open.reduce((x, o) => x + (o.amount ?? 0), 0))} />
         <Stat label={t("Late orders")} value={late} tone={late ? "bad" : "ok"} sub={late ? t("past their deadline") : t("all on time")} />
         <Stat label={t("In production")} value={moOpen.length} sub={t("{n} finished this week", { n: madeWeek })} />
@@ -115,7 +115,7 @@ function WeekBars({ weeks }: { weeks: { d: Date; v: number; n: number }[] }) {
         })}
       </svg>
       {h && <div className="k-tip" style={{ left: `${((pad + (hover! + 0.5) * bw) / W) * 100}%` }}>
-        <small>{t("Week of {d}", { d: h.d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })}</small><b>{money(h.v)}</b><small>{t("{n} orders", { n: h.n })}</small>
+        <small>{t("Week of {d}", { d: h.d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })}</small><b>{money(h.v)}</b><small>{plural(h.n, ["order", "orders"], ["zamówienie", "zamówienia", "zamówień"])}</small>
       </div>}
     </div>
   );
