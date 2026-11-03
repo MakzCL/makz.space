@@ -4899,5 +4899,178 @@ end $$;
 revoke all on function public.restore_staff(uuid) from public, anon;
 grant execute on function public.restore_staff(uuid) to authenticated;
 
+-- ============================================================================
+-- Phase 5a — warehouse tasks (WH-01/02/03/07/09).
+-- Managers/office assign receiving, picking, shipping, transfers and counts to
+-- warehouse staff; the assignee does the work from their phone (the work itself
+-- goes through the normal receive / ship / transfer / count functions). Tasks
+-- close themselves when the PO, order or transfer they belong to is finished.
+-- ============================================================================
+create sequence if not exists public.wt_seq;
+create table if not exists public.wh_tasks (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'WT-' || lpad(nextval('public.wt_seq')::text, 4, '0'),
+  kind text not null check (kind in ('receive', 'pick', 'ship', 'transfer', 'count')),
+  source_id uuid,
+  location_id uuid references public.locations(id) on delete set null,
+  items uuid[] not null default '{}',
+  assigned_to uuid references public.profiles(id) on delete set null,
+  status text not null default 'open' check (status in ('open', 'in_progress', 'done', 'cancelled')),
+  due_date date,
+  note text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  done_at timestamptz,
+  done_by uuid references public.profiles(id) on delete set null,
+  check ((kind = 'count') = (source_id is null))
+);
+create unique index if not exists wh_tasks_one_open on public.wh_tasks (kind, source_id) where status in ('open', 'in_progress') and source_id is not null;
+create index if not exists wh_tasks_assignee_idx on public.wh_tasks (assigned_to, status);
+alter table public.wh_tasks enable row level security;
+drop policy if exists "staff read" on public.wh_tasks;
+drop policy if exists "office write" on public.wh_tasks;
+create policy "staff read" on public.wh_tasks for select to authenticated using (public.is_active());
+create policy "office write" on public.wh_tasks for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop trigger if exists audit_row on public.wh_tasks;
+create trigger audit_row after insert or update or delete on public.wh_tasks for each row execute function public.audit_row();
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'wh_tasks') then
+    alter publication supabase_realtime add table public.wh_tasks;
+  end if;
+end $$;
+
+-- The source must exist and match the kind; the assignee must be active warehouse-capable staff.
+create or replace function public.guard_wh_task() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare r public.staff_role;
+begin
+  if new.kind = 'receive' and not exists (select 1 from public.purchase_orders where id = new.source_id) then raise exception 'Pick a purchase order'; end if;
+  if new.kind in ('pick', 'ship') and not exists (select 1 from public.orders where id = new.source_id and kind = 'order') then raise exception 'Pick a sales order'; end if;
+  if new.kind = 'transfer' and not exists (select 1 from public.stock_transfers where id = new.source_id) then raise exception 'Pick a transfer'; end if;
+  if new.assigned_to is not null and (tg_op = 'INSERT' or new.assigned_to is distinct from old.assigned_to) then
+    select role into r from public.profiles where id = new.assigned_to and active and removed_at is null;
+    if r is null then raise exception 'That person is not active'; end if;
+    if r not in ('developer', 'boss', 'manager', 'office', 'assistant') then raise exception 'Warehouse tasks go to staff who may move stock (Assistant or above)'; end if;
+  end if;
+  if new.status is distinct from coalesce(old.status, 'open') and current_setting('app.wh_step', true) is distinct from 'on' and tg_op = 'UPDATE'
+     and not (new.status = 'cancelled' and public.is_admin()) then
+    raise exception 'Use Start / Done to change a task';
+  end if;
+  if new.location_id is null then
+    new.location_id := case new.kind
+      when 'receive' then (select location_id from public.purchase_orders where id = new.source_id)
+      when 'pick' then (select location_id from public.orders where id = new.source_id)
+      when 'ship' then (select location_id from public.orders where id = new.source_id)
+      when 'transfer' then (select from_location from public.stock_transfers where id = new.source_id)
+      else null end;
+    new.location_id := coalesce(new.location_id, public.default_location());
+  end if;
+  return new;
+end $$;
+drop trigger if exists guard_wh_task on public.wh_tasks;
+create trigger guard_wh_task before insert or update on public.wh_tasks for each row execute function public.guard_wh_task();
+
+-- Start / done / reopen. The assignee or the office team.
+create or replace function public.wh_task_step(p_id uuid, p_action text) returns text
+language plpgsql security definer set search_path = public as $$
+declare w public.wh_tasks;
+begin
+  select * into w from public.wh_tasks where id = p_id for update;
+  if w.id is null then raise exception 'Task not found'; end if;
+  if not public.is_active() or not (public.is_admin() or w.assigned_to = auth.uid()) then raise exception 'This task is not assigned to you'; end if;
+  perform set_config('app.wh_step', 'on', true);
+  if p_action = 'start' then
+    if w.status not in ('open', 'in_progress') then raise exception 'This task is closed'; end if;
+    update public.wh_tasks set status = 'in_progress', started_at = coalesce(started_at, now()),
+      assigned_to = coalesce(assigned_to, auth.uid()) where id = w.id;
+  elsif p_action = 'done' then
+    if w.status not in ('open', 'in_progress') then raise exception 'This task is closed'; end if;
+    if w.kind = 'pick' and exists (select 1 from public.orders where id = w.source_id and delivery = 'not_shipped') then
+      perform public.order_delivery_after(w.source_id, 'packed');
+    end if;
+    update public.wh_tasks set status = 'done', done_at = now(), done_by = auth.uid(), started_at = coalesce(started_at, now()) where id = w.id;
+  elsif p_action = 'reopen' then
+    if not public.is_admin() then raise exception 'Only the office team can reopen tasks'; end if;
+    update public.wh_tasks set status = 'open', done_at = null, done_by = null where id = w.id;
+  else raise exception 'Unknown action';
+  end if;
+  perform set_config('app.wh_step', 'off', true);
+  return (select status from public.wh_tasks where id = w.id);
+end $$;
+revoke all on function public.wh_task_step(uuid, text) from public, anon;
+grant execute on function public.wh_task_step(uuid, text) to authenticated;
+
+-- Close tasks whose document is finished.
+create or replace function public.wh_autoclose() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare was text := current_setting('app.wh_step', true);
+begin
+  perform set_config('app.wh_step', 'on', true);
+  -- (row fields differ per table, so each branch only touches its own table's columns)
+  if tg_table_name in ('purchase_orders', 'stock_transfers') then
+    if (to_jsonb(new)->>'status') in ('received', 'cancelled') then
+      update public.wh_tasks set status = case when to_jsonb(new)->>'status' = 'received' then 'done' else 'cancelled' end, done_at = now(), done_by = auth.uid()
+       where kind = case tg_table_name when 'purchase_orders' then 'receive' else 'transfer' end and source_id = new.id and status in ('open', 'in_progress');
+    end if;
+  elsif tg_table_name = 'orders' then
+    if (to_jsonb(new)->>'delivery') in ('shipped', 'delivered') or (to_jsonb(new)->>'status') = 'cancelled' then
+      update public.wh_tasks set status = case when to_jsonb(new)->>'status' = 'cancelled' then 'cancelled' else 'done' end, done_at = now(), done_by = auth.uid()
+       where kind in ('pick', 'ship') and source_id = new.id and status in ('open', 'in_progress');
+    end if;
+  end if;
+  perform set_config('app.wh_step', coalesce(was, ''), true);
+  return new;
+end $$;
+drop trigger if exists wh_autoclose on public.purchase_orders;
+create trigger wh_autoclose after update of status on public.purchase_orders for each row execute function public.wh_autoclose();
+drop trigger if exists wh_autoclose on public.orders;
+create trigger wh_autoclose after update of delivery, status on public.orders for each row execute function public.wh_autoclose();
+drop trigger if exists wh_autoclose on public.stock_transfers;
+create trigger wh_autoclose after update of status on public.stock_transfers for each row execute function public.wh_autoclose();
+
+-- Is the caller assigned an open task of this kind for this document?
+create or replace function public.my_wh_task(p_kinds text[], p_source uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_stock_keeper() and exists (select 1 from public.wh_tasks where source_id = p_source and kind = any(p_kinds)
+    and assigned_to = auth.uid() and status in ('open', 'in_progress'))
+$$;
+
+-- Warehouse staff assigned to pick/ship an order may ship it.
+create or replace function public.ship_lines(p_order uuid, p_lines jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; kind text;
+begin
+  if not (public.is_admin() or public.my_wh_task(array['pick', 'ship'], p_order)) then raise exception 'Only the office team, or whoever is assigned to ship it, can ship orders'; end if;
+  prev := public.claim_op('ship_lines', p_key);
+  if prev is not null then return prev; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  if o.kind = 'quote' then raise exception 'Quotes are not delivered'; end if;
+  if o.status = 'cancelled' then raise exception 'This order is cancelled'; end if;
+  for l in select * from public.order_lines where order_id = o.id order by sort, created_at for update loop
+    if p_lines is null then q := l.quantity - l.shipped;
+    else
+      select x into r from jsonb_array_elements(p_lines) x where (x->>'line')::uuid = l.id;
+      q := coalesce((r->>'qty')::numeric, 0);
+    end if;
+    continue when q = 0;
+    if q < 0 then raise exception 'Ship a positive quantity'; end if;
+    if l.shipped + q > l.quantity then
+      raise exception '% — only % left to ship', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.quantity - l.shipped);
+    end if;
+    select si.kind into kind from public.stock_items si where si.id = l.item_id;
+    if l.item_id is not null and kind is distinct from 'service' then
+      perform public.stock_source('order_line', l.id);
+      perform public.move_stock(l.item_id, -q, 'ship', o.order_number, '');
+    end if;
+    update public.order_lines set shipped = shipped + q where id = l.id;
+  end loop;
+  return public.finish_op('ship_lines', p_key, public.order_delivery_after(o.id));
+end $$;
+revoke all on function public.ship_lines(uuid, jsonb, text) from public, anon;
+grant execute on function public.ship_lines(uuid, jsonb, text) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

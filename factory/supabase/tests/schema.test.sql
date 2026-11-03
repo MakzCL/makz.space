@@ -1006,6 +1006,47 @@ update public.profiles set role = 'operator' where role in ('boss') and id <> '0
 select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
 select pg_temp.check((select count(*) = 1 from public.profiles where role in ('boss','developer') and active and removed_at is null), 'only one owner/developer left');
 
+-- ---------------------------------------------------------------- phase 5a: warehouse tasks
+-- d1 developer, d3 assistant, d4 operator (active again)
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.purchase_orders (supplier_id, status) values (:'osup', 'ordered') returning id as wpo \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'wpo', :'omat', 5, 4) returning id as wpl \gset
+select pg_temp.expect_fail($$insert into public.wh_tasks (kind, source_id, assigned_to) values ('receive', '$$ || :'wpo' || $$', '00000000-0000-0000-0000-0000000000d4')$$, 'assigning warehouse work to an operator');
+insert into public.wh_tasks (kind, source_id, assigned_to) values ('receive', :'wpo', '00000000-0000-0000-0000-0000000000d3') returning id as wt1 \gset
+select pg_temp.expect_fail($$insert into public.wh_tasks (kind, source_id) values ('receive', '$$ || :'wpo' || $$')$$, 'two open tasks for the same PO');
+select pg_temp.expect_fail($$insert into public.wh_tasks (kind, source_id) values ('pick', '$$ || :'wpo' || $$')$$, 'a pick task pointing at a PO');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d4');
+select pg_temp.expect_fail($$select public.wh_task_step('$$ || :'wt1' || $$', 'start')$$, 'someone else starts my task');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
+select pg_temp.check(public.wh_task_step(:'wt1', 'start') = 'in_progress', 'WH-03 assignee starts the receiving task');
+update public.wh_tasks set status = 'done' where id = :'wt1';
+select pg_temp.check((select status = 'in_progress' from public.wh_tasks where id = :'wt1'), 'assistant cannot edit the task row directly');
+select public.receive_po_line(:'wpl', 5);
+select pg_temp.check((select status = 'done' and done_by = '00000000-0000-0000-0000-0000000000d3' from public.wh_tasks where id = :'wt1'), 'WH-09 receiving the whole PO closes the task');
+-- pick + ship by an assistant
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.orders (order_number, customer, kind) values ('', 'Warehouse Buyer', 'order') returning id as wso \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity) values (:'wso', :'omat', 'OUT-MAT', 'Raw obudowa', 3) returning id as wsl \gset
+insert into public.wh_tasks (kind, source_id, assigned_to) values ('pick', :'wso', '00000000-0000-0000-0000-0000000000d3') returning id as wt2 \gset
+select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
+select pg_temp.check(public.wh_task_step(:'wt2', 'done') = 'done', 'assistant finishes picking');
+select pg_temp.check((select delivery = 'packed' from public.orders where id = :'wso'), 'WH-05 finished pick marks the order packed');
+select pg_temp.expect_fail($$select public.ship_lines('$$ || :'wso' || $$', null)$$, 'assistant ships an order without a ship task');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.wh_tasks (kind, source_id, assigned_to) values ('ship', :'wso', '00000000-0000-0000-0000-0000000000d3') returning id as wt3 \gset
+select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
+select public.ship_lines(:'wso', jsonb_build_array(jsonb_build_object('line', :'wsl', 'qty', 1)));
+select pg_temp.check((select status = 'open' from public.wh_tasks where id = :'wt3') and (select shipped = 1 from public.order_lines where id = :'wsl'), 'WH-07 assigned assistant ships part of the order; task stays open');
+select public.ship_lines(:'wso', null);
+select pg_temp.check((select status = 'done' from public.wh_tasks where id = :'wt3'), 'shipping the rest closes the ship task');
+-- count task
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+select pg_temp.expect_fail($$insert into public.wh_tasks (kind, source_id) values ('count', '$$ || :'wpo' || $$')$$, 'a count task tied to a document');
+insert into public.wh_tasks (kind, items, assigned_to) values ('count', array[:'omat'::uuid], '00000000-0000-0000-0000-0000000000d3') returning id as wt4 \gset
+select pg_temp.check((select location_id = public.default_location() from public.wh_tasks where id = :'wt4'), 'count task defaults to the main location');
+update public.wh_tasks set status = 'cancelled' where id = :'wt4';
+select pg_temp.check((select status = 'cancelled' from public.wh_tasks where id = :'wt4'), 'office can cancel a task');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
