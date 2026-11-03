@@ -1,3 +1,5 @@
+import { Range } from "./Range.tsx";
+import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Activity, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -37,6 +39,8 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
     tiles.push({ key: `${p.id}:camera`, uid: p.id, name: displayName(users[p.id]) || p.name, track: p.camera, kind: "camera", speaking: p.speaking, muted: p.micMuted, local: false });
     if (p.screen) tiles.push({ key: `${p.id}:screen`, uid: p.id, name: `${displayName(users[p.id]) || p.name}'s screen`, track: p.screen, kind: "screen", speaking: false, muted: !p.screenAudio, local: false });
   }
+  // Show cached participants as soon as the gateway announces them, before media negotiation.
+  for(const state of states)if(state.user_id!==me.id&&!v.peers[state.user_id])tiles.push({key:`${state.user_id}:camera`,uid:state.user_id,name:displayName(users[state.user_id])||"Connecting…",track:null,kind:"camera",speaking:false,muted:state.self_mute,local:false});
   const focused = v.focus ? tiles.find((t) => t.key === v.focus) : null;
   const caps = captureCapabilities();
   const st = v.settings.stream;
@@ -50,6 +54,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           <button className={`icon-btn ${diag ? "active" : ""}`} aria-pressed={diag} aria-label="Connection diagnostics" onClick={() => setDiag(!diag)}><Activity size={20} /></button>
         </div>
       </header>
+      {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={tiles.length}>
         {focused && <VideoTile t={focused} big onFocus={() => useVoice.setState({ focus: null })} />}
@@ -69,9 +74,9 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           {shareMenu && !v.sharing && (
             <div className="share-menu" role="dialog" aria-label="Screen share quality">
               <h3>Share your screen</h3>
-              <label>Resolution <select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></select></label>
-              <label>Frame rate <select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</select></label>
-              <label>Optimise for <select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></select></label>
+              <label>Resolution <Select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></Select></label>
+              <label>Frame rate <Select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></label>
+              <label>Optimise for <Select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></Select></label>
               <label className="row"><input type="checkbox" checked={st.audio} onChange={(e) => updateVoiceSettings({ stream: { ...st, audio: e.target.checked } })} /> Include audio {!caps.tabAudio && <small className="muted">(not supported in this browser)</small>}</label>
               <p className="muted small">Your browser will ask which screen, window or tab to share.</p>
               <button className="btn primary" onClick={() => { setShareMenu(false); startScreenShare(); }}>Go live</button>
@@ -87,6 +92,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean }; big?: boolean; onFocus: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const users = useStore((s) => s.users);
+  const me = useStore(s => s.me);
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
   const [menu, setMenu] = useState(false);
   useEffect(() => {
@@ -97,7 +103,7 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
   const pip = () => (ref.current as any)?.requestPictureInPicture?.().catch(() => {});
   return (
     <figure className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`} onDoubleClick={fullscreen}>
-      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={users[t.uid]} size={big ? 120 : 72} /></div>}
+      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : 72} /></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis">{t.name}</span></figcaption>
       <div className="tile-tools">
         <button className="icon-btn sm" onClick={onFocus} aria-label={big ? "Unfocus" : `Focus ${t.name}`}><Pin size={14} /></button>
@@ -105,7 +111,7 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
         {t.track && "requestPictureInPicture" in HTMLVideoElement.prototype && <button className="icon-btn sm" onClick={pip} aria-label="Picture in picture"><PictureInPicture2 size={14} /></button>}
         {!t.local && <button className="icon-btn sm" onClick={() => setMenu(!menu)} aria-label={`Volume for ${t.name}`}><Volume2 size={14} /></button>}
       </div>
-      {menu && <div className="vol-pop"><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<input type="range" min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></div>}
+      {menu && <div className="vol-pop"><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<Range min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></div>}
     </figure>
   );
 }

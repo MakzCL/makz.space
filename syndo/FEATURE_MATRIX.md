@@ -53,7 +53,7 @@ Last updated: customization extension + desktop/web distribution (2026-11-03).
 | CHANNEL-09 | Stage channels | Missing | Type selectable as "preview" only | Speaker/listener roles, requests to speak | — |
 | CHANNEL-10 | Topic, ordering, slow mode | Complete | S/extra "enforces slow mode except for moderators"; reorder API; topic shown | Drag-to-reorder channels in UI (API exists) | Slow mode 30 s → second message 429 with retry time |
 | CHANNEL-11 | Text chat in voice channels | Partial | Server accepts messages in voice channels | UI chat panel inside the voice stage | Chat beside a call |
-| CHANNEL-12 | Browse, follow, mute, notification prefs | Partial | Notification code honours `muted_channels` / `muted_guilds` settings | UI to mute and per-channel notification levels | Muted channel produces no notification |
+| CHANNEL-12 | Browse, follow, mute, notification prefs | Partial | Header mute/unmute control persists `muted_channels`, syncs across devices and honours existing notification suppression; W/messaging mute control test | Per-channel notification levels; server-wide mute UI | Muted channel produces no notification |
 
 ## Messaging, DMs, group chats
 
@@ -65,9 +65,9 @@ Last updated: customization extension + desktop/web distribution (2026-11-03).
 | MSG-04 | Replies, message links, jump | Complete | S/core reply; links `/channels/g/c/m` + `around=` history | Browser test for jump highlighting | Click a reply → scrolled to and highlighted |
 | MSG-05 | Reactions + animated effects (original assets) | Partial | S/core reactions sync; CSS pop animation (reduced-motion aware) | Original animated reaction artwork; custom-emoji reactions | — |
 | MSG-06 | Markdown, code, highlighting, spoilers, quotes, lists | Complete | Renderer produces React elements only (no HTML injection); E2E bold rendering | — | — |
-| MSG-07 | Mentions with permission controls | Partial | Server strips @everyone/role mentions without permission; mention counts | Mention autocomplete in composer; "suppress @everyone" per user | Member without permission writing @everyone pings nobody |
+| MSG-07 | Mentions with permission controls | Partial | Server strips @everyone/role mentions without permission; composer autocomplete for members, mentionable roles and permitted mass mentions, with keyboard/pointer controls and server member search; W/messaging completion tests | "suppress @everyone" per user | Member without permission writing @everyone pings nobody |
 | MSG-08 | Typing, unread markers, mention counters, mark read | Complete | S/core typing, ack sync; unread divider + badges | — | — |
-| MSG-09 | Pins and saved messages | Partial | S/extra pins/saved (saved hide when access lost) | Saved-messages view in the UI | — |
+| MSG-09 | Pins and saved messages | Partial | S/extra pins/saved (saved hide when access lost); private Saved messages inbox with search, jump, remove, gateway refresh and stale-response protection; W/messaging saved inbox tests | Cursor pagination beyond the existing 200-save API window; full-browser visual test | Save a message, find it in the inbox, jump to it; revoke channel access and the save disappears |
 | MSG-10 | Images/video/audio/files, drag-drop, paste | Partial | S/core upload + permission-checked download; content sniffing; SVG never rendered | Browser test of drag/drop/paste; image thumbnails | Paste a screenshot → uploads and renders |
 | MSG-11 | Progress, cancel, retry, large files | Partial | XHR progress/cancel/retry in UI; operator limit `SYNDO_MAX_UPLOAD_MB` | Resumable chunked uploads (tus/S3 multipart) for multi-GB files | 2 GB upload survives a network blip |
 | MSG-12 | Safe link previews / embeds | Missing | — | Server-side fetcher with SSRF protection, image proxy | — |

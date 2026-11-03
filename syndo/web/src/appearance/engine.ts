@@ -1,3 +1,4 @@
+import { presetById, DEFAULT_GLOBAL } from "@syndo/shared";
 import {
   DEFAULT_THEME, FONTS, REGION_IDS, mixHex, readableOn, resolveAppearance,
   type Background, type ConversationPrefs, type DeepPartial, type PanelStyle, type RegionId, type Resolved, type ThemeDoc,
@@ -138,6 +139,6 @@ export function restoreSnapshot(): boolean {
 export const clearSnapshot = () => { try { localStorage.removeItem(SNAP); } catch { /* */ } };
 
 export function defaultResolved(): Resolved {
-  return resolveAppearance({ theme: DEFAULT_THEME, global: {}, a11y: { reducedMotion: "system", highContrast: false, disableAnimatedBackgrounds: false, disableProfileEffects: false, disableOthersCosmetics: false, blur: "full", lowPower: false, readableOverlay: false, minContrast: true }, systemReducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches });
+  return resolveAppearance({ theme: presetById(DEFAULT_GLOBAL.themeId) ?? DEFAULT_THEME, global: {}, a11y: { reducedMotion: "system", highContrast: false, disableAnimatedBackgrounds: false, disableProfileEffects: false, disableOthersCosmetics: false, blur: "full", lowPower: false, readableOverlay: false, minContrast: true }, systemReducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches });
 }
 export type { DeepPartial };

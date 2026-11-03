@@ -1,3 +1,4 @@
+import { PROFILE_CATALOG } from "./catalog.ts";
 /**
  * Syndo theme engine — schema, validation, layering and safety rules.
  *
@@ -34,6 +35,7 @@ export type RegionId = (typeof REGIONS)[number]["id"];
 export const REGION_IDS = REGIONS.map((r) => r.id) as RegionId[];
 
 export const FONTS = {
+  cabinet: { label: "Cabinet Grotesk", stack: `"Cabinet Grotesk", system-ui, sans-serif` },
   system: { label: "System sans", stack: `"Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif` },
   rounded: { label: "Rounded", stack: `ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", "Segoe UI", system-ui, sans-serif` },
   serif: { label: "Serif", stack: `"Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif` },
@@ -123,13 +125,13 @@ export const DEFAULT_THEME: ThemeDoc = {
     accent: "#3D6BFF", accent2: "#FFC93C", mention: "#FFC93C", link: "#7EA2FF", danger: "#E5484D", success: "#2FBF71", warning: "#F2B33D",
   },
   panels: {},
-  typography: { font: "system", size: 15, lineHeight: 1.4, letterSpacing: 0 },
+  typography: { font: "cabinet", size: 15, lineHeight: 1.4, letterSpacing: 0 },
   layout: DEFAULT_LAYOUT,
   background: { dark: null, light: null, target: "app" },
   effects: { animatedBackground: false, glow: 0, blurScale: 1 },
   conversation: { bubbles: { mine: "#3D6BFF", theirs: "#232C45", radius: 16, spacing: 4 } },
 };
-export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "syndo-midnight", lightThemeId: "syndo-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
+export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "syndo-glass", lightThemeId: "syndo-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
 
 /* ----------------------------------------------------------- validation -- */
 type Spec =
@@ -307,7 +309,7 @@ export function migrateThemeInput(i: Record<string, unknown>): Record<string, un
 
 export function migrateV1Appearance(a: Record<string, any> | undefined | null): GlobalAppearance {
   if (!a) return DEFAULT_GLOBAL;
-  const themeId = a.theme === "light" ? "syndo-paper" : a.theme === "contrast" ? "syndo-oled" : "syndo-midnight";
+  const themeId = a.theme === "light" ? "syndo-paper" : a.theme === "contrast" ? "syndo-oled" : a.theme ? "syndo-midnight" : DEFAULT_GLOBAL.themeId;
   const overrides: Record<string, any> = { colors: {}, typography: {}, layout: {}, panels: {} };
   if (typeof a.accent === "string") overrides.colors.accent = a.accent;
   if (a.theme === "custom" && a.custom) Object.assign(overrides.colors, a.custom);
@@ -538,6 +540,7 @@ export interface EffectLayer {
 }
 export interface ProfileTheme {
   primary: string; secondary: string;
+  collection?: "eclipse" | "rosecourt" | "lepidoptera" | "emberwake" | "glacial" | "sakura" | "abyssal" | "ophidian" | "starlit" | "gilded" | "wisteria" | "phantom" | `bundle-${number}` | null;
   decoration: (typeof DECORATIONS)[number]; frame: (typeof FRAMES)[number];
   ring: { style: (typeof RING_STYLES)[number]; color: string; speed: number };
   nameStyle: (typeof NAME_STYLES)[number]; nameColor2?: string | null; nameGlow: number;
@@ -550,6 +553,7 @@ export const DEFAULT_PROFILE_THEME: ProfileTheme = {
   nameStyle: "plain", nameColor2: null, nameGlow: 40, nameplate: "none", statusShape: "circle", entrance: "fade", bannerAnimation: "none", effects: [],
 };
 const PROFILE_SPEC: Spec = obj({
+  collection: nul(en("eclipse", "rosecourt", "lepidoptera", "emberwake", "glacial", "sakura", "abyssal", "ophidian", "starlit", "gilded", "wisteria", "phantom", ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>c.id))),
   primary: color, secondary: color, decoration: en(...DECORATIONS), frame: en(...FRAMES),
   ring: obj({ style: en(...RING_STYLES), color, speed: num(0.25, 3) }),
   nameStyle: en(...NAME_STYLES), nameColor2: nul(color), nameGlow: pct, nameplate: en(...NAMEPLATES), statusShape: en(...STATUS_SHAPES),

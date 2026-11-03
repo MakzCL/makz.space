@@ -1,3 +1,4 @@
+import { closeSfuUser, restrictSfu, sfuConfigured } from "./sfu.ts";
 import { AccessToken, RoomServiceClient, TrackSource } from "livekit-server-sdk";
 import { config } from "./config.ts";
 
@@ -29,12 +30,14 @@ export async function mintToken(opts: {
 
 /** Cut someone's media immediately (ban, kick, lost CONNECT, timeout, session revoked). */
 export async function removeFromRoom(channelId: string, userId: string) {
+  await closeSfuUser(channelId, userId);
   if (!rooms) return;
   try { await rooms.removeParticipant(roomName(channelId), userId); } catch { /* not in room */ }
 }
 
 /** Server mute / lost SPEAK or VIDEO: drop the right to publish those sources. */
 export async function restrictPublishing(channelId: string, userId: string, speak: boolean, video: boolean) {
+  await restrictSfu(channelId,userId,speak,video);
   if (!rooms) return;
   const sources: TrackSource[] = [];
   if (speak) sources.push(TrackSource.MICROPHONE);
@@ -44,4 +47,4 @@ export async function restrictPublishing(channelId: string, userId: string, spea
   } catch { /* not in room */ }
 }
 
-export const mediaConfigured = () => !!rooms;
+export const mediaConfigured = () => !!rooms || sfuConfigured();

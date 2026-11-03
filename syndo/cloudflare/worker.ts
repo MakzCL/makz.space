@@ -1,0 +1,135 @@
+import { DurableObject } from "cloudflare:workers";
+import { timingSafeEqual } from "node:crypto";
+import { releaseDownload, releaseUpload } from "./releases";
+const TIMEOUT = 3600000;
+const bootstrap = `
+const fs = require('node:fs'), cp = require('node:child_process');
+(async () => {
+  const sha = process.env.SYNDO_SOURCE_COMMIT;
+  if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid source commit');
+  const r = await fetch('https://codeload.github.com/MakzCL/makz.space/tar.gz/' + sha);
+  if (!r.ok) throw new Error('Source download failed: ' + r.status);
+  fs.writeFileSync('/tmp/source.tgz', Buffer.from(await r.arrayBuffer()));
+  fs.mkdirSync('/app', {recursive:true});
+  cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app']);
+  cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund'], {cwd:'/app/syndo',stdio:'inherit'});
+  const child = cp.spawn(process.execPath, ['--import','tsx','server/src/index.ts'], {cwd:'/app/syndo',stdio:'inherit'});
+  process.on('SIGTERM', () => child.kill('SIGTERM'));
+  child.on('exit', code => process.exit(code ?? 1));
+})().catch(e => {console.error(e.message);process.exit(1)});
+`;
+export class SENDBackend extends DurableObject<Env> {
+  private starting?: Promise<void>;
+  private ready = false;
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    if (ctx.container?.running) ctx.waitUntil(ctx.container.setInactivityTimeout(TIMEOUT));
+  }
+  private async ensureReady() {
+    const c = this.ctx.container;
+    if (!c) throw new Error("Container not configured");
+    if (c.running && await this.ctx.storage.get("active-source-commit") !== this.env.SOURCE_COMMIT) {
+      // Record the revision before stopping; a transient allocation failure must
+      // not repeatedly destroy the replacement instance on subsequent retries.
+      await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
+      await c.destroy();
+      this.ready = false;
+    }
+    if (!c.running) c.start({image:"cloudflare/debian-trixie",instance:"basic",enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
+      DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
+      SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
+      SYNDO_AUTO_MIGRATE:"0", SYNDO_REQUIRE_DM_E2EE:"1", SYNDO_SFU_APP_ID:this.env.SFU_APP_ID, SYNDO_SFU_SECRET:this.env.SFU_APP_SECRET, SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
+      SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT,
+    }});
+    await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
+    await c.setInactivityTimeout(TIMEOUT);
+    const deadline = Date.now() + 150000;
+    while (Date.now() < deadline) {
+      try {
+        const r = await c.getTcpPort(3900).fetch("http://container/api/health", {signal:AbortSignal.timeout(2000)});
+        await r.body?.cancel();
+        if (r.ok) { this.ready = true; return; }
+      } catch { /* Wait for the process and database to become ready. */ }
+      await scheduler.wait(1000);
+    }
+    throw new Error("Backend did not become ready");
+  }
+  async fetch(request: Request) {
+    if (new URL(request.url).pathname === "/api/health" && this.ctx.container?.running) {
+      try {
+        return await this.ctx.container.getTcpPort(3900).fetch("http://container/api/health", { signal: AbortSignal.timeout(2500) });
+      } catch { /* Cold process: start or retry readiness below. */ }
+    }
+    if (!this.ready || !this.ctx.container?.running) this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
+    if (new URL(request.url).pathname === "/api/health" && !this.ready) {
+      this.ctx.waitUntil(this.starting!.catch(error => console.error("startup_failed",error.message)));
+      return Response.json({ok:false,status:"starting"},{status:503,headers:{"retry-after":"10"}});
+    }
+    if (this.starting) await this.starting;
+    const url = new URL(request.url); url.protocol = "http:"; url.host = "container";
+    const forwarded = new Request(url, request); forwarded.headers.delete("host");
+    forwarded.headers.set("x-forwarded-for", request.headers.get("cf-connecting-ip") ?? "127.0.0.1");
+    forwarded.headers.set("x-forwarded-proto", "https");
+    return this.ctx.container!.getTcpPort(3900).fetch(forwarded);
+  }
+}
+export async function storage(request: Request, env: Env) {
+  const supplied = new TextEncoder().encode(request.headers.get("authorization") ?? "");
+  const expected = new TextEncoder().encode(`Bearer ${env.STORAGE_TOKEN}`);
+  if (supplied.byteLength !== expected.byteLength || !timingSafeEqual(supplied,expected)) return new Response(null,{status:404});
+  const url = new URL(request.url), key = url.pathname.slice("/__storage/".length);
+  const valid = (v:string) => /^[a-z0-9/_.-]+$/i.test(v) && !v.includes("..");
+  if (request.method === "DELETE" && url.searchParams.has("prefix")) {
+    const prefix = url.searchParams.get("prefix")!;
+    if (!valid(prefix) || !prefix.endsWith("/")) return new Response(null,{status:400});
+    for (;;) {
+      const page = await env.UPLOADS.list({prefix,limit:1000});
+      if (!page.objects.length) break;
+      await env.UPLOADS.delete(page.objects.map(o=>o.key));
+    }
+    return new Response(null,{status:204});
+  }
+  if (!valid(key)) return new Response(null,{status:400});
+  if (request.method === "PUT") {
+    const bytes = Number(request.headers.get("content-length"));
+    if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > 25*1024*1024) return new Response(null,{status:413});
+    await env.UPLOADS.put(key,request.body ?? new ArrayBuffer(0));
+    return new Response(null,{status:204});
+  }
+  if (request.method === "DELETE") { await env.UPLOADS.delete(key); return new Response(null,{status:204}); }
+  if (request.method === "HEAD") {
+    const obj = await env.UPLOADS.head(key);
+    return new Response(null,{status:obj?200:404,headers:obj?{"content-length":String(obj.size)}:{}});
+  }
+  if (request.method === "GET") {
+    const obj = await env.UPLOADS.get(key,{range:request.headers});
+    if (!obj) return new Response(null,{status:404});
+    const headers = new Headers({"accept-ranges":"bytes","cache-control":"no-store"});
+    if (obj.range && "offset" in obj.range && "length" in obj.range) {
+      const {offset=0,length=obj.size} = obj.range;
+      headers.set("content-range",`bytes ${offset}-${offset+length-1}/${obj.size}`);
+      headers.set("content-length",String(length));
+      return new Response(obj.body,{status:206,headers});
+    }
+    headers.set("content-length",String(obj.size));
+    return new Response(obj.body,{headers});
+  }
+  return new Response(null,{status:405});
+}
+export default {
+  async fetch(request:Request,env:Env) {
+    const path = new URL(request.url).pathname;
+    if (path === "/api/downloads/windows") return releaseDownload(request,env);
+    if (path.startsWith("/__release/")) return releaseUpload(request,env);
+    if (path.startsWith("/__storage/")) return storage(request,env);
+    if (path !== "/gateway" && !path.startsWith("/api/")) return new Response(null,{status:404});
+    try {
+      // One Node process is the backend's realtime coordination unit. The beta
+      // caps at one container until a shared event fanout is implemented.
+      return await env.BACKEND.getByName("syndo-beta-v1").fetch(request);
+    } catch (error) {
+      console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
+      return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});
+    }
+  },
+} satisfies ExportedHandler<Env>;

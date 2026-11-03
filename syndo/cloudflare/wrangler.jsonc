@@ -1,0 +1,50 @@
+{
+  "name": "send-beta-api",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-03",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "containers": [
+    {
+      "name": "send-beta-api",
+      "class_name": "SENDBackend",
+      "scheduling_policy": "durable_object"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BACKEND",
+        "class_name": "SENDBackend"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SENDBackend"
+      ]
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "syndo-beta-uploads"
+    },
+    {
+      "binding": "RELEASES",
+      "bucket_name": "syndo-desktop"
+    }
+  ],
+  "vars": {
+    "SOURCE_COMMIT": "0dc7d47cbb0f9ab0a51a835fc2eb41c7a9ab1085",
+    "STORAGE_ORIGIN": "https://send-beta-api.kuklinskikarol04.workers.dev",
+    "SFU_APP_ID": "a971b7768ec9d5ca3bac994293b2210d"
+  }
+}

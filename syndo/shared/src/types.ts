@@ -141,6 +141,7 @@ export interface Guild {
 }
 
 export interface Attachment {
+  encryption?: { key: string; nonce: string };
   id: string;
   filename: string;
   content_type: string;
@@ -163,6 +164,8 @@ export interface Message {
   /** Author's server profile in this server (null fields = global). */
   member?: { avatar: string | null; profile_theme: ProfileTheme | null } | null;
   content: string;
+  _encrypted?: boolean;
+  _encryptionError?: boolean;
   type: number;
   created_at: string;
   edited_at: string | null;

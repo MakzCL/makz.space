@@ -1,5 +1,5 @@
 /**
- * Integration with the Syndo desktop shell (when running inside it).
+ * Integration with the SEND desktop shell (when running inside it).
  * Everything here is optional: in a browser `window.syndoDesktop` is absent
  * and nothing changes.
  */
@@ -7,13 +7,19 @@ import { useVoice, pttPress, pttRelease } from "./voice/session.ts";
 import { onEvent, useStore } from "./store.ts";
 
 export interface DesktopUpdate { state: "idle" | "checking" | "available" | "downloading" | "ready" | "none" | "error" | "disabled"; version?: string; percent?: number; message?: string }
-export interface SyndoDesktop {
+export interface DesktopSettings { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; hardwareAcceleration: boolean; reduceBackgroundWork: boolean; launchOnStartup: boolean; restartRequired: boolean }
+export interface SENDDesktop {
   version: string; platform: string;
-  capabilities: { globalPtt: boolean; systemAudio: boolean; windowMaterial: boolean; autoUpdate: boolean; tray: boolean };
+  capabilities: { customTitlebar?: boolean; globalPtt: boolean; systemAudio: boolean; windowMaterial: boolean; autoUpdate: boolean; tray: boolean };
   setPushToTalk(code: string | null): Promise<{ ok: boolean; reason?: string }>;
   onPushToTalk(cb: (down: boolean) => void): () => void;
   setWindowMaterial(m: "none" | "mica" | "acrylic"): Promise<{ ok: boolean }>;
-  getSettings(): Promise<{ serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic" }>;
+  getSettings(): Promise<DesktopSettings>;
+  windowControl?(action: "minimize" | "maximize" | "close"): Promise<{ maximized: boolean }>;
+  setPerformance?(v: { hardwareAcceleration?: boolean; reduceBackgroundWork?: boolean }): Promise<{ ok: boolean; restartRequired: boolean }>;
+  setLaunchOnStartup?(v: boolean): Promise<{ ok: boolean }>;
+  restart?(): Promise<void>;
+  refreshInterface?(): Promise<void>;
   setCloseToTray(v: boolean): Promise<{ ok: boolean }>;
   changeServer(): Promise<void>;
   getUpdateStatus(): Promise<DesktopUpdate>;
@@ -22,7 +28,7 @@ export interface SyndoDesktop {
   onUpdateStatus(cb: (s: DesktopUpdate) => void): () => void;
   flash(): Promise<void>;
 }
-export const desktop: SyndoDesktop | null = (window as any).syndoDesktop ?? null;
+export const desktop: SENDDesktop | null = (window as any).syndoDesktop ?? null;
 
 export let globalPttError: string | null = null;
 /** Keep the shell's global push-to-talk key in sync with Voice settings. */

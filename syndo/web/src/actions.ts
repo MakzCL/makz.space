@@ -3,11 +3,13 @@ import { connectGateway, disconnectGateway } from "./gateway.ts";
 import { navigate } from "./router.ts";
 import { messagesApi, toast, useStore, type UIMessage } from "./store.ts";
 import type { Channel, Message } from "@syndo/shared";
+import { previewMode } from "./preview-mode.ts";
 
 const set = useStore.setState;
 const get = useStore.getState;
 
 export async function boot() {
+  if (previewMode) { (await import("./preview.ts")).startPreview(); return; }
   try {
     await api.get("/api/users/@me");
     set({ conn: "connecting" });
@@ -162,4 +164,15 @@ export async function updateSettings(patch: Record<string, unknown>) {
   const me = get().me;
   if (me) set({ me: { ...me, settings: { ...me.settings, ...patch } } });
   try { await api.patch("/api/users/@me/settings", patch); } catch (e) { toast(errMsg(e), "error"); }
+}
+
+/** Persist before confirming the change; failed writes leave the old mute state intact. */
+export async function setConversationMuted(channelId: string, muted: boolean) {
+  const me = get().me;
+  if (!me) return;
+  const previous = me.settings?.muted_channels;
+  const ids = Array.isArray(previous) ? previous.filter((x): x is string => typeof x === "string") : [];
+  const next = muted ? [...new Set([...ids, channelId])] : ids.filter((id) => id !== channelId);
+  const settings = await api.patch<Record<string, unknown>>("/api/users/@me/settings", { muted_channels: next });
+  set((s) => s.me?.id === me.id ? { me: { ...s.me, settings } } : {});
 }

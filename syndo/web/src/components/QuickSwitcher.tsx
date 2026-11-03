@@ -11,6 +11,7 @@ export function QuickSwitcher({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState(""); const [i, setI] = useState(0);
   const items = useMemo(() => {
     const out: { label: string; sub: string; href: string }[] = [];
+    out.push({ label: "Saved messages", sub: "Your private inbox", href: "/channels/@me/saved" });
     for (const c of Object.values(dms)) out.push({ label: c.type === ChannelType.DM ? displayName(c.recipients?.[0]) : dmTitle(c), sub: "Direct message", href: `/channels/@me/${c.id}` });
     for (const g of Object.values(guilds)) {
       out.push({ label: g.name, sub: "Server", href: `/channels/${g.id}` });

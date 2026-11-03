@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Copy, Hash, Lock, MessageSquare, Volume2, Megaphone, FolderPlus, Radio, MessageSquareText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -70,12 +71,12 @@ export function InviteDialog({ guildId, channelId, onClose }: { guildId: string;
               <button className="btn primary" onClick={() => { navigator.clipboard.writeText(link); toast("Invite link copied.", "success"); }}><Copy size={16} /> Copy</button></div>
           </Field>
           <div className="row">
-            <Field label="Expires after"><select value={age} onChange={(e) => setAge(+e.target.value)}>
+            <Field label="Expires after"><Select value={age} onChange={(e) => setAge(+e.target.value)}>
               <option value={1800}>30 minutes</option><option value={3600}>1 hour</option><option value={86400}>1 day</option><option value={7 * 86400}>7 days</option><option value={30 * 86400}>30 days</option><option value={0}>Never</option>
-            </select></Field>
-            <Field label="Max uses"><select value={uses} onChange={(e) => setUses(+e.target.value)}>
+            </Select></Field>
+            <Field label="Max uses"><Select value={uses} onChange={(e) => setUses(+e.target.value)}>
               <option value={0}>No limit</option><option value={1}>1 use</option><option value={5}>5 uses</option><option value={10}>10 uses</option><option value={25}>25 uses</option><option value={100}>100 uses</option>
-            </select></Field>
+            </Select></Field>
           </div>
           <p className="muted small">Changing these creates a new link. Old links keep working until they expire or are revoked in Server settings → Invites.</p>
         </>
@@ -148,7 +149,11 @@ export function NewGroupDm({ onClose }: { onClose: () => void }) {
 interface Profile { user: User; created_at: string; custom_status: any; presence: string; relationship: number; mutual_guilds: { id: string; name: string }[]; mutual_friends: User[]; member: { nick: string | null; joined_at: string; avatar: string | null; banner: string | null; bio: string | null; pronouns: string | null; profile_theme: unknown; custom_status: any; roles: string[] } | null }
 
 export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: string; guildId: string | null; anchor: HTMLElement; onClose: () => void }) {
-  const [p, setP] = useState<Profile | null>(null);
+  const [p, setP] = useState<Profile | null>(() => {
+    const state = useStore.getState(), user = userId === state.me?.id ? state.me : state.users[userId];
+    if (!user) return null;
+    return { user, presence: state.presences[userId] ?? "offline", custom_status: (user as any).custom_status, mutual_guilds: [], mutual_friends: [], member: null } as unknown as Profile;
+  });
   const meId = useStore((s) => s.me!.id);
   const guild = useStore((s) => (guildId ? s.guilds[guildId] : null));
   const ref = useRef<HTMLDivElement>(null);
@@ -175,7 +180,7 @@ export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: stri
             avatar: m?.avatar ?? p.user.avatar, banner: m?.banner ?? p.user.banner, theme: null,
             status: m?.custom_status?.text ?? p.custom_status?.text ?? null,
             extra: (<>
-              <section><h3>Member since</h3><p className="small">{new Date(p.created_at).toLocaleDateString()}{m && guild && ` · joined ${guild.name} ${new Date(m.joined_at).toLocaleDateString()}`}</p></section>
+              <section><h3>Member since</h3><p className="small">{p.created_at ? new Date(p.created_at).toLocaleDateString() : "Updating details…"}{m && guild && ` · joined ${guild.name} ${new Date(m.joined_at).toLocaleDateString()}`}</p></section>
               {m && guild && m.roles.length > 0 && <section><h3>Roles</h3><div className="role-chips">{guild.roles.filter((r) => m.roles.includes(r.id)).sort((a, b) => b.position - a.position).map((r) => <span key={r.id} className="role-chip"><i style={{ background: r.color ?? "var(--textFaint)" }} />{r.name}</span>)}</div></section>}
               {userId !== meId && (p.mutual_guilds.length > 0 || p.mutual_friends.length > 0) && (
                 <section><h3>Mutuals</h3><p className="small muted">{p.mutual_guilds.length} mutual server{p.mutual_guilds.length === 1 ? "" : "s"} · {p.mutual_friends.length} mutual friend{p.mutual_friends.length === 1 ? "" : "s"}</p>

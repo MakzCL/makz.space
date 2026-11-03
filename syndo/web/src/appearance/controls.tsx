@@ -1,3 +1,5 @@
+import { Select } from "../components/Select.tsx";
+import { Range } from "../components/Range.tsx";
 import { RotateCcw } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
 import { getPath, setPath, unsetPath, type DeepPartial, type LayerName, type ThemeDoc } from "@syndo/shared";
@@ -37,7 +39,7 @@ export function useField<T = unknown>(path: string) {
 }
 export const resetSection = (target: Target, keys: string[]) => editDraft((x) => withOverrides(x, target, (o) => { let n = o; for (const k of keys) n = unsetPath(n, k); return n; }));
 
-const SOURCE_LABEL: Record<LayerName, string> = { default: "Syndo default", theme: "theme", global: "your global look", device: "this device", server: "server override", shared: "shared conversation theme", conversation: "conversation override", accessibility: "accessibility setting" };
+const SOURCE_LABEL: Record<LayerName, string> = { default: "SEND default", theme: "theme", global: "your global look", device: "this device", server: "server override", shared: "shared conversation theme", conversation: "conversation override", accessibility: "accessibility setting" };
 
 function Row({ label, hint, path, children, field }: { label: string; hint?: ReactNode; path: string; children: ReactNode; field: { overridden: boolean; source: LayerName; reset: () => void } }) {
   return (
@@ -68,7 +70,7 @@ export function RangeField({ path, label, min, max, step = 1, unit = "", hint }:
   const v = typeof f.value === "number" ? f.value : min;
   return (
     <Row label={label} hint={hint} path={path} field={f}>
-      <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => f.set(Number(e.target.value))} aria-label={label} aria-valuetext={`${v}${unit}`} />
+      <Range min={min} max={max} step={step} value={v} onChange={(e) => f.set(Number(e.target.value))} aria-label={label} aria-valuetext={`${v}${unit}`} />
       <output className="sf-num">{Number.isInteger(step) ? v : v.toFixed(2)}{unit}</output>
     </Row>
   );
@@ -77,9 +79,9 @@ export function SelectField<T extends string | number>({ path, label, options, h
   const f = useField<T>(path);
   return (
     <Row label={label} hint={hint} path={path} field={f}>
-      <select value={String(f.value)} onChange={(e) => { const o = options.find(([k]) => String(k) === e.target.value); if (o) f.set(o[0]); }} aria-label={label}>
+      <Select value={String(f.value)} onChange={(e) => { const o = options.find(([k]) => String(k) === e.target.value); if (o) f.set(o[0]); }} aria-label={label}>
         {options.map(([k, l]) => <option key={String(k)} value={String(k)}>{l}</option>)}
-      </select>
+      </Select>
     </Row>
   );
 }

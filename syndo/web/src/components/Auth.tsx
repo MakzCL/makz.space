@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { BRAND } from "@syndo/shared";
+import { Wordmark } from "./ui.tsx";
 import { ApiError, api, errMsg } from "../api.ts";
 import { signedIn } from "../actions.ts";
 import { navigate, setTitle, useRoute } from "../router.ts";
@@ -12,7 +13,7 @@ function Card({ title, sub, children }: { title: string; sub?: ReactNode; childr
     <main className="auth">
       <div className="auth-art" aria-hidden><Mark size={220} /></div>
       <section className="auth-card" aria-labelledby="auth-title">
-        <div className="auth-brand"><Mark size={36} /><span>{BRAND.name}</span></div>
+        <div className="auth-brand"><Wordmark /></div>
         <h1 id="auth-title">{title}</h1>
         {sub && <p className="muted">{sub}</p>}
         {children}

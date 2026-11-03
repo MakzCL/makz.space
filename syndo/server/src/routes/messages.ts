@@ -1,3 +1,4 @@
+import { PREFIX, validateDmWire } from "./encryption.ts";
 import type { FastifyInstance } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
@@ -35,7 +36,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       member_nick: r.member_nick ?? null,
       member: r.guild_id && (r.member_avatar_key || r.member_profile_theme) ? { avatar: mediaUrl(r.member_avatar_key), profile_theme: r.member_profile_theme ?? null } : null,
       content: r.deleted_at ? "" : r.content, type: r.type, created_at: r.created_at, edited_at: r.edited_at, pinned: r.pinned,
-      reply_to: r.reply_to_id ? (rep ? { id: rep.id, author: prefixedUser(rep, "a_"), content: rep.deleted_at ? "" : String(rep.content).slice(0, 200), deleted: !!rep.deleted_at } : { id: String(r.reply_to_id), author: null, content: "", deleted: true }) : null,
+      reply_to: r.reply_to_id ? (rep ? { id: rep.id, author: prefixedUser(rep, "a_"), content: rep.deleted_at ? "" : (String(rep.content).startsWith(PREFIX) ? String(rep.content) : String(rep.content).slice(0, 200)), deleted: !!rep.deleted_at } : { id: String(r.reply_to_id), author: null, content: "", deleted: true }) : null,
       mentions: (r.mentions ?? []).map(String), mention_roles: (r.mention_roles ?? []).map(String), mention_everyone: r.mention_everyone,
       attachments: atts.filter((a) => a.message_id === r.id).map((a) => ({
         id: a.id, filename: a.filename, content_type: a.content_type, size: Number(a.size), url: attUrl(a), width: a.width, height: a.height, duration: a.duration, waveform: a.waveform,
@@ -111,7 +112,7 @@ export async function messageRoutes(app: FastifyInstance) {
   app.post<{ Params: { cid: string } }>("/api/channels/:cid/messages", { config: { rateLimit: { max: 30, timeWindow: "10 seconds" } } }, async (req) => {
     const me = uid(req);
     const b = z.object({
-      content: z.string().max(config.limits.max_message_length, `Messages can be up to ${config.limits.max_message_length} characters.`).default(""),
+      content: z.string().max(500000).default(""),
       nonce: z.string().max(64).optional(),
       reply_to: ID.optional(),
       attachment_ids: z.array(ID).max(10).default([]),
@@ -122,6 +123,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const ch0 = await getChannel(req.params.cid);
     const isThread = ch0 && (ch0.type === ChannelType.PUBLIC_THREAD || ch0.type === ChannelType.PRIVATE_THREAD);
     const { channel, perms } = await requireChannel(me, req.params.cid, P.VIEW_CHANNEL);
+    await validateDmWire(content, channel, me);
     if (!isTextLike(channel.type)) throw bad("You can't send messages here.");
     if (!has(perms, isThread ? P.SEND_MESSAGES_IN_THREADS : P.SEND_MESSAGES)) {
       if (channel.type === ChannelType.DM) throw forbidden("You can't send messages to this person.");
@@ -211,7 +213,8 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!m) throw notFound("Message");
     if (m.author_id !== me) throw forbidden("You can only edit your own messages.");
     if (!has(perms, P.SEND_MESSAGES) && !has(perms, P.SEND_MESSAGES_IN_THREADS)) throw forbidden();
-    const { content } = z.object({ content: z.string().max(config.limits.max_message_length) }).parse(req.body);
+    const { content } = z.object({ content: z.string().max(500000) }).parse(req.body);
+    await validateDmWire(content, channel, me);
     const hasAtt = await q1("select 1 from attachments where message_id = $1", [m.id]);
     if (!content.trim() && !hasAtt) throw bad("Messages can't be empty — delete it instead.");
     const mentions = parseMentions(content);
@@ -430,6 +433,7 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!file) throw bad("Attach a file.");
     const fields = file.fields as Record<string, any>;
     const field = (k: string) => (fields[k] && "value" in fields[k] ? String(fields[k].value) : undefined);
+    if (!channel.guild_id && config.requireDmE2ee && (field("encrypted") !== "1" || file.filename !== "encrypted.send")) throw bad("Direct-message attachments must be encrypted before upload.");
     const id = newId();
     const name = safeName(file.filename || "file");
     const key = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/${id}`;
@@ -444,6 +448,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
     const sniff = await fileTypeFromBuffer(head);
     let type = sniff?.mime ?? (/^text\/plain/.test(file.mimetype) && !head.includes(0) ? "text/plain" : "application/octet-stream");
+    if (!channel.guild_id && field("encrypted") === "1") type = "application/octet-stream";
     if (type === "image/svg+xml") type = "application/octet-stream"; // never render uploaded SVG
     const num = (v: string | undefined, max: number) => (v && /^\d+(\.\d+)?$/.test(v) ? Math.min(Number(v), max) : null);
     await q(`insert into attachments(id, channel_id, uploader_id, filename, content_type, size, storage_key, width, height, duration, waveform)

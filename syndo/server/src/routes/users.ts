@@ -282,7 +282,7 @@ export async function userRoutes(app: FastifyInstance) {
     });
     for (const k of [keys.avatar_key, keys.banner_key]) if (k) await storage.remove(k).catch(() => {});
     await revokeSessions(me, null);
-    closeUser(me, "Account deleted");
+    await closeUser(me, "Account deleted");
     await broadcastPresence(me);
     reply.clearCookie("syndo_session", { path: "/" });
     return { ok: true };

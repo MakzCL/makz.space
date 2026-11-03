@@ -1,3 +1,5 @@
+import { closeSfuSession, closeSfuAccount } from "./sfu.ts";
+import { removeFromRoom } from "./media.ts";
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { ChannelType, P, has, isDmType, isVoiceType, type VoiceState } from "@syndo/shared";
@@ -104,14 +106,16 @@ export async function setStatus(uid: string, s: string) {
 }
 
 /** Terminate a session's live connections (revocation, logout, password change). */
-export function closeSession(sessionId: string, reason = "Session ended") {
+export async function closeSession(sessionId: string, reason = "Session ended") {
   for (const c of bySession.get(sessionId) ?? []) {
     sendRaw(c, "SESSION_REVOKED", { reason });
     c.ws.close(4004, reason);
   }
+  await closeSfuSession(sessionId);
 }
-export function closeUser(uid: string, reason = "Signed out") {
+export async function closeUser(uid: string, reason = "Signed out") {
   for (const c of byUser.get(uid) ?? []) { sendRaw(c, "SESSION_REVOKED", { reason }); c.ws.close(4004, reason); }
+  await closeSfuAccount(uid);
 }
 
 /* -------------------------------------------------------------- voice -- */
@@ -139,7 +143,7 @@ export async function publishVoice(uid: string, prev: VoiceState | null, next: V
 export async function setVoice(uid: string, sessionId: string, d: any): Promise<string | null> {
   const prev = voice.get(uid) ?? null;
   if (!d?.channel_id) {
-    if (prev) { voice.delete(uid); await publishVoice(uid, prev, null); }
+    if (prev) { voice.delete(uid); await removeFromRoom(prev.channel_id,uid); await publishVoice(uid, prev, null); }
     return null;
   }
   const ch = await getChannel(String(d.channel_id));

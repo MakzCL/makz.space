@@ -1,3 +1,5 @@
+import { sfuRoutes } from "./routes/sfu.ts";
+import { encryptionRoutes } from "./routes/encryption.ts";
 import Fastify, { type FastifyError } from "fastify";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
@@ -78,11 +80,13 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(authRoutes);
   await app.register(userRoutes);
   await app.register(dmRoutes);
+  await app.register(encryptionRoutes);
   await app.register(guildRoutes);
   await app.register(inviteRoutes);
   await app.register(messageRoutes);
   await app.register(attachmentDownloadRoute);
   await app.register(voiceRoutes);
+  await app.register(sfuRoutes);
   await app.register(appearanceRoutes);
   await app.register(appearanceAssetRoute);
 

@@ -1,3 +1,5 @@
+import { playCallSound } from "./sounds.ts";
+import { CloudflareCall } from "./cloudflare.ts";
 import { create } from "zustand";
 import {
   ConnectionState, LocalAudioTrack, LocalVideoTrack, ParticipantEvent, Room, RoomEvent, Track,
@@ -50,12 +52,14 @@ export const useVoice = create<VS>(() => ({
 const set = useVoice.setState;
 const get = useVoice.getState;
 
+let cf: CloudflareCall | null = null;
 let room: Room | null = null;
 let micTrack: LocalAudioTrack | null = null;
 let gainCtx: { ctx: AudioContext; gain: GainNode; dest: MediaStreamAudioDestinationNode; raw: MediaStreamTrack } | null = null;
 let joinToken = 0;
 
 export const currentRoom = () => room;
+export const currentCloudflare = () => cf;
 
 function reportState() {
   const s = get();
@@ -158,6 +162,7 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
   set({ settings: next });
   saveVoiceSettings(next);
   applyOutput();
+  if (cf) { await cf.applySettings(prev,next).catch(e=>toast(`Couldn’t apply call settings: ${errMsg(e)}`,"error")); return; }
   if (!room || !micTrack) return;
   const needsRepublish = (["stereo", "dtx", "red", "echoCancellation", "noiseSuppression", "autoGainControl", "inputDeviceId"] as const).some((k) => prev[k] !== next[k])
     || (prev.inputGain === 1) !== (next.inputGain === 1);
@@ -177,14 +182,16 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
 /* ------------------------------------------------------------- join ------ */
 export async function joinVoice(channelId: string) {
   if (get().channelId === channelId && get().status !== "error") return;
+  playCallSound("join");
   await leaveVoice();
   const my = ++joinToken;
   set({ channelId, status: "connecting", error: null, peers: {}, camera: false, sharing: false });
   try {
-    const t = await api.post<{ url: string; token: string; grants: { speak: boolean; video: boolean; vad: boolean } }>("/api/voice/token", { channel_id: channelId });
+    const t = await api.post<{ provider?: string; session?: string; url: string; token: string; grants: { speak: boolean; video: boolean; vad: boolean } }>("/api/voice/token", { channel_id: channelId });
     if (my !== joinToken) return;
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
+    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
     const r = new Room({
       adaptiveStream: true, // subscribe to the layer that fits the element on screen
       dynacast: true, // stop encoding layers nobody watches
@@ -238,6 +245,7 @@ function cleanup() {
 
 export async function leaveVoice() {
   joinToken++;
+  if (cf) { cf.close(); cf = null; }
   const r = room;
   if (r) {
     // Stop every capture so the browser's camera/mic/screen indicators turn off.
@@ -246,19 +254,24 @@ export async function leaveVoice() {
   }
   cleanup();
   const had = get().channelId;
+  if (had) playCallSound("leave");
   set({ channelId: null, status: "idle", error: null });
   if (had) reportState();
 }
 
 /* -------------------------------------------------------- local toggles -- */
 export async function setMuted(muted: boolean) {
+  if (muted !== get().muted) playCallSound(muted ? "mute" : "unmute");
   set({ muted });
+  cf?.mute();
   if (micTrack) muted ? await micTrack.mute() : get().settings.mode === "vad" && await micTrack.unmute();
   reportState();
 }
 export function setDeafened(d: boolean) {
+  if (d !== get().deafened) playCallSound(d ? "deafen" : "undeafen");
   set({ deafened: d, muted: d ? true : get().muted });
   if (d && micTrack) micTrack.mute();
+  cf?.mute(); cf?.output();
   applyOutput(); reportState();
 }
 export function setUserVolume(key: string, v: number) {
@@ -267,24 +280,25 @@ export function setUserVolume(key: string, v: number) {
 
 /**
  * Push-to-talk. In a browser it works while the window has focus. In the
- * desktop app the shell reports the key globally (even when Syndo is in the
+ * desktop app the shell reports the key globally (even when SEND is in the
  * background), using the same press/release functions.
  */
 let pttTimer: number | null = null;
 export function pttPress() {
   const s = get();
-  if (!room || s.settings.mode !== "ptt") return;
+  if ((!room && !cf) || s.settings.mode !== "ptt") return;
   if (pttTimer) { clearTimeout(pttTimer); pttTimer = null; }
   if (s.pttActive) return;
   set({ pttActive: true });
+  cf?.mute();
   if (!s.muted && !s.deafened) micTrack?.unmute();
   reportState();
 }
 export function pttRelease() {
   const s = get();
-  if (!room || s.settings.mode !== "ptt" || !s.pttActive) return;
+  if ((!room && !cf) || s.settings.mode !== "ptt" || !s.pttActive) return;
   if (pttTimer) clearTimeout(pttTimer);
-  pttTimer = window.setTimeout(() => { pttTimer = null; set({ pttActive: false }); micTrack?.mute(); reportState(); }, s.settings.pttReleaseDelay);
+  pttTimer = window.setTimeout(() => { pttTimer = null; set({ pttActive: false }); cf?.mute(); micTrack?.mute(); reportState(); }, s.settings.pttReleaseDelay);
 }
 const globalPtt = () => !!(window as any).syndoDesktop?.capabilities?.globalPtt && get().settings.mode === "ptt";
 window.addEventListener("keydown", (e) => {
@@ -296,16 +310,18 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => { if (e.code === get().settings.pttKey && !globalPtt()) pttRelease(); });
 // In a browser, losing focus means we can no longer see the key — release. The desktop shell keeps listening.
-window.addEventListener("blur", () => { if (!globalPtt() && get().pttActive) { set({ pttActive: false }); micTrack?.mute(); reportState(); } });
+window.addEventListener("blur", () => { if (!globalPtt() && get().pttActive) { set({ pttActive: false }); cf?.mute(); micTrack?.mute(); reportState(); } });
 
 export async function setMode(mode: "vad" | "ptt") {
   await updateVoiceSettings({ mode });
+  cf?.mute();
   if (!micTrack) return;
   if (mode === "ptt") await micTrack.mute(); else if (!get().muted) await micTrack.unmute();
   reportState();
 }
 
 export async function toggleCamera() {
+  if (cf) { if (!get().grants?.video) return; await cf.camera(); reportState(); return; }
   if (!room) return;
   if (!get().grants?.video) { toast("You don't have permission to use video here.", "error"); return; }
   const on = !get().camera;
@@ -332,6 +348,7 @@ export async function switchDevice(kind: "audioinput" | "audiooutput" | "videoin
 let screenPubs: LocalTrackPublication[] = [];
 
 export async function startScreenShare() {
+  if (cf) { if (!get().grants?.video) return; await cf.screen(); reportState(); return; }
   if (!room) return;
   if (!get().grants?.video) { toast("You don't have permission to share your screen here.", "error"); return; }
   const st = get().settings.stream;
@@ -381,6 +398,7 @@ export async function startScreenShare() {
 }
 
 export async function stopScreenShare() {
+  if (cf) { await cf.stopScreen(); reportState(); return; }
   if (room) for (const p of screenPubs) { if (p.track) { p.track.stop(); await room.localParticipant.unpublishTrack(p.track, true).catch(() => {}); } }
   screenPubs = [];
   get().localScreen?.stop();

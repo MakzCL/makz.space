@@ -14,3 +14,5 @@ button.ghost { background: #232C45; } button:disabled { opacity: .5; }
 .tabs { display: flex; gap: 6px; } .tabs button { background: #232C45; } .tabs button[aria-selected="true"] { background: #3D6BFF; }
 .picker body, body.picker { place-items: stretch; } body.picker .card { width: auto; margin: 0; border: 0; border-radius: 0; min-height: 100vh; box-sizing: border-box; }
 :focus-visible { outline: 2px solid #FFC93C; outline-offset: 2px; }
+
+.local-titlebar { position: fixed; inset: 0 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding-left: 12px; -webkit-app-region: drag; } .local-titlebar span { flex: 1; } .local-titlebar button { -webkit-app-region: no-drag; height: 32px; width: 40px; padding: 0; border: 0; background: transparent; color: inherit; } .local-titlebar button:hover { background: #ffffff20; }

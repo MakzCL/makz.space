@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChannelType, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@syndo/shared";
@@ -73,12 +74,12 @@ function Overview({ guild }: { guild: Guild }) {
         <Field label="Server tag" hint="2–4 letters/numbers, shown next to the name."><input value={f.tag} maxLength={4} onChange={(e) => setF({ ...f, tag: e.target.value })} /></Field>
       </div>
       <div className="row wrap">
-        <Field label="System messages channel" hint="Join messages go here."><select value={f.system_channel_id} onChange={(e) => setF({ ...f, system_channel_id: e.target.value })}><option value="">None</option>{text.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></Field>
-        <Field label="Rules channel"><select value={f.rules_channel_id} onChange={(e) => setF({ ...f, rules_channel_id: e.target.value })}><option value="">None</option>{text.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></Field>
+        <Field label="System messages channel" hint="Join messages go here."><Select value={f.system_channel_id} onChange={(e) => setF({ ...f, system_channel_id: e.target.value })}><option value="">None</option>{text.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select></Field>
+        <Field label="Rules channel"><Select value={f.rules_channel_id} onChange={(e) => setF({ ...f, rules_channel_id: e.target.value })}><option value="">None</option>{text.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select></Field>
       </div>
       <div className="row wrap">
-        <Field label="Inactive (AFK) channel"><select value={f.afk_channel_id} onChange={(e) => setF({ ...f, afk_channel_id: e.target.value })}><option value="">None</option>{voice.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-        <Field label="Inactive timeout"><select value={f.afk_timeout} onChange={(e) => setF({ ...f, afk_timeout: +e.target.value })}>{[60, 300, 900, 1800, 3600].map((s) => <option key={s} value={s}>{s / 60} min</option>)}</select></Field>
+        <Field label="Inactive (AFK) channel"><Select value={f.afk_channel_id} onChange={(e) => setF({ ...f, afk_channel_id: e.target.value })}><option value="">None</option>{voice.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+        <Field label="Inactive timeout"><Select value={f.afk_timeout} onChange={(e) => setF({ ...f, afk_timeout: +e.target.value })}>{[60, 300, 900, 1800, 3600].map((s) => <option key={s} value={s}>{s / 60} min</option>)}</Select></Field>
       </div>
       <button className="btn primary" onClick={save}>Save changes</button>
     </div>
@@ -178,11 +179,11 @@ function ChannelPerms({ guild }: { guild: Guild }) {
     <div className="stack">
       <h2>Channel permissions</h2>
       <div className="row wrap">
-        <Field label="Channel"><select value={cid} onChange={(e) => setCid(e.target.value)}>{chans.map((c) => <option key={c.id} value={c.id}>{c.type === ChannelType.CATEGORY ? `▾ ${c.name}` : isVoiceType(c.type) ? `🔊 ${c.name}` : `# ${c.name}`}</option>)}</select></Field>
-        <Field label="Role or member"><select value={target} onChange={(e) => setTarget(e.target.value)}>
+        <Field label="Channel"><Select value={cid} onChange={(e) => setCid(e.target.value)}>{chans.map((c) => <option key={c.id} value={c.id}>{c.type === ChannelType.CATEGORY ? `▾ ${c.name}` : isVoiceType(c.type) ? `🔊 ${c.name}` : `# ${c.name}`}</option>)}</Select></Field>
+        <Field label="Role or member"><Select value={target} onChange={(e) => setTarget(e.target.value)}>
           <optgroup label="Roles">{[...guild.roles].sort((a, b) => b.position - a.position).map((r) => <option key={r.id} value={r.id}>{r.name}{ch.permission_overwrites.some((o) => o.target_id === r.id) ? " •" : ""}</option>)}</optgroup>
           <optgroup label="Members">{Object.values(members ?? {}).map((m) => <option key={m.user.id} value={m.user.id}>{m.nick || displayName(m.user)}{ch.permission_overwrites.some((o) => o.target_id === m.user.id) ? " •" : ""}</option>)}</optgroup>
-        </select></Field>
+        </Select></Field>
       </div>
       {ch.type === ChannelType.CATEGORY && <p className="muted small">Changes here also apply to channels that are synced with this category.</p>}
       {parent && <p className="small">{ch.permission_synced ? <>Synced with <strong>{parent.name}</strong>. Editing will unsync this channel.</> : <>Not synced with <strong>{parent.name}</strong>. <button className="link" onClick={() => run(() => api.post(`/api/channels/${ch.id}/sync-permissions`), "Synced with category.")}>Sync now</button></>}</p>}
@@ -214,8 +215,8 @@ function Members({ guild }: { guild: Guild }) {
             </div>
             {m.user.id !== guild.owner_id && m.user.id !== guild.me.user.id && (
               <div className="row">
-                {has(p, P.MODERATE_MEMBERS) && <select aria-label="Timeout" value="" onChange={(e) => { const s = +e.target.value; run(() => api.patch(`/api/guilds/${guild.id}/members/${m.user.id}`, { communication_disabled_until: s ? new Date(Date.now() + s * 1000).toISOString() : null }), s ? "Timed out." : "Timeout removed."); }}>
-                  <option value="">Timeout…</option><option value={60}>60 seconds</option><option value={300}>5 minutes</option><option value={3600}>1 hour</option><option value={86400}>1 day</option><option value={604800}>1 week</option><option value={0}>Remove timeout</option></select>}
+                {has(p, P.MODERATE_MEMBERS) && <Select aria-label="Timeout" value="" onChange={(e) => { const s = +e.target.value; run(() => api.patch(`/api/guilds/${guild.id}/members/${m.user.id}`, { communication_disabled_until: s ? new Date(Date.now() + s * 1000).toISOString() : null }), s ? "Timed out." : "Timeout removed."); }}>
+                  <option value="">Timeout…</option><option value={60}>60 seconds</option><option value={300}>5 minutes</option><option value={3600}>1 hour</option><option value={86400}>1 day</option><option value={604800}>1 week</option><option value={0}>Remove timeout</option></Select>}
                 {has(p, P.KICK_MEMBERS) && <button className="btn sm" onClick={() => confirm(`Kick ${displayName(m.user)}?`) && run(() => api.del(`/api/guilds/${guild.id}/members/${m.user.id}`), "Kicked.")}>Kick</button>}
                 {has(p, P.BAN_MEMBERS) && <button className="btn danger sm" onClick={() => { const reason = prompt(`Ban ${displayName(m.user)}? Optional reason:`); if (reason !== null) run(() => api.put(`/api/guilds/${guild.id}/bans/${m.user.id}`, { reason: reason || undefined, delete_message_seconds: 3600 }), "Banned."); }}>Ban</button>}
               </div>
@@ -293,7 +294,7 @@ function Danger({ guild, onClose }: { guild: Guild; onClose: () => void }) {
   const [to, setTo] = useState("");
   return (
     <div className="stack"><h2>Ownership</h2>
-      <Field label="Transfer ownership to"><select value={to} onChange={(e) => setTo(e.target.value)}><option value="">Choose a member…</option>{Object.values(members ?? {}).filter((m) => m.user.id !== guild.owner_id).map((m) => <option key={m.user.id} value={m.user.id}>{m.nick || displayName(m.user)}</option>)}</select></Field>
+      <Field label="Transfer ownership to"><Select value={to} onChange={(e) => setTo(e.target.value)}><option value="">Choose a member…</option>{Object.values(members ?? {}).filter((m) => m.user.id !== guild.owner_id).map((m) => <option key={m.user.id} value={m.user.id}>{m.nick || displayName(m.user)}</option>)}</Select></Field>
       <button className="btn" disabled={!to} onClick={() => confirm("Transfer ownership? You'll lose owner rights.") && run(() => api.post(`/api/guilds/${guild.id}/transfer`, { user_id: to }), "Ownership transferred.")}>Transfer</button>
       <h2>Delete server</h2>
       <p className="muted">This permanently deletes every channel, message and file in {guild.name}.</p>

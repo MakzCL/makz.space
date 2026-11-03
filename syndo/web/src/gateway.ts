@@ -1,4 +1,5 @@
 import { dispatch, useStore } from "./store.ts";
+import { previewMode } from "./preview-mode.ts";
 
 /**
  * Gateway connection with heartbeat and exponential-backoff reconnect.
@@ -14,12 +15,13 @@ let lastSeq = 0;
 let reconnectTimer: number | null = null;
 
 export function connectGateway() {
+  if (previewMode) return;
   stopped = false;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/gateway`);
   const sock = ws;
-  sock.onmessage = (e) => {
+  sock.onmessage = async (e) => {
     const f = JSON.parse(e.data);
     if (f.op === "hello") {
       if (hb) clearInterval(hb);
@@ -28,6 +30,7 @@ export function connectGateway() {
     }
     if (f.op === "error") { import("./store.ts").then((s) => s.toast(f.d?.message ?? "Something went wrong.", "error")); return; }
     if (f.op !== "dispatch") return;
+    if (f.t === "MESSAGE_CREATE" || f.t === "MESSAGE_UPDATE") f.d = await (await import("./crypto/dm.ts")).decodeWire(f.d);
     lastSeq = f.s;
     if (f.t === "READY") {
       const wasReconnect = attempt > 0 || useStore.getState().conn === "reconnecting";

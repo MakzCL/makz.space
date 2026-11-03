@@ -15,7 +15,7 @@ function brand(): Plugin {
     icons: [
       { src: BRAND.assets.appIcon192, sizes: "192x192", type: "image/png" },
       { src: BRAND.assets.appIcon512, sizes: "512x512", type: "image/png" },
-      { src: "/brand/syndo-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/send-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
   return {

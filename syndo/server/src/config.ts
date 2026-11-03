@@ -17,14 +17,18 @@ export const config = {
   extraOrigins: (env.SYNDO_EXTRA_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   databaseUrl: env.DATABASE_URL ?? "postgres://syndo:syndo@localhost:5432/syndo",
   storageDir: env.SYNDO_STORAGE_DIR ?? new URL("../../data/storage", import.meta.url).pathname,
+  storageOrigin: env.SYNDO_STORAGE_ORIGIN ?? null,
+  storageToken: env.SYNDO_STORAGE_TOKEN ?? null,
   cookieSecure: env.SYNDO_COOKIE_SECURE === "1",
   sessionDays: int(env.SYNDO_SESSION_DAYS, 30),
   /** Require a verified email before sending messages / joining servers. */
-  requireVerifiedEmail: env.SYNDO_REQUIRE_VERIFIED_EMAIL === "1",
+  requireVerifiedEmail: false,
+  requireDmE2ee: env.SYNDO_REQUIRE_DM_E2EE === "1" || env.NODE_ENV === "production",
   /** Expose GET /api/dev/mail (the outbox) — only for local development and tests. */
   devMail: env.SYNDO_DEV_MAIL === "1",
   smtp: env.SMTP_URL ?? null,
-  mailFrom: env.SYNDO_MAIL_FROM ?? "Syndo <no-reply@syndo.local>",
+  mailFrom: env.SYNDO_MAIL_FROM ?? "SEND <no-reply@syndo.local>",
+  sfu: { appId: env.SYNDO_SFU_APP_ID ?? null, secret: env.SYNDO_SFU_SECRET ?? null },
   livekit: {
     url: env.LIVEKIT_URL ?? null, // wss://media.example.com
     apiKey: env.LIVEKIT_API_KEY ?? null,
@@ -47,7 +51,7 @@ export const config = {
   } satisfies InstanceLimits as InstanceLimits,
   maxAvatarBytes: int(env.SYNDO_MAX_AVATAR_MB, 10) * 1024 * 1024,
 };
-config.limits.media_enabled = !!(config.livekit.url && config.livekit.apiKey && config.livekit.apiSecret);
+config.limits.media_enabled = !!(config.sfu.appId && config.sfu.secret) || !!(config.livekit.url && config.livekit.apiKey && config.livekit.apiSecret);
 config.limits.gif_provider = config.gifProvider;
 
 export const allowedOrigins = () => new Set([config.publicUrl, ...config.extraOrigins]);

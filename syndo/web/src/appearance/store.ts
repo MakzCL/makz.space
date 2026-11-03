@@ -64,8 +64,8 @@ export const effective = (): Draft => get().draft ?? committed();
 
 /* -------------------------------------------------------------- resolve -- */
 export function themeFor(id: string | null | undefined): ThemeDoc {
-  if (id?.startsWith("preset:")) return get().presets.find((p) => `preset:${p.id}` === id)?.data ?? PRESETS[2]!;
-  return presetById(id ?? "") ?? presetById("syndo-midnight")!;
+  if (id?.startsWith("preset:")) return get().presets.find((p) => `preset:${p.id}` === id)?.data ?? presetById(DEFAULT_GLOBAL.themeId)!;
+  return presetById(id ?? "") ?? presetById(DEFAULT_GLOBAL.themeId)!;
 }
 
 export function resolveFor(ctx: { guildId: string | null; channelId: string | null }, d: Draft = effective()): { resolved: Resolved; conversation: ConversationPrefs; customCss: string | null } {
@@ -243,7 +243,7 @@ export async function resetAppearance(scope: "all" | "global" = "all") {
   if (scope === "all") for (const k of Object.keys(get().scopes)) await putScope(k, null).catch(() => {});
   setDevice({});
   setSafeMode(false);
-  toast("Appearance reset to the Syndo default.", "success");
+  toast("Appearance reset to the SEND default.", "success");
 }
 // Emergency shortcut, works anywhere and before anything else loads: Ctrl+Shift+Alt+R.
 window.addEventListener("keydown", (e) => { if (e.ctrlKey && e.shiftKey && e.altKey && e.code === "KeyR") { e.preventDefault(); setSafeMode(!get().safeMode); } });

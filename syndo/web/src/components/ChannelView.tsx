@@ -1,12 +1,14 @@
+import { Select } from "./Select.tsx";
+import { DmPrivacyBar } from "./DmPrivacy.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
   AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Phone, Pin, PinOff,
-  Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square,
+  Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChannelType, MessageType, P, has, type Channel, type Message } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
-import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
+import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { Markdown, plainText } from "../markdown.tsx";
 import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
@@ -20,6 +22,7 @@ import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
 import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
+import { useMentionAutocomplete } from "./MentionAutocomplete.tsx";
 
 const QUICK = ["👍", "❤️", "😂", "🎉", "😮", "😢", "🙏", "🌻", "✨", "👀", "🔥", "💙"];
 
@@ -35,6 +38,8 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
   const call = useStore((s) => s.calls[channelId]);
   const inVoiceHere = useVoice((s) => s.channelId === channelId);
+  const muted = useStore((s) => { const ids = s.me?.settings?.muted_channels; return Array.isArray(ids) && ids.includes(channelId); });
+  const [muteBusy, setMuteBusy] = useState(false);
   const title = channel ? (channel.guild_id ? `#${channel.name}` : dmTitle(channel)) : "";
 
   useEffect(() => { setTitle(channel ? (guild ? `${channel.name} · ${guild.name}` : dmTitle(channel)) : undefined); }, [channel, guild]);
@@ -67,6 +72,12 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
         <div className="ch-actions">
+          <button className={`icon-btn ${muted ? "active" : ""}`} disabled={muteBusy} aria-pressed={muted} aria-label={muted ? "Unmute conversation" : "Mute conversation"} title={muted ? "Unmute notifications" : "Mute notifications"} onClick={async () => {
+            setMuteBusy(true);
+            try { await setConversationMuted(channelId, !muted); toast(muted ? "Notifications unmuted." : "Conversation muted. You can still read and send messages.", "success"); }
+            catch (e) { toast(errMsg(e), "error"); }
+            finally { setMuteBusy(false); }
+          }}>{muted ? <BellOff size={20} /> : <Bell size={20} />}</button>
           {isDm && <button className="icon-btn" aria-label="Start voice call" title="Voice call" onClick={() => startCall(false)}><Phone size={20} /></button>}
           {isDm && <button className="icon-btn" aria-label="Start video call" title="Video call" onClick={() => startCall(true)}><Video size={20} /></button>}
           {isDm && channel.type === ChannelType.GROUP_DM && <button className="icon-btn" aria-label="Add friends" onClick={() => openDialog({ kind: "groupDm" })}><UserPlus size={20} /></button>}
@@ -86,7 +97,8 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       <div className="ch-body">
         <div className="ch-main" data-region="chat">
           {bg && target === "chat" && <Backdrop bg={bg} className="chat-bd" />}
-          <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
+          {!channel.guild_id && <DmPrivacyBar channel={channel.id}/>}
+        <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
@@ -202,6 +214,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
+              {!m.guild_id && m.type === 0 && <small className="muted encryption-mark">{m._encrypted ? " · Encrypted" : m._encryptionError ? " · Locked" : " · Older unencrypted message"}</small>}
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
@@ -261,6 +274,22 @@ function SystemMessage({ m, channel }: { m: UIMessage; channel: Channel }) {
 }
 
 function AttachmentView({ a }: { a: Message["attachments"][number] }) {
+  const [url, setUrl] = useState<string | null>(a.encryption ? null : a.url);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!a.encryption) { setUrl(a.url); return; }
+    let local: string | null = null, stopped = false; const controller = new AbortController();
+    fetch(a.url, { credentials: "same-origin", signal: controller.signal }).then(r => { if (!r.ok) throw Error("Download failed"); return r.arrayBuffer(); }).then(async bytes => {
+      const { decryptFile } = await import("../crypto/core.ts"); const clear = await decryptFile(new Uint8Array(bytes), a.encryption!.key, a.encryption!.nonce);
+      if (!stopped) { local = URL.createObjectURL(new Blob([new Uint8Array(clear)], { type: a.content_type })); setUrl(local); }
+    }).catch(() => { if (!stopped) setError(true); });
+    return () => { stopped = true; controller.abort(); if (local) URL.revokeObjectURL(local); };
+  }, [a.url, a.encryption?.key]);
+  if (error) return <span className="muted">Encrypted attachment could not be opened.</span>;
+  if (!url) return <span className="muted">Decrypting attachment…</span>;
+  return <AttachmentContent a={{ ...a, url }} />;
+}
+function AttachmentContent({ a }: { a: Message["attachments"][number] }) {
   const [open, setOpen] = useState(false);
   if (a.content_type.startsWith("image/")) return (
     <>
@@ -334,6 +363,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const limits = useStore((s) => s.limits);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileIn = useRef<HTMLInputElement>(null);
+  const mentions = useMentionAutocomplete(channel, text, setText, ta);
   const isDm = !channel.guild_id;
   const canSend = isDm ? can(channel, P.SEND_MESSAGES) || !channel.my_permissions : can(channel, P.SEND_MESSAGES);
   const canAttach = isDm || can(channel, P.ATTACH_FILES);
@@ -410,13 +440,14 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
           ))}
         </ul>
       )}
+      {mentions.popup}
       <div className="composer">
         {canAttach && <><button className="icon-btn" aria-label="Attach files" onClick={() => fileIn.current?.click()}><Paperclip size={20} /></button>
           <input ref={fileIn} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} /></>}
-        <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length}
+        <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
           onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } if (e.key === "Escape" && reply) onClearReply(); }} />
+          onKeyDown={(e) => { if (mentions.onKeyDown(e)) return; if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } if (e.key === "Escape" && reply) onClearReply(); }} />
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
           : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
         <button className="icon-btn" aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>
@@ -538,8 +569,8 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
       <form className="search-form" onSubmit={run}>
         <input autoFocus placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search text" />
         <div className="row">
-          <select value={scope} onChange={(e) => setScope(e.target.value as any)} aria-label="Scope"><option value="channel">This channel</option><option value="all">{guildId ? "Whole server" : "All DMs"}</option></select>
-          <select value={has} onChange={(e) => setHas(e.target.value)} aria-label="Has"><option value="">Anything</option><option value="link">Has link</option><option value="file">Has file</option><option value="image">Has image</option><option value="video">Has video</option><option value="audio">Has audio</option><option value="pinned">Pinned</option></select>
+          <Select value={scope} onChange={(e) => setScope(e.target.value as any)} aria-label="Scope"><option value="channel">This channel</option><option value="all">{guildId ? "Whole server" : "All DMs"}</option></Select>
+          <Select value={has} onChange={(e) => setHas(e.target.value)} aria-label="Has"><option value="">Anything</option><option value="link">Has link</option><option value="file">Has file</option><option value="image">Has image</option><option value="video">Has video</option><option value="audio">Has audio</option><option value="pinned">Pinned</option></Select>
         </div>
         {guildId && <input placeholder="From username" value={author} onChange={(e) => setAuthor(e.target.value)} aria-label="From user" />}
         <div className="row"><label className="small">After <input type="date" value={after} onChange={(e) => setAfter(e.target.value)} /></label><label className="small">Before <input type="date" value={before} onChange={(e) => setBefore(e.target.value)} /></label></div>

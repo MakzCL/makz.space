@@ -1,16 +1,16 @@
 /**
- * Syndo desktop shell (Windows first; also runs on macOS/Linux for development).
+ * SEND desktop shell (Windows first; also runs on macOS/Linux for development).
  *
- * The window loads the hosted Syndo web app, so interface updates arrive the
+ * The window loads the hosted SEND web app, so interface updates arrive the
  * moment the web app is deployed. This shell adds what browsers can't do:
- *   - global push-to-talk (works while Syndo is in the background),
+ *   - global push-to-talk (works while SEND is in the background),
  *   - screen sharing with whole-system audio on Windows (WASAPI loopback),
  *   - tray icon, close-to-tray, syndo:// invite links, native notifications,
  *   - Windows 11 window materials (Mica / Acrylic) where the OS supports them,
  *   - self-updates from a Cloudflare-hosted feed (electron-updater, generic provider).
  *
  * Security: context isolation + sandbox, no Node in the page, a tiny preload
- * API, navigation locked to the configured Syndo origin, permissions granted
+ * API, navigation locked to the configured SEND origin, permissions granted
  * only to that origin, external links opened in the system browser.
  */
 import { app, BrowserWindow, Menu, Tray, desktopCapturer, dialog, ipcMain, nativeImage, session, shell, systemPreferences, type DesktopCapturerSource } from "electron";
@@ -27,13 +27,16 @@ const winBuild = isWin ? Number(release().split(".")[2] ?? 0) : 0;
 const MATERIAL_OK = isWin && winBuild >= 22621; // Windows 11 22H2+
 
 /* -------------------------------------------------------------- config -- */
-interface Config { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; startHidden: boolean }
+interface Config { serverUrl: string; closeToTray: boolean; material: "none" | "mica" | "acrylic"; startHidden: boolean; hardwareAcceleration: boolean; reduceBackgroundWork: boolean }
 const CONFIG_PATH = () => join(app.getPath("userData"), "config.json");
-let config: Config = { serverUrl: BAKED_URL, closeToTray: true, material: "none", startHidden: false };
+let config: Config = { serverUrl: BAKED_URL, closeToTray: true, material: "none", startHidden: false, hardwareAcceleration: true, reduceBackgroundWork: true };
 function loadConfig() {
   try { if (existsSync(CONFIG_PATH())) config = { ...config, ...JSON.parse(readFileSync(CONFIG_PATH(), "utf8")) }; } catch { /* corrupt → defaults */ }
   if (!config.serverUrl) config.serverUrl = BAKED_URL;
 }
+loadConfig();
+const initialHardwareAcceleration = config.hardwareAcceleration !== false;
+if (!initialHardwareAcceleration) app.disableHardwareAcceleration();
 const saveConfig = () => { try { writeFileSync(CONFIG_PATH(), JSON.stringify(config, null, 2)); } catch { /* read-only profile */ } };
 const appOrigin = () => { try { return new URL(config.serverUrl).origin; } catch { return null; } };
 
@@ -56,13 +59,14 @@ let pendingDeepLink: string | null = null;
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 420, minHeight: 520,
-    title: "Syndo", icon: join(STATIC, "icon.png"), show: !config.startHidden,
+    frame: false,
+    title: "SEND", icon: join(STATIC, "icon.png"), show: !config.startHidden,
     backgroundColor: config.material !== "none" && MATERIAL_OK ? "#00000000" : "#0E1220",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true, spellcheck: true,
-      backgroundThrottling: false, // keep voice and screen share running when minimised
+      backgroundThrottling: config.reduceBackgroundWork, // Chromium keeps real-time media active; decorative work can sleep
     },
   });
   if (MATERIAL_OK && config.material !== "none") win.setBackgroundMaterial(config.material);
@@ -198,14 +202,14 @@ function buildTrayMenu() {
   if (!tray) return;
   const u = updateStatus;
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open Syndo", click: () => { win?.show(); win?.focus(); } },
+    { label: "Open SEND", click: () => { win?.show(); win?.focus(); } },
     { type: "separator" },
     u.state === "ready" ? { label: `Restart to update (${u.version})`, click: () => { quitting = true; autoUpdater?.quitAndInstall(); } }
       : { label: u.state === "downloading" ? `Downloading update… ${u.percent ?? 0}%` : "Check for updates", enabled: !!autoUpdater && u.state !== "downloading", click: () => autoUpdater?.checkForUpdates().catch(() => {}) },
     { label: "Change server…", click: () => changeServer() },
     { label: "Close to tray", type: "checkbox", checked: config.closeToTray, click: (m) => { config.closeToTray = m.checked; saveConfig(); } },
     { type: "separator" },
-    { label: "Quit Syndo", click: () => { quitting = true; app.quit(); } },
+    { label: "Quit SEND", click: () => { quitting = true; app.quit(); } },
   ]));
 }
 function changeServer() {
@@ -218,8 +222,15 @@ function registerIpc() {
   ipcMain.on("desktop:info", (e) => {
     e.returnValue = {
       version: app.getVersion(), platform: process.platform, osBuild: winBuild,
-      capabilities: { globalPtt: !!hook, systemAudio: isWin, windowMaterial: MATERIAL_OK, autoUpdate: app.isPackaged, tray: true },
+      capabilities: { customTitlebar: true, globalPtt: !!hook, systemAudio: isWin, windowMaterial: MATERIAL_OK, autoUpdate: app.isPackaged, tray: true },
     };
+  });
+  ipcMain.handle("desktop:window", (e, action: unknown) => {
+    if (e.sender !== win?.webContents || !win) return;
+    if (action === "minimize") win.minimize();
+    else if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize();
+    else if (action === "close") win.close();
+    return { maximized: win.isMaximized() };
   });
   ipcMain.handle("desktop:set-ptt", (_e, code: unknown) => {
     if (code === null) { pttKey = null; sendPtt(false); return { ok: true }; }
@@ -236,7 +247,23 @@ function registerIpc() {
     win?.setBackgroundMaterial(m);
     return { ok: true };
   });
-  ipcMain.handle("desktop:settings", () => ({ ...config, serverUrl: config.serverUrl }));
+  ipcMain.handle("desktop:settings", () => ({ ...config, launchOnStartup: isWin ? app.getLoginItemSettings().openAtLogin : false, restartRequired: config.hardwareAcceleration !== initialHardwareAcceleration }));
+  ipcMain.handle("desktop:set-performance", (e, input: unknown) => {
+    if (e.sender !== win?.webContents || !input || typeof input !== "object") return { ok: false };
+    const p = input as Record<string, unknown>;
+    if (Object.keys(p).some(k => !["hardwareAcceleration", "reduceBackgroundWork"].includes(k)) || Object.values(p).some(v => typeof v !== "boolean")) return { ok: false };
+    if (typeof p.hardwareAcceleration === "boolean") config.hardwareAcceleration = p.hardwareAcceleration;
+    if (typeof p.reduceBackgroundWork === "boolean") { config.reduceBackgroundWork = p.reduceBackgroundWork; win.webContents.setBackgroundThrottling(config.reduceBackgroundWork); }
+    saveConfig();
+    return { ok: true, restartRequired: config.hardwareAcceleration !== initialHardwareAcceleration };
+  });
+  ipcMain.handle("desktop:set-startup", (e, enabled: unknown) => {
+    if (!isWin || e.sender !== win?.webContents || typeof enabled !== "boolean") return { ok: false };
+    app.setLoginItemSettings({ openAtLogin: enabled });
+    return { ok: true };
+  });
+  ipcMain.handle("desktop:restart", e => { if (e.sender === win?.webContents) { quitting = true; app.relaunch(); app.quit(); } });
+  ipcMain.handle("desktop:refresh", e => { if (e.sender === win?.webContents) win.webContents.reloadIgnoringCache(); });
   ipcMain.handle("desktop:set-close-to-tray", (_e, v: unknown) => { config.closeToTray = v === true; saveConfig(); buildTrayMenu(); return { ok: true }; });
   ipcMain.handle("desktop:update-status", () => updateStatus);
   ipcMain.handle("desktop:check-updates", async () => { if (!autoUpdater) return updateStatus; await autoUpdater.checkForUpdates().catch(() => {}); return updateStatus; });
@@ -250,7 +277,7 @@ function registerIpc() {
     try {
       const r = await fetch(`${url}/api/instance`, { signal: AbortSignal.timeout(8000) });
       const j = r.ok ? await r.json() : null;
-      if (!j?.name) return { ok: false, reason: "That address didn't answer like a Syndo server." };
+      if (!j?.name) return { ok: false, reason: "That address didn't answer like a SEND server." };
     } catch { return { ok: false, reason: "Couldn't reach that server. Check the address and your connection." }; }
     config.serverUrl = url; saveConfig(); loadApp();
     return { ok: true };
@@ -275,13 +302,12 @@ else {
   app.setAppUserModelId(APP_ID); // native Windows toasts for web notifications
   app.setAsDefaultProtocolClient("syndo");
   app.whenReady().then(() => {
-    loadConfig();
     handleDeepLink(process.argv);
     registerIpc();
     setupSession();
     createWindow();
     tray = new Tray(nativeImage.createFromPath(join(STATIC, "tray.png")));
-    tray.setToolTip("Syndo");
+    tray.setToolTip("SEND");
     tray.on("click", () => { win?.show(); win?.focus(); });
     buildTrayMenu();
     setupUpdates();

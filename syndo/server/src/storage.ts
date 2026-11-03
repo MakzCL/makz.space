@@ -2,7 +2,8 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rm, stat } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";
-import type { Readable } from "node:stream";
+import { Readable } from "node:stream";
+import { remoteStorage } from "./storage-remote.ts";
 import { config } from "./config.ts";
 
 /**
@@ -12,12 +13,14 @@ import { config } from "./config.ts";
  * tracked in FEATURE_MATRIX.md.
  */
 const root = normalize(config.storageDir);
+const remote = config.storageOrigin ? remoteStorage(config.storageOrigin, config.storageToken ?? "") : null;
 const full = (key: string) => {
   if (!/^[a-z0-9/_.-]+$/i.test(key) || key.includes("..")) throw new Error("bad storage key");
   return join(root, key);
 };
 
 export async function put(key: string, data: Readable | Buffer, maxBytes?: number): Promise<number> {
+  if (remote) return remote.put(key, data, maxBytes);
   const path = full(key);
   await mkdir(dirname(path), { recursive: true });
   if (Buffer.isBuffer(data)) {
@@ -38,7 +41,7 @@ export async function put(key: string, data: Readable | Buffer, maxBytes?: numbe
   return size;
 }
 
-export const open = (key: string, range?: { start: number; end: number }) => createReadStream(full(key), range);
-export const size = async (key: string) => (await stat(full(key))).size;
-export const remove = (key: string) => rm(full(key), { force: true });
-export const removePrefix = (prefix: string) => rm(full(prefix), { recursive: true, force: true });
+export const open = (key: string, range?: { start: number; end: number }) => remote ? remote.open(key, range) : createReadStream(full(key), range);
+export const size = async (key: string) => remote ? remote.size(key) : (await stat(full(key))).size;
+export const remove = (key: string) => remote ? remote.remove(key) : rm(full(key), { force: true });
+export const removePrefix = (prefix: string) => remote ? remote.removePrefix(prefix) : rm(full(prefix), { recursive: true, force: true });

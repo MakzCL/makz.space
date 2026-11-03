@@ -7,3 +7,6 @@ document.getElementById("f").addEventListener("submit", async (e) => {
   const r = await window.syndoLocal.setServer(input.value);
   go.disabled = false; err.textContent = r.ok ? "" : r.reason;
 });
+
+document.getElementById("minimise").onclick=()=>window.syndoLocal.windowControl("minimize");
+document.getElementById("close").onclick=()=>window.syndoLocal.windowControl("close");

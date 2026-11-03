@@ -1,7 +1,7 @@
-# Syndo desktop packaging. Build on Windows (GitHub Actions windows-latest): npm run dist:win
+# SEND desktop packaging. Build on Windows (GitHub Actions windows-latest): npm run dist:win
 appId: space.makz.syndo
-productName: Syndo
-copyright: Syndo
+productName: SEND
+copyright: SEND
 directories:
   output: release
   buildResources: build
@@ -13,7 +13,7 @@ asarUnpack:
 win:
   target: [nsis]
   icon: build/icon.png
-  artifactName: Syndo-Setup-${version}.${ext}
+  artifactName: SEND-Setup-${version}.${ext}
   # Unsigned unless CSC_LINK / CSC_KEY_PASSWORD are provided (Windows SmartScreen will warn until then).
 nsis:
   oneClick: false
@@ -21,10 +21,10 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Syndo
+  shortcutName: SEND
   deleteAppDataOnUninstall: false
 protocols:
-  - name: Syndo invite
+  - name: SEND invite
     schemes: [syndo]
 # Auto-update feed: added at build time when SYNDO_UPDATE_URL is set (see .github/workflows/syndo.yml):
 #   --config.publish.provider=generic --config.publish.url=$SYNDO_UPDATE_URL

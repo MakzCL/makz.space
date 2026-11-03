@@ -1,3 +1,5 @@
+import { Select } from "../components/Select.tsx";
+import { Range } from "../components/Range.tsx";
 import { X } from "lucide-react";
 import { ChannelType, type Background, type Channel, type ConversationPrefs, type ScopeAppearance } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
@@ -45,15 +47,15 @@ export function ConversationPanel({ channel, onClose }: { channel: Channel; onCl
         {[["#3D6BFF", "#FF8A6B"], ["#0F3B2E", "#3A1C71"], ["#FFC93C", "#FF5E7E"]].map(([a, b]) => <button key={a} className="wp-chip" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }} aria-label={`Gradient ${a} to ${b}`} onClick={() => setBg({ kind: "gradient", gradient: { from: a!, via: null, to: b!, angle: 135, type: "linear" }, overlay: 20, tint: "#000000" })} />)}
         {["builtin:dunes", "builtin:waves", "builtin:hexfield"].map((r) => <button key={r} className={`wp-chip ${bg?.asset === r ? "on" : ""}`} style={{ backgroundImage: `url(${assetUrl(r)})` }} aria-label={`Wallpaper ${r.slice(8)}`} onClick={() => setBg({ kind: "image", asset: r, fit: "cover", overlay: 25, tint: "#000000" })} />)}
       </div>
-      <label className="slide"><span>Chat surface opacity</span><input type="range" min={0} max={100} value={conv.chatOpacity ?? 100} onChange={(e) => setConv({ chatOpacity: +e.target.value })} /><output>{conv.chatOpacity ?? 100}%</output></label>
+      <label className="slide"><span>Chat surface opacity</span><Range min={0} max={100} value={conv.chatOpacity ?? 100} onChange={(e) => setConv({ chatOpacity: +e.target.value })} /><output>{conv.chatOpacity ?? 100}%</output></label>
       <label className="row">Accent <input type="color" value={(scope.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => patch((s) => ({ ...s, overrides: { ...s.overrides, colors: { ...(s.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></label>
-      <label className="field"><span className="field-l">Messages</span><select value={conv.messageStyle ?? ""} onChange={(e) => setConv({ messageStyle: (e.target.value || undefined) as any })}><option value="">Use global</option><option value="list">Traditional list</option><option value="bubbles">Bubbles</option></select></label>
+      <label className="field"><span className="field-l">Messages</span><Select value={conv.messageStyle ?? ""} onChange={(e) => setConv({ messageStyle: (e.target.value || undefined) as any })}><option value="">Use global</option><option value="list">Traditional list</option><option value="bubbles">Bubbles</option></Select></label>
       {(conv.messageStyle === "bubbles") && (
         <div className="row wrap">
           <label>Mine <input type="color" value={conv.bubbles?.mine ?? "#3D6BFF"} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, mine: e.target.value.toUpperCase() } })} /></label>
           <label>Theirs <input type="color" value={conv.bubbles?.theirs ?? "#232C45"} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, theirs: e.target.value.toUpperCase() } })} /></label>
-          <label className="slide"><span>Radius</span><input type="range" min={0} max={28} value={conv.bubbles?.radius ?? 16} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, radius: +e.target.value } })} /></label>
-          <label className="slide"><span>Spacing</span><input type="range" min={0} max={24} value={conv.bubbles?.spacing ?? 4} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, spacing: +e.target.value } })} /></label>
+          <label className="slide"><span>Radius</span><Range min={0} max={28} value={conv.bubbles?.radius ?? 16} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, radius: +e.target.value } })} /></label>
+          <label className="slide"><span>Spacing</span><Range min={0} max={24} value={conv.bubbles?.spacing ?? 4} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, spacing: +e.target.value } })} /></label>
         </div>
       )}
       <label className="toggle-row"><span className="toggle-l">Compact here</span><input type="checkbox" role="switch" className="toggle" checked={!!conv.compact} onChange={(e) => setConv({ compact: e.target.checked })} /></label>

@@ -3,14 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "description": "Syndo — a free, self-hostable community chat, voice and video platform.",
-  "workspaces": ["shared", "server", "web"],
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
   "scripts": {
     "dev:server": "npm run dev -w @syndo/server",
     "dev:web": "npm run dev -w @syndo/web",
     "migrate": "npm run migrate -w @syndo/server",
     "test": "npm test -w @syndo/server",
     "typecheck": "npm run typecheck -w @syndo/shared && npm run typecheck -w @syndo/server && npm run typecheck -w @syndo/web",
-    "build": "npm run build -w @syndo/web"
+    "build": "npm run build -w @syndo/web",
+    "test:web": "TSX_TSCONFIG_PATH=web/tsconfig.json node --import tsx --test web/test/*.test.tsx"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261103.1"
+  }
 }
