@@ -104,3 +104,10 @@ export function connectivity(pr: Project): Connectivity {
 export function netlistText(pr: Project, c = connectivity(pr)): string {
   return c.nets.filter((n) => n.pins.length).map((n) => `${n.name}: ${n.pins.map((p) => `${p.ref}.${p.pin}`).join(" ")}`).join("\n");
 }
+/** The net at a sheet point: a wire passing through it, a pin ending on it, or a label anchored on it. */
+export function netAt(pr: Project, c: Connectivity, sheet: string, at: Pt): string | null {
+  for (const w of pr.wires) if (w.sheet === sheet && segs(w.pts).some(([a, b]) => onSeg(at, a, b))) return c.wireNet.get(w.id) ?? null;
+  for (const p of pr.parts) if (p.sheet === sheet) for (const q of pinsOf(p)) if (eq(q.at, at)) return c.pinNet.get(`${p.id}:${q.num}`) ?? null;
+  for (const l of pr.labels) if (l.sheet === sheet && eq(l.at, at)) return c.labelNet.get(l.id) ?? null;
+  return null;
+}
