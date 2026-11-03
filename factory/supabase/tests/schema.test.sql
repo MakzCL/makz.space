@@ -1134,6 +1134,52 @@ select pg_temp.expect_fail($$select public.report('sales', current_date, current
 select pg_temp.become('00000000-0000-0000-0000-0000000000d4');
 select pg_temp.expect_fail($$select public.report('sales', current_date - 30, current_date)$$, 'operator opens reports');
 
+-- ---------------------------------------------------------------- phase 6c: API keys + webhooks
+select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.expect_fail($$select public.create_api_key('Zapier')$$, 'a manager creates an API key');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+select public.create_api_key('Zapier', array['read', 'write']) as ak \gset
+select pg_temp.check((:'ak'::jsonb->>'key') like 'kt\_%' and length(:'ak'::jsonb->>'key') = 51, 'INT-08 the new key is shown once (kt_…)');
+select pg_temp.expect_fail($$select key_hash from public.api_keys$$, 'the app reads key hashes');
+select pg_temp.check((select prefix from public.api_keys where id = (:'ak'::jsonb->>'id')::uuid) = left(:'ak'::jsonb->>'key', 10), 'only the prefix is visible');
+select pg_temp.expect_fail($$select public.verify_api_key('x')$$, 'the app calls verify_api_key');
+reset role;
+select pg_temp.check(public.verify_api_key(:'ak'::jsonb->>'key') = array['read', 'write'], 'INT-06 a valid key returns its scopes');
+select pg_temp.check(public.verify_api_key('kt_wrong') is null, 'a wrong key is refused');
+set role authenticated;
+select public.revoke_api_key((:'ak'::jsonb->>'id')::uuid);
+reset role; select pg_temp.check(public.verify_api_key(:'ak'::jsonb->>'key') is null, 'a revoked key stops working'); set role authenticated;
+-- webhooks
+select pg_temp.expect_fail($$select public.create_webhook('http://insecure.test/hook', array['order.created'])$$, 'a webhook over plain http');
+select pg_temp.expect_fail($$select public.create_webhook('https://x.test/hook', array['order.deleted'])$$, 'a webhook for an unknown event');
+select public.create_webhook('https://hooks.example.test/kortana', array['order.created', 'order.shipped', 'stock.low']) as wh \gset
+select (:'wh'::jsonb->>'id') as whid \gset
+select pg_temp.check((:'wh'::jsonb->>'secret') like 'whsec\_%', 'INT-07 the signing secret is shown once');
+select pg_temp.expect_fail($$select secret from public.webhooks$$, 'the app reads webhook secrets');
+insert into public.orders (order_number, customer, kind) values ('', 'Hook Buyer', 'order') returning id as hso \gset
+select pg_temp.check((select count(*) from public.webhook_deliveries d join public.webhook_events e on e.id = d.event_id
+  where e.type = 'order.created' and e.data->>'id' = :'hso' and d.webhook_id = :'whid') = 1, 'INT-07 a new order queues an order.created delivery');
+insert into public.order_lines (order_id, item_id, sku, name, quantity) values (:'hso', :'plm', 'PL-MAT', 'Planned panel', 1);
+select public.ship_lines(:'hso', null);
+select pg_temp.check((select count(*) from public.webhook_events where type = 'order.shipped' and data->>'id' = :'hso' and jsonb_array_length(data->'lines') = 1) = 1, 'shipping queues order.shipped with its lines');
+select pg_temp.check((select count(*) from public.webhook_events where type = 'po.received') = 0, 'events nobody subscribed to are not recorded');
+-- sender: claim, fail with backoff, then succeed
+reset role;
+select public.claim_webhook_deliveries(100) as cl \gset
+select pg_temp.check(jsonb_array_length(:'cl'::jsonb) >= 2 and (:'cl'::jsonb->0->>'secret') like 'whsec\_%', 'the sender claims due deliveries with what it needs to sign');
+select pg_temp.check(jsonb_array_length(public.claim_webhook_deliveries(100)) = 0, 'a claimed delivery is not handed out twice');
+select (:'cl'::jsonb->0->>'id')::bigint as d1 \gset
+select pg_temp.check(public.finish_webhook_delivery(:d1, 500, 'boom') = 'retry', 'a failed delivery is queued for a retry');
+select pg_temp.check((select status = 'pending' and next_at > now() + interval '50 seconds' from public.webhook_deliveries where id = :d1), '… a minute later');
+select pg_temp.check(public.finish_webhook_delivery((:'cl'::jsonb->1->>'id')::bigint, 200) = 'ok', 'a delivered webhook is marked ok');
+select pg_temp.check((select failures = 0 and last_status = 200 from public.webhooks where id = :'whid'), 'a success resets the failure count');
+update public.webhook_deliveries set attempts = 6 where id = :d1;
+select pg_temp.check(public.finish_webhook_delivery(:d1, 404) = 'failed', 'after six attempts a delivery is given up');
+set role authenticated;
+select pg_temp.check(public.test_webhook(:'whid') > 0, 'a test ping can be sent');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.check((select count(*) from public.webhooks) = 0 and (select count(*) from public.webhook_deliveries) = 0, 'managers do not see webhooks or deliveries');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

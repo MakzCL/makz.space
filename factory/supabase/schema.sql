@@ -5375,5 +5375,281 @@ end $$;
 revoke all on function public.report(text, date, date, text, uuid) from public, anon;
 grant execute on function public.report(text, date, date, text, uuid) to authenticated;
 
+-- ============================================================================
+-- Phase 6c — API keys, webhooks (INT-06..09).
+-- API keys: only a SHA-256 hash is stored; the key is shown once. The REST API
+-- (edge function "api") checks a key with verify_api_key() and never returns
+-- costs. Webhooks: business events go to an outbox (webhook_events); each active
+-- webhook subscribed to the event gets a delivery row; the "webhooks" edge
+-- function signs (HMAC-SHA256 with the webhook's secret) and sends them, with
+-- retries at 1, 5, 30, 120 and 720 minutes. Owner/Developer manage both.
+-- ============================================================================
+create or replace function public.is_owner() returns boolean
+language sql stable security definer set search_path = public as $$ select public.is_active() and public.my_role() in ('boss', 'developer') $$;
+
+create table if not exists public.api_keys (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  prefix text not null,
+  key_hash text not null unique,
+  scopes text[] not null default '{read}' check (scopes <@ array['read', 'write']::text[] and cardinality(scopes) > 0),
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz
+);
+create table if not exists public.webhooks (
+  id uuid primary key default gen_random_uuid(),
+  url text not null check (url ~ '^https://'),
+  events text[] not null check (cardinality(events) > 0),
+  secret text not null,
+  active boolean not null default true,
+  note text not null default '',
+  failures int not null default 0,
+  last_status int,
+  last_delivery_at timestamptz,
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create table if not exists public.webhook_events (
+  id bigserial primary key,
+  type text not null,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.webhook_deliveries (
+  id bigserial primary key,
+  webhook_id uuid not null references public.webhooks(id) on delete cascade,
+  event_id bigint not null references public.webhook_events(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'sending', 'ok', 'failed')),
+  attempts int not null default 0,
+  next_at timestamptz not null default now(),
+  response_code int,
+  error text,
+  delivered_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists webhook_deliveries_due on public.webhook_deliveries (next_at) where status in ('pending', 'sending');
+do $$
+declare t text;
+begin
+  foreach t in array array['api_keys', 'webhooks', 'webhook_events', 'webhook_deliveries'] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "owner read" on public.%I', t);
+    execute format('create policy "owner read" on public.%I for select to authenticated using (public.is_owner())', t);
+  end loop;
+end $$;
+drop policy if exists "owner write" on public.webhooks;
+create policy "owner write" on public.webhooks for update to authenticated using (public.is_owner()) with check (public.is_owner());
+drop policy if exists "owner delete" on public.webhooks;
+create policy "owner delete" on public.webhooks for delete to authenticated using (public.is_owner());
+drop trigger if exists audit_row on public.api_keys;
+create trigger audit_row after insert or update or delete on public.api_keys for each row execute function public.audit_row();
+drop trigger if exists audit_row on public.webhooks;
+create trigger audit_row after insert or update or delete on public.webhooks for each row execute function public.audit_row();
+
+-- ---- API keys
+create or replace function public.create_api_key(p_name text, p_scopes text[] default '{read}') returns jsonb
+language plpgsql security definer set search_path = public, extensions as $$
+declare k text := 'kt_' || encode(gen_random_bytes(24), 'hex'); id uuid;
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can create API keys'; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Give the key a name'; end if;
+  insert into public.api_keys (name, prefix, key_hash, scopes) values (trim(p_name), left(k, 10), encode(digest(k, 'sha256'), 'hex'), p_scopes) returning api_keys.id into id;
+  return jsonb_build_object('id', id, 'key', k, 'prefix', left(k, 10));
+end $$;
+revoke all on function public.create_api_key(text, text[]) from public, anon;
+grant execute on function public.create_api_key(text, text[]) to authenticated;
+
+create or replace function public.revoke_api_key(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can revoke API keys'; end if;
+  update public.api_keys set revoked_at = coalesce(revoked_at, now()) where id = p_id;
+end $$;
+revoke all on function public.revoke_api_key(uuid) from public, anon;
+grant execute on function public.revoke_api_key(uuid) to authenticated;
+
+-- Used by the API edge function (service role only): the key's scopes, or null.
+create or replace function public.verify_api_key(p_key text) returns text[]
+language plpgsql security definer set search_path = public, extensions as $$
+declare s text[];
+begin
+  update public.api_keys set last_used_at = now()
+   where key_hash = encode(digest(coalesce(p_key, ''), 'sha256'), 'hex') and revoked_at is null returning scopes into s;
+  return s;
+end $$;
+revoke all on function public.verify_api_key(text) from public, anon, authenticated;
+
+-- ---- webhooks
+create or replace function public.webhook_event_types() returns text[]
+language sql immutable as $$ select array['order.created', 'order.shipped', 'po.received', 'mo.completed', 'stock.low', 'test.ping'] $$;
+
+create or replace function public.create_webhook(p_url text, p_events text[], p_note text default '') returns jsonb
+language plpgsql security definer set search_path = public, extensions as $$
+declare sec text := 'whsec_' || encode(gen_random_bytes(24), 'hex'); id uuid;
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can add webhooks'; end if;
+  if p_url !~ '^https://[^\s/]+' then raise exception 'The address must start with https://'; end if;
+  if not (p_events <@ (public.webhook_event_types() || array['*'])) or cardinality(p_events) = 0 then raise exception 'Pick at least one known event'; end if;
+  insert into public.webhooks (url, events, secret, note) values (p_url, p_events, sec, coalesce(p_note, '')) returning webhooks.id into id;
+  return jsonb_build_object('id', id, 'secret', sec);
+end $$;
+revoke all on function public.create_webhook(text, text[], text) from public, anon;
+grant execute on function public.create_webhook(text, text[], text) to authenticated;
+
+create or replace function public.rotate_webhook_secret(p_id uuid) returns text
+language plpgsql security definer set search_path = public, extensions as $$
+declare sec text := 'whsec_' || encode(gen_random_bytes(24), 'hex');
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can change webhooks'; end if;
+  update public.webhooks set secret = sec where id = p_id;
+  if not found then raise exception 'Webhook not found'; end if;
+  return sec;
+end $$;
+revoke all on function public.rotate_webhook_secret(uuid) from public, anon;
+grant execute on function public.rotate_webhook_secret(uuid) to authenticated;
+
+-- Wake the sender (edge function) if one is configured.
+create or replace function public.kick_webhooks() returns void
+language plpgsql security definer set search_path = public as $$
+declare url text;
+begin
+  select value into url from public.app_settings where key = 'webhooks_url';
+  if url is not null and exists (select 1 from pg_extension where extname = 'pg_net')
+     and exists (select 1 from public.webhook_deliveries where status in ('pending', 'sending') and next_at <= now()) then
+    execute 'select net.http_post(url := $1, body := $2, headers := $3)' using url, '{}'::jsonb, '{"Content-Type":"application/json"}'::jsonb;
+  end if;
+end $$;
+revoke all on function public.kick_webhooks() from public, anon, authenticated;
+
+-- Record an event and queue it for every subscribed webhook.
+create or replace function public.emit_event(p_type text, p_data jsonb) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare eid bigint; n int;
+begin
+  if not exists (select 1 from public.webhooks where active and (p_type = any(events) or '*' = any(events))) then return null; end if;
+  insert into public.webhook_events (type, data) values (p_type, p_data) returning id into eid;
+  insert into public.webhook_deliveries (webhook_id, event_id)
+    select id, eid from public.webhooks where active and (p_type = any(events) or '*' = any(events));
+  get diagnostics n = row_count;
+  if n > 0 then perform public.kick_webhooks(); end if;
+  return eid;
+end $$;
+revoke all on function public.emit_event(text, jsonb) from public, anon, authenticated;
+
+create or replace function public.test_webhook(p_id uuid) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare eid bigint;
+begin
+  if not public.is_owner() then raise exception 'Only the owner or a developer can test webhooks'; end if;
+  insert into public.webhook_events (type, data) values ('test.ping', jsonb_build_object('message', 'Hello from Kortana', 'webhook_id', p_id)) returning id into eid;
+  insert into public.webhook_deliveries (webhook_id, event_id) values (p_id, eid);
+  perform public.kick_webhooks();
+  return eid;
+end $$;
+revoke all on function public.test_webhook(uuid) from public, anon;
+grant execute on function public.test_webhook(uuid) to authenticated;
+
+-- Sender side (service role): claim due deliveries, then report each result.
+create or replace function public.claim_webhook_deliveries(p_limit int default 20) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare out jsonb;
+begin
+  with c as (select d.id from public.webhook_deliveries d
+              where (d.status = 'pending' or (d.status = 'sending' and d.next_at < now() - interval '5 minutes')) and d.next_at <= now()
+              order by d.next_at limit p_limit for update skip locked),
+  u as (update public.webhook_deliveries d set status = 'sending', attempts = d.attempts + 1, next_at = now() from c where d.id = c.id returning d.*)
+  select coalesce(jsonb_agg(jsonb_build_object('id', u.id, 'attempt', u.attempts, 'url', w.url, 'secret', w.secret,
+           'event', jsonb_build_object('id', e.id, 'type', e.type, 'created_at', e.created_at, 'data', e.data))), '[]')
+    into out from u join public.webhooks w on w.id = u.webhook_id join public.webhook_events e on e.id = u.event_id;
+  return out;
+end $$;
+revoke all on function public.claim_webhook_deliveries(int) from public, anon, authenticated;
+
+create or replace function public.finish_webhook_delivery(p_id bigint, p_code int, p_error text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare d public.webhook_deliveries; ok boolean := p_code between 200 and 299; waits int[] := array[1, 5, 30, 120, 720];
+begin
+  select * into d from public.webhook_deliveries where id = p_id for update;
+  if d.id is null then return 'missing'; end if;
+  if ok then
+    update public.webhook_deliveries set status = 'ok', response_code = p_code, error = null, delivered_at = now() where id = p_id;
+    update public.webhooks set failures = 0, last_status = p_code, last_delivery_at = now() where id = d.webhook_id;
+    return 'ok';
+  end if;
+  update public.webhooks set failures = failures + 1, last_status = p_code, last_delivery_at = now(),
+    active = case when failures + 1 >= 50 then false else active end where id = d.webhook_id;
+  if d.attempts > cardinality(waits) then
+    update public.webhook_deliveries set status = 'failed', response_code = p_code, error = left(p_error, 500) where id = p_id;
+    return 'failed';
+  end if;
+  update public.webhook_deliveries set status = 'pending', response_code = p_code, error = left(p_error, 500),
+    next_at = now() + make_interval(mins => waits[d.attempts]) where id = p_id;
+  return 'retry';
+end $$;
+revoke all on function public.finish_webhook_delivery(bigint, int, text) from public, anon, authenticated;
+
+-- ---- business events
+create or replace function public.webhook_trigger() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_table_name = 'orders' then
+    if tg_op = 'INSERT' and new.kind = 'order' then
+      perform public.emit_event('order.created', jsonb_build_object('id', new.id, 'number', new.order_number, 'customer', new.customer, 'company', new.company,
+        'source', new.source, 'deadline', new.delivery_deadline));
+    elsif tg_op = 'UPDATE' and new.delivery = 'shipped' and old.delivery is distinct from 'shipped' and old.delivery <> 'delivered' then
+      perform public.emit_event('order.shipped', jsonb_build_object('id', new.id, 'number', new.order_number, 'customer', new.customer, 'tracking', new.tracking,
+        'lines', (select coalesce(jsonb_agg(jsonb_build_object('sku', l.sku, 'name', l.name, 'quantity', l.quantity, 'shipped', l.shipped)), '[]') from public.order_lines l where l.order_id = new.id)));
+    end if;
+  elsif tg_table_name = 'purchase_orders' then
+    if new.status = 'received' and old.status is distinct from 'received' then
+      perform public.emit_event('po.received', jsonb_build_object('id', new.id, 'number', new.number,
+        'supplier', (select name from public.suppliers where id = new.supplier_id), 'outsourced', new.kind = 'outsourced'));
+    end if;
+  elsif tg_table_name = 'jobs' then
+    if new.status = 'done' and old.status is distinct from 'done' and new.sku is not null then
+      perform public.emit_event('mo.completed', jsonb_build_object('id', new.id, 'code', new.code, 'sku', new.sku, 'quantity', new.quantity, 'title', new.title));
+    end if;
+  elsif tg_table_name = 'stock_items' then
+    if new.min_quantity > 0 and old.quantity > old.min_quantity and new.quantity <= new.min_quantity then
+      perform public.emit_event('stock.low', jsonb_build_object('id', new.id, 'sku', new.sku, 'name', new.name, 'quantity', new.quantity, 'reorder_point', new.min_quantity));
+    end if;
+  end if;
+  return null;
+end $$;
+drop trigger if exists webhook_events on public.orders;
+create trigger webhook_events after insert or update on public.orders for each row execute function public.webhook_trigger();
+drop trigger if exists webhook_events on public.purchase_orders;
+create trigger webhook_events after update on public.purchase_orders for each row execute function public.webhook_trigger();
+drop trigger if exists webhook_events on public.jobs;
+create trigger webhook_events after update on public.jobs for each row execute function public.webhook_trigger();
+drop trigger if exists webhook_events on public.stock_items;
+create trigger webhook_events after update on public.stock_items for each row execute function public.webhook_trigger();
+
+-- retries: every minute, if pg_cron is there
+do $$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('webhook-retries', '* * * * *', 'select public.kick_webhooks()');
+  end if;
+end $$;
+
+-- The key hash and webhook secrets never go to the app.
+create or replace function public.apply_cost_privileges() returns void
+language plpgsql security definer set search_path = public as $$
+declare t record; cols text;
+begin
+  for t in select * from (values ('stock_items', array['avg_cost']), ('stock_movements', array['unit_cost']),
+                                 ('po_lines', array['unit_cost']), ('item_suppliers', array['unit_cost']),
+                                 ('stations', array['cost_per_hour']), ('product_operations', array['fixed_cost']),
+                                 ('api_keys', array['key_hash']), ('webhooks', array['secret'])) v(tbl, hidden) loop
+    execute format('revoke select on public.%I from anon, authenticated', t.tbl);
+    select string_agg(quote_ident(column_name), ', ' order by ordinal_position) into cols
+      from information_schema.columns where table_schema = 'public' and table_name = t.tbl and not (column_name = any(t.hidden));
+    execute format('grant select (%s) on public.%I to authenticated', cols, t.tbl);
+  end loop;
+end $$;
+revoke all on function public.apply_cost_privileges() from public, anon, authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
