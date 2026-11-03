@@ -1193,6 +1193,88 @@ select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
 select pg_temp.check((select count(*) from public.webhooks) = 0 and (select count(*) from public.webhook_deliveries) = 0, 'managers do not see webhooks or deliveries');
 select pg_temp.expect_fail($$select public.integrations_state()$$, 'a manager opens Integrations');
 
+-- ---------------------------------------------------------------- phase 7: kits, variants, custom fields, stocktakes, sub-MOs, schedule
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+-- kits (SALES-07)
+insert into public.stock_items (sku, name, kind) values ('KIT-A', 'Panel bundle', 'kit'), ('KC-1', 'Bundle panel', 'material'), ('KC-2', 'Bundle screws', 'material') ;
+select id as kit from public.stock_items where sku = 'KIT-A' \gset
+select id as kc1 from public.stock_items where sku = 'KC-1' \gset
+select id as kc2 from public.stock_items where sku = 'KC-2' \gset
+insert into public.bom_lines (product_id, material_id, quantity) values (:'kit', :'kc1', 1), (:'kit', :'kc2', 4);
+select pg_temp.expect_fail($$insert into public.bom_lines (product_id, material_id, quantity) values ('$$ || :'kc1' || $$', '$$ || :'kit' || $$', 1)$$, 'a kit as an ingredient');
+select pg_temp.expect_fail($$select public.adjust_stock('$$ || :'kit' || $$', 5)$$, 'putting a kit itself on stock');
+select pg_temp.expect_fail($$select public.create_mo('KIT-A', 'x', 1)$$, 'a manufacturing order for a kit');
+insert into public.purchase_orders (supplier_id, status) values (:'osup', 'ordered') returning id as kpo \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'kpo', :'kc1', 5, 10), (:'kpo', :'kc2', 20, 0.5);
+select public.receive_po_line(id, quantity) from public.po_lines where po_id = :'kpo';
+insert into public.orders (order_number, customer, kind) values ('', 'Kit Buyer', 'order') returning id as kso \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price) values (:'kso', :'kit', 'KIT-A', 'Panel bundle', 3, 40) returning id as ksl \gset
+select public.availability() as kav \gset
+select pg_temp.check((:'kav'::jsonb->'lines'->:'ksl'->>'status') = 'in_stock', 'SALES-07 kit availability comes from its components');
+update public.order_lines set quantity = 6 where id = :'ksl';
+select public.availability() as kav2 \gset
+select pg_temp.check((:'kav2'::jsonb->'lines'->:'ksl'->>'status') = 'not_available', 'a kit is short when any component is short (6 kits need 6 panels, 5 on hand)');
+update public.order_lines set quantity = 3 where id = :'ksl';
+select public.ship_lines(:'kso', null);
+select pg_temp.check((select quantity = 2 from public.stock_items where id = :'kc1') and (select quantity = 8 from public.stock_items where id = :'kc2') and (select quantity = 0 from public.stock_items where id = :'kit'),
+  'shipping 3 kits takes 3 panels and 12 screws off stock');
+select pg_temp.check((public.report('sales', current_date - 1, current_date, 'product')->'rows') @> jsonb_build_array(jsonb_build_object('key', 'KIT-A', 'revenue', 120, 'cost', 36)),
+  'the sales report shows the kit: 3 × £40, cost 3 × (£10 + 4 × £0.50)');
+select public.return_lines(:'kso', jsonb_build_array(jsonb_build_object('line', :'ksl', 'qty', 1, 'restock', true)), 'Changed mind');
+select pg_temp.check((select quantity = 3 from public.stock_items where id = :'kc1') and (select quantity = 12 from public.stock_items where id = :'kc2'), 'returning 1 kit puts 1 panel and 4 screws back');
+select public.unship_lines(:'kso', jsonb_build_array(jsonb_build_object('line', :'ksl', 'qty', 2)));
+select pg_temp.check((select quantity = 5 from public.stock_items where id = :'kc1') and (select quantity = 20 from public.stock_items where id = :'kc2'), 'undoing the other 2 kits puts the rest back');
+-- variants (CAT-02/06)
+insert into public.product_families (name, options) values ('Pedestal panel', array['Colour', 'Version']) returning id as fam \gset
+update public.stock_items set family_id = :'fam', variant = '{"Colour":"AMBER","Version":"V1"}' where id = :'ltprod';
+select public.create_variant(:'ltprod', 'LT-PROD-W', 'Moulded part — WHITE', '{"Colour":"WHITE","Version":"V1"}') as var \gset
+select pg_temp.check((select count(*) from public.bom_lines where product_id = :'var') = (select count(*) from public.bom_lines where product_id = :'ltprod')
+  and (select family_id = :'fam' and variant->>'Colour' = 'WHITE' from public.stock_items where id = :'var'), 'CAT-02/06 a new variant copies its recipe and joins the family');
+select pg_temp.expect_fail($$select public.create_variant('$$ || :'ltprod' || $$', 'LT-PROD-W2', 'x', '{"Colour":"WHITE","Version":"V1"}')$$, 'two variants with the same options');
+select pg_temp.expect_fail($$select public.create_variant('$$ || :'ltprod' || $$', 'LT-PROD-W', 'x', '{"Colour":"RED"}')$$, 'a variant with a SKU that exists');
+-- custom fields (SALES-09)
+update public.company_settings set order_fields = '[{"key":"aircraft","label":"Aircraft type","type":"text"}]' where id = 1;
+update public.orders set custom = '{"aircraft":"A320"}' where id = :'kso';
+select pg_temp.check((select custom->>'aircraft' = 'A320' from public.orders where id = :'kso'), 'SALES-09 orders keep custom field values');
+-- stocktakes (INV-08)
+select public.start_stocktake(null, array[:'kc1'::uuid, :'kc2'::uuid], 'Shelf B') as stk \gset
+select pg_temp.check((select count(*) = 2 from public.stocktake_lines where stocktake_id = :'stk'), 'INV-08 a stocktake lists the items to count');
+select pg_temp.expect_fail($$select public.start_stocktake(null)$$, 'two open stocktakes at one location');
+update public.stocktake_lines set counted = 4 where stocktake_id = :'stk' and item_id = :'kc1';
+update public.stocktake_lines set counted = 20 where stocktake_id = :'stk' and item_id = :'kc2';
+select pg_temp.check((select quantity = 5 from public.stock_items where id = :'kc1'), 'counting does not change stock until the stocktake is posted');
+select public.post_stocktake(:'stk') as stp \gset
+select pg_temp.check((:'stp'::jsonb->>'difference')::numeric = -1 and (:'stp'::jsonb->>'value')::numeric = -10, 'posting books the difference (−1 panel, −£10)');
+select pg_temp.check((select quantity = 4 from public.stock_items where id = :'kc1') and (select system_at_post = 5 from public.stocktake_lines where stocktake_id = :'stk' and item_id = :'kc1'), '… and keeps what the system said at posting');
+select pg_temp.expect_fail($$update public.stocktake_lines set counted = 1 where stocktake_id = '$$ || :'stk' || $$'$$, 'changing a posted stocktake');
+-- sub-assembly MOs (MFG-02)
+insert into public.stock_items (sku, name, kind) values ('SA-TOP', 'Top assembly', 'product'), ('SA-SUB', 'Frame sub-assembly', 'part'), ('SA-RAW', 'Frame tube', 'material');
+select id as satop from public.stock_items where sku = 'SA-TOP' \gset
+select id as sasub from public.stock_items where sku = 'SA-SUB' \gset
+select id as saraw from public.stock_items where sku = 'SA-RAW' \gset
+insert into public.bom_lines (product_id, material_id, quantity) values (:'satop', :'sasub', 2), (:'sasub', :'saraw', 3);
+select public.create_mo('SA-TOP', 'Top', 3) as satj \gset
+select pg_temp.check(public.create_sub_mos(:'satj') = 1 and (select quantity = 6 and parent_id = :'satj' from public.jobs where sku = 'SA-SUB'), 'MFG-02 a linked sub-assembly MO for the 6 frames needed');
+select pg_temp.check(public.create_sub_mos(:'satj') = 0, 'running it again does not double the sub-assembly MO');
+update public.company_settings set auto_sub_mos = true where id = 1;
+select public.create_mo('SA-TOP', 'Top again', 1) as satj2 \gset
+select pg_temp.check((select count(*) = 1 from public.jobs where parent_id = :'satj2'), 'ADMIN-06 with automatic sub-assemblies switched on, the MO creates its own');
+update public.company_settings set auto_sub_mos = false where id = 1;
+-- schedule (MFG-07/09)
+reset role;
+update public.company_settings set work_hours_per_day = 8 where id = 1;
+insert into public.product_operations (product_id, station_id, name, setup_minutes, unit_minutes, step)
+  select :'satop'::uuid, (select id from public.stations order by sort limit 1), 'Cut', 0, 160, 1 union all
+  select :'satop'::uuid, (select id from public.stations order by sort offset 1 limit 1), 'Paint', 0, 100, 1 union all
+  select :'satop'::uuid, (select id from public.stations order by sort limit 1), 'Assemble', 0, 160, 2;
+set role authenticated;
+select public.mo_schedule(:'satj') as sch \gset
+select pg_temp.check(jsonb_array_length(:'sch'::jsonb->'steps') = 2 and (:'sch'::jsonb->'steps'->0->>'parallel')::boolean and (:'sch'::jsonb->>'minutes')::numeric = 960,
+  'MFG-07 operations sharing a step run side by side (480 + 480 min, not 480 + 300 + 480)');
+select pg_temp.check((:'sch'::jsonb->>'working_days')::int >= 2 and (:'sch'::jsonb->>'finish')::date > current_date, 'MFG-09 a finish date in working days');
+select public.mo_schedule(:'satj2') as sch2 \gset
+select pg_temp.check((:'sch2'::jsonb->'steps'->0->'operations'->0->>'queue_minutes')::numeric > 0, 'MFG-09 the MO behind it waits for the queue at the station');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

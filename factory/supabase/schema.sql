@@ -5712,5 +5712,932 @@ end $$;
 revoke all on function public.set_webhook(uuid, boolean, boolean) from public, anon;
 grant execute on function public.set_webhook(uuid, boolean, boolean) to authenticated;
 
+-- ============================================================================
+-- Phase 7 — close-out (CAT-02/06, SALES-07, SALES-09, INV-08, MFG-02, MFG-07,
+-- MFG-09, ADMIN-06/07). Everything reuses the ledger: variants stay SKUs, kits
+-- ship their components, stocktakes post through count_stock.
+-- ============================================================================
+-- ---- kits & bundles (SALES-07): an item type with a recipe and no stock of its own
+alter table public.stock_items drop constraint if exists stock_items_kind_check;
+alter table public.stock_items add constraint stock_items_kind_check check (kind in ('material', 'product', 'part', 'service', 'kit'));
+create or replace function public.guard_kit_bom() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if (select kind from public.stock_items where id = new.material_id) = 'kit' then
+    raise exception 'A kit cannot be an ingredient — add its components instead';
+  end if;
+  return new;
+end $$;
+drop trigger if exists guard_kit_bom on public.bom_lines;
+create trigger guard_kit_bom before insert or update on public.bom_lines for each row execute function public.guard_kit_bom();
+
+-- ---- variants (CAT-02/06): a family with options; each variant is its own SKU with its own recipe
+create table if not exists public.product_families (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  options text[] not null default '{}',
+  category text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.stock_items add column if not exists family_id uuid references public.product_families(id) on delete set null;
+alter table public.stock_items add column if not exists variant jsonb not null default '{}';
+create unique index if not exists stock_items_family_variant on public.stock_items (family_id, variant) where family_id is not null and not archived;
+alter table public.product_families enable row level security;
+drop policy if exists "staff read" on public.product_families;
+drop policy if exists "keepers write" on public.product_families;
+create policy "staff read" on public.product_families for select to authenticated using (public.is_active());
+create policy "keepers write" on public.product_families for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper());
+drop trigger if exists audit_row on public.product_families;
+create trigger audit_row after insert or update or delete on public.product_families for each row execute function public.audit_row();
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'product_families') then
+    alter publication supabase_realtime add table public.product_families;
+  end if;
+end $$;
+
+-- New variant copied from an existing one: same details, recipe, operations and supplier refs.
+create or replace function public.create_variant(p_from uuid, p_sku text, p_name text, p_variant jsonb) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare src public.stock_items; nid uuid;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can add items'; end if;
+  select * into src from public.stock_items where id = p_from;
+  if src.id is null then raise exception 'Item not found'; end if;
+  if src.family_id is null then raise exception 'Put this item in a product family first'; end if;
+  if coalesce(trim(p_sku), '') = '' then raise exception 'The new variant needs a SKU'; end if;
+  if exists (select 1 from public.stock_items where sku = trim(p_sku)) then raise exception 'SKU % already exists', trim(p_sku); end if;
+  insert into public.stock_items (sku, name, kind, category, location, unit, min_quantity, sale_price, supplier_id, supplier_code, lead_days, notes, make_min, make_batch, tracking, family_id, variant)
+  values (trim(p_sku), coalesce(nullif(trim(p_name), ''), src.name), src.kind, src.category, '', src.unit, src.min_quantity, src.sale_price, src.supplier_id, '',
+          src.lead_days, '', 0, src.make_batch, src.tracking, src.family_id, coalesce(p_variant, '{}'))
+  returning id into nid;
+  insert into public.bom_lines (product_id, material_id, quantity, notes) select nid, material_id, quantity, notes from public.bom_lines where product_id = src.id;
+  insert into public.product_operations (product_id, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort)
+    select nid, station_id, name, setup_minutes, unit_minutes, fixed_cost, sort from public.product_operations where product_id = src.id;
+  insert into public.item_suppliers (item_id, supplier_id, supplier_sku, unit_cost, lead_days, preferred)
+    select nid, supplier_id, '', unit_cost, lead_days, preferred from public.item_suppliers where item_id = src.id;
+  if exists (select 1 from public.products where sku = src.sku) then
+    insert into public.products (sku, name, route, estimate_minutes) select trim(p_sku), coalesce(nullif(trim(p_name), ''), src.name), route, estimate_minutes
+      from public.products where sku = src.sku on conflict do nothing;
+  end if;
+  return nid;
+end $$;
+revoke all on function public.create_variant(uuid, text, text, jsonb) from public, anon;
+grant execute on function public.create_variant(uuid, text, text, jsonb) to authenticated;
+
+-- ---- custom order fields (SALES-09) + workflow settings (ADMIN-06)
+alter table public.company_settings add column if not exists order_fields jsonb not null default '[]';
+alter table public.company_settings add column if not exists auto_sub_mos boolean not null default false;
+alter table public.company_settings add column if not exists company_name text not null default 'Skalarki Electronics Ltd';
+alter table public.company_settings add column if not exists company_address text not null default '';
+alter table public.orders add column if not exists custom jsonb not null default '{}';
+
+-- ---- stocktakes (INV-08): count, review the differences, post together
+create sequence if not exists public.st_seq;
+create table if not exists public.stocktakes (
+  id uuid primary key default gen_random_uuid(),
+  number text not null unique default 'ST-' || lpad(nextval('public.st_seq')::text, 4, '0'),
+  location_id uuid not null references public.locations(id) on delete restrict,
+  status text not null default 'counting' check (status in ('counting', 'posted', 'cancelled')),
+  note text not null default '',
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  posted_by uuid references public.profiles(id) on delete set null,
+  posted_at timestamptz
+);
+create table if not exists public.stocktake_lines (
+  id uuid primary key default gen_random_uuid(),
+  stocktake_id uuid not null references public.stocktakes(id) on delete cascade,
+  item_id uuid not null references public.stock_items(id) on delete restrict,
+  counted numeric(14,3) check (counted >= 0),
+  system_at_post numeric(14,3),
+  note text not null default '',
+  counted_by uuid references public.profiles(id) on delete set null,
+  counted_at timestamptz,
+  unique (stocktake_id, item_id)
+);
+alter table public.stocktakes enable row level security;
+alter table public.stocktake_lines enable row level security;
+drop policy if exists "staff read" on public.stocktakes;
+drop policy if exists "keepers write" on public.stocktakes;
+drop policy if exists "staff read" on public.stocktake_lines;
+drop policy if exists "keepers write" on public.stocktake_lines;
+create policy "staff read" on public.stocktakes for select to authenticated using (public.is_active());
+create policy "keepers write" on public.stocktakes for insert to authenticated with check (public.is_stock_keeper());
+create policy "staff read" on public.stocktake_lines for select to authenticated using (public.is_active());
+create policy "keepers write" on public.stocktake_lines for all to authenticated using (public.is_stock_keeper()) with check (public.is_stock_keeper());
+do $$
+declare t text;
+begin
+  foreach t in array array['stocktakes', 'stocktake_lines'] loop
+    execute format('drop trigger if exists audit_row on public.%I', t);
+    execute format('create trigger audit_row after insert or update or delete on public.%I for each row execute function public.audit_row()', t);
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+-- Lines change only while counting.
+create or replace function public.guard_stocktake_line() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if (select status from public.stocktakes where id = coalesce(new.stocktake_id, old.stocktake_id)) <> 'counting'
+     and not (tg_op = 'UPDATE' and new.counted is not distinct from old.counted and new.note = old.note and new.item_id = old.item_id
+              and new.system_at_post is not distinct from old.system_at_post) then  -- (a removed person's name may still be cleared)
+    raise exception 'This stocktake is closed';
+  end if;
+  if tg_op = 'UPDATE' and new.counted is not distinct from old.counted and new.note = old.note and new.system_at_post is not distinct from old.system_at_post then
+    return new;
+  end if;
+  if tg_op <> 'DELETE' and new.counted is distinct from (case when tg_op = 'UPDATE' then old.counted end) then
+    new.counted_by := auth.uid(); new.counted_at := now();
+  end if;
+  if tg_op <> 'DELETE' and current_setting('app.st_post', true) is distinct from 'on' then new.system_at_post := null; end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists guard_stocktake_line on public.stocktake_lines;
+create trigger guard_stocktake_line before insert or update or delete on public.stocktake_lines for each row execute function public.guard_stocktake_line();
+
+create or replace function public.start_stocktake(p_location uuid default null, p_items uuid[] default null, p_note text default '') returns uuid
+language plpgsql security definer set search_path = public as $$
+declare loc uuid := coalesce(p_location, public.default_location()); sid uuid;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can count stock'; end if;
+  if exists (select 1 from public.stocktakes where location_id = loc and status = 'counting') then raise exception 'A stocktake is already open at this location'; end if;
+  insert into public.stocktakes (location_id, note) values (loc, coalesce(p_note, '')) returning id into sid;
+  insert into public.stocktake_lines (stocktake_id, item_id)
+    select sid, s.id from public.stock_items s
+     where not s.archived and s.kind not in ('service', 'kit')
+       and (case when p_items is not null and cardinality(p_items) > 0 then s.id = any(p_items)
+                 else exists (select 1 from public.stock_levels l where l.item_id = s.id and l.location_id = loc and l.quantity <> 0) end);
+  return sid;
+end $$;
+revoke all on function public.start_stocktake(uuid, uuid[], text) from public, anon;
+grant execute on function public.start_stocktake(uuid, uuid[], text) to authenticated;
+
+-- Post: every counted line becomes a count at the location (difference vs the stock at posting time).
+create or replace function public.post_stocktake(p_id uuid, p_action text default 'post') returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare st public.stocktakes; l record; cur numeric; n int := 0; diff numeric := 0; val numeric := 0;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can post stocktakes'; end if;
+  select * into st from public.stocktakes where id = p_id for update;
+  if st.id is null then raise exception 'Stocktake not found'; end if;
+  if st.status <> 'counting' then raise exception 'This stocktake is closed'; end if;
+  if p_action = 'cancel' then
+    update public.stocktakes set status = 'cancelled', posted_by = auth.uid(), posted_at = now() where id = st.id;
+    return jsonb_build_object('status', 'cancelled');
+  end if;
+  perform set_config('app.st_post', 'on', true);
+  for l in select sl.*, s.avg_cost, s.sku from public.stocktake_lines sl join public.stock_items s on s.id = sl.item_id
+            where sl.stocktake_id = st.id and sl.counted is not null for update of sl loop
+    select coalesce((select quantity from public.stock_levels where item_id = l.item_id and location_id = st.location_id), 0) into cur;
+    update public.stocktake_lines set system_at_post = cur where id = l.id;
+    if l.counted <> cur then
+      perform public.count_stock(l.item_id, l.counted, st.number || coalesce(nullif(' · ' || l.note, ' · '), ''), st.location_id);
+      diff := diff + (l.counted - cur); val := val + (l.counted - cur) * coalesce(l.avg_cost, 0);
+    end if;
+    n := n + 1;
+  end loop;
+  perform set_config('app.st_post', 'off', true);
+  update public.stocktakes set status = 'posted', posted_by = auth.uid(), posted_at = now() where id = st.id;
+  return jsonb_build_object('status', 'posted', 'lines', n, 'difference', diff, 'value', case when public.can_see_costs() then round(val, 2) end);
+end $$;
+revoke all on function public.post_stocktake(uuid, text) from public, anon;
+grant execute on function public.post_stocktake(uuid, text) to authenticated;
+
+-- ---- sub-assembly MOs (MFG-02): linked child MOs for short sub-assemblies
+alter table public.jobs add column if not exists parent_id uuid references public.jobs(id) on delete set null;
+create index if not exists jobs_parent_idx on public.jobs (parent_id);
+create or replace function public.create_sub_mos(p_job uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare j public.jobs; prod uuid; b record; need numeric; have numeric; open_q numeric; n int := 0; depth int := 0; p uuid; r uuid[]; pr public.products; loc uuid;
+begin
+  if auth.uid() is not null and not public.is_admin() then raise exception 'Only the office team can plan production'; end if;
+  select * into j from public.jobs where id = p_job;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  p := j.parent_id;
+  while p is not null and depth < 10 loop depth := depth + 1; select parent_id into p from public.jobs where id = p; end loop;
+  if depth >= 5 then return 0; end if;
+  prod := public.mo_product(j.id);
+  loc := coalesce(j.location_id, public.default_location());
+  for b in select bl.material_id, bl.quantity, m.sku, m.name from public.bom_lines bl join public.stock_items m on m.id = bl.material_id
+            where bl.product_id = prod and m.kind in ('product', 'part') and exists (select 1 from public.bom_lines x where x.product_id = m.id) loop
+    need := b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce((select picked - used_from_wip - returned from public.mo_materials where job_id = j.id and item_id = b.material_id), 0);
+    select greatest(coalesce(sum(quantity), 0), 0) into have from public.stock_levels where item_id = b.material_id and location_id = loc;
+    select coalesce(sum(coalesce(quantity, 1) - produced), 0) into open_q from public.jobs where parent_id = j.id and sku = b.sku and status <> 'done';
+    need := need - have - open_q;
+    continue when need <= 0;
+    select * into pr from public.products where sku = b.sku;
+    r := case when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+    insert into public.jobs (code, title, description, customer, priority, status, assignees, quantity, estimate_minutes, due_date, created_by, sku, route, stage, station_id, parent_id, location_id, rank)
+    values ('STK-' || nextval('public.mo_seq'), b.name, 'Sub-assembly for ' || j.code, j.customer, j.priority, 'open', public.station_assignees(r[1]), ceil(need),
+            pr.estimate_minutes, case when j.due_date is not null then j.due_date - 1 end, auth.uid(), b.sku, r, 0, r[1], j.id, j.location_id, j.rank);
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.create_sub_mos(uuid) from public, anon;
+grant execute on function public.create_sub_mos(uuid) to authenticated;
+
+create or replace function public.auto_sub_mos() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.sku is not null and (select auto_sub_mos from public.company_settings where id = 1) then
+    perform public.create_sub_mos(new.id);
+  end if;
+  return null;
+end $$;
+drop trigger if exists auto_sub_mos on public.jobs;
+create trigger auto_sub_mos after insert on public.jobs for each row execute function public.auto_sub_mos();
+
+-- ---- schedule (MFG-07/09): operations with the same step run at the same time; the finish date
+-- counts the queue in front at each station and the station's daily capacity (hours × crew).
+alter table public.product_operations add column if not exists step int check (step is null or step > 0);
+create or replace function public.mo_schedule(p_job uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  j public.jobs; prod uuid; qty numeric; left_q numeric; hpd numeric; steps jsonb := '[]'; g record; day_n numeric := 0; d numeric; finish date; total_min numeric := 0;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  select * into j from public.jobs where id = p_job;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  if j.status = 'done' then return jsonb_build_object('finish', j.completed_at::date, 'steps', '[]'::jsonb, 'minutes', 0); end if;
+  select work_hours_per_day into hpd from public.company_settings where id = 1;
+  prod := public.mo_product(j.id); qty := coalesce(j.quantity, 1); left_q := greatest(qty - j.produced, 0);
+  for g in
+    with ops as (
+      select coalesce(o.step, 1000 + row_number() over (order by o.sort, o.created_at)) grp, o.station_id, st.name station,
+             coalesce(nullif(o.name, ''), st.name, 'Operation') op, (o.setup_minutes + o.unit_minutes * left_q) mins
+        from public.product_operations o left join public.stations st on st.id = o.station_id where o.product_id = prod),
+    queue as (  -- open work ranked ahead of this MO at the same station
+      select o.station_id, sum(o.setup_minutes + o.unit_minutes * greatest(coalesce(q.quantity, 1) - q.produced, 0)) mins
+        from public.jobs q join public.stock_items s on s.sku = q.sku and s.kind not in ('material', 'service')
+        join public.product_operations o on o.product_id = s.id
+       where q.status <> 'done' and q.id <> j.id and q.sku is not null
+         and (coalesce(q.rank, 1e15), q.created_at) < (coalesce(j.rank, 1e15), j.created_at)
+       group by o.station_id)
+    select ops.grp, jsonb_agg(jsonb_build_object('operation', ops.op, 'station', ops.station, 'minutes', ops.mins,
+             'queue_minutes', coalesce(qu.mins, 0), 'crew', greatest((select count(*) from public.station_members sm where sm.station_id = ops.station_id), 1))) items,
+           max((ops.mins + coalesce(qu.mins, 0)) / (hpd * 60 * greatest((select count(*) from public.station_members sm where sm.station_id = ops.station_id), 1))) days,
+           max(ops.mins) longest
+      from ops left join queue qu on qu.station_id = ops.station_id group by ops.grp order by ops.grp loop
+    steps := steps || jsonb_build_object('step', g.grp, 'parallel', jsonb_array_length(g.items) > 1, 'operations', g.items, 'days', round(g.days, 2));
+    day_n := day_n + g.days; total_min := total_min + g.longest;
+  end loop;
+  if jsonb_array_length(steps) = 0 then
+    total_min := coalesce(j.estimate_minutes, 0) * left_q; day_n := total_min / (hpd * 60);
+  end if;
+  -- working days (Mon–Fri) from today
+  d := ceil(day_n); finish := current_date;
+  while d > 0 loop finish := finish + 1; if extract(isodow from finish) < 6 then d := d - 1; end if; end loop;
+  return jsonb_build_object('finish', finish, 'working_days', ceil(day_n), 'minutes', round(total_min), 'steps', steps,
+    'late', j.due_date is not null and finish > j.due_date);
+end $$;
+revoke all on function public.mo_schedule(uuid) from public, anon;
+grant execute on function public.mo_schedule(uuid) to authenticated;
+
+-- ---- updated: kits in the ledger, allocation, planning and sales reports; kits never get an MO
+
+create or replace function public.move_stock(p_item uuid, p_delta numeric, p_reason text, p_ref text default '', p_note text default '', p_cost numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.stock_items;
+  q numeric;
+  a numeric;
+  loc uuid := nullif(current_setting('app.stock_loc', true), '')::uuid;
+  st text := nullif(current_setting('app.stock_src_type', true), '');
+  sid uuid := nullif(current_setting('app.stock_src_id', true), '')::uuid;
+  lot uuid := nullif(current_setting('app.stock_lot', true), '')::uuid;
+  oldloc text := current_setting('app.stock_loc', true);
+  r record; left_qty numeric; take numeric;
+begin
+  select * into s from public.stock_items where id = p_item for update;
+  if s.id is null then raise exception 'Item not found'; end if;
+  if s.kind = 'service' then raise exception 'Services are not kept in stock'; end if;
+  if s.kind = 'kit' then raise exception 'Kits are not kept in stock — their components are'; end if;
+  if loc is null then
+    loc := case st
+      when 'po_line' then (select p.location_id from public.po_lines l join public.purchase_orders p on p.id = l.po_id where l.id = sid)
+      when 'order_line' then (select o.location_id from public.order_lines l join public.orders o on o.id = l.order_id where l.id = sid)
+      when 'return' then (select o.location_id from public.order_returns r2 join public.orders o on o.id = r2.order_id where r2.id = sid)
+      when 'job' then (select j.location_id from public.jobs j where j.id = sid)
+      else null end;
+  end if;
+  loc := coalesce(loc, public.default_location());
+
+  -- Tracked item leaving without a named lot: first-expiry-first-out, then the untracked rest.
+  if lot is null and p_delta < 0 and s.tracking <> 'none' and current_setting('app.stock_nolot', true) is distinct from 'on' then
+    left_qty := -p_delta;
+    perform set_config('app.stock_loc', loc::text, true);
+    for r in select ll.lot_id, ll.quantity from public.lot_levels ll join public.lots lo on lo.id = ll.lot_id
+              where lo.item_id = s.id and ll.location_id = loc and ll.quantity > 0
+              order by lo.expiry nulls last, lo.created_at, lo.code loop
+      exit when left_qty <= 0;
+      take := least(r.quantity, left_qty);
+      perform public.stock_lot(r.lot_id);
+      perform public.move_stock(p_item, -take, p_reason, p_ref, p_note, p_cost);
+      left_qty := left_qty - take;
+    end loop;
+    perform public.stock_lot(null);
+    if left_qty > 0 then
+      perform set_config('app.stock_nolot', 'on', true);
+      perform public.move_stock(p_item, -left_qty, p_reason, p_ref, p_note, p_cost);
+      perform set_config('app.stock_nolot', 'off', true);
+    end if;
+    perform set_config('app.stock_loc', coalesce(oldloc, ''), true);
+    return (select quantity from public.stock_items where id = p_item);
+  end if;
+
+  q := s.quantity + p_delta;
+  a := case
+         when p_cost is null then s.avg_cost
+         when p_delta > 0 and q > 0 then round((greatest(s.quantity, 0) * s.avg_cost + p_delta * p_cost) / (greatest(s.quantity, 0) + p_delta), 4)
+         when p_delta > 0 then p_cost
+         when p_delta < 0 and q > 0 and s.quantity > 0 then greatest(round((s.quantity * s.avg_cost + p_delta * p_cost) / q, 4), 0)
+         else s.avg_cost end;
+  perform set_config('app.stock_move', 'on', true);
+  update public.stock_items set quantity = q, avg_cost = a,
+    updated_at = now(), updated_by = coalesce(auth.uid(), updated_by)
+  where id = s.id;
+  perform set_config('app.stock_move', 'off', true);
+  insert into public.stock_levels (item_id, location_id, quantity) values (s.id, loc, p_delta)
+  on conflict (item_id, location_id) do update set quantity = stock_levels.quantity + p_delta, updated_at = now();
+  if lot is not null then
+    insert into public.lot_levels (lot_id, location_id, quantity) values (lot, loc, p_delta)
+    on conflict (lot_id, location_id) do update set quantity = lot_levels.quantity + p_delta;
+  end if;
+  insert into public.stock_movements (item_id, delta, after, reason, ref, note, unit_cost, user_id, job_id, source_type, source_id, location_id, lot_id)
+  values (s.id, p_delta, q, p_reason, coalesce(p_ref, ''), coalesce(p_note, ''), coalesce(p_cost, s.avg_cost), auth.uid(),
+          nullif(current_setting('app.stock_job', true), '')::uuid, st, sid, loc, lot);
+  return q;
+end $$;
+
+create or replace function public.ship_lines(p_order uuid, p_lines jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; kind text; cmp record;
+begin
+  if not (public.is_admin() or public.my_wh_task(array['pick', 'ship'], p_order)) then raise exception 'Only the office team, or whoever is assigned to ship it, can ship orders'; end if;
+  prev := public.claim_op('ship_lines', p_key);
+  if prev is not null then return prev; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  if o.kind = 'quote' then raise exception 'Quotes are not delivered'; end if;
+  if o.status = 'cancelled' then raise exception 'This order is cancelled'; end if;
+  for l in select * from public.order_lines where order_id = o.id order by sort, created_at for update loop
+    if p_lines is null then q := l.quantity - l.shipped;
+    else
+      select x into r from jsonb_array_elements(p_lines) x where (x->>'line')::uuid = l.id;
+      q := coalesce((r->>'qty')::numeric, 0);
+    end if;
+    continue when q = 0;
+    if q < 0 then raise exception 'Ship a positive quantity'; end if;
+    if l.shipped + q > l.quantity then
+      raise exception '% — only % left to ship', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.quantity - l.shipped);
+    end if;
+    select si.kind into kind from public.stock_items si where si.id = l.item_id;
+    if kind = 'kit' then
+      perform public.stock_source('order_line', l.id);
+      for cmp in select b.material_id, b.quantity from public.bom_lines b join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+                  where b.product_id = l.item_id order by m.sku loop
+        perform public.move_stock(cmp.material_id, -(q * cmp.quantity), 'ship', o.order_number, 'Kit ' || coalesce(nullif(l.sku, ''), l.name));
+      end loop;
+    elsif l.item_id is not null and kind is distinct from 'service' then
+      perform public.stock_source('order_line', l.id);
+      perform public.move_stock(l.item_id, -q, 'ship', o.order_number, '');
+    end if;
+    update public.order_lines set shipped = shipped + q where id = l.id;
+  end loop;
+  return public.finish_op('ship_lines', p_key, public.order_delivery_after(o.id));
+end $$;
+
+create or replace function public.unship_lines(p_order uuid, p_lines jsonb default null, p_key text default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; c numeric; cmp record;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can change shipments'; end if;
+  prev := public.claim_op('unship_lines', p_key);
+  if prev is not null then return prev; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  for l in select * from public.order_lines where order_id = o.id order by sort, created_at for update loop
+    if p_lines is null then q := l.shipped - l.returned;
+    else
+      select x into r from jsonb_array_elements(p_lines) x where (x->>'line')::uuid = l.id;
+      q := coalesce((r->>'qty')::numeric, 0);
+    end if;
+    continue when q = 0;
+    if q < 0 or q > l.shipped - l.returned then
+      raise exception '% — only % shipped and not returned', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.shipped - l.returned);
+    end if;
+    if (select kind from public.stock_items where id = l.item_id) = 'kit' then
+      perform public.stock_source('order_line', l.id);
+      for cmp in select item_id, -sum(delta) net,
+                        case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end cost
+                   from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason in ('ship', 'return')
+                  group by item_id having -sum(delta) > 0 loop
+        perform public.move_by_source_lots(cmp.item_id, round(cmp.net * q / (l.shipped - l.returned), 3), 'ship', o.order_number, 'Shipment undone', 'order_line', l.id, 'ship', cmp.cost);
+      end loop;
+      update public.order_lines set shipped = shipped - q where id = l.id;
+      continue;
+    end if;
+    select case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end into c
+      from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
+    if exists (select 1 from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship') then
+      perform public.stock_source('order_line', l.id);
+      perform public.move_by_source_lots(l.item_id, q, 'ship', o.order_number, 'Shipment undone', 'order_line', l.id, 'ship', c);
+    end if;
+    update public.order_lines set shipped = shipped - q where id = l.id;
+  end loop;
+  return public.finish_op('unship_lines', p_key, public.order_delivery_after(o.id));
+end $$;
+
+create or replace function public.return_lines(p_order uuid, p_lines jsonb, p_reason text default '', p_key text default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare o public.orders; l public.order_lines; r jsonb; q numeric; prev text; c numeric; n int := 0; rid uuid; kind text; cmp record;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can book returns'; end if;
+  prev := public.claim_op('return_lines', p_key);
+  if prev is not null then return prev::int; end if;
+  select * into o from public.orders where id = p_order for update;
+  if o.id is null then raise exception 'Order not found'; end if;
+  for r in select * from jsonb_array_elements(coalesce(p_lines, '[]'::jsonb)) loop
+    select * into l from public.order_lines where id = (r->>'line')::uuid and order_id = o.id for update;
+    if l.id is null then raise exception 'Order line not found'; end if;
+    q := coalesce((r->>'qty')::numeric, 0);
+    continue when q = 0;
+    if q < 0 or q > l.shipped - l.returned then
+      raise exception '% — only % can be returned', coalesce(nullif(l.name, ''), l.sku), trim_scale(l.shipped - l.returned);
+    end if;
+    insert into public.order_returns (order_id, order_line_id, quantity, restock, reason, created_by)
+    values (o.id, l.id, q, coalesce((r->>'restock')::boolean, true), coalesce(p_reason, ''), auth.uid()) returning id into rid;
+    select si.kind into kind from public.stock_items si where si.id = l.item_id;
+    if coalesce((r->>'restock')::boolean, true) and kind = 'kit' then
+      for cmp in select item_id, -sum(delta) net,
+                        case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end cost
+                   from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason in ('ship', 'return')
+                  group by item_id having -sum(delta) > 0 loop
+        perform public.stock_source('return', rid);
+        perform public.move_by_source_lots(cmp.item_id, round(cmp.net * q / (l.shipped - l.returned), 3), 'return', o.order_number, coalesce(nullif(p_reason, ''), 'Customer return'), 'order_line', l.id, 'ship', cmp.cost);
+      end loop;
+    elsif coalesce((r->>'restock')::boolean, true) and l.item_id is not null and kind is distinct from 'service' then
+      select case when bool_or(unit_cost is null) then null else round(sum(delta * unit_cost) / nullif(sum(delta), 0), 4) end into c
+        from public.stock_movements where source_type = 'order_line' and source_id = l.id and reason = 'ship' and delta < 0;
+      perform public.stock_source('return', rid);
+      perform public.move_by_source_lots(l.item_id, q, 'return', o.order_number, coalesce(nullif(p_reason, ''), 'Customer return'), 'order_line', l.id, 'ship', c);
+    end if;
+    update public.order_lines set returned = returned + q where id = l.id;
+    n := n + 1;
+  end loop;
+  if n = 0 then raise exception 'Nothing to return'; end if;
+  perform public.finish_op('return_lines', p_key, n::text);
+  return n;
+end $$;
+
+create or replace function public.availability() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  d record; e record; need numeric; take numeric; got numeric; exp_qty numeric; exp_date date; exp_src text;
+  holders text; tl uuid := public.transit_location(); dl uuid := public.default_location();
+  lines jsonb := '{}'; ingr jsonb := '{}'; items jsonb := '{}'; st text; why text; nm text;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  create temp table if not exists av_supply (item_id uuid, location_id uuid, qty numeric, primary key (item_id, location_id)) on commit drop;
+  create temp table if not exists av_expected (item_id uuid, location_id uuid, due date, src text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_taken (item_id uuid, location_id uuid, who text, qty numeric, ord int) on commit drop;
+  create temp table if not exists av_demand (kind text, ref_id uuid, owner_id uuid, label text, item_id uuid, location_id uuid,
+    qty numeric, pegged boolean, rank numeric, due date, created timestamptz) on commit drop;
+  truncate av_supply, av_expected, av_taken, av_demand;
+
+  -- in transit and on the production floor (picked for an MO) is not free stock
+  insert into av_supply select item_id, location_id, quantity from public.stock_levels
+   where location_id not in (select id from public.locations where kind in ('transit', 'wip'));
+  insert into av_expected
+    select l.item_id, coalesce(p.location_id, dl), p.expected_date, p.number, l.quantity - l.received, 0
+      from public.po_lines l join public.purchase_orders p on p.id = l.po_id
+     where p.status in ('ordered', 'partial') and l.quantity > l.received
+    union all
+    select si.id, coalesce(j.location_id, dl), j.due_date, j.code, j.quantity - j.produced, 0
+      from public.jobs j join lateral (select id from public.stock_items where sku = j.sku and kind not in ('material', 'service') order by created_at limit 1) si on true
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null and coalesce(j.quantity, 0) > j.produced
+    union all
+    select tl2.item_id, t.to_location, t.expected_date, t.number, tl2.quantity, 0
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'in_transit';
+
+  -- sales lines (stocked, not yet shipped). MTO lines with a finished MO are pegged to it.
+  insert into av_demand
+    select 'line', l.id, o.id, o.order_number, l.item_id, coalesce(o.location_id, dl), l.quantity - l.shipped,
+           (j.id is not null and j.stock_booked), o.rank, o.delivery_deadline, o.created_at
+      from public.order_lines l join public.orders o on o.id = l.order_id
+      join public.stock_items si on si.id = l.item_id and si.kind not in ('service', 'kit')
+      left join public.jobs j on j.order_line_id = l.id
+     where o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+       and (j.id is null or j.stock_booked);
+  insert into av_demand
+    select 'line', l.id, o.id, o.order_number, b.material_id, coalesce(o.location_id, dl), (l.quantity - l.shipped) * b.quantity,
+           false, o.rank, o.delivery_deadline, o.created_at
+      from public.order_lines l join public.orders o on o.id = l.order_id
+      join public.stock_items si on si.id = l.item_id and si.kind = 'kit'
+      join public.bom_lines b on b.product_id = si.id join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+     where o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped;
+  -- ingredients of unfinished MOs
+  insert into av_demand
+    -- still needed = recipe × (qty − already produced) − what is already picked for this MO
+    select 'ingredient', j.id, j.id, j.code, b.material_id, coalesce(j.location_id, dl),
+           greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0),
+           false, coalesce(o.rank, j.rank), j.due_date, j.created_at
+      from public.jobs j
+      join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
+      join public.bom_lines b on b.product_id = p.id
+      join public.stock_items m on m.id = b.material_id and m.kind <> 'service'
+      left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = b.material_id
+      left join public.orders o on o.id = j.order_id
+     where j.status <> 'done' and not j.stock_booked and j.sku is not null;
+  -- materials an outsourced PO needs at the contractor
+  insert into av_demand
+    select 'ingredient', p.id, p.id, p.number, pm.item_id, p.partner_location_id,
+           sum(pm.quantity_per * (l.quantity - l.received)), false, null, p.expected_date, p.created_at
+      from public.purchase_orders p join public.po_lines l on l.po_id = p.id
+      join public.po_materials pm on pm.po_line_id = l.id
+     where p.kind = 'outsourced' and p.status in ('ordered', 'partial') and p.partner_location_id is not null and l.quantity > l.received
+     group by p.id, pm.item_id;
+  -- draft transfers reserve at their source
+  insert into av_demand
+    select 'transfer', tl2.id, t.id, t.number, tl2.item_id, t.from_location, tl2.quantity, false,
+           extract(epoch from t.created_at), t.expected_date, t.created_at
+      from public.transfer_lines tl2 join public.stock_transfers t on t.id = tl2.transfer_id where t.status = 'draft';
+
+  for d in select * from av_demand order by pegged desc, rank nulls last, due nulls last, created, ref_id loop
+    need := d.qty;
+    select coalesce(qty, 0) into got from av_supply where item_id = d.item_id and location_id = d.location_id;
+    got := coalesce(got, 0);
+    take := least(greatest(got, 0), need);
+    if take > 0 then
+      update av_supply set qty = qty - take where item_id = d.item_id and location_id = d.location_id;
+      insert into av_taken values (d.item_id, d.location_id, d.label, take, 0);
+    end if;
+    need := need - take;
+    exp_qty := 0; exp_date := null; exp_src := null;
+    for e in select ctid, * from av_expected where item_id = d.item_id and location_id = d.location_id and qty > 0
+              order by due nulls last, src loop
+      exit when need <= 0;
+      got := least(e.qty, need);
+      update av_expected set qty = qty - got where ctid = e.ctid;
+      need := need - got; exp_qty := exp_qty + got; exp_date := e.due;
+      exp_src := coalesce(exp_src || ', ', '') || e.src;
+    end loop;
+    if need > 0 then
+      select string_agg(distinct who, ', ') into holders from (select who from av_taken where item_id = d.item_id and location_id = d.location_id and who <> d.label limit 4) h;
+      select name into nm from public.locations where id = d.location_id;
+      st := 'not_available';
+      why := format('%s short at %s', trim_scale(need), nm)
+          || case when holders is not null then format(' — on-hand stock is promised to %s (higher priority)', holders) else ' — none on hand or on order' end;
+    elsif exp_qty > 0 then
+      st := 'expected';
+      why := format('%s reserved now, %s expected from %s', trim_scale(take), trim_scale(exp_qty), exp_src);
+    else
+      st := 'in_stock'; why := format('%s reserved from stock', trim_scale(take));
+    end if;
+    if d.kind in ('line', 'transfer') then
+      if lines ? d.ref_id::text then  -- kit line: keep the worst component
+        if (case st when 'not_available' then 3 when 'expected' then 2 else 1 end) >
+           (case lines->d.ref_id::text->>'status' when 'not_available' then 3 when 'expected' then 2 else 1 end) then
+          lines := lines || jsonb_build_object(d.ref_id::text, jsonb_build_object('status', st, 'reserved', take, 'expected', exp_qty,
+            'short', need, 'date', exp_date, 'why', why, 'kind', d.kind));
+        end if;
+      else
+        lines := lines || jsonb_build_object(d.ref_id::text, jsonb_build_object('status', st, 'reserved', take, 'expected', exp_qty,
+          'short', need, 'date', exp_date, 'why', why, 'kind', d.kind));
+      end if;
+    else
+      -- an MO is as available as its worst ingredient
+      ingr := jsonb_set(ingr, array[d.ref_id::text], jsonb_build_object(
+        'status', case when st = 'not_available' or ingr->d.ref_id::text->>'status' = 'not_available' then 'not_available'
+                       when st = 'expected' or ingr->d.ref_id::text->>'status' = 'expected' then 'expected' else 'in_stock' end,
+        'date', greatest((ingr->d.ref_id::text->>'date')::date, exp_date),
+        'short', coalesce(ingr->d.ref_id::text->'short', '[]'::jsonb) || case when need > 0
+             then jsonb_build_array(jsonb_build_object('item_id', d.item_id, 'short', need, 'why', why)) else '[]'::jsonb end), true);
+    end if;
+  end loop;
+
+  select coalesce(jsonb_object_agg(item_id, jsonb_build_object('on_hand', on_hand, 'reserved', reserved, 'available', on_hand - reserved)), '{}') into items
+    from (select s.item_id, sum(s.quantity) on_hand, coalesce((select sum(qty) from av_taken t where t.item_id = s.item_id), 0) reserved
+            from public.stock_levels s where s.location_id not in (select id from public.locations where kind in ('transit', 'wip')) group by s.item_id) x;
+  return jsonb_build_object('lines', lines, 'mos', ingr, 'items', items, 'at', now());
+end $$;
+
+create or replace function public.plan_item(p_item uuid, p_location uuid default null, p_weeks int default 12) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  it public.stock_items; w0 date := date_trunc('week', current_date)::date; hist jsonb; h jsonb;
+  wsum numeric := 0; wtot numeric := 0; i int := 0; rate numeric := 0; first_ship timestamptz; enough boolean;
+  opening numeric; bal numeric; weeks jsonb := '[]'; v_wk date; rec numeric; sales numeric; other numeric; fc numeric; fsrc text; use_dem numeric;
+  low numeric; low_wk date; reorder numeric; lead int; rqty numeric; batch numeric; act text; loc_name text;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  select * into it from public.stock_items where id = p_item;
+  if it.id is null then raise exception 'Item not found'; end if;
+  p_weeks := least(greatest(p_weeks, 4), 52);
+  -- automatic forecast: weighted average of the last 12 complete weeks (weights 1..12)
+  hist := public.demand_history(p_item, p_location, 12);
+  for h in select * from jsonb_array_elements(hist) loop
+    i := i + 1; wsum := wsum + i * (h->>'qty')::numeric; wtot := wtot + i;
+  end loop;
+  select min(created_at) into first_ship from public.stock_movements where item_id = p_item and reason = 'ship' and (p_location is null or location_id = p_location);
+  enough := first_ship is not null and first_ship <= now() - interval '4 weeks';
+  rate := case when enough then round(wsum / nullif(wtot, 0), 3) else 0 end;
+  -- opening stock (in transit and the production floor are not free stock)
+  select coalesce(sum(quantity), 0) into opening from public.stock_levels sl join public.locations l on l.id = sl.location_id
+   where sl.item_id = p_item and l.kind not in ('transit', 'wip') and (p_location is null or sl.location_id = p_location);
+  create temp table if not exists pl_flow (wk date, kind text, qty numeric, ref text) on commit drop;
+  truncate pl_flow;
+  -- receipts
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(p.expected_date, current_date))::date), 'receipt', l.quantity - l.received, p.number
+    from public.po_lines l join public.purchase_orders p on p.id = l.po_id
+   where l.item_id = p_item and p.status in ('ordered', 'partial') and l.quantity > l.received
+     and (p_location is null or coalesce(p.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(j.due_date, current_date))::date), 'receipt', coalesce(j.quantity, 1) - j.produced, j.code
+    from public.jobs j where j.sku = it.sku and it.kind not in ('material', 'service') and j.status <> 'done' and not j.stock_booked
+     and coalesce(j.quantity, 1) > j.produced and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location);
+  if p_location is not null then
+    insert into pl_flow select greatest(w0, date_trunc('week', coalesce(t.expected_date, current_date))::date), 'receipt', tl.quantity, t.number
+      from public.transfer_lines tl join public.stock_transfers t on t.id = tl.transfer_id
+     where tl.item_id = p_item and t.status = 'in_transit' and t.to_location = p_location;
+    insert into pl_flow select greatest(w0, date_trunc('week', coalesce(t.expected_date, current_date))::date), 'demand', tl.quantity, t.number
+      from public.transfer_lines tl join public.stock_transfers t on t.id = tl.transfer_id
+     where tl.item_id = p_item and t.status = 'draft' and t.from_location = p_location;
+  end if;
+  -- demand: sales lines, MO ingredients, outsourced-PO materials
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(o.delivery_deadline, current_date))::date), 'sales', l.quantity - l.shipped, o.order_number
+    from public.order_lines l join public.orders o on o.id = l.order_id
+   where l.item_id = p_item and o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+     and (p_location is null or coalesce(o.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(o.delivery_deadline, current_date))::date), 'sales', (l.quantity - l.shipped) * b.quantity, o.order_number
+    from public.order_lines l join public.orders o on o.id = l.order_id
+    join public.stock_items k on k.id = l.item_id and k.kind = 'kit' join public.bom_lines b on b.product_id = k.id and b.material_id = p_item
+   where o.kind = 'order' and o.status = 'open' and l.quantity > l.shipped
+     and (p_location is null or coalesce(o.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(j.due_date, current_date))::date), 'demand',
+         greatest(b.quantity * (coalesce(j.quantity, 1) - j.produced) - coalesce(mm.picked - mm.used_from_wip - mm.returned, 0), 0), j.code
+    from public.jobs j
+    join lateral (select id from public.stock_items where sku = j.sku and kind <> 'service' order by (kind = 'material'), created_at limit 1) p on true
+    join public.bom_lines b on b.product_id = p.id and b.material_id = p_item
+    left join public.mo_materials mm on mm.job_id = j.id and mm.item_id = p_item
+   where j.status <> 'done' and not j.stock_booked and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location);
+  insert into pl_flow select greatest(w0, date_trunc('week', coalesce(p.expected_date, current_date))::date), 'demand', pm.quantity_per * (l.quantity - l.received), p.number
+    from public.po_materials pm join public.po_lines l on l.id = pm.po_line_id join public.purchase_orders p on p.id = l.po_id
+   where pm.item_id = p_item and p.kind = 'outsourced' and p.status in ('ordered', 'partial') and l.quantity > l.received
+     and (p_location is null or p.partner_location_id = p_location);
+  -- walk the weeks
+  bal := opening; low := opening; low_wk := null; reorder := coalesce(it.min_quantity, 0);
+  for i in 0 .. p_weeks - 1 loop
+    v_wk := w0 + 7 * i;
+    select coalesce(sum(qty) filter (where kind = 'receipt'), 0), coalesce(sum(qty) filter (where kind = 'sales'), 0), coalesce(sum(qty) filter (where kind = 'demand'), 0)
+      into rec, sales, other from pl_flow where pl_flow.wk = v_wk;
+    -- forecast: weekly override, else monthly override spread over its days, else automatic
+    select quantity into fc from public.forecast_overrides fo where fo.item_id = p_item and fo.period = 'week' and fo.period_start = v_wk
+       and fo.location_id is not distinct from p_location;
+    if fc is not null then fsrc := 'manual';
+    else
+      select round(quantity * 7 / extract(day from (period_start + interval '1 month' - interval '1 day')), 3) into fc from public.forecast_overrides fo
+       where fo.item_id = p_item and fo.period = 'month' and fo.period_start = date_trunc('month', v_wk + 3)::date and fo.location_id is not distinct from p_location;
+      if fc is not null then fsrc := 'manual'; else fc := rate; fsrc := case when enough then 'auto' else 'none' end; end if;
+    end if;
+    -- the forecast stands for customer sales: booked sales use it up (whichever is larger counts)
+    use_dem := greatest(sales, fc) + other;
+    bal := bal + rec - use_dem;
+    if bal < low or (low_wk is null and bal < reorder) then
+      if bal < reorder and low_wk is null then low_wk := v_wk; end if;
+      low := least(low, bal);
+    end if;
+    weeks := weeks || jsonb_build_object('week', v_wk, 'receipts', rec, 'orders', sales, 'other', other, 'forecast', fc, 'forecast_source', fsrc,
+      'demand', use_dem, 'closing', round(bal, 3),
+      'refs', (select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'qty', qty, 'ref', ref)), '[]') from pl_flow f where f.wk = v_wk));
+  end loop;
+  -- recommendation: bring the lowest point back up to the reorder point (rounded to the batch size)
+  act := null; rqty := 0;
+  if low_wk is not null then
+    act := case when exists (select 1 from public.bom_lines where product_id = p_item) then 'make' else 'buy' end;
+    batch := greatest(coalesce(nullif(it.make_batch, 0), 1), 1);
+    rqty := ceil(greatest(reorder - low, 0.001) / batch) * batch;
+    lead := coalesce(it.lead_days, (select default_lead_days from public.company_settings where id = 1), 7);
+  end if;
+  select name into loc_name from public.locations where id = p_location;
+  return jsonb_build_object(
+    'item', jsonb_build_object('id', it.id, 'sku', it.sku, 'name', it.name, 'unit', it.unit, 'reorder_point', reorder),
+    'location', loc_name, 'opening', opening, 'weeks', weeks, 'history', hist,
+    'forecast', jsonb_build_object('weekly', rate, 'enough_history', enough,
+      'method', 'Weighted average of the last 12 complete weeks of shipments; the most recent week counts 12×, the oldest 1×. Needs at least 4 weeks of history. Manual overrides replace it for their week or month.'),
+    'recommendation', case when act is null then null else jsonb_build_object('action', act, 'quantity', rqty, 'short_week', low_wk,
+      'order_by', greatest(current_date, low_wk - lead), 'lead_days', lead, 'lowest', round(low, 3),
+      'reason', format('Projected stock falls to %s in the week of %s (reorder point %s)', trim_scale(round(low, 3)), to_char(low_wk, 'DD Mon'), trim_scale(reorder))) end);
+end $$;
+
+create or replace function public.report(p_kind text, p_from date, p_to date, p_group text default null, p_location uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  c boolean := public.can_see_costs();
+  buy boolean := 'buy' = any(public.my_kimera_sections()) or public.can_see_costs();
+  t0 timestamptz := p_from::timestamptz; t1 timestamptz := (p_to + 1)::timestamptz;
+  rows jsonb; totals jsonb; rate numeric;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  if p_from is null or p_to is null or p_to < p_from then raise exception 'Pick a valid date range'; end if;
+  if 'insights' <> all(public.my_kimera_sections()) then raise exception 'Reports are not open for your role'; end if;
+
+  if p_kind = 'sales' then
+    -- revenue is recognised when goods ship (net of undo and returns); services when the order ships
+    with s as (
+      select m.item_id, o.id order_id, o.customer, coalesce(nullif(o.company, ''), o.customer) cust, date_trunc('month', m.created_at)::date mon,
+             -m.delta qty, -m.delta * coalesce(ol.unit_price, 0) rev, -m.delta * m.unit_cost cogs
+        from public.stock_movements m join public.order_lines ol on ol.id = m.source_id join public.orders o on o.id = ol.order_id
+       where m.source_type = 'order_line' and m.reason in ('ship', 'return') and m.created_at >= t0 and m.created_at < t1
+         and m.item_id = ol.item_id and (p_location is null or m.location_id = p_location)
+      union all
+      -- kits: each component movement is a share of the kit (units and revenue per kit, cost = every component)
+      select ol.item_id, o.id, o.customer, coalesce(nullif(o.company, ''), o.customer), date_trunc('month', m.created_at)::date,
+             -m.delta / b.quantity / c.n, -m.delta / b.quantity / c.n * coalesce(ol.unit_price, 0), -m.delta * m.unit_cost
+        from public.stock_movements m join public.order_lines ol on ol.id = m.source_id join public.orders o on o.id = ol.order_id
+        join public.stock_items k on k.id = ol.item_id and k.kind = 'kit'
+        join public.bom_lines b on b.product_id = k.id and b.material_id = m.item_id
+        join lateral (select count(*) n from public.bom_lines b2 join public.stock_items x on x.id = b2.material_id and x.kind <> 'service' where b2.product_id = k.id) c on true
+       where m.source_type = 'order_line' and m.reason in ('ship', 'return') and m.created_at >= t0 and m.created_at < t1
+         and (p_location is null or m.location_id = p_location)
+      union all
+      select ol.item_id, o.id, o.customer, coalesce(nullif(o.company, ''), o.customer), date_trunc('month', o.shipped_at)::date, ol.shipped - ol.returned,
+             (ol.shipped - ol.returned) * coalesce(ol.unit_price, 0), 0
+        from public.order_lines ol join public.orders o on o.id = ol.order_id join public.stock_items si on si.id = ol.item_id and si.kind = 'service'
+       where o.shipped_at >= t0 and o.shipped_at < t1 and p_location is null),
+    g as (
+      select case coalesce(p_group, 'product') when 'customer' then cust when 'month' then to_char(mon, 'YYYY-MM') else si.sku end as key,
+             case coalesce(p_group, 'product') when 'customer' then cust when 'month' then to_char(mon, 'Mon YYYY') else si.name end as label,
+             case coalesce(p_group, 'product') when 'product' then si.id::text else null end as item_id,
+             sum(qty) qty, sum(rev) revenue, sum(cogs) cogs, count(distinct order_id) orders
+        from s left join public.stock_items si on si.id = s.item_id group by 1, 2, 3)
+    select coalesce(jsonb_agg(jsonb_build_object('key', key, 'label', label, 'item_id', item_id, 'qty', qty, 'orders', orders, 'revenue', round(revenue, 2),
+             'cost', case when c then round(cogs, 2) end, 'margin', case when c then round(revenue - cogs, 2) end,
+             'margin_pct', case when c and revenue <> 0 then round((revenue - cogs) / revenue * 100, 1) end) order by revenue desc, key), '[]'),
+           jsonb_build_object('qty', coalesce(sum(qty), 0), 'revenue', round(coalesce(sum(revenue), 0), 2), 'cost', case when c then round(coalesce(sum(cogs), 0), 2) end,
+             'margin', case when c then round(coalesce(sum(revenue - cogs), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'inventory' then
+    with m as (select item_id, delta, created_at from public.stock_movements where (p_location is null or location_id = p_location)),
+    g as (select si.id, si.sku, si.name, si.unit, si.avg_cost,
+             coalesce(sum(m.delta) filter (where m.created_at < t0), 0) opening,
+             coalesce(sum(m.delta) filter (where m.created_at >= t0 and m.created_at < t1 and m.delta > 0), 0) qin,
+             coalesce(sum(m.delta) filter (where m.created_at >= t0 and m.created_at < t1 and m.delta < 0), 0) qout,
+             coalesce(sum(m.delta) filter (where m.created_at < t1), 0) closing
+        from public.stock_items si left join m on m.item_id = si.id where si.kind <> 'service' and not si.archived group by si.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sku, 'label', name, 'item_id', id, 'unit', unit, 'opening', opening, 'in', qin, 'out', -qout, 'closing', closing,
+             'value', case when c then round(closing * avg_cost, 2) end) order by sku) filter (where opening <> 0 or qin <> 0 or qout <> 0 or closing <> 0), '[]'),
+           jsonb_build_object('in', coalesce(sum(qin), 0), 'out', coalesce(-sum(qout), 0), 'value', case when c then round(coalesce(sum(closing * avg_cost), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'purchasing' then
+    with p as (select p.*, (select sum(l.quantity * l.unit_cost * p.fx_rate) from public.po_lines l where l.po_id = p.id) ordered_value,
+                      (select sum(l.received * l.unit_cost * p.fx_rate) from public.po_lines l where l.po_id = p.id) received_value
+                 from public.purchase_orders p where p.ordered_at >= t0 and p.ordered_at < t1 and p.status <> 'cancelled'
+                  and (p_location is null or coalesce(p.location_id, public.default_location()) = p_location)),
+    g as (select coalesce(s.name, '—') sup, s.id sid, count(*) pos, sum(ordered_value) ordered, sum(received_value) received,
+             count(*) filter (where p.status = 'received') done,
+             count(*) filter (where p.status = 'received' and p.expected_date is not null and p.received_at::date <= p.expected_date) on_time,
+             count(*) filter (where p.status = 'received' and p.expected_date is not null) with_date,
+             round(avg(extract(epoch from p.received_at - p.ordered_at) / 86400) filter (where p.status = 'received'), 1) lead_days,
+             count(*) filter (where p.kind = 'outsourced') outsourced
+        from p left join public.suppliers s on s.id = p.supplier_id group by s.name, s.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sup, 'label', sup, 'supplier_id', sid, 'pos', pos, 'outsourced', outsourced,
+             'ordered', case when buy then round(ordered, 2) end, 'received', case when buy then round(received, 2) end,
+             'on_time_pct', case when with_date > 0 then round(on_time * 100.0 / with_date) end, 'lead_days', lead_days) order by ordered desc nulls last), '[]'),
+           jsonb_build_object('pos', coalesce(sum(pos), 0), 'ordered', case when buy then round(coalesce(sum(ordered), 0), 2) end, 'received', case when buy then round(coalesce(sum(received), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'manufacturing' then
+    select labour_rate into rate from public.company_settings where id = 1;
+    with j as (select j.* from public.jobs j where j.status = 'done' and j.completed_at >= t0 and j.completed_at < t1 and j.sku is not null
+                  and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location)),
+    g as (select j.id, j.code, j.title, j.sku, coalesce(j.quantity, 1) qty, j.completed_at,
+             (select coalesce(sum(-m.delta * m.unit_cost), 0) from public.stock_movements m where m.job_id = j.id and m.reason = 'consume') mat,
+             (select coalesce(sum(extract(epoch from (coalesce(pa.left_at, j.completed_at) - pa.joined_at)) / 3600), 0) from public.participants pa where pa.job_id = j.id) hours,
+             (select coalesce(sum(b.quantity * s.avg_cost), 0) * coalesce(j.quantity, 1) from public.bom_lines b join public.stock_items s on s.id = b.material_id
+               where b.product_id = public.mo_product(j.id)) planned
+        from j)
+    select coalesce(jsonb_agg(jsonb_build_object('key', code, 'label', title, 'job_id', id, 'sku', sku, 'qty', qty, 'done', completed_at, 'hours', round(hours, 2),
+             'planned', case when c then round(planned, 2) end, 'materials', case when c then round(mat, 2) end, 'labour', case when c then round(hours * rate, 2) end,
+             'total', case when c then round(mat + hours * rate, 2) end, 'unit', case when c then round((mat + hours * rate) / qty, 2) end,
+             'variance', case when c then round(mat - planned, 2) end) order by completed_at desc), '[]'),
+           jsonb_build_object('mos', count(*), 'qty', coalesce(sum(qty), 0), 'hours', round(coalesce(sum(hours), 0), 2),
+             'materials', case when c then round(coalesce(sum(mat), 0), 2) end, 'labour', case when c then round(coalesce(sum(hours * rate), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'consumption' then
+    with g as (select si.id, si.sku, si.name, si.unit, sum(-m.delta) qty, sum(-m.delta * m.unit_cost) val, count(distinct m.job_id) mos
+                 from public.stock_movements m join public.stock_items si on si.id = m.item_id
+                where m.reason = 'consume' and m.created_at >= t0 and m.created_at < t1 and (p_location is null or m.location_id = p_location)
+                group by si.id having sum(m.delta) <> 0)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sku, 'label', name, 'item_id', id, 'unit', unit, 'qty', qty, 'mos', mos,
+             'value', case when c then round(val, 2) end) order by val desc nulls last, sku), '[]'),
+           jsonb_build_object('value', case when c then round(coalesce(sum(val), 0), 2) end, 'qty', coalesce(sum(qty), 0))
+      into rows, totals from g;
+
+  elsif p_kind = 'production' then
+    -- person-hours on jobs (clipped to the range), jobs worked, station steps completed
+    with h as (select pa.user_id, pa.job_id,
+                      extract(epoch from (least(coalesce(pa.left_at, now()), t1) - greatest(pa.joined_at, t0))) / 3600 hrs
+                 from public.participants pa where pa.joined_at < t1 and coalesce(pa.left_at, now()) > t0),
+    g as (select pr.id, pr.full_name, coalesce(sum(h.hrs), 0) hrs, count(distinct h.job_id) jobs,
+             (select count(*) from public.job_steps st where st.completed_by = pr.id and st.completed_at >= t0 and st.completed_at < t1) steps
+        from public.profiles pr left join h on h.user_id = pr.id where pr.active or h.user_id is not null group by pr.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', full_name, 'label', full_name, 'user_id', id, 'hours', round(hrs, 2), 'jobs', jobs, 'steps', steps,
+             'hours_per_job', case when jobs > 0 then round(hrs / jobs, 2) end) order by hrs desc) filter (where hrs > 0 or steps > 0), '[]'),
+           jsonb_build_object('hours', round(coalesce(sum(hrs), 0), 2), 'steps', coalesce(sum(steps), 0),
+             'mos_done', (select count(*) from public.jobs where status = 'done' and completed_at >= t0 and completed_at < t1),
+             'units_made', (select coalesce(sum(delta), 0) from public.stock_movements where reason = 'produce' and created_at >= t0 and created_at < t1),
+             'by_station', (select coalesce(jsonb_agg(jsonb_build_object('station', s.name, 'steps', x.n) order by x.n desc), '[]')
+                              from (select station_id, count(*) n from public.job_steps where completed_at >= t0 and completed_at < t1 group by station_id) x
+                              left join public.stations s on s.id = x.station_id))
+      into rows, totals from g;
+  else
+    raise exception 'Unknown report';
+  end if;
+  return jsonb_build_object('kind', p_kind, 'from', p_from, 'to', p_to, 'group', p_group, 'costs', c, 'rows', rows, 'totals', totals);
+end $$;
+
+create or replace function public.create_mo(p_sku text, p_title text, p_qty numeric, p_due date default null, p_line uuid default null, p_route uuid[] default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  l public.order_lines; o public.orders; r uuid[]; code text; jid uuid; idx int; n int; pr public.products;
+begin
+  if not public.is_admin() then raise exception 'Only the office team can plan production'; end if;
+  if p_line is not null then
+    select * into l from public.order_lines where id = p_line;
+    if l.id is null then raise exception 'Order line not found'; end if;
+    if exists (select 1 from public.jobs where order_line_id = l.id) then raise exception 'This line already has a manufacturing order'; end if;
+    select * into o from public.orders where id = l.order_id;
+    if o.kind = 'quote' then raise exception 'Turn the quote into a sales order first'; end if;
+    select count(*), count(*) filter (where ol.sort < l.sort or (ol.sort = l.sort and ol.created_at <= l.created_at))
+      into n, idx from public.order_lines ol where ol.order_id = o.id;
+    code := case when n > 1 then o.order_number || '-' || idx else o.order_number end;
+    p_sku := coalesce(nullif(p_sku, ''), nullif(l.sku, '')); p_title := coalesce(nullif(p_title, ''), l.name);
+    p_qty := coalesce(p_qty, l.quantity - l.shipped);
+    p_due := coalesce(p_due, o.delivery_deadline);
+  else
+    code := 'STK-' || nextval('public.mo_seq');
+  end if;
+  if coalesce(p_qty, 0) <= 0 then raise exception 'Quantity must be more than 0'; end if;
+  if exists (select 1 from public.stock_items where sku = p_sku and kind = 'kit') then raise exception 'Kits are not manufactured — their components are shipped together'; end if;
+  select * into pr from public.products where sku = p_sku;
+  r := case when coalesce(array_length(p_route, 1), 0) > 0 then p_route
+            when coalesce(array_length(pr.route, 1), 0) > 0 then pr.route else public.default_route() end;
+  insert into public.jobs (code, title, customer, priority, status, assignees, quantity, estimate_minutes, due_date, created_by,
+                           order_id, order_line_id, sku, route, stage, station_id, unit_price)
+  values (code, coalesce(nullif(p_title, ''), p_sku, 'Manufacturing order'), coalesce(o.customer, ''), 3, 'open', public.station_assignees(r[1]),
+          p_qty, pr.estimate_minutes, p_due, auth.uid(), o.id, l.id, nullif(p_sku, ''), r, 0, r[1], l.unit_price)
+  returning id into jid;
+  return jid;
+end $$;
+
+-- ---- updated: MO cost card takes its finish date from mo_schedule()
+create or replace function public.mo_costs(p_job uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  j public.jobs; prod uuid; qty numeric; cs public.company_settings;
+  mat_plan numeric; mat_act numeric; ops jsonb; ops_cost numeric; ops_min numeric; hours numeric; labour numeric;
+  left_min numeric; days int; finish date;
+begin
+  if not public.can_see_costs() then return null; end if;
+  select * into j from public.jobs where id = p_job;
+  if j.id is null then raise exception 'Manufacturing order not found'; end if;
+  select * into cs from public.company_settings where id = 1;
+  prod := public.mo_product(j.id);
+  qty := coalesce(j.quantity, 1);
+  select coalesce(sum(b.quantity * qty * s.avg_cost), 0) into mat_plan
+    from public.bom_lines b join public.stock_items s on s.id = b.material_id where b.product_id = prod;
+  select coalesce(sum(-delta * coalesce(unit_cost, 0)), 0) into mat_act
+    from public.stock_movements where job_id = j.id and reason = 'consume';
+  select coalesce(jsonb_agg(jsonb_build_object('name', coalesce(nullif(o.name, ''), st.name, 'Operation'), 'station', st.name,
+           'minutes', o.setup_minutes + o.unit_minutes * qty,
+           'cost', round((o.setup_minutes + o.unit_minutes * qty) / 60 * coalesce(st.cost_per_hour, 0) + o.fixed_cost, 2)) order by o.sort, o.created_at), '[]'),
+         coalesce(sum(round((o.setup_minutes + o.unit_minutes * qty) / 60 * coalesce(st.cost_per_hour, 0) + o.fixed_cost, 2)), 0),
+         coalesce(sum(o.setup_minutes + o.unit_minutes * qty), 0)
+    into ops, ops_cost, ops_min
+    from public.product_operations o left join public.stations st on st.id = o.station_id where o.product_id = prod;
+  select coalesce(sum(extract(epoch from (coalesce(p.left_at, now()) - p.joined_at)) / 3600), 0) into hours
+    from public.participants p where p.job_id = j.id;
+  labour := round(hours * cs.labour_rate, 2);
+  -- remaining operation time → working days → estimated finish (MFG-09)
+  finish := (public.mo_schedule(j.id)->>'finish')::date;
+  return jsonb_build_object(
+    'quantity', qty, 'produced', j.produced,
+    'materials_planned', round(mat_plan, 2), 'materials_actual', round(mat_act, 2),
+    'operations', ops, 'operations_planned', ops_cost, 'minutes_planned', ops_min,
+    'labour_hours', round(hours, 2), 'labour_rate', cs.labour_rate, 'labour_actual', labour,
+    'total_planned', round(mat_plan + ops_cost, 2), 'total_actual', round(mat_act + labour + (select coalesce(sum(fixed_cost), 0) from public.product_operations where product_id = prod), 2),
+    'unit_planned', round((mat_plan + ops_cost) / qty, 4),
+    'estimated_finish', finish, 'due', j.due_date, 'late', (j.due_date is not null and finish > j.due_date and j.status <> 'done'));
+end $$;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();
