@@ -3,17 +3,26 @@ import { canSeeCosts } from "../lib/roles";
 import { t } from "../lib/i18n";
 import { useStore } from "../lib/store";
 import { money, stockLevels } from "../screens/Inventory";
-import { PageHead, Stat } from "./kit";
+import { PageHead, Stat, SubTabs } from "./kit";
+import { ReportsView } from "./Reports";
 import { analyse } from "./status";
 
 const WEEKS = 12;
 const monday = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
 
-export function KInsights() {
+export function KInsights({ onItem }: { onItem: (id: string) => void }) {
   const { db, me } = useStore();
+  const [view, setView] = useState<"overview" | "reports">("overview");
+  const tabs = <SubTabs value={view} onChange={setView} tabs={[{ value: "overview", label: t("Overview") }, { value: "reports", label: t("Reports") }]} />;
   const costs = canSeeCosts(me.role, db.kimera_access);
   const info = useMemo(() => analyse(db), [db]);
   const lv = useMemo(() => stockLevels(db), [db]);
+  if (view === "reports") return (
+    <div className="k-page">
+      <PageHead title={t("Insights")} sub={t("Reports straight from the stock ledger and the documents — they add up to the records behind them.")} tabs={tabs} />
+      <ReportsView onItem={onItem} />
+    </div>
+  );
   const now = new Date();
   const month0 = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const sold = [...info.values()].filter((o) => o.order.kind === "order" && o.order.status !== "cancelled");
@@ -47,7 +56,7 @@ export function KInsights() {
 
   return (
     <div className="k-page">
-      <PageHead title={t("Insights")} sub={t("Sales, production and stock at a glance.")} />
+      <PageHead title={t("Insights")} sub={t("Sales, production and stock at a glance.")} tabs={tabs} />
       <div className="k-stats">
         <Stat label={t("Sales this month")} value={money(monthSales)} sub={t("{n} orders", { n: sold.filter((o) => when(o) >= month0).length })} />
         <Stat label={t("Open orders")} value={open.length} sub={money(open.reduce((x, o) => x + (o.amount ?? 0), 0))} />

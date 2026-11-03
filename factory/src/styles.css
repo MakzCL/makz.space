@@ -1193,3 +1193,11 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .fc-hist > div { height: 100%; display: flex; align-items: flex-end; } .fc-hist i { display: block; width: 100%; background: #8a6bff; border-radius: 4px 4px 0 0; opacity: .8; }
 .fc-hist small { grid-column: 1 / -1; }
 .fc-rec { border-left: 3px solid #e5484d; }
+.th-sort { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: inherit; }
+.rep-tbl tfoot td { border-top: 1px solid var(--line); }
+/* keep every Kortana section visible on laptop widths (the header also holds Scan + Create) */
+@media (min-width: 901px) and (max-width: 1560px) {
+  .k-top { gap: 0.6rem; padding-left: 1rem; padding-right: 1rem; }
+  .k-nav button { padding: 0.5rem 0.55rem; gap: 0.35rem; font-size: 0.86rem; }
+}
+@media (min-width: 901px) and (max-width: 1280px) { .k-nav button svg { display: none; } }

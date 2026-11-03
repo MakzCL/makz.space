@@ -189,7 +189,7 @@ function Shell({ signOut }: { signOut: () => void }) {
       );
       case "plan": return <Plan onOrder={openOrder} onBuy={() => { setBuyView("pos"); go("buy"); }} />;
       case "tickets": return <Tickets openId={ticket} onOpen={setTicket} onJob={(id) => setJobPeek(id)} />;
-      case "insights": return <KInsights />;
+      case "insights": return <KInsights onItem={(id) => { const it = db.stock_items.find((s) => s.id === id); if (it) setItemPeek(it); }} />;
       case "settings": return <Settings />;
     }
   })();

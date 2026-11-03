@@ -193,19 +193,19 @@ advisory lock per item, so concurrent requests serialise.
 | PLAN-07 | Complete | overrides flow straight into projection and recommendation (tested: 13 → 21) |
 | PLAN-08 | Complete | any function call can be limited to one location; Plan → Forecast has a location filter |
 
-## J. Reporting
+## J. Reporting — REP-01..09: **Complete (core), phase 6b — not yet published**
 
-| ID | Status | Notes |
-| --- | --- | --- |
-| REP-01 | Partial | Insights tiles (sales value); no profit (D2/D3) |
-| REP-02 | Partial | Inventory list with value; History |
-| REP-03 | Missing | |
-| REP-04 | Missing | |
-| REP-05 | Partial | History filterable by reason |
-| REP-06 | Partial | Factory Insights person-hours |
-| REP-07 | Partial | sorting/filter on lists; little drill-through |
-| REP-08 | Partial | CSV exports |
-| REP-09 | Unverified | nothing reconciles today; scenario 12 will |
+| ID | Status | Evidence |
+|---|---|---|
+| REP-01 | Complete | `report('sales')` by product / customer / month: revenue at shipment (net of undo/returns, services when shipped), cost at the cost stock left at, margin, margin % |
+| REP-02 | Complete | `report('inventory')`: opening, in, out, closing per item (optionally per location), value at current average cost; History tab for movements |
+| REP-03 | Complete | `report('purchasing')` by supplier: POs, outsourced, ordered/received value (base currency), on-time %, average lead time |
+| REP-04 | Complete | `report('manufacturing')` per finished MO: planned vs actual materials, hours, labour at company rate, cost per unit |
+| REP-05 | Complete | `report('consumption')` per material: quantity, cost, MOs |
+| REP-06 | Complete | `report('production')` per person: hours on jobs (clipped to the period), jobs, stations completed; totals by station, MOs finished, units made |
+| REP-07 | Complete | period presets + custom dates, group-by, location filter, sortable columns, rows open the item or MO |
+| REP-08 | Complete | CSV export of every report as shown |
+| REP-09 | Complete | tests: inventory closing = stock on hand (company and per location), consumption = ledger, MO materials = MO cost card, sales cost = ledger, PO count; costs only to roles with Costs & margins |
 
 ## K. Integrations
 
@@ -358,6 +358,8 @@ key per intent and disables the button while it runs.
 - 2026-11-03 — **Phase 5c — shop floor — built, not yet published.** MFG-17 → Complete: the crew records picking, pieces made (with actual usage) and returns from the SK Factory job sheet (shared `MoProduction`, compact on phones; server `can_work_mo` already allows the crew on the job). MFG-18 → Complete: scan an MO traveller label on the Jobs screen to open it; Kortana MO sheet prints the traveller label.
 
 - 2026-11-03 — **Phase 6a — planning — built, not yet published.** Section I. Booked sales use the forecast up (each week counts the larger), so demand is never counted twice. Tests: 11 new planning checks (hand-calculated scenario) ALL PASSED; browser: Plan → Forecast list, item sheet with chart (hover tooltip, reorder line), week table with Auto/Manual badges — no errors.
+
+- 2026-11-03 — **Phase 6b — reports — built, not yet published.** Section J. Insights → Reports. Tests: 10 new report checks ALL PASSED; browser: sales table with totals, sorting, drill-through to the item, purchasing report — no errors. Header navigation tightened so every section fits from 1280 px with Scan + Create.
 
 ## Next steps (continuation plan)
 
