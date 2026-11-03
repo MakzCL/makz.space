@@ -345,6 +345,8 @@ key per intent and disables the button while it runs.
 
 - 2026-11-03 — **Phase 5a — warehouse tasks — built, not yet published.** See section H. Tests: 398 schema checks ALL PASSED, concurrency PASSED, tsc clean, build ok, browser smoke of Stock → Tasks, pick sheet, count sheet and New task (desktop + phone) — no errors.
 
+- 2026-11-03 — **Phase 5a + rename to Kortana published** (migration `kortana_phase5a_warehouse_tasks`, deploy of `1745d6b`). Restore point: `backup_20261103_phase5a` (56 tables) + branch `backup/pre-phase5a-kortana-2026-11-03` (7aa10f4). New address kortana.makz.space (DNS CNAME + Pages custom domain, certificate active); kimera.makz.space forwards to the same path there. Live check: wh_tasks present, ship guard active, costs still hidden, 0 stock mismatches.
+
 ## Next steps (continuation plan)
 
 1. **Publish phase 1** when you say so: backup schema `backup_<date>_phase1`, branch

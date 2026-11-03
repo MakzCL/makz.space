@@ -91,5 +91,4 @@ default shown in brackets. Every default can be changed later.
     *(Default: per job as now, plus optional per-operation start/stop for stations that have a tablet.)*
 35. **Who may remove staff:** Owner/Developer can remove anyone (except themselves, and never the last Owner/Developer). Manager and Office can remove anyone except Owner/Developer. Assistants can remove Operators and Support only. Is that right, or should Assistants be able to remove other roles too?
     *(Default: as described. Removing someone keeps all their history, and they can be restored from Team → Removed staff.)*
-36. **Web address for Kortana:** the app is renamed, but it still opens at kimera.makz.space. Should I add kortana.makz.space as the main address and have the old one forward to it?
-    *(Default: keep kimera.makz.space until you say so; nothing on screen shows the old name.)*
+36. ~~**Web address for Kortana**~~ Answered: Kortana is at kortana.makz.space; kimera.makz.space forwards there.
