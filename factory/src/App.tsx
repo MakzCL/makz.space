@@ -9,7 +9,8 @@ import { createBackend, type Backend } from "./lib/backend";
 import { useMine } from "./lib/actions";
 import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
-import { KIMERA_URL, can, tabsFor, type Tab } from "./lib/roles";
+import { KIMERA_URL, TROTAN_URL, can, tabsFor, type Tab } from "./lib/roles";
+import { TrotanMark } from "./trotan/Mark";
 import { KLogo } from "./components/Logo";
 import { useDesktop } from "./lib/media";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
@@ -225,7 +226,10 @@ function Main({ signOut }: { signOut: () => void }) {
         )}
       </main>
       <BottomNav tabs={tabs} tab={profile ? ("" as Tab) : tab} onTab={go} badges={badges}
-        foot={desktop && can.editStock(me.role) ? <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kortana</b><small>{t("Inventory")}</small></span></a> : undefined} />
+        foot={desktop ? <>
+          {can.editStock(me.role) && <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kortana</b><small>{t("Inventory")}</small></span></a>}
+          <a className="nav-kimera nav-trotan" href={TROTAN_URL}><TrotanMark bare size={20} className="t-glyph" /><span><b>TROTAN</b><small>{t("Laser cutting")}</small></span></a>
+        </> : undefined} />
 
       <JobSheet job={job} onClose={() => setJob(null)}
         onEdit={(j) => { setJob(null); setEditJob({ job: j }); }}

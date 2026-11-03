@@ -278,6 +278,7 @@ export const PL: Record<string, string> = {
   "Import {n} rows": "Importuj wiersze: {n}",
   "In stock": "Na stanie",
   "Inventory": "Magazyn",
+  "Laser cutting": "Cięcie laserowe",
   "Item": "Pozycja",
   "Items": "Pozycje",
   "Items & stock": "Pozycje i stany",

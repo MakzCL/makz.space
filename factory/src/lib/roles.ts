@@ -29,6 +29,7 @@ export const TABS_FOR: Record<Role, Tab[]> = {
 
 /** Stock, sales, purchasing and planning moved to Kortana (kortana.makz.space; the old kimera.makz.space forwards there). */
 export const KIMERA_URL = "https://kortana.makz.space";
+export const TROTAN_URL = "https://trotan.makz.space";
 export const tabsFor = (r: Role, _desktop?: boolean): Tab[] => TABS_FOR[r];
 
 export const can = {
