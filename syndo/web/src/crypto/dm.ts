@@ -31,13 +31,13 @@ export async function encodeBody(channel:string, body:any, messageId?:string) {
   const files=(body.attachment_ids??existing?.attachments.map(a=>a.id)??[]).map((id:string)=>{const a=existing?.attachments.find(a=>a.id===id);const f=pendingFiles.get(id)??(a?.encryption?{name:a.filename,type:a.content_type,size:a.size,...a.encryption}:undefined);if(!f)throw Error("Encrypted attachment key is missing. Upload the file again.");return {...f,id};});
   const content=await seal(key,me,channel,keys.map(k=>({user:k.user_id,publicKey:k.public_key!})),{content:body.content??"",files});return {...body,content};
 }
-async function decodeContent(wire:string,channel:string,author:string) {const me=useStore.getState().me!.id,key=await ensureIdentity(),env:Envelope=JSON.parse(wire.slice(PREFIX.length));pin(author,env.senderKey);return unseal(key,me,channel,author,wire,env.senderKey);}
+async function decodeContent(wire:string,channel:string,author:string) {const me=useStore.getState().me!.id,key=await ensureIdentity(),env:Envelope=JSON.parse(wire.slice(PREFIX.length));pin(author,env.senderKey);const payload=await unseal(key,me,channel,author,wire,env.senderKey);if(typeof payload?.content!=="string"||payload.content.length>4000||!Array.isArray(payload.files)||payload.files.length>10)throw Error("Invalid encrypted message payload.");return payload;}
 export async function decodeWire<T>(data:T):Promise<T> {
   if(Array.isArray(data))return await Promise.all(data.map(x=>decodeWire(x))) as T;
   if(!data||typeof data!=="object")return data;
   const m=data as any;
   if(m.channel_id&&typeof m.content==="string"&&m.author){let out={...m};
-    if(m.content.startsWith(PREFIX)){try{const p=await decodeContent(m.content,m.channel_id,m.author.id);out.content=p.content;out._encrypted=true;out.attachments=(m.attachments??[]).map((a:any)=>{const f=p.files?.find((f:FileMeta)=>f.id===a.id);return f?{...a,filename:f.name,content_type:f.type,size:f.size,encryption:{key:f.key,nonce:f.nonce}}:a;});}catch(e){out.content="Encrypted message unavailable — "+(e instanceof Error?e.message:"check your recovery key");out._encryptionError=true;out.attachments=[];}}
+    if(m.content.startsWith(PREFIX)){try{const p=await decodeContent(m.content,m.channel_id,m.author.id);out.content=p.content;out._encrypted=true;out.attachments=(m.attachments??[]).filter((a:any)=>p.files.some((f:FileMeta)=>f.id===a.id)&&/^\/api\/attachments\/\d+\//.test(a.url)).map((a:any)=>{const f=p.files?.find((f:FileMeta)=>f.id===a.id);return f?{...a,filename:f.name,content_type:f.type,size:f.size,encryption:{key:f.key,nonce:f.nonce}}:a;});}catch(e){out.content="Encrypted message unavailable — "+(e instanceof Error?e.message:"check your recovery key");out._encryptionError=true;out.attachments=[];}}
     if(m.reply_to?.content?.startsWith(PREFIX)){try{const p=await decodeContent(m.reply_to.content,m.channel_id,m.reply_to.author.id);out.reply_to={...m.reply_to,content:p.content};}catch{out.reply_to={...m.reply_to,content:"Encrypted message"};}}
     return out;
   }

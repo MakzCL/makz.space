@@ -11,7 +11,8 @@ test("production DMs fail closed, store only ciphertext and preserve key identit
  assert.equal((await a.put("/api/encryption/identity",{public_key:ka.publicKey})).status,200);
  assert.equal((await b.put("/api/encryption/identity",{public_key:kb.publicKey})).status,200);
  assert.equal((await a.put("/api/encryption/identity",{public_key:kb.publicKey})).status,409);
- const dm=(await a.post("/api/users/@me/channels",{recipient_id:b.user.id})).body;
+ await a.post("/api/users/@me/relationships",{username:b.user.username});await b.put(`/api/users/@me/relationships/${a.user.id}`,{type:1});
+ const opened=await a.post("/api/users/@me/channels",{recipient_id:b.user.id});assert.equal(opened.status,200);const dm=opened.body;
  assert.ok([403,404].includes((await c.get(`/api/channels/${dm.id}/encryption`)).status));
  const previous=config.requireDmE2ee;config.requireDmE2ee=true;
  try{
