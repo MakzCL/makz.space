@@ -5246,5 +5246,134 @@ end $$;
 revoke all on function public.plan_overview(uuid, int) from public, anon;
 grant execute on function public.plan_overview(uuid, int) to authenticated;
 
+-- ============================================================================
+-- Phase 6b — reports (REP-01..09). One entry point, report(kind, from, to,
+-- group, location), computed straight from the ledger and the documents so the
+-- numbers reconcile with the records they come from. Cost, margin and value
+-- columns are null for roles without "Costs & margins" (PO prices: also "Buy").
+-- Dates are inclusive days; amounts are in the base currency.
+-- ============================================================================
+create or replace function public.report(p_kind text, p_from date, p_to date, p_group text default null, p_location uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  c boolean := public.can_see_costs();
+  buy boolean := 'buy' = any(public.my_kimera_sections()) or public.can_see_costs();
+  t0 timestamptz := p_from::timestamptz; t1 timestamptz := (p_to + 1)::timestamptz;
+  rows jsonb; totals jsonb; rate numeric;
+begin
+  if not public.is_active() then raise exception 'Not signed in'; end if;
+  if p_from is null or p_to is null or p_to < p_from then raise exception 'Pick a valid date range'; end if;
+  if 'insights' <> all(public.my_kimera_sections()) then raise exception 'Reports are not open for your role'; end if;
+
+  if p_kind = 'sales' then
+    -- revenue is recognised when goods ship (net of undo and returns); services when the order ships
+    with s as (
+      select m.item_id, o.id order_id, o.customer, coalesce(nullif(o.company, ''), o.customer) cust, date_trunc('month', m.created_at)::date mon,
+             -m.delta qty, -m.delta * coalesce(ol.unit_price, 0) rev, -m.delta * m.unit_cost cogs
+        from public.stock_movements m join public.order_lines ol on ol.id = m.source_id join public.orders o on o.id = ol.order_id
+       where m.source_type = 'order_line' and m.reason in ('ship', 'return') and m.created_at >= t0 and m.created_at < t1
+         and (p_location is null or m.location_id = p_location)
+      union all
+      select ol.item_id, o.id, o.customer, coalesce(nullif(o.company, ''), o.customer), date_trunc('month', o.shipped_at)::date, ol.shipped - ol.returned,
+             (ol.shipped - ol.returned) * coalesce(ol.unit_price, 0), 0
+        from public.order_lines ol join public.orders o on o.id = ol.order_id join public.stock_items si on si.id = ol.item_id and si.kind = 'service'
+       where o.shipped_at >= t0 and o.shipped_at < t1 and p_location is null),
+    g as (
+      select case coalesce(p_group, 'product') when 'customer' then cust when 'month' then to_char(mon, 'YYYY-MM') else si.sku end as key,
+             case coalesce(p_group, 'product') when 'customer' then cust when 'month' then to_char(mon, 'Mon YYYY') else si.name end as label,
+             case coalesce(p_group, 'product') when 'product' then si.id::text else null end as item_id,
+             sum(qty) qty, sum(rev) revenue, sum(cogs) cogs, count(distinct order_id) orders
+        from s left join public.stock_items si on si.id = s.item_id group by 1, 2, 3)
+    select coalesce(jsonb_agg(jsonb_build_object('key', key, 'label', label, 'item_id', item_id, 'qty', qty, 'orders', orders, 'revenue', round(revenue, 2),
+             'cost', case when c then round(cogs, 2) end, 'margin', case when c then round(revenue - cogs, 2) end,
+             'margin_pct', case when c and revenue <> 0 then round((revenue - cogs) / revenue * 100, 1) end) order by revenue desc, key), '[]'),
+           jsonb_build_object('qty', coalesce(sum(qty), 0), 'revenue', round(coalesce(sum(revenue), 0), 2), 'cost', case when c then round(coalesce(sum(cogs), 0), 2) end,
+             'margin', case when c then round(coalesce(sum(revenue - cogs), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'inventory' then
+    with m as (select item_id, delta, created_at from public.stock_movements where (p_location is null or location_id = p_location)),
+    g as (select si.id, si.sku, si.name, si.unit, si.avg_cost,
+             coalesce(sum(m.delta) filter (where m.created_at < t0), 0) opening,
+             coalesce(sum(m.delta) filter (where m.created_at >= t0 and m.created_at < t1 and m.delta > 0), 0) qin,
+             coalesce(sum(m.delta) filter (where m.created_at >= t0 and m.created_at < t1 and m.delta < 0), 0) qout,
+             coalesce(sum(m.delta) filter (where m.created_at < t1), 0) closing
+        from public.stock_items si left join m on m.item_id = si.id where si.kind <> 'service' and not si.archived group by si.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sku, 'label', name, 'item_id', id, 'unit', unit, 'opening', opening, 'in', qin, 'out', -qout, 'closing', closing,
+             'value', case when c then round(closing * avg_cost, 2) end) order by sku) filter (where opening <> 0 or qin <> 0 or qout <> 0 or closing <> 0), '[]'),
+           jsonb_build_object('in', coalesce(sum(qin), 0), 'out', coalesce(-sum(qout), 0), 'value', case when c then round(coalesce(sum(closing * avg_cost), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'purchasing' then
+    with p as (select p.*, (select sum(l.quantity * l.unit_cost * p.fx_rate) from public.po_lines l where l.po_id = p.id) ordered_value,
+                      (select sum(l.received * l.unit_cost * p.fx_rate) from public.po_lines l where l.po_id = p.id) received_value
+                 from public.purchase_orders p where p.ordered_at >= t0 and p.ordered_at < t1 and p.status <> 'cancelled'
+                  and (p_location is null or coalesce(p.location_id, public.default_location()) = p_location)),
+    g as (select coalesce(s.name, '—') sup, s.id sid, count(*) pos, sum(ordered_value) ordered, sum(received_value) received,
+             count(*) filter (where p.status = 'received') done,
+             count(*) filter (where p.status = 'received' and p.expected_date is not null and p.received_at::date <= p.expected_date) on_time,
+             count(*) filter (where p.status = 'received' and p.expected_date is not null) with_date,
+             round(avg(extract(epoch from p.received_at - p.ordered_at) / 86400) filter (where p.status = 'received'), 1) lead_days,
+             count(*) filter (where p.kind = 'outsourced') outsourced
+        from p left join public.suppliers s on s.id = p.supplier_id group by s.name, s.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sup, 'label', sup, 'supplier_id', sid, 'pos', pos, 'outsourced', outsourced,
+             'ordered', case when buy then round(ordered, 2) end, 'received', case when buy then round(received, 2) end,
+             'on_time_pct', case when with_date > 0 then round(on_time * 100.0 / with_date) end, 'lead_days', lead_days) order by ordered desc nulls last), '[]'),
+           jsonb_build_object('pos', coalesce(sum(pos), 0), 'ordered', case when buy then round(coalesce(sum(ordered), 0), 2) end, 'received', case when buy then round(coalesce(sum(received), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'manufacturing' then
+    select labour_rate into rate from public.company_settings where id = 1;
+    with j as (select j.* from public.jobs j where j.status = 'done' and j.completed_at >= t0 and j.completed_at < t1 and j.sku is not null
+                  and (p_location is null or coalesce(j.location_id, public.default_location()) = p_location)),
+    g as (select j.id, j.code, j.title, j.sku, coalesce(j.quantity, 1) qty, j.completed_at,
+             (select coalesce(sum(-m.delta * m.unit_cost), 0) from public.stock_movements m where m.job_id = j.id and m.reason = 'consume') mat,
+             (select coalesce(sum(extract(epoch from (coalesce(pa.left_at, j.completed_at) - pa.joined_at)) / 3600), 0) from public.participants pa where pa.job_id = j.id) hours,
+             (select coalesce(sum(b.quantity * s.avg_cost), 0) * coalesce(j.quantity, 1) from public.bom_lines b join public.stock_items s on s.id = b.material_id
+               where b.product_id = public.mo_product(j.id)) planned
+        from j)
+    select coalesce(jsonb_agg(jsonb_build_object('key', code, 'label', title, 'job_id', id, 'sku', sku, 'qty', qty, 'done', completed_at, 'hours', round(hours, 2),
+             'planned', case when c then round(planned, 2) end, 'materials', case when c then round(mat, 2) end, 'labour', case when c then round(hours * rate, 2) end,
+             'total', case when c then round(mat + hours * rate, 2) end, 'unit', case when c then round((mat + hours * rate) / qty, 2) end,
+             'variance', case when c then round(mat - planned, 2) end) order by completed_at desc), '[]'),
+           jsonb_build_object('mos', count(*), 'qty', coalesce(sum(qty), 0), 'hours', round(coalesce(sum(hours), 0), 2),
+             'materials', case when c then round(coalesce(sum(mat), 0), 2) end, 'labour', case when c then round(coalesce(sum(hours * rate), 0), 2) end)
+      into rows, totals from g;
+
+  elsif p_kind = 'consumption' then
+    with g as (select si.id, si.sku, si.name, si.unit, sum(-m.delta) qty, sum(-m.delta * m.unit_cost) val, count(distinct m.job_id) mos
+                 from public.stock_movements m join public.stock_items si on si.id = m.item_id
+                where m.reason = 'consume' and m.created_at >= t0 and m.created_at < t1 and (p_location is null or m.location_id = p_location)
+                group by si.id having sum(m.delta) <> 0)
+    select coalesce(jsonb_agg(jsonb_build_object('key', sku, 'label', name, 'item_id', id, 'unit', unit, 'qty', qty, 'mos', mos,
+             'value', case when c then round(val, 2) end) order by val desc nulls last, sku), '[]'),
+           jsonb_build_object('value', case when c then round(coalesce(sum(val), 0), 2) end, 'qty', coalesce(sum(qty), 0))
+      into rows, totals from g;
+
+  elsif p_kind = 'production' then
+    -- person-hours on jobs (clipped to the range), jobs worked, station steps completed
+    with h as (select pa.user_id, pa.job_id,
+                      extract(epoch from (least(coalesce(pa.left_at, now()), t1) - greatest(pa.joined_at, t0))) / 3600 hrs
+                 from public.participants pa where pa.joined_at < t1 and coalesce(pa.left_at, now()) > t0),
+    g as (select pr.id, pr.full_name, coalesce(sum(h.hrs), 0) hrs, count(distinct h.job_id) jobs,
+             (select count(*) from public.job_steps st where st.completed_by = pr.id and st.completed_at >= t0 and st.completed_at < t1) steps
+        from public.profiles pr left join h on h.user_id = pr.id where pr.active or h.user_id is not null group by pr.id)
+    select coalesce(jsonb_agg(jsonb_build_object('key', full_name, 'label', full_name, 'user_id', id, 'hours', round(hrs, 2), 'jobs', jobs, 'steps', steps,
+             'hours_per_job', case when jobs > 0 then round(hrs / jobs, 2) end) order by hrs desc) filter (where hrs > 0 or steps > 0), '[]'),
+           jsonb_build_object('hours', round(coalesce(sum(hrs), 0), 2), 'steps', coalesce(sum(steps), 0),
+             'mos_done', (select count(*) from public.jobs where status = 'done' and completed_at >= t0 and completed_at < t1),
+             'units_made', (select coalesce(sum(delta), 0) from public.stock_movements where reason = 'produce' and created_at >= t0 and created_at < t1),
+             'by_station', (select coalesce(jsonb_agg(jsonb_build_object('station', s.name, 'steps', x.n) order by x.n desc), '[]')
+                              from (select station_id, count(*) n from public.job_steps where completed_at >= t0 and completed_at < t1 group by station_id) x
+                              left join public.stations s on s.id = x.station_id))
+      into rows, totals from g;
+  else
+    raise exception 'Unknown report';
+  end if;
+  return jsonb_build_object('kind', p_kind, 'from', p_from, 'to', p_to, 'group', p_group, 'costs', c, 'rows', rows, 'totals', totals);
+end $$;
+revoke all on function public.report(text, date, date, text, uuid) from public, anon;
+grant execute on function public.report(text, date, date, text, uuid) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

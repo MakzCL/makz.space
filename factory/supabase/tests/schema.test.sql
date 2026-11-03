@@ -1100,6 +1100,40 @@ select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
 insert into public.forecast_overrides (item_id, period, period_start, quantity) select :'plm', 'week', date_trunc('week', current_date)::date + 7, 1 where false;
 select pg_temp.expect_fail($$insert into public.forecast_overrides (item_id, period, period_start, quantity) values ('$$ || :'plm' || $$', 'week', date_trunc('week', current_date)::date + 7, 1)$$, 'assistant sets a forecast');
 
+-- ---------------------------------------------------------------- phase 6b: reports (REP-09 reconciliation)
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.orders (order_number, customer, company, kind) values ('', 'Report Buyer', 'Report Co', 'order') returning id as rso \gset
+insert into public.order_lines (order_id, item_id, sku, name, quantity, unit_price) values (:'rso', :'plm', 'PL-MAT', 'Planned panel', 2, 50) returning id as rsl \gset
+select public.ship_lines(:'rso', null);
+select public.report('sales', current_date - 400, current_date, 'customer') as rs \gset
+select pg_temp.check(exists (select 1 from jsonb_array_elements(:'rs'::jsonb->'rows') x where x->>'key' = 'Report Co' and (x->>'revenue')::numeric = 100 and (x->>'cost')::numeric = 4 and (x->>'margin')::numeric = 96),
+  'REP-01 sales by customer: 2 × £50 revenue, cost 2 × £2, margin £96');
+reset role; select coalesce(sum(-m.delta * m.unit_cost), 0) as ledger_cogs from public.stock_movements m where m.source_type = 'order_line' and m.reason in ('ship', 'return') \gset
+set role authenticated;
+select pg_temp.check(abs((:'rs'::jsonb->'totals'->>'cost')::numeric - :ledger_cogs) < 0.01, 'REP-09 sales cost reconciles with the ledger');
+select public.report('inventory', current_date - 400, current_date) as ri \gset
+reset role;
+select pg_temp.check(not exists (select 1 from jsonb_array_elements(:'ri'::jsonb->'rows') x join public.stock_items s on s.id = (x->>'item_id')::uuid where (x->>'closing')::numeric <> s.quantity)
+  and (select count(*) from public.stock_items where kind <> 'service' and not archived and quantity <> 0) = (select count(*) from jsonb_array_elements(:'ri'::jsonb->'rows') x where (x->>'closing')::numeric <> 0),
+  'REP-02/09 inventory closing = every item''s stock on hand');
+set role authenticated;
+select public.report('inventory', current_date - 400, current_date, null, :'oloc') as ril \gset
+reset role;
+select pg_temp.check(not exists (select 1 from jsonb_array_elements(:'ril'::jsonb->'rows') x where (x->>'closing')::numeric <> coalesce((select quantity from public.stock_levels where item_id = (x->>'item_id')::uuid and location_id = :'oloc'), 0)),
+  'REP-02/09 inventory at one location = that location''s stock levels');
+select coalesce(sum(-delta), 0) as ledger_consumed from public.stock_movements where reason = 'consume' \gset
+set role authenticated;
+select pg_temp.check((public.report('consumption', current_date - 400, current_date)->'totals'->>'qty')::numeric = :ledger_consumed, 'REP-05/09 consumption reconciles with the ledger');
+select public.report('manufacturing', current_date - 400, current_date) as rm \gset
+select pg_temp.check(not exists (select 1 from jsonb_array_elements(:'rm'::jsonb->'rows') x where (x->>'materials')::numeric <> ((public.mo_costs((x->>'job_id')::uuid))->>'materials_actual')::numeric)
+  and jsonb_array_length(:'rm'::jsonb->'rows') > 0, 'REP-04/09 MO material cost = the MO cost card, for every finished MO');
+select pg_temp.check((public.report('purchasing', current_date - 400, current_date)->'totals'->>'pos')::int
+  = (select count(*) from public.purchase_orders where ordered_at >= current_date - 400 and status <> 'cancelled'), 'REP-03/09 purchasing counts every ordered PO');
+select pg_temp.check((public.report('production', current_date - 400, current_date)->'totals'->>'mos_done')::int = (select count(*) from public.jobs where status = 'done' and completed_at >= current_date - 400), 'REP-06 production totals');
+select pg_temp.expect_fail($$select public.report('sales', current_date, current_date - 1)$$, 'a date range that ends before it starts');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d4');
+select pg_temp.expect_fail($$select public.report('sales', current_date - 30, current_date)$$, 'operator opens reports');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;
