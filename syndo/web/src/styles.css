@@ -634,3 +634,5 @@ a, .md-p a { color: var(--link, var(--accent)); }
   [data-nav="horizontal"] .rail { flex-direction: column; height: auto; overflow-y: auto; }
   [data-panel-style="floating"] .shell { padding: 0; gap: 0; }
 }
+[data-nav="horizontal"] .rail-item .pill { height: 4px !important; top: auto; }
+[data-nav="horizontal"] .rail-item:not(.active):not(.unread):not(:hover) .pill { width: 0; }

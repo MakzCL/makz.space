@@ -99,8 +99,8 @@ const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); cons
   // Settings: theme persists across devices (second context for A logs in)
   await A.p.getByRole('button', { name: 'User settings' }).click();
   await A.p.getByRole('tab', { name: 'Appearance' }).click();
-  await A.p.locator('label.theme-sw', { hasText: 'Day' }).click();
-  await A.p.waitForTimeout(600);
+  await A.p.locator('.settings-body select').first().selectOption('syndo-paper');
+  await A.p.waitForFunction(() => document.documentElement.dataset.scheme === 'light', null, { timeout: 5000 }).catch(() => {}); await A.p.waitForTimeout(1200);
   const scheme = await A.p.evaluate(() => document.documentElement.dataset.scheme);
   check('light theme applies', scheme === 'light');
   await A.p.screenshot({ path: `${OUT}/04-settings-light.png` });

@@ -192,7 +192,10 @@ async function setRange(loc, value) {
   check('15. other users cannot fetch someone\'s private wallpaper', peek === 404);
   await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-canvas', overrides: { background: { dark: { kind: 'image', asset: up.id, color: '#334455' } } } } });
   await api(A.p, 'DELETE', `/api/appearance/assets/${up.id.slice(1)}?force=1`);
-  await A.p.goto(`${BASE}/channels/@me`); await sleep(1200);
+  await A.p.goto(`${BASE}/channels/@me`);
+  await A.p.waitForFunction(() => window.__syndoTheme === 'syndo-canvas', null, { timeout: 8000 }).catch(() => {});
+  await A.p.locator('.app-bd .bd-fill').first().waitFor({ timeout: 5000 }).catch(() => {});
+  await sleep(300);
   const fb = await A.p.locator('.app-bd .bd-fill').first().evaluate((el) => getComputedStyle(el).backgroundColor).catch(() => 'none');
   check('11. a deleted wallpaper falls back to a usable colour', fb === 'rgb(51, 68, 85)' && await seen(A.p.getByRole('heading', { name: 'Friends' }), 2000), fb);
 
@@ -263,8 +266,10 @@ async function setRange(loc, value) {
     // Wait until this theme's preferences have loaded and been applied (layout may shift once).
     await A.p.waitForFunction((tid) => document.getElementById('syndo-theme')?.textContent?.length > 0 && window.__syndoTheme === tid, id, { timeout: 8000 }).catch(() => {});
     await sleep(500);
-    await A.p.locator('.msg-name').first().click();
-    await A.p.locator('.profile-card').waitFor({ timeout: 4000 }).catch(() => {});
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await A.p.locator('.msg-name').first().click();
+      if (await seen(A.p.locator('.pcv'), 3000)) break;
+    }
     const s = await A.p.evaluate(() => {
       const cs = (sel, p) => { const e = document.querySelector(sel); return e ? getComputedStyle(e)[p] : null; };
       return { chat: cs('.ch-main', 'backgroundImage'), card: cs('.pcv', 'backgroundImage'), font: cs('body', 'fontFamily'), scheme: document.documentElement.dataset.scheme };
@@ -276,8 +281,9 @@ async function setRange(loc, value) {
     await A.p.keyboard.press('Escape');
     await A.p.goto(`${BASE}/channels/${guild.id}/${vc.id}`); await sleep(400);
     const stage = await A.p.locator('[data-region="call"], .stage-empty').first().evaluate((el) => getComputedStyle(el).backgroundImage).catch(() => null);
+    const toastText = await A.p.locator('.toast').allInnerTexts().catch(() => []);
     const ok = !!s.chat && !!s.card && !!modal && !!stage && s.chat.includes('gradient') && s.card.includes('gradient');
-    if (!ok) { allStyled = false; console.log('  not styled:', id, JSON.stringify({ ...s, modal: !!modal, stage: !!stage })); }
+    if (!ok) { allStyled = false; console.log('  not styled:', id, JSON.stringify({ ...s, modal: !!modal, stage: !!stage, toastText })); }
     seenBg.add(s.chat);
   }
   check(`16. all ${ids.length} built-in themes style chat, profile cards, dialogs and the call screen`, allStyled && seenBg.size >= 8, `${seenBg.size} distinct chat surfaces`);
