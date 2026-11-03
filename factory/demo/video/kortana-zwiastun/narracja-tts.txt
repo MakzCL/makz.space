@@ -1,0 +1,21 @@
+KORTANA — zwiastun 90 s — tekst lektora do syntezatora mowy
+Głos: pl-PL-MarekNeural (Microsoft Edge TTS), męski, spokojny. Tempo podane przy każdej scenie.
+Każdy akapit to osobne nagranie; start = moment wejścia lektora w filmie.
+
+[S1]  start 0.6 s · tempo +7% · długość 10.8 s
+Zarządzanie magazynem nie musi być skomplikowane. Może być szybkie. Przejrzyste. Intuicyjne. Poznaj KORTANA.
+
+[S2]  start 12.6 s · tempo +5% · długość 10.8 s
+Wszystko zaczyna się od przejrzystości. Jeden centralny panel. Wszystkie najważniejsze informacje w jednym miejscu. Po prostu pełna kontrola.
+
+[S3]  start 24.5 s · tempo -5% · długość 15.2 s
+Znajduj produkty w kilka chwil. Zarządzaj stanami magazynowymi wygodnie, od pojedynczej pozycji po cały asortyment. Mniej szukania. Mniej chaosu. Więcej efektywności.
+
+[S4]  start 41.0 s · tempo -3% · długość 20.6 s
+Zaawansowane możliwości. Prosta obsługa. Punkty zamawiania pokazują, czego zaczyna brakować, a plan podpowiada, co i kiedy kupić. Wiele lokalizacji i przesunięcia między nimi. Pełna historia każdej zmiany. Raporty i uprawnienia dla każdej roli.
+
+[S5]  start 63.0 s · tempo -5% · długość 10.7 s
+Stworzona z myślą o wydajności. Zaprojektowana do codziennej pracy. Bo technologia powinna ułatwiać pracę, a nie ją komplikować.
+
+[S6]  start 77.2 s · tempo -3% · długość 11.5 s
+Twój magazyn. Twoja organizacja. Twoja kontrola. KORTANA. Zarządzanie magazynem na nowym poziomie.
