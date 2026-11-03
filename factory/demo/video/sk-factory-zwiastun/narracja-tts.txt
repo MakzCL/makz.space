@@ -1,0 +1,21 @@
+SK FACTORY — zwiastun 90 s — tekst lektora do syntezatora mowy
+Głos: pl-PL-MarekNeural (Microsoft Edge TTS), męski, spokojny. Tempo podane przy każdej scenie.
+Każdy akapit to osobne nagranie; start = moment wejścia lektora w filmie.
+
+[S1]  start 0.7 s · tempo -3% · długość 11.0 s
+Produkcja to ludzie. Stanowiska. Zlecenia. Wszystko w jednym rytmie. Poznaj SK Factory.
+
+[S2]  start 12.6 s · tempo -5% · długość 8.6 s
+Zmianę zaczynasz jednym dotknięciem. Ekran startowy pokazuje, kto jest na hali, co trwa i co czeka na Ciebie.
+
+[S3]  start 24.5 s · tempo +5% · długość 15.4 s
+Zlecenia są ułożone według priorytetu produkcji. Widzisz trasę przez stanowiska i uruchamiasz pracę. Gotowe? Przytrzymaj, a zlecenie trafia dalej. Mniej pytań. Więcej produkcji.
+
+[S4]  start 41.0 s · tempo -5% · długość 19.5 s
+Wszystko, czego potrzebuje zespół. Czat, rozmowy głosowe i wideo. Kalendarz spotkań. Zgłoszenie problemu w kilka sekund. Wnioski urlopowe zatwierdzasz od ręki. A analizy pokazują godziny pracy i postęp zleceń.
+
+[S5]  start 63.0 s · tempo -5% · długość 11.1 s
+Biuro widzi zespół na żywo. Ta sama aplikacja działa na telefonie, tablecie i komputerze. Prosta, szybka, stworzona dla hali.
+
+[S6]  start 77.2 s · tempo -5% · długość 10.8 s
+Twój zespół. Twoja produkcja. Jeden rytm. SK Factory. Fabryka w Twojej kieszeni.
