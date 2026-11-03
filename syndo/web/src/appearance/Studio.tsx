@@ -54,7 +54,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
       <div className="studio-back" data-region="settings" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
         <div className={`studio ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
           <header className="studio-h">
-            <h2 className="studio-brand"><Wordmark /><span>Studio</span></h2>
+            <h2 className="studio-brand" aria-label="SEND Studio"><Wordmark /><span>Studio</span></h2>
             <TargetPicker target={target} onChange={setTarget} />
             <div className="row studio-actions">
               <button className="btn sm studio-preview-toggle" aria-expanded={showPreview} aria-controls="studio-live-preview" onClick={() => setShowPreview((v) => !v)}>Preview</button>
