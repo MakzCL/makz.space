@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronDown, ChevronUp, Factory, FileText, Layers, Plus, RotateCcw, Search, Tags, Trash2 } from "lucide-react";
-import { printLabels } from "../lib/scan";
+import { SCANNING, printLabels } from "../lib/scan";
 import { printTraveller } from "../lib/printdoc";
 import { moCell, useAvailability } from "./availability";
 import { LocationSelect } from "../components/LocationSelect";
@@ -150,8 +150,8 @@ export function MoSheet({ job, onClose, onOrder, onOpenJob }: { job: Job | null;
     <Sheet open={!!job} onClose={onClose} tall title={job && <span className="row gap-s"><span className="code">{jobCode(job)}</span>{job.title}<Badge tone={STATUS[job.status].tone} dot>{statusLabel(job.status)}</Badge></span>}>
       {job && (
         <div className="stack">
-          <div className="row end"><Btn small tone="ghost" icon={<Tags size={15} />} title={t("A label for the job card: scanning it on the floor opens this order")}
-            onClick={() => printLabels([{ code: job.code, title: job.title, sub: [jobCode(job), job.customer, job.quantity ? `× ${job.quantity}` : ""].filter(Boolean).join(" · ") }])}>{t("Print traveller label")}</Btn>
+          <div className="row end">{SCANNING && <Btn small tone="ghost" icon={<Tags size={15} />} title={t("A label for the job card: scanning it on the floor opens this order")}
+            onClick={() => printLabels([{ code: job.code, title: job.title, sub: [jobCode(job), job.customer, job.quantity ? `× ${job.quantity}` : ""].filter(Boolean).join(" · ") }])}>{t("Print traveller label")}</Btn>}
             {job.sku && <Btn small tone="ghost" icon={<FileText size={15} />} title={t("A4 sheet with materials, bins and operations")} onClick={async () => {
               const sc = await B.rpc<{ finish?: string }>("mo_schedule", { p_job: job.id }).catch(() => null);
               printTraveller(db, job.id, sc);

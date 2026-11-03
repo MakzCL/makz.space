@@ -1,20 +1,18 @@
 import { ArrowDownLeft, ArrowUpRight, Factory, Package, Route, Tags, Truck } from "lucide-react";
-import { printLabels } from "../lib/scan";
+import { SCANNING, printLabels } from "../lib/scan";
 import { useEffect, useState } from "react";
-import { Badge, Btn, Sheet } from "../components/ui";
+import { Btn, Sheet } from "../components/ui";
 import { useDocLink } from "../lib/doclink";
 import { t } from "../lib/i18n";
-import { can } from "../lib/roles";
 import { useStore } from "../lib/store";
 import type { StockItem } from "../lib/types";
 
 const q = (n: number) => (Math.round(n * 1000) / 1000).toLocaleString("en-GB", { maximumFractionDigits: 3 });
 const day = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? d + "T12:00:00" : d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
-const today = () => new Date().toISOString().slice(0, 10);
 
 /** Batches / serial numbers of one item with stock per location and expiry (INV-10..12). */
 export function ItemLots({ item }: { item: StockItem }) {
-  const { db, me, backend: B, refresh } = useStore();
+  const { db } = useStore();
   const [trace, setTrace] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   if (item.tracking === "none") return null;
@@ -23,10 +21,9 @@ export function ItemLots({ item }: { item: StockItem }) {
     const lv = db.lot_levels.filter((x) => x.lot_id === l.id && x.quantity !== 0);
     return { l, lv, total: lv.reduce((s, x) => s + x.quantity, 0) };
   }).filter((x) => all || x.total !== 0)
-    .sort((a, b) => (a.l.expiry ?? "9999").localeCompare(b.l.expiry ?? "9999") || a.l.created_at.localeCompare(b.l.created_at));
+    .sort((a, b) => a.l.created_at.localeCompare(b.l.created_at));
   const tracked = db.lot_levels.filter((x) => db.lots.find((l) => l.id === x.lot_id)?.item_id === item.id).reduce((s, x) => s + x.quantity, 0);
   const untracked = Math.round((item.quantity - tracked) * 1000) / 1000;
-  const editable = can.editStock(me.role);
   return (
     <div className="card flat stack">
       <div className="row between"><small className="label"><Package size={13} /> {item.tracking === "serial" ? t("Serial numbers") : t("Batches")}</small>
@@ -34,19 +31,16 @@ export function ItemLots({ item }: { item: StockItem }) {
       {lots.length ? (
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>{item.tracking === "serial" ? t("Serial") : t("Batch")}</th><th>{t("Expiry")}</th><th>{t("Where")}</th><th className="num">{t("Quantity")}</th><th /></tr></thead>
+            <thead><tr><th>{item.tracking === "serial" ? t("Serial") : t("Batch")}</th><th>{t("Received")}</th><th>{t("Where")}</th><th className="num">{t("Quantity")}</th><th /></tr></thead>
             <tbody>{lots.map(({ l, lv, total }) => {
-              const expired = !!l.expiry && l.expiry < today();
               return (
                 <tr key={l.id} className="static">
                   <td><span className="code">{l.code}</span></td>
-                  <td>{editable && item.tracking === "batch"
-                    ? <input type="date" className="cell-input wide" defaultValue={l.expiry ?? ""} key={l.expiry ?? ""} onBlur={async (e) => { if ((e.target.value || null) !== l.expiry) { await B.update("lots", l.id, { expiry: e.target.value || null }); await refresh("lots"); } }} />
-                    : <span className={expired ? "red-t" : ""}>{day(l.expiry)}</span>}{expired && <Badge tone="red">{t("Expired")}</Badge>}</td>
+                  <td className="muted">{day(l.created_at)}</td>
                   <td className="muted">{lv.map((x) => locs.get(x.location_id)).join(", ") || "—"}</td>
                   <td className="num"><b>{q(total)}</b></td>
                   <td className="row gap-s"><Btn small tone="ghost" icon={<Route size={14} />} onClick={() => setTrace(l.id)}>{t("Trace")}</Btn>
-                    <button type="button" className="icon-btn subtle" title={t("Print label")} aria-label={t("Print label")} onClick={() => printLabels([{ code: l.code, title: item.name, sub: `${item.sku}${l.expiry ? ` · ${t("exp.")} ${l.expiry}` : ""}` }], Math.max(1, Math.round(total)))}><Tags size={14} /></button></td>
+                    {SCANNING && <button type="button" className="icon-btn subtle" title={t("Print label")} aria-label={t("Print label")} onClick={() => printLabels([{ code: l.code, title: item.name, sub: `${item.sku}${l.expiry ? ` · ${t("exp.")} ${l.expiry}` : ""}` }], Math.max(1, Math.round(total)))}><Tags size={14} /></button>}</td>
                 </tr>);
             })}</tbody>
           </table>
@@ -87,7 +81,7 @@ export function TraceSheet({ lotId, onClose }: { lotId: string | null; onClose: 
         <div className="stack">
           <div className="tri">
             <div className="hl"><small>{t("On hand")}</small><b>{q(tr.on_hand.reduce((s, x) => s + x.qty, 0))}</b><em>{tr.on_hand.map((x) => `${x.location} ${q(x.qty)}`).join(" · ") || "—"}</em></div>
-            <div><small>{t("Expiry")}</small><b>{day(tr.lot?.expiry)}</b><em>{tr.lot?.tracking === "serial" ? t("Serial number") : t("Batch")}</em></div>
+            <div><small>{t("Type")}</small><b>{tr.lot?.tracking === "serial" ? t("Serial number") : t("Batch")}</b><em>{tr.lot?.sku ?? ""}</em></div>
             <div><small>{t("Customers")}</small><b>{new Set(tr.shipped.map((x) => x.order)).size}</b><em>{t("{n} shipped", { n: q(tr.shipped.reduce((s, x) => s + x.qty, 0)) })}</em></div>
           </div>
           <small className="label"><ArrowDownLeft size={13} /> {t("Came from")}</small>

@@ -219,8 +219,6 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
                         <span className="row gap-s end k-lotin">
                           <input className="cell-input" placeholder={it.tracking === "serial" ? t("Serial prefix") : t("Batch")} title={t("Leave empty to use the PO number")} value={lotIn[l.id]?.code ?? ""}
                             onChange={(e) => setLotIn({ ...lotIn, [l.id]: { code: e.target.value, expiry: lotIn[l.id]?.expiry ?? "" } })} />
-                          <input className="cell-input" type="date" title={t("Expiry")} value={lotIn[l.id]?.expiry ?? ""}
-                            onChange={(e) => setLotIn({ ...lotIn, [l.id]: { code: lotIn[l.id]?.code ?? "", expiry: e.target.value } })} />
                         </span>)}</>) : <PackageCheck size={17} className="ok-t" />}</td>}
                     {draft && editable && <td><button type="button" className="icon-btn subtle" onClick={() => a.removePoLine(l.id)} aria-label={t("Remove")}><Trash2 size={15} /></button></td>}
                   </tr>

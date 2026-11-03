@@ -23,7 +23,7 @@ import { Login } from "./screens/Login";
 import { Profile } from "./screens/Profile";
 import { Requests } from "./screens/Requests";
 import { ChatHub } from "./screens/Chat";
-import { CallProvider } from "./components/Calls";
+import { CallProvider, useCalls } from "./components/Calls";
 import { BellButton, useNotificationToasts } from "./components/Notifications";
 import { PermissionsPrompt } from "./components/Permissions";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -116,8 +116,26 @@ function Main({ signOut }: { signOut: () => void }) {
   const convs = useConversations();
   const chatUnread = totalUnread(convs);
 
+  // Calls: remember the screen the person was on, and go back to it when the call ends
+  // (answering from a notification opens the chat, which they never asked to see).
+  const calls = useCalls();
+  const here = useRef({ tab, profile, openConv, openEvent });
+  here.current = { tab, profile, openConv, openEvent };
+  const returnTo = useRef<{ at: number; s: typeof here.current } | null>(null);
+  const callId = calls.current?.call.id ?? null;
+  const wasIn = useRef<string | null>(null);
+  useEffect(() => {
+    if (callId && !wasIn.current) { if (!returnTo.current || Date.now() - returnTo.current.at > 90_000) returnTo.current = { at: Date.now(), s: here.current }; }
+    if (!callId && wasIn.current && returnTo.current) {
+      const r = returnTo.current.s; returnTo.current = null;
+      setProfile(r.profile); setTab(r.tab); setOpenConv(r.openConv); setOpenEvent(r.openEvent); setHeadHidden(false);
+    }
+    wasIn.current = callId;
+  }, [callId]);
+
   // Notification / push links: open the right tab, job, chat or meeting.
   const openLink = useCallback((l: NotifyLink) => {
+    if (l.call_id && !wasIn.current) returnTo.current = { at: Date.now(), s: here.current };
     if (l.conversation_id) { setOpenConv(l.conversation_id); go("chat"); }
     else if (l.event_id) { setOpenEvent(l.event_id); go("chat"); }
     else if (l.job_id) { const j = db.jobs.find((x) => x.id === l.job_id); if (l.tab && l.tab !== "jobs") go(l.tab as Tab); else go("jobs"); if (j) setJob(j); }

@@ -9,7 +9,7 @@ import { t } from "../lib/i18n";
 import { can, canSeeCosts } from "../lib/roles";
 import { resolveCode } from "../lib/scan";
 import { useStore } from "../lib/store";
-import { fmtQty, money } from "../screens/Inventory";
+import { ItemPicker, fmtQty, money } from "../screens/Inventory";
 import { shortDate } from "./kit";
 
 /** INV-08: stocktake sessions. Start a count for a location, count (by hand or scanner), review the differences, post. */
@@ -48,7 +48,7 @@ export function StocktakesView() {
         <div className="stack">
           <LocationSelect value={loc} onChange={setLoc} label={t("Location")} />
           <Field label={t("Note")}><input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("e.g. Year-end count, shelf A")} /></Field>
-          <p className="fine">{t("Every item with stock at this location goes on the count sheet. You can add others by scanning them.")}</p>
+          <p className="fine">{t("Every item with stock at this location goes on the count sheet. You can add others while counting.")}</p>
           <Btn tone="primary" wide disabled={busy} onClick={async () => {
             setBusy(true);
             try { const id = await B.rpc<string>("start_stocktake", { p_location: loc, p_items: null, p_note: note }); await Promise.all([refresh("stocktakes"), refresh("stocktake_lines")]); setStarting(false); setNote(""); setOpen(id); }
@@ -71,6 +71,7 @@ function StocktakeSheet({ id, onClose }: { id: string | null; onClose: () => voi
   const [view, setView] = useState<"all" | "todo" | "diff">("all");
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pk, setPk] = useState(0);
   // Fast repeated scans run ahead of the server: keep the latest local count per line.
   const local = useRef(new Map<string, number>());
   const lines = useMemo(() => !st ? [] : db.stocktake_lines.filter((l) => l.stocktake_id === st.id).map((l) => {
@@ -111,6 +112,8 @@ function StocktakeSheet({ id, onClose }: { id: string | null; onClose: () => voi
           <div><small>{costs ? t("Value") : t("Status")}</small><b className={value < 0 ? "red-t" : ""}>{costs ? (value < 0 ? `−${money(-value)}` : money(value)) : st.status === "counting" ? t("Counting") : st.status === "posted" ? t("Posted") : t("Cancelled")}</b>
             <em>{st.posted_at ? `${shortDate(st.posted_at)} · ${person(st.posted_by)?.full_name ?? ""}` : ""}</em></div>
         </div>
+        {editable && <div className="grow" key={pk}><ItemPicker value={null} placeholder={t("Add an item to the count — type SKU or name…")} filter={(x) => x.kind !== "service" && x.kind !== "kit" && !lines.some((r) => r.l.item_id === x.id)}
+          onChange={(id) => { if (!id) return; B.insert("stocktake_lines", { stocktake_id: st.id, item_id: id }).then(() => refresh("stocktake_lines")).catch((e) => toast(String(e?.message ?? e), "error")); setPk((k) => k + 1); }} /></div>}
         {editable && <div className="row gap wrap"><ScanButton onCode={onScan} continuous title={t("Scan to count")} hint={t("Each scan adds one. Type the number for boxes and reels.")} />{msg && <small className={msg.ok ? "ok-t" : "red-t"}>{msg.text}</small>}</div>}
         <div className="row between wrap">
           <div className="chips">

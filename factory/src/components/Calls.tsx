@@ -91,6 +91,15 @@ async function tuneVideo(sender: RTCRtpSender, screen: boolean) {
   } catch { /* not supported before the connection is up — retried on connect */ }
 }
 
+/** Every camera/mic/screen stream this tab opened, so ending a call can release all of them
+ * (otherwise the phone keeps showing the microphone as in use). */
+const captured = new Set<MediaStream>();
+async function capture(c: MediaStreamConstraints) { const s = await navigator.mediaDevices.getUserMedia(c); captured.add(s); return s; }
+function releaseAll(extra: (MediaStream | null | undefined)[] = []) {
+  for (const s of [...captured, ...extra]) s?.getTracks().forEach((tr) => { try { tr.stop(); } catch { /* already stopped */ } });
+  captured.clear();
+}
+
 export function CallProvider({ children }: { children: ReactNode }) {
   const { db, me, backend, refresh, ready } = useStore();
   const toast = useToast();
@@ -198,10 +207,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const l = liveRef.current;
     if (l && !opts?.quiet) playEnded();
     signal("*", "bye");
+    for (const p of peers.current.values()) for (const snd of p.pc.getSenders()) { try { snd.track?.stop(); } catch { /* gone */ } }
     for (const uid of [...peers.current.keys()]) drop(uid);
     for (const tm of knockTimers.current.values()) clearTimeout(tm);
     knockTimers.current.clear(); pendingIce.current.clear(); states.current.clear();
-    localRef.current?.getTracks().forEach((tr) => tr.stop());
+    // Release the microphone and camera completely: every track we opened, plus anything still attached to a sender.
+    releaseAll([localRef.current, l?.local]);
     screenRef.current?.stop(); screenRef.current = null;
     localRef.current = null;
     if (room.current) { backend.removeChannel(room.current); room.current = null; }
@@ -212,12 +223,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   /** Microphone (+ camera for video). Asked for before anything is created, so a refused permission leaves nothing behind. */
   const getMedia = useCallback(async (kind: Call["kind"]): Promise<MediaStream | null> => {
     try {
-      return await navigator.mediaDevices.getUserMedia({
+      return await capture({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: kind === "video" ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } : false,
       });
     } catch {
-      try { const a = await navigator.mediaDevices.getUserMedia({ audio: true }); if (kind === "video") toast(t("Camera not available — joining with sound only"), "info"); return a; }
+      try { const a = await capture({ audio: true }); if (kind === "video") toast(t("Camera not available — joining with sound only"), "info"); return a; }
       catch { toast(t("Allow the microphone to join calls — tap the lock icon by the address, or Settings → Apps → your browser → Permissions"), "error"); return null; }
     }
   }, [toast]);
@@ -338,7 +349,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         sendState(); return;
       }
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: l.front ? "user" : "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
+        const s = await capture({ video: { facingMode: l.front ? "user" : "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
         const v = s.getVideoTracks()[0]!;
         const next = new MediaStream([...(local?.getAudioTracks() ?? []), v]);
         localRef.current = next; set({ camOff: false, local: next });
@@ -350,7 +361,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       try {
         const old = localRef.current?.getVideoTracks()[0];
         old?.stop(); // some phones can't open both cameras at once
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: l.front ? "environment" : "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
+        const s = await capture({ video: { facingMode: l.front ? "environment" : "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
         const nv = s.getVideoTracks()[0]!;
         const next = new MediaStream([...(localRef.current?.getAudioTracks() ?? []), nv]);
         localRef.current = next; set({ front: !l.front, local: next });
@@ -393,6 +404,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const myCall = live ? db.calls.find((k) => k.id === live.call.id) : undefined;
   useEffect(() => { if (myCall?.status === "ended" && liveRef.current) leave(); }, [myCall?.status, leave]);
 
+  // Declining a one-to-one call ends it for the caller too; a group call keeps ringing for the others.
+  const decline = useCallback((k: Call) => {
+    setDismissed((d) => new Set(d).add(k.id));
+    const direct = db.conversations.find((c) => c.id === k.conversation_id)?.kind === "direct";
+    if (direct) backend.rpc("leave_call", { p_call: k.id }).then(() => refresh("calls")).catch(() => {});
+  }, [backend, db.conversations, refresh]);
   // Answer straight from the notification (Answer button) or a ?answer=<call> link.
   const answerById = useCallback((id: string) => {
     const k = db.calls.find((x) => x.id === id);
@@ -411,11 +428,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const on = (e: MessageEvent) => {
       if (e.data?.type === "answer" && e.data.call_id) answerById(e.data.call_id);
-      if (e.data?.type === "decline" && e.data.call_id) setDismissed((d) => new Set(d).add(e.data.call_id));
+      if (e.data?.type === "decline" && e.data.call_id) { const k = db.calls.find((x) => x.id === e.data.call_id); if (k) decline(k); else setDismissed((d) => new Set(d).add(e.data.call_id)); }
     };
     navigator.serviceWorker?.addEventListener("message", on);
     return () => navigator.serviceWorker?.removeEventListener("message", on);
-  }, [answerById]);
+  }, [answerById, db.calls, decline]);
 
   // Incoming: a call in one of my chats/meetings that is ringing and I am not in.
   const ringing = useMemo(() => db.calls.find((k) => k.status !== "ended" && k.started_by !== me.id && !dismissed.has(k.id)
@@ -427,7 +444,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   return (
     <CallCtx.Provider value={ctx}>
       {children}
-      <AnimatePresence>{ringing && !live && <Incoming key={ringing.id} call={ringing} onAccept={() => enter(ringing)} onDecline={() => setDismissed((d) => new Set(d).add(ringing.id))} />}</AnimatePresence>
+      <AnimatePresence>{ringing && !live && <Incoming key={ringing.id} call={ringing} onAccept={() => enter(ringing)} onDecline={() => decline(ringing)} />}</AnimatePresence>
       <AnimatePresence>{live && <CallScreen key="call" live={live} controls={controls} onLeave={() => leave()} />}</AnimatePresence>
     </CallCtx.Provider>
   );
@@ -448,15 +465,17 @@ function Incoming({ call, onAccept, onDecline }: { call: Call; onAccept: () => v
   }, [onDecline]);
   return (
     <motion.div className="incoming" initial={{ y: -120, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -120, opacity: 0 }}>
-      <Avatar p={who} size={52} />
+      <div className="ring-who"><Avatar p={who} size={52} />
       <div className="grow">
         <b>{who?.full_name ?? t("Someone")}</b>
         <small>{ev ? t("Meeting: {title}", { title: ev.title }) : conv?.kind === "group" ? `${conv.name} · ` : ""}{call.kind === "voice" ? t("Voice call") : t("Video call")}</small>
+      </div></div>
+      <div className="ring-actions">
+        <motion.button type="button" className="ring-btn no" whileTap={{ scale: 0.94 }} onClick={onDecline}><PhoneOff size={20} /><span>{t("End call")}</span></motion.button>
+        <motion.button type="button" className="ring-btn yes" whileTap={{ scale: 0.94 }} animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} onClick={onAccept}>
+          {call.kind === "voice" ? <Phone size={20} /> : <Video size={20} />}<span>{t("Answer")}</span>
+        </motion.button>
       </div>
-      <motion.button type="button" className="ring-btn no" whileTap={{ scale: 0.9 }} onClick={onDecline} aria-label={t("Decline")}><PhoneOff size={22} /></motion.button>
-      <motion.button type="button" className="ring-btn yes" whileTap={{ scale: 0.9 }} animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} onClick={onAccept} aria-label={t("Answer")}>
-        {call.kind === "voice" ? <Phone size={22} /> : <Video size={22} />}
-      </motion.button>
     </motion.div>
   );
 }
@@ -540,21 +559,7 @@ function Tile({ stream, state, name, p }: { stream: MediaStream; state?: PeerSta
   const v = useRef<HTMLVideoElement>(null);
   const [flowing, setFlowing] = useState(false);
   const [stalled, setStalled] = useState(true);
-  // Fit: fill the tile when video and tile have the same orientation; otherwise show the
-  // whole picture (a portrait phone camera in a landscape PC tile was cropped = "zoomed").
-  const [fit, setFit] = useState<"cover" | "contain">("cover");
-  useEffect(() => {
-    const el = v.current; if (!el) return;
-    const tile = el.parentElement!;
-    const decide = () => {
-      if (!el.videoWidth || !el.videoHeight) return;
-      const videoPortrait = el.videoHeight > el.videoWidth, tilePortrait = tile.clientHeight > tile.clientWidth;
-      setFit(videoPortrait === tilePortrait ? "cover" : "contain");
-    };
-    el.addEventListener("resize", el.onloadedmetadata = decide);
-    const ro = new ResizeObserver(decide); ro.observe(tile);
-    return () => { el.removeEventListener("resize", decide); ro.disconnect(); };
-  }, []);
+  // Always the whole picture at its own aspect ratio — never cropped or zoomed to fill the tile.
   useEffect(() => {
     const el = v.current;
     if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); }
@@ -584,7 +589,7 @@ function Tile({ stream, state, name, p }: { stream: MediaStream; state?: PeerSta
   const show = flowing && (state ? (state.share || (state.cam && !stalled)) : !stalled);
   return (
     <div className={`tile-v ${state?.share ? "sharing" : ""}`}>
-      <video ref={v} autoPlay playsInline muted={false} style={{ opacity: show ? 1 : 0, objectFit: state?.share ? "contain" : fit }} />
+      <video ref={v} autoPlay playsInline muted={false} style={{ opacity: show ? 1 : 0 }} />
       {!show && <div className="tile-av"><Avatar p={p} size={88} /></div>}
       <span className="tile-name">{state && !state.mic && <MicOff size={13} />}{name}</span>
     </div>
@@ -599,6 +604,7 @@ function SelfView({ stream, mirror, bounds, top, bottom }: {
   const box = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0), y = useMotionValue(0);
   const corner = useRef<"tl" | "tr" | "bl" | "br">("br");
+  const [ratio, setRatio] = useState<string | null>(null);
   useEffect(() => { if (v.current) { v.current.srcObject = stream; v.current.play().catch(() => {}); } }, [stream]);
 
   const spot = useCallback((c: "tl" | "tr" | "bl" | "br") => {
@@ -619,14 +625,16 @@ function SelfView({ stream, mirror, bounds, top, bottom }: {
   useEffect(() => { const r = () => settle(corner.current, false); window.addEventListener("resize", r); return () => window.removeEventListener("resize", r); }, [settle]);
 
   return (
-    <motion.div ref={box} className="self-view" style={{ x, y }} drag dragConstraints={bounds} dragElastic={0.08} dragMomentum={false}
+    <motion.div ref={box} className="self-view" style={{ x, y, aspectRatio: ratio ?? undefined }} drag dragConstraints={bounds} dragElastic={0.08} dragMomentum={false}
       onDragEnd={() => {
         const s = bounds.current?.getBoundingClientRect(), el = box.current?.getBoundingClientRect();
         if (!s || !el) return;
         const cx = el.left + el.width / 2 - s.left, cy = el.top + el.height / 2 - s.top;
         settle(`${cy < s.height / 2 ? "t" : "b"}${cx < s.width / 2 ? "l" : "r"}` as "tl", true);
       }}>
-      <video ref={v} autoPlay playsInline muted style={{ transform: mirror ? "scaleX(-1)" : "none" }} />
+      <video ref={v} autoPlay playsInline muted style={{ transform: mirror ? "scaleX(-1)" : "none" }}
+        onLoadedMetadata={(e) => { const el = e.currentTarget; if (el.videoWidth && el.videoHeight) { setRatio(`${el.videoWidth} / ${el.videoHeight}`); requestAnimationFrame(() => settle(corner.current, false)); } }}
+        onResize={(e) => { const el = e.currentTarget; if (el.videoWidth && el.videoHeight) setRatio(`${el.videoWidth} / ${el.videoHeight}`); }} />
     </motion.div>
   );
 }

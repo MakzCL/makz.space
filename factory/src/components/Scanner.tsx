@@ -1,7 +1,7 @@
 import { Keyboard, ScanLine } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
-import { scanFeedback, useWedgeScanner } from "../lib/scan";
+import { SCANNING, scanFeedback, useWedgeScanner } from "../lib/scan";
 import { Btn, Sheet } from "./ui";
 
 /* Camera scanning (phones/tablets) with a typed-code fallback. Handheld scanners work without
@@ -85,7 +85,8 @@ export function ScanButton({ onCode, title, hint, small, continuous, wedge = tru
   onCode: (code: string) => boolean | void; title?: string; hint?: string; small?: boolean; continuous?: boolean; wedge?: boolean; label?: string;
 }) {
   const [open, setOpen] = useState(false);
-  useWedgeScanner((c) => { const ok = onCode(c) !== false; scanFeedback(ok); }, wedge && !open);
+  useWedgeScanner((c) => { const ok = onCode(c) !== false; scanFeedback(ok); }, SCANNING && wedge && !open);
+  if (!SCANNING) return null;
   return (
     <>
       <Btn small={small} tone="soft" icon={<ScanLine size={16} />} onClick={() => setOpen(true)}>{label ?? t("Scan")}</Btn>

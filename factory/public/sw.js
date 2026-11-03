@@ -1,5 +1,5 @@
 // Network-first for the app shell, cache as fallback so the app opens offline.
-const CACHE = "skf-v5";
+const CACHE = "skf-v6";
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/icon.svg"]))); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -30,7 +30,7 @@ self.addEventListener("push", (e) => {
     renotify: true,
     requireInteraction: call,
     // Answer / Decline right on the notification — no need to open the chat first.
-    actions: call && d.link && d.link.call_id ? [{ action: "answer", title: "Answer" }, { action: "decline", title: "Decline" }] : [],
+    actions: call && d.link && d.link.call_id ? [{ action: "answer", title: "Answer" }, { action: "decline", title: "End call" }] : [],
     vibrate: call ? [400, 200, 400, 200, 400] : clock ? [70, 60, 70] : [120, 60, 120],
     silent: false,
     data: d,

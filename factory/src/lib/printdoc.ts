@@ -1,6 +1,6 @@
 // Printable documents (ADMIN-06): purchase order, pick list, packing slip, MO traveller.
 // One plain A4 layout, opened in a new window and sent to the printer (or "Save as PDF").
-import { code128Svg } from "./scan";
+import { SCANNING, code128Svg } from "./scan";
 import { t } from "./i18n";
 import type { DB } from "./types";
 
@@ -32,7 +32,7 @@ export function printDoc(db: DB, d: Doc) {
   if (!w) return false;
   const co = company(db);
   let bars = "";
-  try { bars = code128Svg(d.number, { module: 1.6, height: 40 }); } catch { /* not encodable */ }
+  if (SCANNING) try { bars = code128Svg(d.number, { module: 1.6, height: 40 }); } catch { /* not encodable */ }
   const head = d.columns.map((c) => `<th class="${c.num ? "n" : ""}${c.check ? " c" : ""}">${esc(c.label)}</th>`).join("");
   const body = d.rows.map((r) => `<tr>${r.map((v, i) => `<td class="${d.columns[i]?.num ? "n" : ""}${d.columns[i]?.check ? " c" : ""}">${d.columns[i]?.check ? "☐" : esc(v)}</td>`).join("")}</tr>`).join("");
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.title)} ${esc(d.number)}</title><style>

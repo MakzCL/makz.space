@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { Boxes, ClipboardCheck, Download, History, MapPin, Minus, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
-import { BIN_PREFIX, itemCode, printLabels } from "../lib/scan";
+import { BIN_PREFIX, SCANNING, itemCode, printLabels } from "../lib/scan";
 import { useMemo, useState } from "react";
 import { SceneTabs } from "../components/Scene";
 import { Badge, Btn, Chip, Empty, Field, HoldButton, RoundBtn, Segmented, Sheet, list } from "../components/ui";
@@ -156,12 +156,12 @@ export function ItemsView({ kinds }: { kinds?: ItemKind[] } = {}) {
         <Btn tone="soft" icon={<Download size={17} />} onClick={() => download(`stock-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(
           ["SKU", "Name", "Type", "Category", "Location", "Unit", "In stock", "Committed", "Expected", "Available", "Reorder point", ...(costs ? ["Average cost", "Value"] : []), "Supplier"],
           rows.map((r) => [r.s.sku, r.s.name, r.s.kind, r.s.category, r.bin, r.s.unit, r.qty, r.committed, r.expected, r.available, r.s.min_quantity, ...(costs ? [r.s.avg_cost ?? "", r.value.toFixed(2)] : []), sup.get(r.s.supplier_id ?? "") ?? ""])))}>{t("Export")}</Btn>
-        <Btn tone="soft" icon={<Tags size={17} />} title={t("Print a barcode label for every item shown (max 200)")} disabled={!rows.length} onClick={() => {
+        {SCANNING && <Btn tone="soft" icon={<Tags size={17} />} title={t("Print a barcode label for every item shown (max 200)")} disabled={!rows.length} onClick={() => {
           const its = rows.slice(0, 200).map((r) => r.s);
           const bins = locF ? [...new Set(rows.map((r) => r.bin).filter(Boolean))] : [];
           const ask = bins.length ? window.confirm(t("Print the {n} bin labels at this location too?", { n: bins.length })) : false;
           printLabels([...its.map((s) => ({ code: itemCode(s), title: s.name, sub: s.sku })), ...(ask ? bins.map((b) => ({ code: BIN_PREFIX + b, title: t("Bin {b}", { b }), sub: places.find((l) => l.id === locF)?.name })) : [])]);
-        }}>{t("Labels")}</Btn>
+        }}>{t("Labels")}</Btn>}
         {can.editStock(me.role) && <Btn tone="primary" icon={<Plus size={18} />} onClick={() => setOpen("new")}>{t("New item")}</Btn>}
       </div>
       <div className="row between wrap">
@@ -238,7 +238,7 @@ export function ItemSheet({ item, onClose, onOpenItem }: { item: StockItem | "ne
       <div className="stack">
         {live && (
           <>
-            {live.kind !== "service" && <div className="row end"><Btn small tone="ghost" icon={<Tags size={15} />} onClick={() => {
+            {SCANNING && live.kind !== "service" && <div className="row end"><Btn small tone="ghost" icon={<Tags size={15} />} onClick={() => {
               const n = Math.max(1, Math.min(200, Number(window.prompt(t("How many labels?"), "1")) || 0));
               if (n) printLabels([{ code: itemCode(live), title: live.name, sub: live.sku }], n);
             }}>{t("Print label")}</Btn></div>}
@@ -309,10 +309,10 @@ export function ItemSheet({ item, onClose, onOpenItem }: { item: StockItem | "ne
                 <option value="">—</option>{[...db.suppliers].sort((x, y) => x.name.localeCompare(y.name)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
               <Field label={t("Supplier's code")}><input value={f.supplier_code ?? ""} onChange={(e) => setF({ ...f, supplier_code: e.target.value })} disabled={!editable} /></Field>
             </div>
-            <Field label={t("Tracking")} hint={f.tracking === "serial" ? t("One serial number per piece, from receipt or production to the customer.") : f.tracking === "batch" ? t("Batch code and expiry on every receipt; used first-expiry-first-out.") : undefined}>
+            <Field label={t("Tracking")} hint={f.tracking === "serial" ? t("One serial number per piece, from receipt or production to the customer.") : f.tracking === "batch" ? t("A batch code on every receipt; the oldest batch is used first.") : undefined}>
               <select value={f.tracking ?? "none"} onChange={(e) => setF({ ...f, tracking: e.target.value as StockItem["tracking"] })} disabled={!editable}>
                 <option value="none">{t("Not tracked")}</option><option value="batch">{t("Batches / lots")}</option><option value="serial">{t("Serial numbers")}</option></select></Field>
-            <Field label={t("Barcode")}><input value={f.barcode ?? ""} inputMode="text" placeholder={t("Scan or type (EAN, UPC, Code-128…)")} onChange={(e) => setF({ ...f, barcode: e.target.value.trim() || null })} disabled={!editable} /></Field>
+            {SCANNING && <Field label={t("Barcode")}><input value={f.barcode ?? ""} inputMode="text" placeholder={t("Scan or type (EAN, UPC, Code-128…)")} onChange={(e) => setF({ ...f, barcode: e.target.value.trim() || null })} disabled={!editable} /></Field>}
             {live && <SupplierRefs item={live} editable={editable} />}
             {!live && (
               <div className="row gap">

@@ -14,6 +14,9 @@ export type ScanHit =
   | { kind: "transfer"; transfer: StockTransfer }
   | { kind: "unknown"; code: string };
 
+/** Barcode scanning and labels. Off: Skalarki works with metal and electronics and does not scan (switch back on here). */
+export const SCANNING = false;
+
 /** Bin labels encode as BIN:<bin> (the location is wherever you are working). */
 export const BIN_PREFIX = "BIN:";
 

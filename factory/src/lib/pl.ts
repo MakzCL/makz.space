@@ -1341,4 +1341,9 @@ export const PL: Record<string, string> = {
   "This stocktake is closed": "Ta inwentaryzacja jest zamknięta",
   "Variant family created": "Utworzono rodzinę wariantów",
   "Variant added": "Dodano wariant",
+  // Calls & no-scanning
+  "End call": "Zakończ",
+  "Every item with stock at this location goes on the count sheet. You can add others while counting.": "Każda pozycja ze stanem w tej lokalizacji trafi na arkusz. Inne dodasz w trakcie liczenia.",
+  "Add an item to the count — type SKU or name…": "Dodaj pozycję do liczenia — wpisz SKU lub nazwę…",
+  "A batch code on every receipt; the oldest batch is used first.": "Kod partii przy każdym przyjęciu; najstarsza partia jest zużywana jako pierwsza.",
 };
