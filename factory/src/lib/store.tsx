@@ -5,7 +5,7 @@ import { TABLES, type DB, type Profile, type TableName } from "./types";
 const EMPTY: DB = {
   profiles: [], shifts: [], breaks: [], jobs: [], work_sessions: [], participants: [], invites: [],
   issues: [], stock_items: [], absences: [], announcements: [], join_links: [],
-  stations: [], station_members: [], products: [], orders: [], order_lines: [], order_returns: [], company_settings: [], customers: [], tax_rates: [], item_suppliers: [], kimera_access: [], locations: [], stock_levels: [], stock_transfers: [], transfer_lines: [], mo_materials: [], po_materials: [], product_operations: [], lots: [], lot_levels: [], issue_comments: [], job_steps: [],
+  stations: [], station_members: [], products: [], orders: [], order_lines: [], order_returns: [], company_settings: [], customers: [], tax_rates: [], item_suppliers: [], kimera_access: [], locations: [], stock_levels: [], stock_transfers: [], transfer_lines: [], mo_materials: [], po_materials: [], wh_tasks: [], product_operations: [], lots: [], lot_levels: [], issue_comments: [], job_steps: [],
   suppliers: [], bom_lines: [], purchase_orders: [], po_lines: [], stock_movements: [],
   notifications: [], conversations: [], conversation_members: [], messages: [], message_reactions: [],
   events: [], event_attendees: [], calls: [], call_participants: [],

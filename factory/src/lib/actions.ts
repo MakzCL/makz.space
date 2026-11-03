@@ -258,8 +258,8 @@ export function useActions() {
       catch (e) { fail(e); }
     }
     async function countStock(item: StockItem, counted: number, note = "", location: string | null = null) {
-      try { await B.rpc("count_stock", { p_item: item.id, p_counted: counted, p_note: note, p_location: location }); await stockRefresh(); ok(t("Count saved")); }
-      catch (e) { fail(e); }
+      try { await B.rpc("count_stock", { p_item: item.id, p_counted: counted, p_note: note, p_location: location }); await stockRefresh(); ok(t("Count saved")); return true; }
+      catch (e) { fail(e); return false; }
     }
     async function saveStock(item: Partial<StockItem>, opening?: { qty: number; cost: number | null }) {
       try {
@@ -315,7 +315,7 @@ export function useActions() {
     async function receive(line: PoLine, qty: number, key: string = opKey(), over = false, lot: string | null = null, expiry: string | null = null) {
       try {
         const r = await B.rpc<string>("receive_po_line", { p_line: line.id, p_qty: qty, p_key: key, p_over: over, p_lot: lot, p_expiry: expiry });
-        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("lots"), refresh("lot_levels"), refresh("po_materials")]);
+        await Promise.all([stockRefresh(), refresh("po_lines"), refresh("purchase_orders"), refresh("lots"), refresh("lot_levels"), refresh("po_materials"), refresh("wh_tasks")]);
         ok(t(r === "received" ? "Delivery received — PO complete" : "Delivery received"));
         return true;
       } catch (e) { fail(e); return false; }

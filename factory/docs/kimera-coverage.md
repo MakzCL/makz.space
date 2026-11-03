@@ -170,13 +170,14 @@ advisory lock per item, so concurrent requests serialise.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| WH-01 | Partial | Factory app Stock tab works on phones (adjust/count/receive) — no task-based workspace |
-| WH-02 / WH-03 | Missing | no warehouse tasks |
-| WH-04 / WH-05 | Missing | no barcode |
-| WH-06 | Missing | no bins |
-| WH-07 | Partial | partial receive yes, partial fulfilment no |
-| WH-08 | Missing | |
-| WH-09 | Partial | realtime store (`lib/supa.ts subscribe`) refreshes all screens |
+| WH-01 | Complete (5a) | Kimera → Stock → Tasks works on phones: task list, one sheet per task with the work inside it |
+| WH-02 | Complete (5a) | `wh_tasks` (receive / pick & pack / ship / transfer / count), office assigns to Assistant-or-above, due date + note; one open task per document |
+| WH-03 | Complete (5a) | `wh_task_step()` start / done (assignee or office); pick done → order Packed; assigned assistants may ship that order (`my_wh_task` in `ship_lines`) |
+| WH-04 / WH-05 | Partial | task flows done; barcode scanning is 5b |
+| WH-06 | Partial | bins per item+location (phase 3); pick and count lists sorted by bin; scan-to-bin is 5b |
+| WH-07 | Complete | partial receive and partial ship (per-line quantities) from the task |
+| WH-08 | Partial | count tasks book counts per location; scanning is 5b |
+| WH-09 | Complete | realtime store; tasks auto-close when their PO is received, order shipped or transfer received (`wh_autoclose`) |
 | WH-10 | Missing | |
 
 ## I. Planning — PLAN-01..05, 07, 08: **Missing**; PLAN-06: **Partial** (Plan "To make /
@@ -341,6 +342,8 @@ key per intent and disables the button while it runs.
 - 2026-11-02 — **Phase 4d + Create-menu fix published** (migration `kimera_phase4d_outsourcing`, deploy of `9a5f22d`). Restore point: `backup_20261102_phase4d` (55 tables) + branch `backup/pre-phase4d-2026-11-02` (aa64aa5). Live check: po_materials + outsourced PO columns present, costs still hidden, 0 stock mismatches.
 
 - 2026-11-03 — **Staff removal published** (migration `sk_factory_remove_staff`, deploy of `7aa10f4`). Restore point: `backup_20261103_staffremoval` (56 tables) + branch `backup/pre-staff-removal-2026-11-03` (9a5f22d). `remove_staff()` / `restore_staff()`: access gone at once (inactive, signed out, clocked out, off their jobs and stations), history kept, restorable; role rules in `can_remove_staff()`. Tests: 383 checks ALL PASSED.
+
+- 2026-11-03 — **Phase 5a — warehouse tasks — built, not yet published.** See section H. Tests: 398 schema checks ALL PASSED, concurrency PASSED, tsc clean, build ok, browser smoke of Stock → Tasks, pick sheet, count sheet and New task (desktop + phone) — no errors.
 
 ## Next steps (continuation plan)
 

@@ -1161,3 +1161,11 @@ ul.trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem;
 ul.trace li { display: block; line-height: 1.45; }
 ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .k-lotin { margin-top: 0.3rem; } .k-lotin input[type=date] { width: 140px; }
+
+/* warehouse tasks (phase 5a) */
+.wh-task { display: flex; align-items: center; gap: 0.75rem; text-align: left; width: 100%; }
+.wh-ico { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent, currentColor); flex: none; }
+.card.wh-line { display: flex; flex-direction: row; align-items: center; gap: 0.75rem; text-align: left; }
+.card.wh-line .grow { min-width: 0; display: flex; flex-direction: column; }
+.wh-line.done { opacity: 0.55; }
+.wh-line input[type="checkbox"] { width: 22px; height: 22px; flex: none; }

@@ -1,5 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { TransfersView } from "./Locations";
+import { WarehouseTasksView } from "./Warehouse";
 import { BarChart3, Boxes, CalendarClock, ChevronDown, Factory, LifeBuoy, LogOut, Moon, Package, Plus, Settings2, ShoppingCart, Sun, Tag, Upload, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
@@ -109,7 +110,7 @@ function Shell({ signOut }: { signOut: () => void }) {
   const [newMo, setNewMo] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
   const [menu, setMenu] = useState<"create" | "me" | null>(null);
-  const [stockView, setStockView] = useState<"inventory" | "history" | "transfers">("inventory");
+  const [stockView, setStockView] = useState<"inventory" | "history" | "transfers" | "tasks">(() => db.wh_tasks.some((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)) && !can.admin(me.role) ? "tasks" : "inventory");
   const [itemsView, setItemsView] = useState<"products" | "materials" | "recipes">("products");
   const [buyView, setBuyView] = useState<"pos" | "suppliers">("pos");
   const [importing, setImporting] = useState(false);
@@ -157,9 +158,9 @@ function Shell({ signOut }: { signOut: () => void }) {
       case "stock": return (
         <div className="k-page">
           <div className="k-head"><div><h1>{t("Stock")}</h1><p className="muted">{t("What's on the shelf, what's committed to jobs and what's on the way.")}</p></div>
-            <div className="k-subtabs"><SubTabs value={stockView} onChange={setStockView} tabs={[{ value: "inventory", label: t("Inventory") }, { value: "transfers", label: t("Transfers"), count: db.stock_transfers.filter((x) => x.status === "in_transit").length }, { value: "history", label: t("Stock movements") }]} /></div>
+            <div className="k-subtabs"><SubTabs value={stockView} onChange={setStockView} tabs={[{ value: "inventory", label: t("Inventory") }, { value: "tasks", label: t("Tasks"), count: db.wh_tasks.filter((w) => w.assigned_to === me.id && ["open", "in_progress"].includes(w.status)).length }, { value: "transfers", label: t("Transfers"), count: db.stock_transfers.filter((x) => x.status === "in_transit").length }, { value: "history", label: t("Stock movements") }]} /></div>
             <div className="row gap"><Btn tone="soft" icon={<Upload size={16} />} onClick={() => setImporting(true)}>{t("Import CSV")}</Btn></div></div>
-          {stockView === "inventory" ? <ItemsView /> : stockView === "transfers" ? <TransfersView /> : <HistoryView />}
+          {stockView === "inventory" ? <ItemsView /> : stockView === "tasks" ? <WarehouseTasksView /> : stockView === "transfers" ? <TransfersView /> : <HistoryView />}
         </div>
       );
       case "items": return (

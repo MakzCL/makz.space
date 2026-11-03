@@ -341,6 +341,24 @@ export interface MoMaterial {
   used_from_wip: number;
   returned: number;
 }
+/** Warehouse work assigned to someone (WH-02/03). source_id = PO, order or transfer; count tasks list items. */
+export interface WhTask {
+  id: string;
+  number: string;
+  kind: "receive" | "pick" | "ship" | "transfer" | "count";
+  source_id: string | null;
+  location_id: string | null;
+  items: string[];
+  assigned_to: string | null;
+  status: "open" | "in_progress" | "done" | "cancelled";
+  due_date: string | null;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  done_at: string | null;
+  done_by: string | null;
+}
 /** Materials a contractor uses per piece on an outsourced PO line; consumed at their location on receipt. */
 export interface PoMaterial {
   id: string;
@@ -627,6 +645,7 @@ export interface Tables {
   transfer_lines: TransferLine;
   mo_materials: MoMaterial;
   po_materials: PoMaterial;
+  wh_tasks: WhTask;
   product_operations: ProductOperation;
   lots: Lot;
   lot_levels: LotLevel;
@@ -653,7 +672,7 @@ export type TableName = keyof Tables;
 export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
-  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
+  "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
   "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",
