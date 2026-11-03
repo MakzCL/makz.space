@@ -10,9 +10,11 @@ The toolbar's **Update** button clears the WebView cache and opens `https://synd
 
 ## Cloudflare updates
 
-The existing repository's Cloudflare publish step currently skips: **`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are not set in GitHub Actions** (confirmed in the workflow logs). Add them under repository Settings → Secrets and variables → Actions. Do not commit their values. The token needs Pages deployment and R2 object-write access to the existing project/bucket.
+The connected Cloudflare account can publish this project directly, using the existing authenticated connection and a short-lived, project-specific Pages upload authorization. No account-wide deployment token is needed for these publishes. The interface and the APK download are hosted together at `https://syndo.makz.space`; preview mode is available at `/channels/@me?preview=1`, and the APK at `/android/Syndo-preview.apk`. Preview navigation retains its explicit opt-in query parameter so shared links and reloads stay in preview mode.
 
-With those secrets configured, pushing the selected Syndo branch runs checks and deploys `syndo-app` to its stable production URL. `SYNDO_PUBLISH_BRANCH` defaults to `codex/syndo-messaging-tools`; other branches deploy previews. The Android job also uploads the preview APK to `syndo-desktop/android/Syndo-preview.apk`. Default public download: `https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev/android/Syndo-preview.apk` (available only after successful publishing).
+The optional, unattended **GitHub Actions** publishing steps still skip while `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are absent from repository secrets. This does not block direct publishes through the connected Cloudflare account. Never commit credentials. No new account-wide R2 write token was created.
+
+If GitHub publishing secrets are configured later, pushing the selected Syndo branch runs checks and deploys `syndo-app` to its stable production URL. `SYNDO_PUBLISH_BRANCH` defaults to `codex/syndo-messaging-tools`; other branches deploy previews. The optional Android R2 step uses `syndo-desktop/android/Syndo-preview.apk`; that separate R2 feed is not required for the APK's hosted-interface Update button.
 
 Real accounts and calls additionally require the API/LiveKit deployment and the Pages `SYNDO_API_ORIGIN` variable described in DEPLOYMENT.md. A local preview is deliberately not a substitute for that deployment.
 

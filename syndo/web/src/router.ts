@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { BRAND } from "@syndo/shared";
+import { previewMode } from "./preview-mode.ts";
 
 /** Minimal history router. Routes: /login /register /forgot /reset /verify /invite/:code /channels/@me[/:cid] /channels/:gid[/:cid[/:mid]] */
 const listeners = new Set<() => void>();
@@ -7,6 +8,11 @@ const notify = () => listeners.forEach((l) => l());
 window.addEventListener("popstate", notify);
 
 export function navigate(path: string, replace = false) {
+  if (previewMode) {
+    const target = new URL(path, location.origin);
+    target.searchParams.set("preview", "1");
+    path = target.pathname + target.search + target.hash;
+  }
   if (path === location.pathname + location.search) return;
   history[replace ? "replaceState" : "pushState"](null, "", path);
   notify();
