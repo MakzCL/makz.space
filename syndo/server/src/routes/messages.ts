@@ -135,7 +135,7 @@ export async function messageRoutes(app: FastifyInstance) {
       if (dup) return messageById(dup.id, me);
     }
     if (channel.rate_limit_per_user > 0 && !has(perms, P.BYPASS_SLOWMODE) && !has(perms, P.MANAGE_MESSAGES) && !has(perms, P.MANAGE_CHANNELS)) {
-      const last = await q1<any>("select created_at from messages where channel_id = $1 and author_id = $2 order by id desc limit 1", [channel.id, me]);
+      const last = await q1<any>("select created_at from messages where channel_id = $1 and author_id = $2 and type in (0, 19) and deleted_at is null order by id desc limit 1", [channel.id, me]);
       const wait = last ? channel.rate_limit_per_user * 1000 - (Date.now() - new Date(last.created_at).getTime()) : 0;
       if (wait > 0) throw tooMany(`Slow mode is on. You can send another message in ${Math.ceil(wait / 1000)}s.`, Math.ceil(wait / 1000));
     }

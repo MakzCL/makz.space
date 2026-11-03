@@ -44,6 +44,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
       if ((err as any).retryAfter) reply.header("retry-after", (err as any).retryAfter);
       return reply.code(err.status).send({ code: err.code, message: err.message, retry_after: (err as any).retryAfter });
     }
+    // Malformed ids / values that reach Postgres are client errors, not server faults.
+    if ((err as any).code === "22P02" || (err as any).code === "22003") return reply.code(400).send({ code: "invalid", message: "Invalid id or value." });
     const fe = err as FastifyError;
     if (fe.statusCode === 429) return reply.code(429).send(fe);
     if (fe.code === "FST_REQ_FILE_TOO_LARGE") return reply.code(413).send({ code: "too_large", message: "That file is too large." });
