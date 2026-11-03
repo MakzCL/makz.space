@@ -1,3 +1,5 @@
+import { ScrollArea } from "../components/ScrollArea.tsx";
+import { Range } from "../components/Range.tsx";
 import { Copy, Download, Heart, ImagePlus, Redo2, RefreshCcw, Trash2, Undo2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -66,10 +68,10 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
             </div>
           </header>
           <div className="studio-body">
-            <nav className="settings-nav" role="tablist" aria-orientation="vertical" aria-label="Studio sections">
+            <ScrollArea className="studio-nav-area" viewportClassName="settings-nav" role="tablist" aria-orientation="vertical" aria-label="Studio sections">
               {SECTIONS.map(([id, label]) => <button key={id} role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>{label}</button>)}
-            </nav>
-            <section className="studio-editor" role="tabpanel">
+            </ScrollArea>
+            <ScrollArea className="studio-editor-area" viewportClassName="studio-editor" role="tabpanel">
               {section === "gallery" && <Gallery />}
               {section === "colors" && <ColorsSection />}
               {section === "panels" && <PanelsSection region={region} setRegion={setRegion} />}
@@ -83,12 +85,12 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
               {section === "advanced" && <AdvancedSection />}
               <footer className="studio-f">
                 {sectionKeys && <button className="btn sm" onClick={() => resetSection(target, sectionKeys)}><RefreshCcw size={14} /> Reset this section{target.kind !== "global" ? " for this scope" : ""}</button>}
-                <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-midnight", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
+                <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
               </footer>
-            </section>
-            {showPreview && <aside id="studio-live-preview" className="studio-preview-wrap" aria-label="Live preview">
+            </ScrollArea>
+            {showPreview && <ScrollArea id="studio-live-preview" className="studio-preview-area" viewportClassName="studio-preview-wrap" role="complementary" aria-label="Live preview">
               <Preview onRegion={(r) => { setRegion(r); setSection("panels"); }} selected={section === "panels" ? region : null} />
-            </aside>}
+            </ScrollArea>}
           </div>
         </div>
       </div>
@@ -235,7 +237,7 @@ function PanelsSection({ region, setRegion }: { region: RegionId; setRegion: (r:
         <div className="sf-input">
           <input type="checkbox" checked={!!grad.value} onChange={(e) => grad.set(e.target.checked ? { to: "#3D6BFF", angle: 135 } : null)} aria-label="Use a gradient" />
           {grad.value && <><input type="color" value={grad.value.to.slice(0, 7)} onChange={(e) => grad.set({ ...grad.value!, to: e.target.value.toUpperCase() })} aria-label="Gradient end colour" />
-            <input type="range" min={0} max={360} value={grad.value.angle} onChange={(e) => grad.set({ ...grad.value!, angle: +e.target.value })} aria-label="Gradient angle" /></>}
+            <Range min={0} max={360} value={grad.value.angle} onChange={(e) => grad.set({ ...grad.value!, angle: +e.target.value })} aria-label="Gradient angle" /></>}
         </div>
         <button className="icon-btn sm" onClick={grad.reset} disabled={!grad.overridden} aria-label="Reset gradient"><RefreshCcw size={14} /></button>
       </div>
@@ -294,7 +296,7 @@ function BackgroundEditor({ path }: { path: string }) {
           <label>From <input type="color" value={bg.gradient.from.slice(0, 7)} onChange={(e) => set({ gradient: { ...bg.gradient!, from: e.target.value.toUpperCase() } })} /></label>
           <label>Via <input type="color" value={(bg.gradient.via ?? bg.gradient.from).slice(0, 7)} onChange={(e) => set({ gradient: { ...bg.gradient!, via: e.target.value.toUpperCase() } })} /></label>
           <label>To <input type="color" value={bg.gradient.to.slice(0, 7)} onChange={(e) => set({ gradient: { ...bg.gradient!, to: e.target.value.toUpperCase() } })} /></label>
-          <label>Angle <input type="range" min={0} max={360} value={bg.gradient.angle} onChange={(e) => set({ gradient: { ...bg.gradient!, angle: +e.target.value } })} /></label>
+          <label>Angle <Range min={0} max={360} value={bg.gradient.angle} onChange={(e) => set({ gradient: { ...bg.gradient!, angle: +e.target.value } })} /></label>
           <select value={bg.gradient.type} onChange={(e) => set({ gradient: { ...bg.gradient!, type: e.target.value as "linear" | "radial" } })} aria-label="Gradient type"><option value="linear">Linear</option><option value="radial">Radial</option></select>
         </div>
       )}
@@ -330,7 +332,7 @@ function BackgroundEditor({ path }: { path: string }) {
 }
 
 function Slide({ label, v, min, max, step = 1, on, unit = "" }: { label: string; v: number; min: number; max: number; step?: number; on: (v: number) => void; unit?: string }) {
-  return <label className="slide"><span>{label}</span><input type="range" min={min} max={max} step={step} value={v} onChange={(e) => on(+e.target.value)} aria-valuetext={`${v}${unit}`} /><output>{step < 1 ? v.toFixed(2) : v}{unit}</output></label>;
+  return <label className="slide"><span>{label}</span><Range min={min} max={max} step={step} value={v} onChange={(e) => on(+e.target.value)} aria-valuetext={`${v}${unit}`} /><output>{step < 1 ? v.toFixed(2) : v}{unit}</output></label>;
 }
 
 /* -------------------------------------------------------------- library -- */

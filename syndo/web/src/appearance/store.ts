@@ -64,8 +64,8 @@ export const effective = (): Draft => get().draft ?? committed();
 
 /* -------------------------------------------------------------- resolve -- */
 export function themeFor(id: string | null | undefined): ThemeDoc {
-  if (id?.startsWith("preset:")) return get().presets.find((p) => `preset:${p.id}` === id)?.data ?? PRESETS[2]!;
-  return presetById(id ?? "") ?? presetById("syndo-midnight")!;
+  if (id?.startsWith("preset:")) return get().presets.find((p) => `preset:${p.id}` === id)?.data ?? presetById(DEFAULT_GLOBAL.themeId)!;
+  return presetById(id ?? "") ?? presetById(DEFAULT_GLOBAL.themeId)!;
 }
 
 export function resolveFor(ctx: { guildId: string | null; channelId: string | null }, d: Draft = effective()): { resolved: Resolved; conversation: ConversationPrefs; customCss: string | null } {

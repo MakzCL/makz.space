@@ -12,7 +12,7 @@ const glassPanel = (opacity: number, blur: number) => ({ bg: "#0E1220", opacity,
 
 export const PRESETS: ThemeDoc[] = [
   p({
-    meta: { id: "syndo-glass", name: "SEND Glass", description: "Wallpaper-led, see-through panels with adjustable blur.", tags: ["glass", "wallpaper", "transparent", "dark"], scheme: "dark" },
+    meta: { id: "syndo-glass", name: "SEND Glass", description: "The default SEND look. Translucent panels, soft blur and a warm landscape.", tags: ["default", "glass", "wallpaper", "transparent", "dark"], scheme: "dark" },
     colors: { bg0: "#0B1020", bg1: "#111A33", bg2: "#131C36", bg3: "#22305A", line: "#3A4A7A", accent: "#6C8CFF" },
     panels: {
       rail: glassPanel(35, 18), sidebar: glassPanel(40, 18), dmSidebar: glassPanel(40, 18), chat: glassPanel(25, 10), header: glassPanel(35, 16),
@@ -29,7 +29,7 @@ export const PRESETS: ThemeDoc[] = [
     background: { dark: { kind: "image", asset: "builtin:frost", fit: "cover", brightness: 85, saturation: 90, overlay: 25, tint: "#0D1824", vignette: 20 }, target: "app" },
   }),
   p({
-    meta: { id: "syndo-midnight", name: "SEND Midnight", description: "Clean dark surfaces with subtle contrast. The default.", tags: ["dark", "default", "clean"], scheme: "dark" },
+    meta: { id: "syndo-midnight", name: "SEND Midnight", description: "Clean dark surfaces with subtle contrast.", tags: ["dark", "clean"], scheme: "dark" },
   }),
   p({
     meta: { id: "syndo-oled", name: "SEND OLED", description: "Near-black surfaces with minimal visual noise — easy on OLED screens and batteries.", tags: ["amoled", "black", "minimal", "dark"], scheme: "dark" },

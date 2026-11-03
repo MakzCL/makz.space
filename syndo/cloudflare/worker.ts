@@ -54,6 +54,11 @@ export class SENDBackend extends DurableObject<Env> {
     throw new Error("Backend did not become ready");
   }
   async fetch(request: Request) {
+    if (new URL(request.url).pathname === "/api/health" && this.ctx.container?.running) {
+      try {
+        return await this.ctx.container.getTcpPort(3900).fetch("http://container/api/health", { signal: AbortSignal.timeout(2500) });
+      } catch { /* Cold process: start or retry readiness below. */ }
+    }
     this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
     if (new URL(request.url).pathname === "/api/health" && !this.ready) {
       this.ctx.waitUntil(this.starting.catch(error => console.error("startup_failed",error.message)));

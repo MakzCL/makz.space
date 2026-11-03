@@ -129,7 +129,7 @@ export const DEFAULT_THEME: ThemeDoc = {
   effects: { animatedBackground: false, glow: 0, blurScale: 1 },
   conversation: { bubbles: { mine: "#3D6BFF", theirs: "#232C45", radius: 16, spacing: 4 } },
 };
-export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "syndo-midnight", lightThemeId: "syndo-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
+export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "syndo-glass", lightThemeId: "syndo-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
 
 /* ----------------------------------------------------------- validation -- */
 type Spec =
@@ -307,7 +307,7 @@ export function migrateThemeInput(i: Record<string, unknown>): Record<string, un
 
 export function migrateV1Appearance(a: Record<string, any> | undefined | null): GlobalAppearance {
   if (!a) return DEFAULT_GLOBAL;
-  const themeId = a.theme === "light" ? "syndo-paper" : a.theme === "contrast" ? "syndo-oled" : "syndo-midnight";
+  const themeId = a.theme === "light" ? "syndo-paper" : a.theme === "contrast" ? "syndo-oled" : a.theme ? "syndo-midnight" : DEFAULT_GLOBAL.themeId;
   const overrides: Record<string, any> = { colors: {}, typography: {}, layout: {}, panels: {} };
   if (typeof a.accent === "string") overrides.colors.accent = a.accent;
   if (a.theme === "custom" && a.custom) Object.assign(overrides.colors, a.custom);

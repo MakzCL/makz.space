@@ -1,3 +1,4 @@
+import { Range } from "../components/Range.tsx";
 import { RotateCcw } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
 import { getPath, setPath, unsetPath, type DeepPartial, type LayerName, type ThemeDoc } from "@syndo/shared";
@@ -68,7 +69,7 @@ export function RangeField({ path, label, min, max, step = 1, unit = "", hint }:
   const v = typeof f.value === "number" ? f.value : min;
   return (
     <Row label={label} hint={hint} path={path} field={f}>
-      <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => f.set(Number(e.target.value))} aria-label={label} aria-valuetext={`${v}${unit}`} />
+      <Range min={min} max={max} step={step} value={v} onChange={(e) => f.set(Number(e.target.value))} aria-label={label} aria-valuetext={`${v}${unit}`} />
       <output className="sf-num">{Number.isInteger(step) ? v : v.toFixed(2)}{unit}</output>
     </Row>
   );

@@ -1,3 +1,4 @@
+import { Range } from "../components/Range.tsx";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -59,11 +60,11 @@ export function CosmeticsEditor({ value, onChange }: { value: ProfileTheme; onCh
       </div>
       <div className="grid2">
         <label className="field"><span className="field-l">Avatar ring</span><select value={v.ring.style} onChange={(e) => set({ ring: { ...v.ring, style: e.target.value as ProfileTheme["ring"]["style"] } })}>{opts(RING_STYLES)}</select></label>
-        <label className="field"><span className="field-l">Ring colour / speed</span><span className="row"><input type="color" value={v.ring.color} onChange={(e) => set({ ring: { ...v.ring, color: e.target.value.toUpperCase() } })} /><input type="range" min={0.25} max={3} step={0.25} value={v.ring.speed} onChange={(e) => set({ ring: { ...v.ring, speed: +e.target.value } })} aria-label="Ring speed" /></span></label>
+        <label className="field"><span className="field-l">Ring colour / speed</span><span className="row"><input type="color" value={v.ring.color} onChange={(e) => set({ ring: { ...v.ring, color: e.target.value.toUpperCase() } })} /><Range min={0.25} max={3} step={0.25} value={v.ring.speed} onChange={(e) => set({ ring: { ...v.ring, speed: +e.target.value } })} aria-label="Ring speed" /></span></label>
         <label className="field"><span className="field-l">Profile frame</span><select value={v.frame} onChange={(e) => set({ frame: e.target.value as ProfileTheme["frame"] })}>{opts(FRAMES)}</select></label>
         <label className="field"><span className="field-l">Avatar decoration</span><select value={v.decoration} onChange={(e) => set({ decoration: e.target.value as ProfileTheme["decoration"] })}>{opts(DECORATIONS)}</select></label>
         <label className="field"><span className="field-l">Display-name style</span><select value={v.nameStyle} onChange={(e) => set({ nameStyle: e.target.value as ProfileTheme["nameStyle"] })}>{opts(NAME_STYLES)}</select></label>
-        <label className="field"><span className="field-l">Name glow</span><input type="range" min={0} max={100} value={v.nameGlow} onChange={(e) => set({ nameGlow: +e.target.value })} /></label>
+        <label className="field"><span className="field-l">Name glow</span><Range min={0} max={100} value={v.nameGlow} onChange={(e) => set({ nameGlow: +e.target.value })} /></label>
         <label className="field"><span className="field-l">Nameplate</span><select value={v.nameplate} onChange={(e) => set({ nameplate: e.target.value as ProfileTheme["nameplate"] })}>{opts(NAMEPLATES)}</select></label>
         <label className="field"><span className="field-l">Status indicator shape</span><select value={v.statusShape} onChange={(e) => set({ statusShape: e.target.value as ProfileTheme["statusShape"] })}>{opts(STATUS_SHAPES)}</select></label>
         <label className="field"><span className="field-l">Card entrance</span><select value={v.entrance} onChange={(e) => set({ entrance: e.target.value as ProfileTheme["entrance"] })}>{opts(ENTRANCES)}</select></label>
@@ -92,10 +93,10 @@ export function CosmeticsEditor({ value, onChange }: { value: ProfileTheme; onCh
             <button className="icon-btn sm danger" onClick={() => set({ effects: v.effects.filter((_, k) => k !== i) })} aria-label="Remove layer"><Trash2 size={14} /></button>
           </div>
           <div className="grid2">
-            <label className="slide"><span>Intensity</span><input type="range" min={0} max={100} value={l.intensity} onChange={(e) => setLayer(i, { intensity: +e.target.value })} /></label>
-            <label className="slide"><span>Speed</span><input type="range" min={0.25} max={3} step={0.25} value={l.speed} onChange={(e) => setLayer(i, { speed: +e.target.value })} /></label>
-            <label className="slide"><span>Duration {l.duration}s</span><input type="range" min={0.5} max={30} step={0.5} value={l.duration} onChange={(e) => setLayer(i, { duration: +e.target.value })} /></label>
-            <label className="slide"><span>Density</span><input type="range" min={0} max={100} value={l.density} onChange={(e) => setLayer(i, { density: +e.target.value })} /></label>
+            <label className="slide"><span>Intensity</span><Range min={0} max={100} value={l.intensity} onChange={(e) => setLayer(i, { intensity: +e.target.value })} /></label>
+            <label className="slide"><span>Speed</span><Range min={0.25} max={3} step={0.25} value={l.speed} onChange={(e) => setLayer(i, { speed: +e.target.value })} /></label>
+            <label className="slide"><span>Duration {l.duration}s</span><Range min={0.5} max={30} step={0.5} value={l.duration} onChange={(e) => setLayer(i, { duration: +e.target.value })} /></label>
+            <label className="slide"><span>Density</span><Range min={0} max={100} value={l.density} onChange={(e) => setLayer(i, { density: +e.target.value })} /></label>
           </div>
         </fieldset>
       ))}

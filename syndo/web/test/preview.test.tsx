@@ -12,6 +12,7 @@ dom.window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeE
 Object.assign(globalThis, { matchMedia: dom.window.matchMedia });
 // JSDOM omits CSS.escape; the Studio's preset identifiers need CSS selectors.
 Object.assign(globalThis, { CSS: { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`) } });
+Object.assign(globalThis, { ResizeObserver: class { observe() {} unobserve() {} disconnect() {} } });
 let networkCalls = 0;
 globalThis.fetch = (async () => { networkCalls++; throw new Error("Preview must stay offline"); }) as typeof fetch;
 Object.defineProperty(globalThis, "WebSocket", { value: class { constructor() { networkCalls++; throw new Error("Preview must not open a gateway"); } } });
