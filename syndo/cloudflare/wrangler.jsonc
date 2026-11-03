@@ -1,0 +1,12 @@
+{
+  "name":"syndo-beta-api",
+  "main":"worker.ts",
+  "compatibility_date":"2026-11-03",
+  "compatibility_flags":["nodejs_compat"],
+  "observability":{"enabled":true,"head_sampling_rate":1},
+  "containers":[{"name":"syndo-beta-api","class_name":"SyndoBackend","image":"docker.io/library/node:22-bookworm-slim","instance_type":"basic","max_instances":1}],
+  "durable_objects":{"bindings":[{"name":"BACKEND","class_name":"SyndoBackend"}]},
+  "migrations":[{"tag":"v1","new_sqlite_classes":["SyndoBackend"]}],
+  "r2_buckets":[{"binding":"UPLOADS","bucket_name":"syndo-beta-uploads"}],
+  "vars":{"SOURCE_COMMIT":"REPLACE_WITH_TESTED_COMMIT","STORAGE_ORIGIN":"https://syndo-beta-api.kuklinskikarol04.workers.dev"}
+}

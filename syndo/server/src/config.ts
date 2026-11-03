@@ -17,6 +17,8 @@ export const config = {
   extraOrigins: (env.SYNDO_EXTRA_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   databaseUrl: env.DATABASE_URL ?? "postgres://syndo:syndo@localhost:5432/syndo",
   storageDir: env.SYNDO_STORAGE_DIR ?? new URL("../../data/storage", import.meta.url).pathname,
+  storageOrigin: env.SYNDO_STORAGE_ORIGIN ?? null,
+  storageToken: env.SYNDO_STORAGE_TOKEN ?? null,
   cookieSecure: env.SYNDO_COOKIE_SECURE === "1",
   sessionDays: int(env.SYNDO_SESSION_DAYS, 30),
   /** Require a verified email before sending messages / joining servers. */

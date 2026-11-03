@@ -4,7 +4,7 @@ import { config } from "./config.ts";
 import { startJobs } from "./jobs.ts";
 import { migrate } from "./migrate.ts";
 
-await migrate();
+if (process.env.SYNDO_AUTO_MIGRATE !== "0") await migrate();
 const app = await buildApp({ logger: process.env.NODE_ENV === "production" });
 await app.listen({ port: config.port, host: config.host });
 startJobs();
