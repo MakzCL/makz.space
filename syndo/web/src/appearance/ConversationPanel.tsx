@@ -15,7 +15,8 @@ export function ConversationPanel({ channel, onClose }: { channel: Channel; onCl
   const key = scopeKey("channel", channel.id);
   const scope = useAppearance((s) => s.scopes[key]?.data) ?? { overrides: {} };
   const saveState = useAppearance((s) => s.saveState);
-  const shared = useAppearance((s) => s.shared.filter((x) => x.channel_id === channel.id));
+  const allShared = useAppearance((s) => s.shared);
+  const shared = allShared.filter((x) => x.channel_id === channel.id);
   const meId = useStore((s) => s.me?.id);
   const users = useStore((s) => s.users);
   const conv: ConversationPrefs = scope.conversation ?? {};

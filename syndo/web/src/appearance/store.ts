@@ -102,6 +102,7 @@ export function reapply() {
     const r = resolveFor(ctx);
     applyToDocument(r.resolved, r.conversation, r.customCss);
     set({ resolved: r.resolved, conversation: r.conversation });
+    (window as any).__syndoTheme = r.resolved.theme.meta.id; // test/diagnostics hook
     if (!s.draft && !s.safeMode && !s.previewCtx) saveSnapshot();
   });
 }

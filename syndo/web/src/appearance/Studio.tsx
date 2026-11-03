@@ -433,7 +433,9 @@ function LayoutSection() {
 function ScopeList({ kind, onPick }: { kind: "guild" | "channel"; onPick: (t: Target) => void }) {
   const guilds = useStore((s) => s.guilds);
   const dms = useStore((s) => s.dms);
-  const scopes = useAppearance((s) => (s.draft ?? { scopes: Object.fromEntries(Object.entries(s.scopes).map(([k, v]) => [k, v.data])) }).scopes);
+  const draftScopes = useAppearance((s) => s.draft?.scopes);
+  const saved = useAppearance((s) => s.scopes);
+  const scopes: Record<string, unknown> = draftScopes ?? Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v.data]));
   const has = (k: string) => !!scopes[k];
   return (
     <div className="stack">
