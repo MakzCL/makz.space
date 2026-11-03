@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en-GB">
   <head>
+    <script>/* Kimera was renamed Kortana: the old address forwards to the new one */if(/^kimera\./.test(location.hostname))location.replace("https://"+location.hostname.replace(/^kimera\./,"kortana.")+location.pathname+location.search+location.hash)</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Skalarki Factory</title>
@@ -25,7 +26,7 @@
   </head>
   <body>
     <div id="boot"><img alt="" src="/icon-maskable-512.png" /></div>
-    <script>if(/^kimera\./.test(location.hostname)||location.pathname.indexOf("/kimera")===0)document.querySelector("#boot img").src="/kimera-maskable-512.png"</script>
+    <script>if(/^(kortana|kimera)\./.test(location.hostname)||location.pathname.indexOf("/kimera")===0)document.querySelector("#boot img").src="/kimera-maskable-512.png"</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

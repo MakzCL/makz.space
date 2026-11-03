@@ -8,8 +8,8 @@ import "./styles.css";
 
 apply();
 installGlobalHandlers();
-/** Kortana (inventory) runs from kimera.makz.space, or /kimera on any host. */
-const kimera = location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera");
+/** Kortana (inventory) runs from kortana.makz.space, or /kimera on any host. */
+const kimera = /^(kortana|kimera)\./.test(location.hostname) || location.pathname.startsWith("/kimera");
 if (kimera) {
   document.title = "Kortana";
   document.documentElement.classList.add("is-kimera");

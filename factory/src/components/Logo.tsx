@@ -17,8 +17,8 @@ export const K_PATHS = [
 ];
 export const K_VIEWBOX = "86 60 614 358";
 
-/** Kortana runs on kimera.makz.space (or /kimera): loaders and splash use the K there. */
-export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
+/** Kortana runs on kortana.makz.space (or /kimera): loaders and splash use the K there. */
+export const IS_KIMERA = typeof location !== "undefined" && (/^(kortana|kimera)\./.test(location.hostname) || location.pathname.startsWith("/kimera"));
 export interface Mark { paths: string[]; viewBox: string; ratio: number; /** viewBox height ÷ drawn mark height */ pad: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
 export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, pad: 368 / 347, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
 export const K_MARK: Mark = { paths: [], viewBox: "86 60 614 358", ratio: 614 / 358, pad: 358 / 346, fill: "k-grad", hi: "#e7a3ff", from: [], origin: "390px 240px" };
