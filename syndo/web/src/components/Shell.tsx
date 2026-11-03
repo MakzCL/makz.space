@@ -18,6 +18,21 @@ import { ServerSettings } from "./ServerSettings.tsx";
 import { UserSettings } from "./UserSettings.tsx";
 import { Avatar, Mark, statusLabel } from "./ui.tsx";
 import { VoiceStage } from "./VoiceStage.tsx";
+import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
+import { openStudio } from "../appearance/Studio.tsx";
+import { setContext, updateGlobal, useAppearance } from "../appearance/store.ts";
+import { Palette, PanelLeftOpen } from "lucide-react";
+
+/** Arrow keys move focus between server icons in the rail/bar (works vertically, horizontally and in columns). */
+function railArrows(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+  const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>(".rail-item > button")];
+  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : i + (e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1);
+  items[Math.max(0, Math.min(items.length - 1, next))]?.focus();
+}
 
 export type Dialog = null | { kind: "createServer" } | { kind: "invite"; guildId: string; channelId?: string } | { kind: "createChannel"; guildId: string; parentId?: string | null; type?: number }
   | { kind: "groupDm" } | { kind: "userSettings"; tab?: string } | { kind: "serverSettings"; guildId: string; tab?: string };
@@ -45,18 +60,30 @@ export function Shell() {
 
   const voiceChannel = useVoice((s) => s.channelId);
   const viewingVoice = guild && guild.channels.find((c) => c.id === cid && isVoiceType(c.type));
+  // Appearance follows the route: server and channel/conversation scopes apply immediately on navigation.
+  useEffect(() => { setContext(guild?.id ?? null, cid || null); }, [guild?.id, cid]);
+  const { bg, target } = useActiveBackground();
+  const showSidebar = useAppearance((s) => s.resolved.theme.layout.showSidebar);
 
   return (
-    <div className={`shell ${navOpen ? "nav-open" : ""}`}>
+    <div className={`shell syndo-css ${navOpen ? "nav-open" : ""} ${showSidebar ? "" : "no-sidebar"}`} data-region="app">
+      {bg && target === "app" && <Backdrop bg={bg} className="app-bd" />}
       <a className="skip" href="#main">Skip to content</a>
       {conn === "reconnecting" && <div className="conn-banner" role="status">Reconnecting… messages will catch up automatically.</div>}
       <GuildRail current={gid} onDialog={setDialog} />
-      <nav className="sidebar" aria-label={guild ? `${guild.name} channels` : "Direct messages"}>
+      <nav className="sidebar" data-region={guild ? "sidebar" : "dmSidebar"} aria-label={guild ? `${guild.name} channels` : "Direct messages"}>
         {guild ? <GuildSidebar guild={guild} current={cid} onDialog={setDialog} /> : <DmSidebar current={cid} onDialog={setDialog} />}
         {voiceChannel && <VoiceBar />}
         <UserPanel onDialog={setDialog} />
       </nav>
       <button className="nav-toggle" aria-label="Open navigation" onClick={() => setNavOpen((v) => !v)}><Hash size={18} /></button>
+      {!showSidebar && (
+        // Sidebar hidden by layout: navigation and settings must stay reachable.
+        <div className="collapsed-tools">
+          <button className="icon-btn" aria-label="Show channel sidebar" title="Show sidebar" onClick={() => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, layout: { ...(x.overrides.layout ?? {}), showSidebar: true } } }))}><PanelLeftOpen size={18} /></button>
+          <button className="icon-btn" aria-label="User settings" onClick={() => setDialog({ kind: "userSettings" })}><Settings size={18} /></button>
+        </div>
+      )}
       <main id="main" className="main" tabIndex={-1}>
         {viewingVoice ? <VoiceStage channel={viewingVoice} guild={guild!} />
           : cid ? <ChannelView key={cid} channelId={cid} guildId={guild?.id ?? null} highlight={route.params.message || null} />
@@ -100,14 +127,14 @@ function GuildRail({ current, onDialog }: { current: string; onDialog: (d: Dialo
     updateSettings({ guild_order: ids });
   };
   const onKeyMove = (e: React.KeyboardEvent, id: string) => {
-    if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    if (!e.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
     e.preventDefault();
-    const ids = sorted.map((g) => g.id); const i = ids.indexOf(id); const j = i + (e.key === "ArrowUp" ? -1 : 1);
+    const ids = sorted.map((g) => g.id); const i = ids.indexOf(id); const j = i + (e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1);
     if (j < 0 || j >= ids.length) return;
     [ids[i], ids[j]] = [ids[j]!, ids[i]!]; updateSettings({ guild_order: ids });
   };
   return (
-    <nav className="rail" aria-label="Servers">
+    <nav className="rail" data-region="rail" aria-label="Servers" onKeyDown={railArrows}>
       <RailItem active={current === "@me"} label="Direct messages" badge={dmMentions} onClick={() => navigate("/channels/@me")}><Mark size={30} title={`${BRAND.name} home`} /></RailItem>
       <hr />
       {sorted.map((g) => {
@@ -142,6 +169,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
   const dms = useStore((s) => s.dms);
   const readStates = useStore((s) => s.readStates);
   const pending = useStore((s) => Object.values(s.relationships).filter((r) => r.type === 3).length);
+  const scopes = useAppearance((s) => s.scopes);
   const list = Object.values(dms).sort((a, b) => (BigInt(b.last_message_id ?? b.id) > BigInt(a.last_message_id ?? a.id) ? 1 : -1));
   return (
     <>
@@ -157,7 +185,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
           return (
             <button key={c.id} className={`side-dm ${current === c.id ? "active" : ""} ${isUnread(c) ? "unread" : ""}`} onClick={() => navigate(`/channels/@me/${c.id}`)}>
               {other ? <Avatar user={other} size={32} status="" /> : <span className="group-ico"><Users size={18} /></span>}
-              <span className="ellipsis">{other ? displayName(other) : dmTitle(c)}{c.type === ChannelType.GROUP_DM && <small className="muted block">{(c.recipients?.length ?? 0) + 1} members</small>}</span>
+              <span className="ellipsis">{other ? (scopes[`channel:${c.id}`]?.data.conversation?.label ? <><span className="local-label">{scopes[`channel:${c.id}`]!.data.conversation!.label}</span> <small className="muted">{displayName(other)}</small></> : displayName(other)) : dmTitle(c)}{c.type === ChannelType.GROUP_DM && <small className="muted block">{(c.recipients?.length ?? 0) + 1} members</small>}</span>
               {mentions > 0 && <span className="badge inline">{mentions}</span>}
             </button>
           );
@@ -193,7 +221,8 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
               <button role="menuitem" onClick={() => onDialog({ kind: "serverSettings", guildId: guild.id })}><Settings size={16} /> Server settings</button>}
             {has(perms, P.MANAGE_CHANNELS) && <button role="menuitem" onClick={() => onDialog({ kind: "createChannel", guildId: guild.id })}><Plus size={16} /> Create channel</button>}
             {has(perms, P.MANAGE_CHANNELS) && <button role="menuitem" onClick={() => onDialog({ kind: "createChannel", guildId: guild.id, type: ChannelType.CATEGORY })}><FolderPlus size={16} /> Create category</button>}
-            <button role="menuitem" onClick={() => onDialog({ kind: "serverSettings", guildId: guild.id, tab: "profile" })}><Users size={16} /> Edit server profile</button>
+            <button role="menuitem" onClick={() => openStudio("profile")}><Users size={16} /> Edit server profile</button>
+            <button role="menuitem" onClick={() => openStudio("colors", { kind: "guild", id: guild.id, label: guild.name })}><Palette size={16} /> Edit appearance</button>
             {guild.owner_id !== guild.me.user.id && <button role="menuitem" className="danger" onClick={leave}><LogOut size={16} /> Leave server</button>}
           </div>
         )}
@@ -260,7 +289,7 @@ function VoiceBar() {
   const ch = useStore(useShallow((s) => { for (const g of Object.values(s.guilds)) { const c = g.channels.find((x) => x.id === v.channelId); if (c) return { name: c.name, guild: g.name, gid: g.id }; } const d = v.channelId ? s.dms[v.channelId] : null; return d ? { name: dmTitle(d), guild: "Call", gid: "@me" } : null; }));
   const label = { idle: "Disconnected", connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…", error: "Connection failed" }[v.status];
   return (
-    <section className={`voice-bar vs-${v.status}`} aria-label="Voice connection">
+    <section className={`voice-bar vs-${v.status}`} data-region="userPanel" aria-label="Voice connection">
       <div className="vb-top">
         <Signal size={16} aria-hidden />
         <button className="link" onClick={() => v.channelId && navigate(`/channels/${ch?.gid ?? "@me"}/${v.channelId}`)}>
@@ -280,7 +309,7 @@ function UserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
   const [menu, setMenu] = useState(false);
   const setStatus = (status: string) => { gwSend("status", { status }); api.patch("/api/users/@me", { status }).catch(() => {}); setMenu(false); };
   return (
-    <section className="user-panel" aria-label="Your account">
+    <section className="user-panel" data-region="userPanel" aria-label="Your account">
       <button className="up-me" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label={`Set status, currently ${statusLabel(me.status)}`}>
         <Avatar user={me} size={34} status={me.status === "invisible" ? "invisible" : me.status} />
         <span className="ellipsis"><strong>{displayName(me)}</strong><small className="block muted ellipsis">{me.custom_status?.text || statusLabel(me.status)}</small></span>
@@ -290,6 +319,7 @@ function UserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
           {(["online", "idle", "dnd", "invisible"] as const).map((s) => (
             <button key={s} role="menuitemradio" aria-checked={me.status === s} onClick={() => setStatus(s)}><i className={`sdot s-${s}`} /> {statusLabel(s)}</button>
           ))}
+          <button role="menuitem" onClick={() => { setMenu(false); openStudio("gallery"); }}><Palette size={14} /> Edit appearance</button>
           <button role="menuitem" onClick={async () => {
             const text = prompt("Custom status", me.custom_status?.text ?? "");
             if (text === null) return;

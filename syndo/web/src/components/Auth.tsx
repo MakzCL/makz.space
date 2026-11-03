@@ -4,6 +4,7 @@ import { ApiError, api, errMsg } from "../api.ts";
 import { signedIn } from "../actions.ts";
 import { navigate, setTitle, useRoute } from "../router.ts";
 import { Field, Mark } from "./ui.tsx";
+import { ResetAppearanceLink } from "../appearance/Recovery.tsx";
 
 function Card({ title, sub, children }: { title: string; sub?: ReactNode; children: ReactNode }) {
   useEffect(() => setTitle(title), [title]);
@@ -15,6 +16,7 @@ function Card({ title, sub, children }: { title: string; sub?: ReactNode; childr
         <h1 id="auth-title">{title}</h1>
         {sub && <p className="muted">{sub}</p>}
         {children}
+        <div className="auth-recover"><ResetAppearanceLink /></div>
       </section>
     </main>
   );

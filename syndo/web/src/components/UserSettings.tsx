@@ -3,10 +3,13 @@ import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, 
 import { api, errMsg, upload } from "../api.ts";
 import { logout, updateSettings } from "../actions.ts";
 import { displayName, toast, useStore } from "../store.ts";
-import { DEFAULT_APPEARANCE, applyAppearance, exportTheme, importTheme, validateAppearance, type Appearance } from "../theme.ts";
 import { applyPreset, captureCapabilities } from "../voice/settings.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
+import { PRESETS, type A11yPrefs } from "@syndo/shared";
+import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
+import { openStudio } from "../appearance/Studio.tsx";
+import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
 const TABS = [["account", "My account"], ["profile", "Profile"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
 
@@ -21,9 +24,9 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
         </nav>
         <section className="settings-body" role="tabpanel">
           {tab === "account" && <Account />}
-          {tab === "profile" && <ProfileTab />}
+          {tab === "profile" && <ProfileEditor />}
           {tab === "privacy" && <Privacy />}
-          {tab === "appearance" && <AppearanceTab />}
+          {tab === "appearance" && <AppearanceTab onClose={onClose} />}
           {tab === "accessibility" && <AccessibilityTab />}
           {tab === "voice" && <VoiceTab />}
           {tab === "notifications" && <NotificationsTab />}
@@ -89,52 +92,48 @@ function Account() {
 }
 const describeUA = (ua: string | null) => { if (!ua) return "Unknown device"; const b = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "App"; const os = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "device"; return `${b} on ${os}`; };
 
-/** The free cosmetic library — original styles, no purchases, ever. */
-export const DECORATIONS = [["", "None"], ["halo", "Sun halo"], ["sprout", "Sprout"], ["starlight", "Starlight"], ["bubbles", "Chat bubbles"], ["socks", "Odd socks"]] as const;
-export const EFFECTS = [["", "None"], ["glow", "Soft glow"], ["aurora", "Aurora"], ["sparkle", "Sparkle"]] as const;
-export const NAME_STYLES = [["", "Plain"], ["gradient", "Gradient"], ["glow", "Glow"], ["outline", "Outline"]] as const;
-
-function ProfileTab() {
-  const me = useStore((s) => s.me!);
-  const [f, setF] = useState({ display_name: me.display_name ?? "", bio: me.bio, pronouns: me.pronouns, accent_color: me.accent_color ?? BRAND.colors.blue });
-  const [theme, setTheme] = useState(me.profile_theme ?? { primary: BRAND.colors.blue, secondary: BRAND.colors.yellow, effect: null, decoration: null, nameStyle: null });
-  const [pct, setPct] = useState<number | null>(null);
-  const fileFor = (kind: "avatar" | "banner") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const fd = new FormData(); fd.append("file", file);
-    const u = upload(`/api/users/@me/${kind}`, fd, setPct);
-    u.promise.then(() => toast(`${kind === "avatar" ? "Avatar" : "Banner"} updated.`, "success")).catch((x) => toast(errMsg(x), "error")).finally(() => setPct(null));
-  };
-  const preview = { ...me, display_name: f.display_name || null, profile_theme: theme, accent_color: f.accent_color };
+/** Quick appearance controls. They save (debounced) to the same synced preferences Studio edits. */
+function AppearanceTab({ onClose }: { onClose: () => void }) {
+  const g = useAppearance((s) => s.global.data);
+  const saveState = useAppearance((s) => s.saveState);
   return (
-    <div className="profile-editor">
-      <div className="stack">
-        <h2>Profile</h2>
-        <p className="muted small">Animated avatars and banners (GIF, animated WebP/PNG), profile themes, decorations and effects are free for everyone.</p>
-        <Field label="Display name"><input value={f.display_name} maxLength={32} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
-        <Field label="Pronouns"><input value={f.pronouns} maxLength={40} onChange={(e) => setF({ ...f, pronouns: e.target.value })} /></Field>
-        <Field label="About me" hint={`${f.bio.length}/400`}><textarea value={f.bio} maxLength={400} rows={4} onChange={(e) => setF({ ...f, bio: e.target.value })} /></Field>
-        <div className="row wrap">
-          <label className="btn">Change avatar<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden onChange={fileFor("avatar")} /></label>
-          <label className="btn">Change banner<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden onChange={fileFor("banner")} /></label>
-          {me.avatar && <button className="btn" onClick={() => run(() => api.del("/api/users/@me/avatar"))}>Remove avatar</button>}
-          {pct !== null && <progress max={1} value={pct} />}
-        </div>
-        <div className="row wrap">
-          <Field label="Theme colour 1"><input type="color" value={theme.primary} onChange={(e) => setTheme({ ...theme, primary: e.target.value.toUpperCase() })} /></Field>
-          <Field label="Theme colour 2"><input type="color" value={theme.secondary} onChange={(e) => setTheme({ ...theme, secondary: e.target.value.toUpperCase() })} /></Field>
-          <Field label="Accent"><input type="color" value={f.accent_color} onChange={(e) => setF({ ...f, accent_color: e.target.value.toUpperCase() })} /></Field>
-        </div>
-        <Field label="Avatar decoration"><select value={theme.decoration ?? ""} onChange={(e) => setTheme({ ...theme, decoration: e.target.value || null })}>{DECORATIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-        <Field label="Profile effect"><select value={theme.effect ?? ""} onChange={(e) => setTheme({ ...theme, effect: e.target.value || null })}>{EFFECTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-        <Field label="Name style" hint="Animated styles respect reduced motion."><select value={theme.nameStyle ?? ""} onChange={(e) => setTheme({ ...theme, nameStyle: e.target.value || null })}>{NAME_STYLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-        <button className="btn primary" onClick={() => run(() => api.patch("/api/users/@me", { ...f, display_name: f.display_name || null, profile_theme: theme }), "Profile saved.")}>Save profile</button>
+    <div className="stack">
+      <h2>Appearance</h2>
+      <div className="card row wrap">
+        <div className="grow"><strong>Syndo Studio</strong><p className="muted small">Themes, panel transparency, backgrounds, layout, per-server and per-conversation looks, profile effects, presets and import/export.</p></div>
+        <button className="btn primary" onClick={() => { onClose(); openStudio("gallery"); }}>Open Syndo Studio</button>
       </div>
-      <div className={`profile-card static ${theme.effect ? `fx-${theme.effect}` : ""}`} style={{ "--pc1": theme.primary, "--pc2": theme.secondary } as any} aria-label="Preview">
-        <div className="pc-banner" style={me.banner ? { backgroundImage: `url(${me.banner})` } : { background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})` }} />
-        <div className="pc-av"><Avatar user={preview} size={80} status={me.status} /></div>
-        <div className="pc-body"><h2 className={theme.nameStyle ? `name-${theme.nameStyle}` : ""}>{f.display_name || me.username}</h2><div className="muted">@{me.username}{f.pronouns && ` · ${f.pronouns}`}</div>{f.bio && <p className="pre">{f.bio}</p>}</div>
-      </div>
+      <Field label="Theme"><select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("syndo-") && <option value={g.themeId}>My preset</option>}</select></Field>
+      <Field label="Accent colour"><input type="color" value={(g.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, colors: { ...(x.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></Field>
+      <Toggle label="Follow system light/dark" checked={g.followSystem} onChange={(v) => updateGlobal((x) => ({ ...x, followSystem: v }))} />
+      <p className="muted small" role="status">{saveState === "pending" || saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save — check your connection." : "Saved and synced to your devices."}</p>
+    </div>
+  );
+}
+
+function AccessibilityTab() {
+  const a = useAppearance((s) => s.global.data.a11y);
+  const set = (p: Partial<A11yPrefs>) => updateGlobal((x) => ({ ...x, a11y: { ...x.a11y, ...p } }));
+  return (
+    <div className="stack">
+      <h2>Accessibility</h2>
+      <Field label="Reduced motion"><select value={a.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system setting</option><option value="on">Always reduce motion</option><option value="off">Allow motion</option></select></Field>
+      <Toggle label="High contrast" checked={a.highContrast} onChange={(v) => set({ highContrast: v })} />
+      <Toggle label="Keep text readable" hint="Fixes low-contrast theme text automatically." checked={a.minContrast} onChange={(v) => set({ minContrast: v })} />
+      <Toggle label="Readable overlay for busy wallpapers" checked={a.readableOverlay} onChange={(v) => set({ readableOverlay: v })} />
+      <Toggle label="Disable animated backgrounds" checked={a.disableAnimatedBackgrounds} onChange={(v) => set({ disableAnimatedBackgrounds: v })} />
+      <Toggle label="Disable profile effects" checked={a.disableProfileEffects} onChange={(v) => set({ disableProfileEffects: v })} />
+      <Toggle label="Hide other people's cosmetics" checked={a.disableOthersCosmetics} onChange={(v) => set({ disableOthersCosmetics: v })} />
+      <Field label="Blur"><select value={a.blur} onChange={(e) => set({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select></Field>
+      <Toggle label="Low-power mode" checked={a.lowPower} onChange={(v) => set({ lowPower: v })} />
+      <h3>Keyboard</h3>
+      <ul className="small keys">
+        <li><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> move between areas; a skip link jumps to messages.</li>
+        <li><kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> new line · <kbd>Esc</kbd> cancel or close.</li>
+        <li><kbd>Alt+↑/↓</kbd> (or <kbd>Alt+←/→</kbd> in the horizontal bar) on a server icon reorders servers.</li>
+        <li><kbd>Ctrl+K</kbd> quick switcher · <kbd>Ctrl+Shift+Alt+R</kbd> safe appearance mode.</li>
+      </ul>
+      <div className="row wrap"><button className="btn" onClick={() => setSafeMode(true)}>Pause my appearance (safe mode)</button><button className="btn danger" onClick={() => confirm("Reset all appearance to default?") && resetAppearance("all")}>Reset appearance</button></div>
     </div>
   );
 }
@@ -150,64 +149,6 @@ function Privacy() {
       <Toggle label="Allow direct messages from server members" hint="Friends can always message you. Blocked people never can." checked={me.privacy.dms_from_server_members} onChange={(v) => save({ dms_from_server_members: v })} />
       <Toggle label="Show mutual servers and friends on my profile" checked={me.privacy.show_mutuals} onChange={(v) => save({ show_mutuals: v })} />
       <p className="muted small">Blocking someone hides their friend requests, stops new DMs and calls between you, and keeps them out of group conversations you're in. They aren't told.</p>
-    </div>
-  );
-}
-
-function useAppearance(): [Appearance, (p: Partial<Appearance>) => void] {
-  const raw = useStore((s) => (s.me?.settings as any)?.appearance);
-  const a = useMemo(() => validateAppearance(raw ?? DEFAULT_APPEARANCE), [raw]);
-  return [a, (p) => { const next = validateAppearance({ ...a, ...p }); applyAppearance(next); updateSettings({ appearance: next }); }];
-}
-
-function AppearanceTab() {
-  const [a, set] = useAppearance();
-  const file = useRef<HTMLInputElement>(null);
-  return (
-    <div className="stack">
-      <h2>Appearance</h2>
-      <fieldset className="theme-pick"><legend className="field-l">Theme</legend>
-        {(["dark", "light", "system", "contrast", "custom"] as const).map((t) => (
-          <label key={t} className={`theme-sw sw-${t} ${a.theme === t ? "active" : ""}`}><input type="radio" name="theme" checked={a.theme === t} onChange={() => set({ theme: t })} /><span>{{ dark: "Night", light: "Day", system: "Sync with system", contrast: "High contrast", custom: "Custom" }[t]}</span></label>
-        ))}
-      </fieldset>
-      <Field label="Accent colour"><div className="row wrap">{[BRAND.colors.blue, BRAND.colors.yellowDeep, BRAND.colors.coral, "#2FBF71", "#9B6BFF", "#E5484D"].map((c) => <button key={c} className={`swatch ${a.accent === c ? "active" : ""}`} style={{ background: c }} aria-label={`Accent ${c}`} onClick={() => set({ accent: c })} />)}<input type="color" value={a.accent} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} aria-label="Custom accent" /></div></Field>
-      {a.theme === "custom" && (
-        <div className="row wrap">{(["bg0", "bg1", "bg2", "bg3", "line", "text", "textMuted"] as const).map((k) => (
-          <Field key={k} label={k}><input type="color" value={a.custom[k] ?? (getComputedStyle(document.documentElement).getPropertyValue(`--${k}`).trim() || "#000000")} onChange={(e) => set({ custom: { ...a.custom, [k]: e.target.value.toUpperCase() } })} /></Field>
-        ))}</div>
-      )}
-      <Field label="Chat background"><div className="row"><input type="color" value={a.chatBackground ?? "#1A2136"} onChange={(e) => set({ chatBackground: e.target.value.toUpperCase() })} /><button className="btn sm" onClick={() => set({ chatBackground: null })}>Reset</button></div></Field>
-      <Field label="Message density"><select value={a.density} onChange={(e) => set({ density: e.target.value as any })}><option value="compact">Compact</option><option value="cozy">Cozy</option><option value="spacious">Spacious</option></select></Field>
-      <Toggle label="Round avatars" checked={a.roundAvatars} onChange={(v) => set({ roundAvatars: v })} />
-      <h3>Share your theme</h3>
-      <p className="muted small">Themes are colour values only — imported files can't run code.</p>
-      <div className="row wrap">
-        <button className="btn" onClick={() => { const blob = new Blob([exportTheme(a)], { type: "application/json" }); const u = URL.createObjectURL(blob); const l = document.createElement("a"); l.href = u; l.download = "syndo-theme.json"; l.click(); URL.revokeObjectURL(u); }}>Export</button>
-        <button className="btn" onClick={() => file.current?.click()}>Import</button>
-        <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { const next = importTheme(await f.text(), a); set(next); toast("Theme imported.", "success"); } catch (x) { toast(errMsg(x), "error"); } e.target.value = ""; }} />
-        <button className="btn danger" onClick={() => set(DEFAULT_APPEARANCE)}>Reset to default</button>
-      </div>
-    </div>
-  );
-}
-
-function AccessibilityTab() {
-  const [a, set] = useAppearance();
-  return (
-    <div className="stack">
-      <h2>Accessibility</h2>
-      <Field label={`Text size — ${Math.round(a.fontScale * 100)}%`}><input type="range" min={0.8} max={1.4} step={0.05} value={a.fontScale} onChange={(e) => set({ fontScale: +e.target.value })} /></Field>
-      <Field label="Reduced motion"><select value={a.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.value as any })}><option value="system">Follow my system setting</option><option value="on">Always reduce motion</option><option value="off">Allow motion</option></select></Field>
-      <Toggle label="Play animated avatars, banners and emoji" checked={a.showAnimatedAvatars} onChange={(v) => set({ showAnimatedAvatars: v })} />
-      <Toggle label="High contrast theme" checked={a.theme === "contrast"} onChange={(v) => set({ theme: v ? "contrast" : "dark" })} />
-      <h3>Keyboard</h3>
-      <ul className="small keys">
-        <li><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> move between areas; a skip link jumps to messages.</li>
-        <li><kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> new line · <kbd>Esc</kbd> cancel reply/edit or close dialogs.</li>
-        <li><kbd>Alt+↑/↓</kbd> on a server icon reorders servers.</li>
-        <li><kbd>Ctrl+K</kbd> quick switcher.</li>
-      </ul>
     </div>
   );
 }

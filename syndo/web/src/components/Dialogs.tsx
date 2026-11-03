@@ -7,6 +7,8 @@ import { openDm } from "../actions.ts";
 import { navigate, setTitle, useRoute } from "../router.ts";
 import { displayName, toast, useStore } from "../store.ts";
 import { Avatar, Field, Mark, Modal, statusLabel } from "./ui.tsx";
+import { ProfileCardView } from "../appearance/ProfileEditor.tsx";
+import { openStudio } from "../appearance/Studio.tsx";
 
 const TEMPLATES = [
   { id: "default", label: "Start fresh", hint: "A text and a voice channel." },
@@ -143,7 +145,7 @@ export function NewGroupDm({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface Profile { user: User; created_at: string; custom_status: any; presence: string; relationship: number; mutual_guilds: { id: string; name: string }[]; mutual_friends: User[]; member: { nick: string | null; joined_at: string; avatar: string | null; bio: string | null; roles: string[] } | null }
+interface Profile { user: User; created_at: string; custom_status: any; presence: string; relationship: number; mutual_guilds: { id: string; name: string }[]; mutual_friends: User[]; member: { nick: string | null; joined_at: string; avatar: string | null; banner: string | null; bio: string | null; pronouns: string | null; profile_theme: unknown; custom_status: any; roles: string[] } | null }
 
 export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: string; guildId: string | null; anchor: HTMLElement; onClose: () => void }) {
   const [p, setP] = useState<Profile | null>(null);
@@ -162,38 +164,37 @@ export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: stri
     document.addEventListener("mousedown", onDown); document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
   }, [onClose]);
-  const theme = p?.user.profile_theme;
-  const act = (fn: () => Promise<unknown>) => fn().then(() => api.get<Profile>(`/api/users/${userId}/profile`).then(setP)).catch((e) => toast(errMsg(e), "error"));
+  const act = (fn: () => Promise<unknown>) => fn().then(() => api.get<Profile>(`/api/users/${userId}/profile${guildId ? `?guild_id=${guildId}` : ""}`).then(setP)).catch((e) => toast(errMsg(e), "error"));
+  const m = p?.member;
   return (
-    <div ref={ref} className={`profile-card ${theme?.effect ? `fx-${theme.effect}` : ""}`} role="dialog" aria-label="Profile" style={{ ...pos, ...(theme ? { "--pc1": theme.primary, "--pc2": theme.secondary } as any : {}) }}>
+    <div ref={ref} className="profile-card" data-region="profileCard" role="dialog" aria-label="Profile" style={pos}>
       {!p ? <p className="muted pad">Loading…</p> : (
-        <>
-          <div className="pc-banner" style={p.user.banner ? { backgroundImage: `url(${p.user.banner})` } : { background: theme ? `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})` : p.user.accent_color ?? "var(--accent)" }} />
-          <div className="pc-av"><Avatar user={p.user} size={80} status={p.presence} src={p.member?.avatar} /></div>
-          <div className="pc-body">
-            <h2 className={theme?.nameStyle ? `name-${theme.nameStyle}` : ""}>{p.member?.nick || displayName(p.user)}</h2>
-            <div className="muted">@{p.user.username}{p.user.pronouns && ` · ${p.user.pronouns}`}</div>
-            {p.custom_status?.text && <p className="pc-status">{p.custom_status.emoji} {p.custom_status.text}</p>}
-            {(p.member?.bio || p.user.bio) && <section><h3>About me</h3><p className="pre">{p.member?.bio || p.user.bio}</p></section>}
-            <section><h3>Member since</h3><p className="small">{new Date(p.created_at).toLocaleDateString()}{p.member && guild && ` · joined ${guild.name} ${new Date(p.member.joined_at).toLocaleDateString()}`}</p></section>
-            {p.member && guild && p.member.roles.length > 0 && <section><h3>Roles</h3><div className="role-chips">{guild.roles.filter((r) => p.member!.roles.includes(r.id)).sort((a, b) => b.position - a.position).map((r) => <span key={r.id} className="role-chip"><i style={{ background: r.color ?? "var(--textFaint)" }} />{r.name}</span>)}</div></section>}
-            {userId !== meId && (p.mutual_guilds.length > 0 || p.mutual_friends.length > 0) && (
-              <section><h3>Mutuals</h3><p className="small muted">{p.mutual_guilds.length} mutual server{p.mutual_guilds.length === 1 ? "" : "s"} · {p.mutual_friends.length} mutual friend{p.mutual_friends.length === 1 ? "" : "s"}</p>
-                <p className="small">{p.mutual_guilds.map((g) => g.name).join(", ")}</p></section>
-            )}
-            {userId !== meId && (
-              <div className="pc-actions">
-                {p.relationship !== 2 && <button className="btn primary sm" onClick={() => { onClose(); openDm(userId); }}><MessageSquare size={14} /> Message</button>}
-                {p.relationship === 0 && <button className="btn sm" onClick={() => act(() => api.post("/api/users/@me/relationships", { username: p.user.username }))}>Add friend</button>}
-                {p.relationship === 3 && <button className="btn sm" onClick={() => act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 1 }))}>Accept request</button>}
-                {p.relationship === 4 && <span className="muted small">Request sent</span>}
-                {p.relationship !== 2 ? <button className="btn danger sm" onClick={() => confirm("Block this person?") && act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 2 }))}>Block</button>
-                  : <button className="btn sm" onClick={() => act(() => api.del(`/api/users/@me/relationships/${userId}`))}>Unblock</button>}
-              </div>
-            )}
-            <span className="sr-only">{statusLabel(p.presence)}</span>
-          </div>
-        </>
+        <ProfileCardView statusDot={p.presence} serverTheme={m?.profile_theme ?? undefined}
+          d={{
+            user: p.user, name: m?.nick || displayName(p.user), username: p.user.username, pronouns: m?.pronouns ?? p.user.pronouns, bio: m?.bio ?? p.user.bio,
+            avatar: m?.avatar ?? p.user.avatar, banner: m?.banner ?? p.user.banner, theme: null,
+            status: m?.custom_status?.text ?? p.custom_status?.text ?? null,
+            extra: (<>
+              <section><h3>Member since</h3><p className="small">{new Date(p.created_at).toLocaleDateString()}{m && guild && ` · joined ${guild.name} ${new Date(m.joined_at).toLocaleDateString()}`}</p></section>
+              {m && guild && m.roles.length > 0 && <section><h3>Roles</h3><div className="role-chips">{guild.roles.filter((r) => m.roles.includes(r.id)).sort((a, b) => b.position - a.position).map((r) => <span key={r.id} className="role-chip"><i style={{ background: r.color ?? "var(--textFaint)" }} />{r.name}</span>)}</div></section>}
+              {userId !== meId && (p.mutual_guilds.length > 0 || p.mutual_friends.length > 0) && (
+                <section><h3>Mutuals</h3><p className="small muted">{p.mutual_guilds.length} mutual server{p.mutual_guilds.length === 1 ? "" : "s"} · {p.mutual_friends.length} mutual friend{p.mutual_friends.length === 1 ? "" : "s"}</p>
+                  <p className="small">{p.mutual_guilds.map((g) => g.name).join(", ")}</p></section>
+              )}
+              {userId !== meId && (
+                <div className="pc-actions">
+                  {p.relationship !== 2 && <button className="btn primary sm" onClick={() => { onClose(); openDm(userId); }}><MessageSquare size={14} /> Message</button>}
+                  {p.relationship === 0 && <button className="btn sm" onClick={() => act(() => api.post("/api/users/@me/relationships", { username: p.user.username }))}>Add friend</button>}
+                  {p.relationship === 3 && <button className="btn sm" onClick={() => act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 1 }))}>Accept request</button>}
+                  {p.relationship === 4 && <span className="muted small">Request sent</span>}
+                  {p.relationship !== 2 ? <button className="btn danger sm" onClick={() => confirm("Block this person?") && act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 2 }))}>Block</button>
+                    : <button className="btn sm" onClick={() => act(() => api.del(`/api/users/@me/relationships/${userId}`))}>Unblock</button>}
+                </div>
+              )}
+              {userId === meId && <button className="btn sm" onClick={() => { onClose(); openStudio("profile"); }}>Edit profile & effects</button>}
+              <span className="sr-only">{statusLabel(p.presence)}</span>
+            </>),
+          }} />
       )}
     </div>
   );

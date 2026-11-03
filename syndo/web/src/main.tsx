@@ -11,19 +11,28 @@ import { Toasts } from "./components/ui.tsx";
 import { initNotifications } from "./notify.ts";
 import { navigate, useRoute } from "./router.ts";
 import { useStore } from "./store.ts";
-import { DEFAULT_APPEARANCE, applyAppearance, validateAppearance } from "./theme.ts";
+import { restoreSnapshot } from "./appearance/engine.ts";
+import { RecoveryBanner } from "./appearance/Recovery.tsx";
+import { Studio } from "./appearance/Studio.tsx";
+import { reapply, useAppearance } from "./appearance/store.ts";
 import "./styles.css";
 
-applyAppearance(DEFAULT_APPEARANCE);
+// Paint with the last-used look immediately (no flash), unless recovering. The default theme otherwise.
+if (!useAppearance.getState().safeMode) restoreSnapshot();
+reapply();
 document.title = BRAND.name;
 
 function App() {
   const route = useRoute();
   const conn = useStore((s) => s.conn);
-  const appearance = useStore((s) => (s.me?.settings as any)?.appearance);
   const limits = useStore((s) => s.limits);
   const [switcher, setSwitcher] = useState(false);
-  useEffect(() => { applyAppearance(validateAppearance(appearance ?? DEFAULT_APPEARANCE)); }, [appearance]);
+  const [studio, setStudio] = useState<null | { section?: any; target?: any }>(null);
+  useEffect(() => {
+    const open = (e: Event) => setStudio((e as CustomEvent).detail ?? {});
+    window.addEventListener("syndo:studio", open);
+    return () => window.removeEventListener("syndo:studio", open);
+  }, []);
   useEffect(() => { (window as any).__syndoLimits = limits; }, [limits]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && conn === "ready") { e.preventDefault(); setSwitcher((v) => !v); } };
@@ -44,7 +53,7 @@ function App() {
   else if (conn === "signed_out") page = route.name === "register" ? <Register /> : <Login />;
   else if (conn === "connecting") page = <Splash />;
   else page = <Shell />;
-  return <>{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}<Toasts /></>;
+  return <>{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<Toasts /><RecoveryBanner /></>;
 }
 
 initNotifications();

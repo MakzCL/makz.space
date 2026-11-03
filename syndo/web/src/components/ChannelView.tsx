@@ -14,6 +14,12 @@ import { joinVoice, useVoice } from "../voice/session.ts";
 import { openDialog } from "./Shell.tsx";
 import { Avatar, fmtBytes, fmtTime, Modal } from "./ui.tsx";
 import { ProfileCard } from "./Dialogs.tsx";
+import { ChannelType as CT } from "@syndo/shared";
+import { Palette } from "lucide-react";
+import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
+import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
+import { StyledName, useCosmetics } from "../appearance/effects.tsx";
+import { scopeKey, useAppearance } from "../appearance/store.ts";
 
 const QUICK = ["👍", "❤️", "😂", "🎉", "😮", "😢", "🙏", "🌻", "✨", "👀", "🔥", "💙"];
 
@@ -21,7 +27,10 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   const channel = useStore(() => channelById(channelId));
   const guild = useStore((s) => (guildId ? s.guilds[guildId] : null));
   const data = useStore((s) => s.messages[channelId]);
-  const [panel, setPanel] = useState<null | "members" | "pins" | "search">(guildId ? "members" : null);
+  const showMembersDefault = useAppearance((s) => s.resolved.theme.layout.showMembers);
+  const [panel, setPanel] = useState<null | "members" | "pins" | "search" | "appearance">(guildId && showMembersDefault ? "members" : null);
+  const label = useAppearance((s) => s.scopes[scopeKey("channel", channelId)]?.data.conversation?.label ?? null);
+  const { bg, target } = useActiveBackground();
   const [reply, setReply] = useState<Message | null>(null);
   const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
   const call = useStore((s) => s.calls[channelId]);
@@ -53,9 +62,9 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
 
   return (
     <div className="channel">
-      <header className="ch-h">
+      <header className="ch-h" data-region="header">
         {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <Icon size={22} aria-hidden className="muted" />}
-        <h1 className="ellipsis">{isDm ? dmTitle(channel) : channel.name}</h1>
+        <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
         <div className="ch-actions">
           {isDm && <button className="icon-btn" aria-label="Start voice call" title="Voice call" onClick={() => startCall(false)}><Phone size={20} /></button>}
@@ -64,6 +73,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           <button className={`icon-btn ${panel === "pins" ? "active" : ""}`} aria-pressed={panel === "pins"} aria-label="Pinned messages" onClick={() => setPanel(panel === "pins" ? null : "pins")}><Pin size={20} /></button>
           {(guildId || channel.type === ChannelType.GROUP_DM) && <button className={`icon-btn ${panel === "members" ? "active" : ""}`} aria-pressed={panel === "members"} aria-label="Member list" onClick={() => setPanel(panel === "members" ? null : "members")}><Users size={20} /></button>}
           <button className={`icon-btn ${panel === "search" ? "active" : ""}`} aria-pressed={panel === "search"} aria-label="Search" onClick={() => setPanel(panel === "search" ? null : "search")}><Search size={20} /></button>
+          <button className={`icon-btn ${panel === "appearance" ? "active" : ""}`} aria-pressed={panel === "appearance"} aria-label="Edit appearance for this conversation" title="Edit appearance" onClick={() => setPanel(panel === "appearance" ? null : "appearance")}><Palette size={20} /></button>
         </div>
       </header>
       {call && call.ringing.length > 0 && !inVoiceHere && (
@@ -74,13 +84,15 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         </div>
       )}
       <div className="ch-body">
-        <div className="ch-main">
+        <div className="ch-main" data-region="chat">
+          {bg && target === "chat" && <Backdrop bg={bg} className="chat-bd" />}
           <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
         {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onProfile={(id, el) => setProfile({ id, el })} /> : <Recipients channel={channel} />)}
         {panel === "pins" && <Pins channel={channel} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
+        {panel === "appearance" && <ConversationPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "search" && <SearchPanel channel={channel} guildId={guildId} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
       </div>
       {profile && <ProfileCard userId={profile.id} guildId={guildId} anchor={profile.el} onClose={() => setProfile(null)} />}
@@ -96,6 +108,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   const list = data?.list ?? [];
   const lastRead = useRef(useStore.getState().readStates[channel.id]?.last_read_id ?? null);
   const canHistory = can(channel, P.READ_MESSAGE_HISTORY) || !channel.guild_id;
+  const groupingOn = useAppearance((s) => s.resolved.theme.layout.grouping);
 
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return;
@@ -125,7 +138,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
       {list.map((m, i) => {
         const prev = list[i - 1];
         const day = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString();
-        const grouped = !!prev && !day && prev.author.id === m.author.id && m.type === 0 && prev.type === 0 && !m.reply_to && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 7 * 60_000;
+        const grouped = groupingOn && !!prev && !day && prev.author.id === m.author.id && m.type === 0 && prev.type === 0 && !m.reply_to && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 7 * 60_000;
         const newLine = lastRead.current && prev && !m._state && BigInt(prev.id.replace(/\D/g, "") || "0") <= BigInt(lastRead.current) && BigInt(m.id) > BigInt(lastRead.current) && m.author.id !== useStore.getState().me?.id;
         return (
           <div key={m.id}>
@@ -166,6 +179,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   }));
   if (m.type !== 0 && m.type !== 19) return <SystemMessage m={m} channel={channel} />;
   const name = m.member_nick || memberName(guildId, m.author);
+  const cos = useCosmetics(m.author, m.member?.profile_theme ?? undefined);
   const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;
   const del = async () => {
     if (!confirm("Delete this message?")) return;
@@ -174,7 +188,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   const pin = async () => { try { m.pinned ? await api.del(`/api/channels/${channel.id}/pins/${m.id}`) : await api.put(`/api/channels/${channel.id}/pins/${m.id}`); } catch (e) { toast(errMsg(e), "error"); } };
   const save = async () => { try { await api.put(`/api/users/@me/saved/${m.id}`); toast("Saved for later.", "success"); } catch (e) { toast(errMsg(e), "error"); } };
   return (
-    <article className={`msg ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
+    <article className={`msg ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${mine ? "mine" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
       {m.reply_to && (
         <button className="reply-ref" onClick={() => navigate(`/channels/${guildId ?? "@me"}/${channel.id}/${m.reply_to!.id}`)}>
           <CornerUpLeft size={14} aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <><strong>@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> <span className="ellipsis">{plainText(m.reply_to.content)}</span></>}
@@ -182,9 +196,9 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
       )}
       <div className="msg-row">
         <div className="msg-gutter">{grouped ? <time className="msg-time-hover" dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
-          : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}><Avatar user={m.author} size={40} /></button>}</div>
+          : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}><Avatar user={m.author} size={40} src={m.member?.avatar ?? undefined} serverTheme={m.member?.profile_theme ?? undefined} /></button>}</div>
         <div className="msg-body">
-          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}>{name}</button>{m.author.bot && <span className="tag">APP</span>}<time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
+          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">APP</span>}<time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
@@ -382,7 +396,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
 
   if (!canSend) return <div className="composer disabled" role="note">{isDm ? "You can't message this person right now." : "You don't have permission to send messages in this channel."}</div>;
   return (
-    <div className="composer-wrap" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}>
+    <div className="composer-wrap" data-region="composer" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}>
       {reply && <div className="reply-bar">Replying to <strong>{memberName(channel.guild_id, reply.author)}</strong><button className="icon-btn sm" aria-label="Cancel reply" onClick={onClearReply}><X size={14} /></button></div>}
       {uploads.length > 0 && (
         <ul className="uploads" aria-label="Attachments">
@@ -441,7 +455,7 @@ function MemberList({ guildId, channel, onProfile }: { guildId: string; channel:
   }, [members, presences, q, guild, guildId]);
   void channel;
   return (
-    <aside className="side-panel members" aria-label="Members">
+    <aside className="side-panel members" data-region="members" aria-label="Members">
       <input className="panel-search" placeholder="Search members" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />
       {!members && <p className="muted pad">Loading…</p>}
       {groups.map((g) => (
@@ -452,7 +466,7 @@ function MemberList({ guildId, channel, onProfile }: { guildId: string; channel:
             const role = guild.roles.filter((r) => m.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
             return (
               <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)}>
-                <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} />
+                <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} serverTheme={m.guild_profile_theme ?? undefined} />
                 <span className="ellipsis" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}</span>
               </button>
             );
@@ -466,7 +480,7 @@ function MemberList({ guildId, channel, onProfile }: { guildId: string; channel:
 function Recipients({ channel }: { channel: Channel }) {
   const me = useStore((s) => s.me!);
   return (
-    <aside className="side-panel members" aria-label="Members">
+    <aside className="side-panel members" data-region="members" aria-label="Members">
       <h3 className="side-sec">Members — {(channel.recipients?.length ?? 0) + 1}</h3>
       {[me, ...(channel.recipients ?? [])].map((u) => (
         <div key={u.id} className="member">
@@ -485,7 +499,7 @@ function Pins({ channel, mdCtx, onClose }: { channel: Channel; mdCtx: any; onClo
   const [list, setList] = useState<Message[] | null>(null);
   useEffect(() => { api.get<Message[]>(`/api/channels/${channel.id}/pins`).then(setList).catch(() => setList([])); }, [channel.id]);
   return (
-    <aside className="side-panel" aria-label="Pinned messages">
+    <aside className="side-panel" data-region="panels" aria-label="Pinned messages">
       <header className="panel-h"><h3>Pinned messages</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       {!list ? <p className="muted pad">Loading…</p> : !list.length ? <p className="muted pad">Nothing pinned yet.</p> : list.map((m) => <ResultCard key={m.id} m={m} mdCtx={mdCtx} />)}
     </aside>
@@ -519,7 +533,7 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
     try { setRes(await api.get(`/api/search?${p}`)); } catch (x) { toast(errMsg(x), "error"); } finally { setBusy(false); }
   };
   return (
-    <aside className="side-panel" aria-label="Search">
+    <aside className="side-panel" data-region="panels" aria-label="Search">
       <header className="panel-h"><h3>Search</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       <form className="search-form" onSubmit={run}>
         <input autoFocus placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search text" />

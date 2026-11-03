@@ -42,7 +42,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const st = v.settings.stream;
 
   return (
-    <div className="stage">
+    <div className="stage" data-region="call">
       <header className="ch-h"><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         <div className="ch-actions">

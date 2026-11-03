@@ -2,6 +2,8 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BRAND, type User } from "@syndo/shared";
 import { displayName, useStore } from "../store.ts";
+import { timeFormat } from "../appearance/engine.ts";
+import { decorClasses, decorVars, useCosmetics } from "../appearance/effects.tsx";
 
 let markSeq = 0;
 /** The Syndo mark: a sharp hexagon cut into an S by two point-symmetric channels. Uses currentColor unless a fill is given. */
@@ -31,14 +33,13 @@ export function StatusDot({ status, size = 12 }: { status: string; size?: number
 const initials = (u: User | null | undefined) => displayName(u).slice(0, 2).toUpperCase();
 const hue = (id: string) => [BRAND.colors.blue, BRAND.colors.coral, BRAND.colors.yellowDeep, "#2FBF71", "#9B6BFF", "#E5484D"][Number(BigInt(id || "0") % 6n)];
 
-export function Avatar({ user, size = 40, status, src, decoration }: { user: User | null | undefined; size?: number; status?: string | null; src?: string | null; decoration?: string | null }) {
+export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { user: User | null | undefined; size?: number; status?: string | null; src?: string | null; decoration?: string | null; serverTheme?: unknown; plain?: boolean }) {
   const presence = useStore((s) => (user ? (user.id === s.me?.id ? (s.me.status === "invisible" ? "invisible" : s.me.status) : s.presences[user.id] ?? "offline") : "offline"));
-  const animated = useStore((s) => (s.me?.settings as any)?.appearance?.showAnimatedAvatars !== false);
+  const { theme, animate } = useCosmetics(plain ? null : user, serverTheme);
   const url = src ?? user?.avatar ?? null;
-  const deco = decoration ?? user?.profile_theme?.decoration ?? null;
   return (
-    <span className={`avatar ${deco ? `deco deco-${deco}` : ""}`} style={{ width: size, height: size }}>
-      {url ? <img src={url} alt="" width={size} height={size} loading="lazy" className={animated ? "" : "freeze"} />
+    <span className={`avatar ${decorClasses(theme, animate)}`} style={{ width: size, height: size, ...decorVars(theme) }}>
+      {url ? <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
         : <span className="avatar-fallback" style={{ background: hue(user?.id ?? "0"), fontSize: size * 0.38 }} aria-hidden>{initials(user)}</span>}
       {status !== undefined && status !== null && <StatusDot status={status || presence} size={Math.max(10, size * 0.3)} />}
     </span>
@@ -65,7 +66,7 @@ export function Modal({ title, onClose, children, wide, footer, label }: { title
   }, [onClose]);
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
+      <div ref={ref} data-region="overlay" className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
         {title && <header className="modal-h"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>}
         <div className="modal-b">{children}</div>
         {footer && <footer className="modal-f">{footer}</footer>}
@@ -106,11 +107,17 @@ export function Toasts() {
 export function fmtTime(iso: string) {
   const d = new Date(iso);
   const now = new Date();
+  if (timeFormat === "relative") {
+    const m = Math.round((now.getTime() - d.getTime()) / 60000);
+    if (m < 1) return "just now"; if (m < 60) return `${m} min ago`; if (m < 1440) return `${Math.round(m / 60)} h ago`;
+    return d.toLocaleDateString();
+  }
+  const t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: timeFormat === "12h" });
   const same = d.toDateString() === now.toDateString();
   const y = new Date(now); y.setDate(now.getDate() - 1);
-  const t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   if (same) return `Today at ${t}`;
   if (d.toDateString() === y.toDateString()) return `Yesterday at ${t}`;
   return `${d.toLocaleDateString()} ${t}`;
 }
+export const fmtClock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: timeFormat === "12h" });
 export const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(2)} GB`);
