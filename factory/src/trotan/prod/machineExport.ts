@@ -7,6 +7,7 @@ import { exportDxf } from "../geom/dxf";
 import { exportSvg } from "../geom/svg";
 import { UNITS, lineSpacing, type OpParams, type Placement, type Toolpath } from "../geom/laser";
 import { download, safeName } from "../editor/io";
+import { processedPng } from "../editor/rasterPreview";
 
 /** The bed as a document in bed coordinates. Vector work comes from the toolpath (pass 1); raster work keeps its shapes/images. */
 export function bedDoc(doc: Doc, placements: Placement[], tp: Toolpath, bed: { w: number; h: number }, opts: { vectorOnly?: boolean } = {}): Doc {
@@ -88,7 +89,18 @@ export function openJobSheet(html: string) {
   const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
-export function downloadBed(doc: Doc, placements: Placement[], tp: Toolpath, bed: { w: number; h: number }, name: string, kind: "svg" | "dxf") {
+export async function downloadBed(doc: Doc, placements: Placement[], tp: Toolpath, bed: { w: number; h: number }, name: string, kind: "svg" | "dxf", rasterDpi = 333) {
   const d = bedDoc(doc, placements, tp, bed, { vectorOnly: kind === "dxf" });
+  if (kind === "svg") d.objects = await processImages(d.objects, rasterDpi);
   if (kind === "svg") download(`${safeName(name)}-bed.svg`, exportSvg(d), "image/svg+xml"); else download(`${safeName(name)}-bed.dxf`, exportDxf(d), "application/dxf");
+}
+
+/** Images on raster layers are sent as the processed bitmap (dithered/greyscale at the engraving DPI), which is exactly what burns. */
+export async function processImages(objs: Obj[], dpi: number): Promise<Obj[]> {
+  return Promise.all(objs.map(async (o) => {
+    if (o.kind !== "image") return o.kind === "group" ? { ...o, children: await processImages(o.children, dpi) } : o;
+    const sx = Math.hypot(o.m[0], o.m[1]), sy = Math.hypot(o.m[2], o.m[3]);
+    const { url, grey } = await processedPng(o.src, o.w * sx, o.h * sy, dpi, o.proc);
+    return { ...o, src: url, pxW: grey.w, pxH: grey.h };
+  }));
 }

@@ -48,7 +48,8 @@ Beyond the beta:
 - [ ] PDF, AI, EPS and CDR import. These are shown as "not supported" in the File menu; nothing pretends to import them.
 - [ ] PDF export. Shown as "not available yet".
 - [ ] True-shape nesting. Nesting is currently by bounding box, and the UI says so.
-- [ ] Raster dithering and preview of greyscale levels. Rasters are engraved as filled areas in the estimate and simulation.
+- [x] Raster engraving images: brightness, contrast, gamma, invert; Floyd–Steinberg, Jarvis–Judice–Ninke, Stucki, Atkinson, Sierra, ordered (Bayer 8×8), black-and-white threshold, and greyscale (power follows tone). Processed at the engraving DPI; the editor shows what will burn; the machine bed file carries the processed bitmap. Tested: dither coverage equals the tone, Bayer levels exact, resampling keeps the mean (`tests/trotan/raster.test.ts`, `tests/trotan/raster.e2e.mjs`).
+- [ ] Raster time estimate from the processed lines (`rasterSeconds`: blank lines skipped, overscan per line) is implemented and tested, but the PREPARE estimate still treats rasters as filled areas.
 - [x] Real machines: bed file (SVG/DXF), printable job sheet with settings per colour, and recording runs done with the machine's own software.
 - [x] Access per role and per person, set in Kortana → Settings → TROTAN.
 - [ ] Controlling a real machine. Not built, by design (see the adapter API below).

@@ -3,13 +3,13 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Skalarki Electronics Ltd — factory operations app",
+  "description": "Skalarki Electronics Ltd \u2014 factory operations app",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test:trotan": "esbuild tests/trotan/geom.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-geom.mjs --log-level=error && esbuild tests/trotan/actions.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-actions.mjs --log-level=error && node --test tests/.trotan-geom.mjs tests/.trotan-actions.mjs",
+    "test:trotan": "esbuild tests/trotan/geom.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-geom.mjs --log-level=error && esbuild tests/trotan/actions.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-actions.mjs --log-level=error && esbuild tests/trotan/raster.test.ts --bundle --format=esm --platform=node --outfile=tests/.trotan-raster.mjs --log-level=error && node --test tests/.trotan-geom.mjs tests/.trotan-actions.mjs tests/.trotan-raster.mjs",
     "e2e:trotan": "node tests/trotan/e2e.mjs"
   },
   "dependencies": {

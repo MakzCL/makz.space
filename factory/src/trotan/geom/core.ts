@@ -26,7 +26,7 @@ export type PolygonObj = Base & { kind: "polygon"; n: number; r: number; star: n
 /** Text keeps its string and the outline (in local units) produced from the font, so it is cuttable geometry. */
 export type TextObj = Base & { kind: "text"; text: string; size: number; font: string; paths: SubPath[] };
 /** Raster image placed at w × h mm. src is a data URL (kept with the project, not only in the browser). */
-export type ImageObj = Base & { kind: "image"; src: string; w: number; h: number; pxW: number; pxH: number };
+export type ImageObj = Base & { kind: "image"; src: string; w: number; h: number; pxW: number; pxH: number; /** engraving image processing (dither mode, brightness…); absent = defaults */ proc?: import("./raster").RasterProc };
 export type GroupObj = Base & { kind: "group"; children: Obj[] };
 export type Obj = PathObj | RectObj | EllipseObj | PolygonObj | TextObj | ImageObj | GroupObj;
 

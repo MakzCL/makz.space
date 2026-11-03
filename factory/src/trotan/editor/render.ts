@@ -1,3 +1,4 @@
+import { previewCanvas } from "./rasterPreview";
 // Canvas 2D renderer with cached Path2D per object (immutable objects → WeakMap cache), hit testing,
 // rulers and guides. World units are mm; screen = world × zoom + offset.
 import { boxOfPaths, leaves, localPaths, pathData, transformPaths, type Box, type Doc, type Mat, type Obj, type OpType, type Vec } from "../geom/core";
@@ -63,7 +64,9 @@ export function drawDoc(ctx: CanvasRenderingContext2D, doc: Doc, v: View, W: num
     const op = ob.op ?? top.op ?? layer.op;
     if (ob.kind === "image") {
       const im = imageFor(ob.src, o.redraw);
-      if (im.complete && im.naturalWidth) { ctx.save(); ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); ctx.globalAlpha = op === "none" ? 0.35 : 1; ctx.drawImage(im, 0, 0, ob.w, ob.h); ctx.restore(); }
+      // engraved images show what the laser will burn (dithered at the engraving look); others show the original
+      const pv = op === "raster" ? previewCanvas(ob.src, ob.w * Math.hypot(m[0], m[1]), ob.h * Math.hypot(m[2], m[3]), ob.proc, o.redraw) : null;
+      if (pv || (im.complete && im.naturalWidth)) { ctx.save(); ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); ctx.globalAlpha = op === "none" ? 0.35 : 1; if (pv) ctx.imageSmoothingEnabled = false; ctx.drawImage(pv ?? im, 0, 0, ob.w, ob.h); ctx.restore(); }
       ctx.lineWidth = 1 / v.zoom; ctx.strokeStyle = layer.color; ctx.setLineDash([4 / v.zoom, 3 / v.zoom]); ctx.stroke(g.path); ctx.setLineDash([]);
       continue;
     }

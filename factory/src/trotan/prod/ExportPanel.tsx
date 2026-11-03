@@ -33,7 +33,7 @@ export function ExportPanel(p: { doc: Doc; placements: Placement[]; tp: Toolpath
         copies: p.copies, sheets: p.sheets, kerf: p.kerf, commonLine: p.commonLine, estimate: fmtTime(p.estimate), test: p.test, mo: mo ? `${mo.code} — ${mo.title}` : null, printedBy: me.full_name }, rows, svg, clashes));
     } catch (e) { toast(errText(e), "error"); }
   };
-  const file = (k: "svg" | "dxf") => { if (!p.tp) return; try { downloadBed(p.doc, p.placements, p.tp, bed, `${p.job}-${p.project}`, k); } catch (e) { toast(errText(e), "error"); } };
+  const file = (k: "svg" | "dxf") => { if (!p.tp) return; downloadBed(p.doc, p.placements, p.tp, bed, `${p.job}-${p.project}`, k, p.ops.raster?.dpi ?? p.machine.caps.dpi?.[1] ?? 333).catch((e) => toast(errText(e), "error")); };
   return (
     <div className="t-export" data-testid="machine-export">
       <p className="t-note">For a machine run with its own software: download the bed file (every copy, in cutting order, in mm, one colour per layer) and print the job sheet with the settings for each colour.</p>

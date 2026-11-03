@@ -1,3 +1,4 @@
+import { DEFAULT_PROC, RASTER_MODES, type RasterMode, type RasterProc } from "../geom/raster";
 // Right-hand panels of the editor: properties (exact size/position), layers, geometry checks, history.
 import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, Eye, EyeOff, FlipHorizontal2, FlipVertical2, Lock, RotateCcw, RotateCw, Trash2, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -116,6 +117,20 @@ function PropsPanel({ readOnly, edit, editSel, grid, setGrid }: Props) {
         <p className="t-note">Text is stored with its outline, so it cuts exactly as shown on any computer.</p>
       </>}
       {one?.kind === "image" && (() => { const k = decompose(one.m).sx; const dpi = one.pxW / ((one.w * k) / 25.4); return <p className="t-note">{one.pxW} × {one.pxH} px at <b>{Math.round(dpi)} DPI</b> effective. {dpi < 150 ? "Low resolution — engraving may look soft." : ""}</p>; })()}
+      {one?.kind === "image" && (() => { const pr = one.proc ?? DEFAULT_PROC; const setP = (patch: Partial<RasterProc>) => edit((d) => ({ ...d, objects: mapImage(d.objects, one.id, (o) => ({ ...o, proc: { ...pr, ...patch } })) }), "Image processing");
+        return <div className="t-imgproc" data-testid="img-proc">
+          <h4>Engraving image</h4>
+          <Sel label="Mode" value={pr.mode} disabled={ro} onChange={(v) => setP({ mode: v as RasterMode })} options={RASTER_MODES.map((m) => ({ value: m.v, label: m.label }))} testid="img-mode" />
+          <p className="t-note">{RASTER_MODES.find((m) => m.v === pr.mode)?.hint}. Shown as it will burn when the layer is set to Raster engrave.</p>
+          <div className="t-grid2">
+            <Num label="Brightness" value={pr.brightness} min={-100} max={100} step={5} digits={0} disabled={ro} onCommit={(v) => setP({ brightness: v })} testid="img-bright" />
+            <Num label="Contrast" value={pr.contrast} min={-100} max={100} step={5} digits={0} disabled={ro} onCommit={(v) => setP({ contrast: v })} testid="img-contrast" />
+            <Num label="Gamma" value={pr.gamma} min={0.2} max={5} step={0.1} digits={2} disabled={ro} onCommit={(v) => setP({ gamma: v })} />
+            {(pr.mode === "threshold" || pr.mode === "floyd" || pr.mode === "jarvis" || pr.mode === "stucki" || pr.mode === "atkinson" || pr.mode === "sierra") && <Num label="Threshold" value={pr.threshold} min={1} max={254} step={1} digits={0} disabled={ro} onCommit={(v) => setP({ threshold: v })} />}
+          </div>
+          <Check label="Invert (engrave the light areas, e.g. on dark anodised metal or slate)" on={pr.invert} disabled={ro} onChange={(v) => setP({ invert: v })} testid="img-invert" />
+          {one.proc && <Btn small disabled={ro} onClick={() => edit((d) => ({ ...d, objects: mapImage(d.objects, one.id, (o) => { const { proc: _drop, ...rest } = o; void _drop; return rest; }) }), "Reset image")}>Reset to defaults</Btn>}
+        </div>; })()}
       <h4>Shape</h4>
       <div className="t-btnwrap">
         <Btn small disabled={ro || sel.length < 2} onClick={() => run(() => p_edit(editSel, (d) => A.booleanSel(d, sel, "union"), "Union"))} title="Weld shapes">Union</Btn>
@@ -226,4 +241,9 @@ function HistoryPanel({ readOnly }: { readOnly: boolean }) {
       </Modal>}
     </div>
   );
+}
+
+/** Replace one image object anywhere in the tree. */
+function mapImage(objs: Obj[], id: string, f: (o: Extract<Obj, { kind: "image" }>) => Obj): Obj[] {
+  return objs.map((o) => (o.id === id && o.kind === "image" ? f(o) : o.kind === "group" ? { ...o, children: mapImage(o.children, id, f) } : o));
 }
