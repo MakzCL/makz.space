@@ -1,3 +1,5 @@
 Cabinet Grotesk — Indian Type Foundry / Fontshare
 Source: https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@variable&display=swap
 Licence: https://www.fontshare.com/licenses/itf-free-font-license
+
+CabinetGrotesk-Family.woff2: actual variable family, wght axis 100–900. UI uses Medium (500), Semibold (600), Bold (700), and Extrabold (800).

@@ -1,3 +1,4 @@
+import { PROFILE_CATALOG } from "./catalog.ts";
 /**
  * Syndo theme engine — schema, validation, layering and safety rules.
  *
@@ -539,7 +540,7 @@ export interface EffectLayer {
 }
 export interface ProfileTheme {
   primary: string; secondary: string;
-  collection?: "eclipse" | "rosecourt" | "lepidoptera" | "emberwake" | "glacial" | "sakura" | "abyssal" | "ophidian" | "starlit" | "gilded" | "wisteria" | "phantom" | null;
+  collection?: "eclipse" | "rosecourt" | "lepidoptera" | "emberwake" | "glacial" | "sakura" | "abyssal" | "ophidian" | "starlit" | "gilded" | "wisteria" | "phantom" | `bundle-${number}` | null;
   decoration: (typeof DECORATIONS)[number]; frame: (typeof FRAMES)[number];
   ring: { style: (typeof RING_STYLES)[number]; color: string; speed: number };
   nameStyle: (typeof NAME_STYLES)[number]; nameColor2?: string | null; nameGlow: number;
@@ -552,7 +553,7 @@ export const DEFAULT_PROFILE_THEME: ProfileTheme = {
   nameStyle: "plain", nameColor2: null, nameGlow: 40, nameplate: "none", statusShape: "circle", entrance: "fade", bannerAnimation: "none", effects: [],
 };
 const PROFILE_SPEC: Spec = obj({
-  collection: nul(en("eclipse", "rosecourt", "lepidoptera", "emberwake", "glacial", "sakura", "abyssal", "ophidian", "starlit", "gilded", "wisteria", "phantom")),
+  collection: nul(en("eclipse", "rosecourt", "lepidoptera", "emberwake", "glacial", "sakura", "abyssal", "ophidian", "starlit", "gilded", "wisteria", "phantom", ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>c.id))),
   primary: color, secondary: color, decoration: en(...DECORATIONS), frame: en(...FRAMES),
   ring: obj({ style: en(...RING_STYLES), color, speed: num(0.25, 3) }),
   nameStyle: en(...NAME_STYLES), nameColor2: nul(color), nameGlow: pct, nameplate: en(...NAMEPLATES), statusShape: en(...STATUS_SHAPES),

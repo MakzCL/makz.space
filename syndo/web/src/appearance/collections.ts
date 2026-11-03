@@ -1,5 +1,5 @@
-import { DEFAULT_PROFILE_THEME, type ProfileTheme } from "@syndo/shared";
-export const COLLECTIONS = [
+import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@syndo/shared";
+const ORIGINAL_COLLECTIONS = [
   { id: "eclipse", name: "Lunar Eclipse", family: "Celestial", primary: "#B8DDF0", secondary: "#344F73", motif: "moon", description: "An eclipsed moon, silver craters and drifting celestial dust." },
   { id: "rosecourt", name: "Rose Court", family: "Botanical", primary: "#F3AFC7", secondary: "#965474", motif: "rose", description: "Pearlescent roses woven through an ornamental silver frame." },
   { id: "lepidoptera", name: "Afterglow", family: "Ethereal", primary: "#D5C3FF", secondary: "#8575DB", motif: "butterfly", description: "Iridescent butterflies suspended in a trail of violet light." },
@@ -13,7 +13,8 @@ export const COLLECTIONS = [
   { id: "wisteria", name: "Wisteria Night", family: "Botanical", primary: "#D2B4FF", secondary: "#625582", motif: "vine", description: "Trailing wisteria, delicate leaves and nocturnal fireflies." },
   { id: "phantom", name: "Phantom Veil", family: "Dark", primary: "#D4D9E8", secondary: "#655C89", motif: "ghost", description: "A spectral ribbon winding through moonlit fragments." },
 ] as const;
-export type Collection = typeof COLLECTIONS[number];
+export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"; source?:string; artTitle?:string; motion?:string };
+export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>({id:c.id,name:c.name,family:c.category,primary:c.primary,secondary:c.secondary,motif:c.motif,description:c.brief,art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
 export function collectionById(id: string | null | undefined) { return COLLECTIONS.find(c => c.id === id); }
 export function collectionTheme(c: Collection): ProfileTheme {
   return { ...DEFAULT_PROFILE_THEME, collection: c.id, primary: c.primary, secondary: c.secondary,

@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { Range } from "../components/Range.tsx";
 import { RotateCcw } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
@@ -78,9 +79,9 @@ export function SelectField<T extends string | number>({ path, label, options, h
   const f = useField<T>(path);
   return (
     <Row label={label} hint={hint} path={path} field={f}>
-      <select value={String(f.value)} onChange={(e) => { const o = options.find(([k]) => String(k) === e.target.value); if (o) f.set(o[0]); }} aria-label={label}>
+      <Select value={String(f.value)} onChange={(e) => { const o = options.find(([k]) => String(k) === e.target.value); if (o) f.set(o[0]); }} aria-label={label}>
         {options.map(([k, l]) => <option key={String(k)} value={String(k)}>{l}</option>)}
-      </select>
+      </Select>
     </Row>
   );
 }

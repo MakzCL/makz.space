@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { EffectsGallery } from "./EffectsGallery.tsx";
 import { ScrollArea } from "../components/ScrollArea.tsx";
 import { Range } from "../components/Range.tsx";
@@ -107,7 +108,7 @@ function TargetPicker({ target, onChange }: { target: Target; onChange: (t: Targ
   return (
     <label className="target-pick">
       <span className="sr-only">Editing</span>
-      <select value={val} onChange={(e) => {
+      <Select value={val} onChange={(e) => {
         const v = e.target.value;
         if (v === "global") return onChange({ kind: "global" });
         const [k, id] = v.split(":") as ["guild" | "channel", string];
@@ -118,7 +119,7 @@ function TargetPicker({ target, onChange }: { target: Target; onChange: (t: Targ
         <optgroup label="A server (personal override)">{Object.values(guilds).map((g) => <option key={g.id} value={`guild:${g.id}`}>{g.name}</option>)}</optgroup>
         <optgroup label="A conversation (personal override)">{Object.values(dms).map((c) => <option key={c.id} value={`channel:${c.id}`}>{dmTitle(c)}</option>)}</optgroup>
         <optgroup label="A channel (personal override)">{Object.values(guilds).flatMap((g) => g.channels.filter((c) => c.type === 0).map((c) => <option key={c.id} value={`channel:${c.id}`}>{g.name} / #{c.name}</option>))}</optgroup>
-      </select>
+      </Select>
     </label>
   );
 }
@@ -169,7 +170,7 @@ function FollowSystem() {
       <label className="toggle-row"><span><span className="toggle-l">Follow system light/dark</span><span className="field-h">Switch between two themes automatically.</span></span>
         <input type="checkbox" role="switch" className="toggle" checked={g.followSystem} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, followSystem: e.target.checked } }))} /></label>
       {g.followSystem && <label className="field"><span className="field-l">Light theme</span>
-        <select value={g.lightThemeId ?? "syndo-paper"} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, lightThemeId: e.target.value } }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}</select></label>}
+        <Select value={g.lightThemeId ?? "syndo-paper"} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, lightThemeId: e.target.value } }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}</Select></label>}
     </div>
   );
 }
@@ -299,7 +300,7 @@ function BackgroundEditor({ path }: { path: string }) {
           <label>Via <input type="color" value={(bg.gradient.via ?? bg.gradient.from).slice(0, 7)} onChange={(e) => set({ gradient: { ...bg.gradient!, via: e.target.value.toUpperCase() } })} /></label>
           <label>To <input type="color" value={bg.gradient.to.slice(0, 7)} onChange={(e) => set({ gradient: { ...bg.gradient!, to: e.target.value.toUpperCase() } })} /></label>
           <label>Angle <Range min={0} max={360} value={bg.gradient.angle} onChange={(e) => set({ gradient: { ...bg.gradient!, angle: +e.target.value } })} /></label>
-          <select value={bg.gradient.type} onChange={(e) => set({ gradient: { ...bg.gradient!, type: e.target.value as "linear" | "radial" } })} aria-label="Gradient type"><option value="linear">Linear</option><option value="radial">Radial</option></select>
+          <Select value={bg.gradient.type} onChange={(e) => set({ gradient: { ...bg.gradient!, type: e.target.value as "linear" | "radial" } })} aria-label="Gradient type"><option value="linear">Linear</option><option value="radial">Radial</option></Select>
         </div>
       )}
       {(bg.kind === "image" || bg.kind === "video") && (<>
@@ -310,7 +311,7 @@ function BackgroundEditor({ path }: { path: string }) {
         </div>
         <p className="muted small">Fit, focal point and zoom. Click or drag in the box to set the focal point.</p>
         <div className="row wrap">
-          <select value={bg.fit ?? "cover"} onChange={(e) => set({ fit: e.target.value as Background["fit"] })} aria-label="Fit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="tile">Tile</option><option value="stretch">Stretch</option></select>
+          <Select value={bg.fit ?? "cover"} onChange={(e) => set({ fit: e.target.value as Background["fit"] })} aria-label="Fit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="tile">Tile</option><option value="stretch">Stretch</option></Select>
           <div ref={focal} className="focal" role="slider" tabIndex={0} aria-label="Focal point" aria-valuetext={`${bg.x ?? 50}% across, ${bg.y ?? 50}% down`}
             onPointerDown={(e) => { const r = focal.current!.getBoundingClientRect(); const fn = (ev: PointerEvent | React.PointerEvent) => set({ x: Math.round(Math.min(100, Math.max(0, ((ev.clientX - r.left) / r.width) * 100))), y: Math.round(Math.min(100, Math.max(0, ((ev.clientY - r.top) / r.height) * 100))) }); fn(e); const mv = (ev: PointerEvent) => fn(ev); window.addEventListener("pointermove", mv); window.addEventListener("pointerup", () => window.removeEventListener("pointermove", mv), { once: true }); }}
             onKeyDown={(e) => { const d = e.shiftKey ? 10 : 2; if (e.key === "ArrowLeft") set({ x: Math.max(0, (bg.x ?? 50) - d) }); if (e.key === "ArrowRight") set({ x: Math.min(100, (bg.x ?? 50) + d) }); if (e.key === "ArrowUp") set({ y: Math.max(0, (bg.y ?? 50) - d) }); if (e.key === "ArrowDown") set({ y: Math.min(100, (bg.y ?? 50) + d) }); }}
@@ -552,22 +553,22 @@ function AccessSection() {
   return (
     <div className="stack">
       <h3>Accessibility — always wins over any theme</h3>
-      <label className="field"><span className="field-l">Reduced motion</span><select value={g.a11y.reducedMotion} onChange={(e) => setA({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system</option><option value="on">Always reduce</option><option value="off">Allow motion</option></select></label>
+      <label className="field"><span className="field-l">Reduced motion</span><Select value={g.a11y.reducedMotion} onChange={(e) => setA({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system</option><option value="on">Always reduce</option><option value="off">Allow motion</option></Select></label>
       <T k="highContrast" label="High contrast" />
       <T k="minContrast" label="Keep text readable" hint="Automatically adjusts text colour when a theme's contrast is too low." />
       <T k="readableOverlay" label="Readable overlay for busy wallpapers" hint="Adds a calm layer behind text. One click fix for loud backgrounds." />
       <T k="disableAnimatedBackgrounds" label="Disable animated backgrounds" hint="Shows a still frame instead." />
       <T k="disableProfileEffects" label="Disable profile effects" />
       <T k="disableOthersCosmetics" label="Hide other people's cosmetics" hint="Shows everyone with plain avatars and names. Usernames are always visible." />
-      <label className="field"><span className="field-l">Blur</span><select value={g.a11y.blur} onChange={(e) => setA({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select></label>
+      <label className="field"><span className="field-l">Blur</span><Select value={g.a11y.blur} onChange={(e) => setA({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></Select></label>
       <T k="lowPower" label="Low-power mode" hint="Turns off blur, animation and video backgrounds everywhere." />
       <h3>This device only</h3>
       <p className="muted small">Not synced — useful for a laptop on battery or a small screen. Overrides your synced settings on this device.</p>
       <label className="toggle-row"><span className="toggle-l">Low power on this device</span><input type="checkbox" role="switch" className="toggle" checked={!!device.a11y?.lowPower} onChange={(e) => setDevice({ ...device, a11y: { ...device.a11y, lowPower: e.target.checked } })} /></label>
       <label className="toggle-row"><span className="toggle-l">No animated backgrounds on this device</span><input type="checkbox" role="switch" className="toggle" checked={!!device.a11y?.disableAnimatedBackgrounds} onChange={(e) => setDevice({ ...device, a11y: { ...device.a11y, disableAnimatedBackgrounds: e.target.checked } })} /></label>
-      <label className="field"><span className="field-l">Server navigation on this device</span><select value={device.layout?.nav ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, nav: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option></select></label>
-      <label className="field"><span className="field-l">Interface scale on this device</span><select value={device.layout?.scale ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, scale: e.target.value ? +e.target.value : undefined } })}><option value="">Use synced setting</option>{[0.85, 0.9, 1, 1.1, 1.2, 1.3].map((v) => <option key={v} value={v}>{Math.round(v * 100)}%</option>)}</select></label>
-      <label className="field"><span className="field-l">Spacing on this device</span><select value={device.layout?.density ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, density: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="compact">Compact</option><option value="cozy">Comfortable</option><option value="spacious">Spacious</option></select></label>
+      <label className="field"><span className="field-l">Server navigation on this device</span><Select value={device.layout?.nav ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, nav: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option></Select></label>
+      <label className="field"><span className="field-l">Interface scale on this device</span><Select value={device.layout?.scale ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, scale: e.target.value ? +e.target.value : undefined } })}><option value="">Use synced setting</option>{[0.85, 0.9, 1, 1.1, 1.2, 1.3].map((v) => <option key={v} value={v}>{Math.round(v * 100)}%</option>)}</Select></label>
+      <label className="field"><span className="field-l">Spacing on this device</span><Select value={device.layout?.density ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, density: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="compact">Compact</option><option value="cozy">Comfortable</option><option value="spacious">Spacious</option></Select></label>
       <h3>Recovery</h3>
       <p className="small">If a theme ever makes SEND hard to use: press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> anywhere for safe appearance mode, open <code>/?safe-appearance=1</code>, or use the “Reset appearance” button on the sign-in screen and in the user menu.</p>
       <button className="btn danger" onClick={() => confirm("Reset all appearance settings (global, servers and conversations) to the default? Presets and your library are kept.") && resetAppearance("all")}>Reset appearance everywhere</button>

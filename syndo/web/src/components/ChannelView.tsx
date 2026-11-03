@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { DmPrivacyBar } from "./DmPrivacy.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -568,8 +569,8 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
       <form className="search-form" onSubmit={run}>
         <input autoFocus placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search text" />
         <div className="row">
-          <select value={scope} onChange={(e) => setScope(e.target.value as any)} aria-label="Scope"><option value="channel">This channel</option><option value="all">{guildId ? "Whole server" : "All DMs"}</option></select>
-          <select value={has} onChange={(e) => setHas(e.target.value)} aria-label="Has"><option value="">Anything</option><option value="link">Has link</option><option value="file">Has file</option><option value="image">Has image</option><option value="video">Has video</option><option value="audio">Has audio</option><option value="pinned">Pinned</option></select>
+          <Select value={scope} onChange={(e) => setScope(e.target.value as any)} aria-label="Scope"><option value="channel">This channel</option><option value="all">{guildId ? "Whole server" : "All DMs"}</option></Select>
+          <Select value={has} onChange={(e) => setHas(e.target.value)} aria-label="Has"><option value="">Anything</option><option value="link">Has link</option><option value="file">Has file</option><option value="image">Has image</option><option value="video">Has video</option><option value="audio">Has audio</option><option value="pinned">Pinned</option></Select>
         </div>
         {guildId && <input placeholder="From username" value={author} onChange={(e) => setAuthor(e.target.value)} aria-label="From user" />}
         <div className="row"><label className="small">After <input type="date" value={after} onChange={(e) => setAfter(e.target.value)} /></label><label className="small">Before <input type="date" value={before} onChange={(e) => setBefore(e.target.value)} /></label></div>

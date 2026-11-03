@@ -1,0 +1,152 @@
+# SEND profile collections
+
+174 of the 430 requested collections currently have a selectable treatment. The other entries retain the requested design brief and are labelled upcoming in the gallery. These are SEND-made motion treatments around the sourced artwork, not official brand animation packs.
+
+## Artwork sources
+
+- **bundle-239 — Lamborghini**: https://www.lamborghini.com (Simple Icons / Lamborghini).
+- **bundle-240 — Ferrari**: https://www.ferrari.com (Simple Icons / Ferrari).
+- **bundle-241 — Porsche**: https://www.porsche.com (Simple Icons / Porsche).
+- **bundle-242 — Bugatti**: https://newsroom.bugatti.com (Simple Icons / Bugatti).
+- **bundle-243 — McLaren**: https://cars.mclaren.com (Simple Icons / McLaren).
+- **bundle-244 — Koenigsegg**: https://www.koenigsegg.com (Simple Icons / Koenigsegg).
+- **bundle-246 — Aston Martin**: https://www.astonmartin.com (Simple Icons / Aston Martin).
+- **bundle-247 — Rolls-Royce**: https://www.rolls-roycemotorcars.com (Simple Icons / Rolls-Royce).
+- **bundle-248 — Bentley**: https://en.wikipedia.org/wiki/File:Bentley_logo_2.svg (Simple Icons / Bentley).
+- **bundle-251 — Audi**: https://www.audi.com/ci/en/intro/basics/rings.html (Simple Icons / Audi).
+- **bundle-252 — Nissan**: https://www.nissan.ie (Simple Icons / Nissan).
+- **bundle-253 — Toyota**: https://www.toyota.com/brandguidelines/logo/ (Simple Icons / Toyota).
+- **bundle-254 — Mazda**: https://www.mazda.com/en/about/profile/library/ (Simple Icons / Mazda).
+- **bundle-255 — Honda**: https://www.honda.ie (Simple Icons / Honda).
+- **bundle-256 — Subaru**: https://commons.wikimedia.org/wiki/File:Subaru_logo.svg (Simple Icons / Subaru).
+- **bundle-257 — Mitsubishi**: https://www.mitsubishi.com (Simple Icons / Mitsubishi).
+- **bundle-259 — Ford**: https://secure.ford.com/brochures/ (Simple Icons / Ford).
+- **bundle-261 — Chevrolet**: https://www.chevrolet.com/content/dam/chevrolet/na/us/english/index/shopping-tools/download-catalog/02-pdf/2019-chevrolet-corvette-catalog.pdf (Simple Icons / Chevrolet).
+- **bundle-263 — Jeep**: https://commons.wikimedia.org/wiki/File:Jeep_logo.svg (Simple Icons / Jeep).
+- **bundle-264 — Tesla**: https://www.tesla.com/tesla-gallery (Simple Icons / Tesla).
+- **bundle-266 — Volkswagen**: https://www.vw.com (Simple Icons / Volkswagen).
+- **bundle-267 — Mini**: https://mini.com (Simple Icons / Mini).
+- **bundle-277 — Ducati**: https://brandlogos.net/ducati-logo-vector-svg-92931.html (Simple Icons / Ducati).
+- **bundle-280 — Honda**: https://www.honda.ie (Simple Icons / Honda).
+- **bundle-281 — Suzuki**: https://www.suzuki.ie (Simple Icons / Suzuki).
+- **bundle-283 — KTM**: https://ktm.com (Simple Icons / KTM).
+- **bundle-290 — Vespa**: https://www.piaggiogroup.com/en/archive/document/logo-guide (Simple Icons / Vespa).
+- **bundle-298 — Red Bull**: https://www.redbull.com (Simple Icons / Red Bull).
+- **bundle-299 — Ferrari**: https://www.ferrari.com (Simple Icons / Ferrari).
+- **bundle-300 — McLaren**: https://cars.mclaren.com (Simple Icons / McLaren).
+- **bundle-302 — Aston Martin**: https://www.astonmartin.com (Simple Icons / Aston Martin).
+- **bundle-304 — Cadillac**: https://www.cadillac.com (Simple Icons / Cadillac).
+- **bundle-328 — NBA**: https://nba.com (Simple Icons / NBA).
+- **bundle-332 — UFC**: https://www.ufc.com (Simple Icons / UFC).
+- **bundle-333 — WWE**: https://commons.wikimedia.org/wiki/File:WWE_Network_logo.svg (Simple Icons / WWE).
+- **bundle-356 — Spotify**: https://developer.spotify.com/documentation/general/design-and-branding/#using-our-logo (Simple Icons / Spotify).
+- **bundle-357 — Tomorrowland**: https://tomorrowland.com (Simple Icons / Tomorrowland).
+- **bundle-362 — Nike**: https://www.nike.com (Simple Icons / Nike).
+- **bundle-363 — Adidas**: https://www.adidas.com (Simple Icons / Adidas).
+- **bundle-364 — Jordan**: https://www.nike.com/jordan (Simple Icons / Jordan).
+- **bundle-376 — Red Bull**: https://www.redbull.com (Simple Icons / Red Bull).
+- **bundle-378 — Coca-Cola**: https://commons.wikimedia.org/wiki/File:Coca-Cola_logo.svg (Simple Icons / Coca-Cola).
+- **bundle-380 — McDonald's**: https://www.mcdonalds.com/gb/en-gb/newsroom.html (Simple Icons / McDonald's).
+- **bundle-381 — Taco Bell**: https://www.tacobell.com (Simple Icons / Taco Bell).
+- **bundle-382 — KFC**: https://global.kfc.com/asset-library/ (Simple Icons / KFC).
+- **bundle-383 — Starbucks**: https://starbucks.com (Simple Icons / Starbucks).
+- **bundle-389 — PlayStation**: https://www.playstation.com/en-us/ (Simple Icons / PlayStation).
+- **bundle-392 — Steam**: https://partner.steamgames.com/doc/marketing/branding (Simple Icons / Steam).
+- **bundle-393 — Razer**: https://press.razer.com (Simple Icons / Razer).
+- **bundle-395 — Alienware**: https://www.dell.com/en-us/gaming/alienware (Simple Icons / Alienware).
+- **bundle-396 — Apple**: https://www.apple.com (Simple Icons / Apple).
+- **bundle-398 — Twitch**: https://brand.twitch.tv (Simple Icons / Twitch).
+- **bundle-399 — YouTube**: https://www.youtube.com/howyoutubeworks/resources/brand-resources/#logos-icons-and-colors (Simple Icons / YouTube).
+- **bundle-400 — Discord**: https://discord.com/branding (Simple Icons / Discord).
+- **bundle-34 — Call of Duty®: Black Ops III**: https://store.steampowered.com/app/311210/ (Steam / game publisher).
+- **bundle-43 — Apex Legends™**: https://store.steampowered.com/app/1172470/ (Steam / game publisher).
+- **bundle-47 — Counter-Strike 2**: https://store.steampowered.com/app/730/ (Steam / game publisher).
+- **bundle-49 — Halo: Campaign Evolved**: https://store.steampowered.com/app/2806050/ (Steam / game publisher).
+- **bundle-50 — Tom Clancy's Rainbow Six Siege**: https://store.steampowered.com/app/359550/ (Steam / game publisher).
+- **bundle-53 — PUBG: BATTLEGROUNDS**: https://store.steampowered.com/app/578080/ (Steam / game publisher).
+- **bundle-55 — DOOM: The Dark Ages**: https://store.steampowered.com/app/3017860/ (Steam / game publisher).
+- **bundle-56 — Battlefield™ 6**: https://store.steampowered.com/app/2807960/ (Steam / game publisher).
+- **bundle-57 — Escape from Tarkov**: https://store.steampowered.com/app/3932890/ (Steam / game publisher).
+- **bundle-58 — HELLDIVERS™ 2**: https://store.steampowered.com/app/553850/ (Steam / game publisher).
+- **bundle-60 — Marvel Rivals**: https://store.steampowered.com/app/2767030/ (Steam / game publisher).
+- **bundle-61 — THE FINALS**: https://store.steampowered.com/app/2073850/ (Steam / game publisher).
+- **bundle-62 — Brawlhalla**: https://store.steampowered.com/app/291550/ (Steam / game publisher).
+- **bundle-66 — Street Fighter™ 6**: https://store.steampowered.com/app/1364780/ (Steam / game publisher).
+- **bundle-67 — TEKKEN 8**: https://store.steampowered.com/app/1778820/ (Steam / game publisher).
+- **bundle-68 — Mortal Kombat 1**: https://store.steampowered.com/app/1971870/ (Steam / game publisher).
+- **bundle-69 — GUILTY GEAR -STRIVE-**: https://store.steampowered.com/app/1384160/ (Steam / game publisher).
+- **bundle-71 — DRAGON BALL FighterZ**: https://store.steampowered.com/app/678950/ (Steam / game publisher).
+- **bundle-74 — Dota 2**: https://store.steampowered.com/app/570/ (Steam / game publisher).
+- **bundle-77 — ELDEN RING**: https://store.steampowered.com/app/1245620/ (Steam / game publisher).
+- **bundle-80 — FINAL FANTASY VII REMAKE INTERGRADE**: https://store.steampowered.com/app/1462040/ (Steam / game publisher).
+- **bundle-81 — FINAL FANTASY XIV Online**: https://store.steampowered.com/app/39210/ (Steam / game publisher).
+- **bundle-84 — Zenless Zone Zero**: https://store.steampowered.com/app/4162040/ (Steam / game publisher).
+- **bundle-91 — Diablo® IV**: https://store.steampowered.com/app/2344520/ (Steam / game publisher).
+- **bundle-92 — Baldur's Gate 3**: https://store.steampowered.com/app/1086940/ (Steam / game publisher).
+- **bundle-94 — The Witcher 3: Wild Hunt — Remastered**: https://store.steampowered.com/app/292030/ (Steam / game publisher).
+- **bundle-95 — Cyberpunk 2077**: https://store.steampowered.com/app/1091500/ (Steam / game publisher).
+- **bundle-96 — Mass Effect (2007)**: https://store.steampowered.com/app/17460/ (Steam / game publisher).
+- **bundle-97 — God of War**: https://store.steampowered.com/app/1593500/ (Steam / game publisher).
+- **bundle-98 — Assassin’s Creed Shadows**: https://store.steampowered.com/app/3159330/ (Steam / game publisher).
+- **bundle-99 — Persona 5 Royal**: https://store.steampowered.com/app/1687950/ (Steam / game publisher).
+- **bundle-100 — KINGDOM HEARTS -HD 1.5+2.5 ReMIX-**: https://store.steampowered.com/app/2552430/ (Steam / game publisher).
+- **bundle-101 — Monster Hunter Wilds**: https://store.steampowered.com/app/2246340/ (Steam / game publisher).
+- **bundle-102 — RuneScape ®**: https://store.steampowered.com/app/1343400/ (Steam / game publisher).
+- **bundle-103 — Path of Exile 2**: https://store.steampowered.com/app/2694490/ (Steam / game publisher).
+- **bundle-104 — Lost Ark**: https://store.steampowered.com/app/1599340/ (Steam / game publisher).
+- **bundle-109 — Terraria**: https://store.steampowered.com/app/105600/ (Steam / game publisher).
+- **bundle-110 — Among Us**: https://store.steampowered.com/app/945360/ (Steam / game publisher).
+- **bundle-113 — Stardew Valley**: https://store.steampowered.com/app/413150/ (Steam / game publisher).
+- **bundle-115 — The Sims™ 4**: https://store.steampowered.com/app/1222670/ (Steam / game publisher).
+- **bundle-116 — Subnautica 2**: https://store.steampowered.com/app/1962700/ (Steam / game publisher).
+- **bundle-117 — Rust**: https://store.steampowered.com/app/252490/ (Steam / game publisher).
+- **bundle-118 — Sea of Thieves: 2026 Edition**: https://store.steampowered.com/app/1172620/ (Steam / game publisher).
+- **bundle-119 — Palworld**: https://store.steampowered.com/app/1623730/ (Steam / game publisher).
+- **bundle-120 — Lethal Company**: https://store.steampowered.com/app/1966720/ (Steam / game publisher).
+- **bundle-121 — Phasmophobia**: https://store.steampowered.com/app/739630/ (Steam / game publisher).
+- **bundle-122 — Dead by Daylight**: https://store.steampowered.com/app/381210/ (Steam / game publisher).
+- **bundle-123 — Valheim**: https://store.steampowered.com/app/892970/ (Steam / game publisher).
+- **bundle-124 — Hollow Knight**: https://store.steampowered.com/app/367520/ (Steam / game publisher).
+- **bundle-125 — Hollow Knight: Silksong**: https://store.steampowered.com/app/1030300/ (Steam / game publisher).
+- **bundle-126 — Celeste**: https://store.steampowered.com/app/504230/ (Steam / game publisher).
+- **bundle-127 — Undertale**: https://store.steampowered.com/app/391540/ (Steam / game publisher).
+- **bundle-128 — DELTARUNE**: https://store.steampowered.com/app/1671210/ (Steam / game publisher).
+- **bundle-129 — Hades II**: https://store.steampowered.com/app/1145350/ (Steam / game publisher).
+- **bundle-130 — Cuphead**: https://store.steampowered.com/app/268910/ (Steam / game publisher).
+- **bundle-131 — Cult of the Lamb**: https://store.steampowered.com/app/1313140/ (Steam / game publisher).
+- **bundle-132 — Stray**: https://store.steampowered.com/app/1332010/ (Steam / game publisher).
+- **bundle-133 — Ori and the Blind Forest**: https://store.steampowered.com/app/261570/ (Steam / game publisher).
+- **bundle-134 — Balatro**: https://store.steampowered.com/app/2379780/ (Steam / game publisher).
+- **bundle-135 — Hotline Miami**: https://store.steampowered.com/app/219150/ (Steam / game publisher).
+- **bundle-136 — Geometry Dash**: https://store.steampowered.com/app/322170/ (Steam / game publisher).
+- **bundle-137 — Vampire Survivors**: https://store.steampowered.com/app/1794680/ (Steam / game publisher).
+- **bundle-138 — Slay the Spire 2**: https://store.steampowered.com/app/2868840/ (Steam / game publisher).
+- **bundle-139 — OMORI**: https://store.steampowered.com/app/1150690/ (Steam / game publisher).
+- **bundle-273 — Need for Speed™ Heat**: https://store.steampowered.com/app/1222680/ (Steam / game publisher).
+- **bundle-274 — Forza Horizon 5**: https://store.steampowered.com/app/1551360/ (Steam / game publisher).
+- **bundle-187 — Stranger Things**: https://www.tvmaze.com/shows/2993/stranger-things (TVmaze / original distributor).
+- **bundle-188 — Wednesday**: https://www.tvmaze.com/shows/53647/wednesday (TVmaze / original distributor).
+- **bundle-189 — The Last of Us**: https://www.tvmaze.com/shows/46562/the-last-of-us (TVmaze / original distributor).
+- **bundle-190 — Breaking Bad**: https://www.tvmaze.com/shows/169/breaking-bad (TVmaze / original distributor).
+- **bundle-191 — Game of Thrones**: https://www.tvmaze.com/shows/82/game-of-thrones (TVmaze / original distributor).
+- **bundle-192 — House of the Dragon**: https://www.tvmaze.com/shows/44778/house-of-the-dragon (TVmaze / original distributor).
+- **bundle-193 — Squid Game**: https://www.tvmaze.com/shows/43687/squid-game (TVmaze / original distributor).
+- **bundle-195 — The Boys**: https://www.tvmaze.com/shows/15299/the-boys (TVmaze / original distributor).
+- **bundle-196 — Invincible**: https://www.tvmaze.com/shows/37196/invincible (TVmaze / original distributor).
+- **bundle-197 — Rick and Morty**: https://www.tvmaze.com/shows/216/rick-and-morty (TVmaze / original distributor).
+- **bundle-198 — The Simpsons**: https://www.tvmaze.com/shows/83/the-simpsons (TVmaze / original distributor).
+- **bundle-199 — Family Guy**: https://www.tvmaze.com/shows/84/family-guy (TVmaze / original distributor).
+- **bundle-200 — SpongeBob SquarePants**: https://www.tvmaze.com/shows/713/spongebob-squarepants (TVmaze / original distributor).
+- **bundle-201 — Avatar: The Last Airbender**: https://www.tvmaze.com/shows/38753/avatar-the-last-airbender (TVmaze / original distributor).
+- **bundle-202 — Adventure Time**: https://www.tvmaze.com/shows/290/adventure-time (TVmaze / original distributor).
+- **bundle-203 — Gravity Falls**: https://www.tvmaze.com/shows/396/gravity-falls (TVmaze / original distributor).
+- **bundle-204 — Doctor Who**: https://www.tvmaze.com/shows/210/doctor-who (TVmaze / original distributor).
+- **bundle-205 — The Office**: https://www.tvmaze.com/shows/526/the-office (TVmaze / original distributor).
+- **bundle-206 — Friends**: https://www.tvmaze.com/shows/431/friends (TVmaze / original distributor).
+- **bundle-207 — Peaky Blinders**: https://www.tvmaze.com/shows/269/peaky-blinders (TVmaze / original distributor).
+- **bundle-209 — Cobra Kai**: https://www.tvmaze.com/shows/30960/cobra-kai (TVmaze / original distributor).
+- **bundle-210 — The Witcher**: https://www.tvmaze.com/shows/28276/the-witcher (TVmaze / original distributor).
+- **bundle-211 — Bluey**: https://www.tvmaze.com/shows/41821/bluey (TVmaze / original distributor).
+- **bundle-213 — Severance**: https://www.tvmaze.com/shows/44933/severance (TVmaze / original distributor).
+
+Simple Icons SVGs are distributed under its CC0 package license. Brand artwork and trademarks remain with their owners; availability here does not grant reuse rights. TV and game cover art is sourced from the listed distributor catalogs. No external URLs are fetched by the profile renderer. All thumbnails are served locally.

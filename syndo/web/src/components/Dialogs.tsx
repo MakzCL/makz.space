@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Copy, Hash, Lock, MessageSquare, Volume2, Megaphone, FolderPlus, Radio, MessageSquareText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -70,12 +71,12 @@ export function InviteDialog({ guildId, channelId, onClose }: { guildId: string;
               <button className="btn primary" onClick={() => { navigator.clipboard.writeText(link); toast("Invite link copied.", "success"); }}><Copy size={16} /> Copy</button></div>
           </Field>
           <div className="row">
-            <Field label="Expires after"><select value={age} onChange={(e) => setAge(+e.target.value)}>
+            <Field label="Expires after"><Select value={age} onChange={(e) => setAge(+e.target.value)}>
               <option value={1800}>30 minutes</option><option value={3600}>1 hour</option><option value={86400}>1 day</option><option value={7 * 86400}>7 days</option><option value={30 * 86400}>30 days</option><option value={0}>Never</option>
-            </select></Field>
-            <Field label="Max uses"><select value={uses} onChange={(e) => setUses(+e.target.value)}>
+            </Select></Field>
+            <Field label="Max uses"><Select value={uses} onChange={(e) => setUses(+e.target.value)}>
               <option value={0}>No limit</option><option value={1}>1 use</option><option value={5}>5 uses</option><option value={10}>10 uses</option><option value={25}>25 uses</option><option value={100}>100 uses</option>
-            </select></Field>
+            </Select></Field>
           </div>
           <p className="muted small">Changing these creates a new link. Old links keep working until they expire or are revoked in Server settings → Invites.</p>
         </>

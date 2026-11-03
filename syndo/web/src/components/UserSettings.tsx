@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { DmKeySettings } from "./DmPrivacy.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
@@ -109,7 +110,7 @@ function AppearanceTab({ onClose }: { onClose: () => void }) {
         <div className="grow"><strong>SEND Studio</strong><p className="muted small">Themes, panel transparency, backgrounds, layout, per-server and per-conversation looks, profile effects, presets and import/export.</p></div>
         <button className="btn primary" onClick={() => { onClose(); openStudio("gallery"); }}>Open SEND Studio</button>
       </div>
-      <Field label="Theme"><select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("syndo-") && <option value={g.themeId}>My preset</option>}</select></Field>
+      <Field label="Theme"><Select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("syndo-") && <option value={g.themeId}>My preset</option>}</Select></Field>
       <Field label="Accent colour"><input type="color" value={(g.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, colors: { ...(x.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></Field>
       <Toggle label="Follow system light/dark" checked={g.followSystem} onChange={(v) => updateGlobal((x) => ({ ...x, followSystem: v }))} />
       <p className="muted small" role="status">{saveState === "pending" || saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save — check your connection." : "Saved and synced to your devices."}</p>
@@ -123,14 +124,14 @@ function AccessibilityTab() {
   return (
     <div className="stack">
       <h2>Accessibility</h2>
-      <Field label="Reduced motion"><select value={a.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system setting</option><option value="on">Always reduce motion</option><option value="off">Allow motion</option></select></Field>
+      <Field label="Reduced motion"><Select value={a.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system setting</option><option value="on">Always reduce motion</option><option value="off">Allow motion</option></Select></Field>
       <Toggle label="High contrast" checked={a.highContrast} onChange={(v) => set({ highContrast: v })} />
       <Toggle label="Keep text readable" hint="Fixes low-contrast theme text automatically." checked={a.minContrast} onChange={(v) => set({ minContrast: v })} />
       <Toggle label="Readable overlay for busy wallpapers" checked={a.readableOverlay} onChange={(v) => set({ readableOverlay: v })} />
       <Toggle label="Disable animated backgrounds" checked={a.disableAnimatedBackgrounds} onChange={(v) => set({ disableAnimatedBackgrounds: v })} />
       <Toggle label="Disable profile effects" checked={a.disableProfileEffects} onChange={(v) => set({ disableProfileEffects: v })} />
       <Toggle label="Hide other people's cosmetics" checked={a.disableOthersCosmetics} onChange={(v) => set({ disableOthersCosmetics: v })} />
-      <Field label="Blur"><select value={a.blur} onChange={(e) => set({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select></Field>
+      <Field label="Blur"><Select value={a.blur} onChange={(e) => set({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></Select></Field>
       <Toggle label="Low-power mode" checked={a.lowPower} onChange={(v) => set({ lowPower: v })} />
       <h3>Keyboard</h3>
       <ul className="small keys">
@@ -150,8 +151,8 @@ function Privacy() {
   return (
     <div className="stack">
       <h2>Privacy & safety</h2><DmKeySettings />
-      <Field label="Who can send you friend requests"><select value={me.privacy.friend_requests} onChange={(e) => save({ friend_requests: e.target.value as any })}>
-        <option value="everyone">Everyone</option><option value="server_members">People in my servers and friends of friends</option><option value="friends_of_friends">Friends of friends</option><option value="nobody">Nobody</option></select></Field>
+      <Field label="Who can send you friend requests"><Select value={me.privacy.friend_requests} onChange={(e) => save({ friend_requests: e.target.value as any })}>
+        <option value="everyone">Everyone</option><option value="server_members">People in my servers and friends of friends</option><option value="friends_of_friends">Friends of friends</option><option value="nobody">Nobody</option></Select></Field>
       <Toggle label="Allow direct messages from server members" hint="Friends can always message you. Blocked people never can." checked={me.privacy.dms_from_server_members} onChange={(v) => save({ dms_from_server_members: v })} />
       <Toggle label="Show mutual servers and friends on my profile" checked={me.privacy.show_mutuals} onChange={(v) => save({ show_mutuals: v })} />
       <p className="muted small">Blocking someone hides their friend requests, stops new DMs and calls between you, and keeps them out of group conversations you're in. They aren't told.</p>
@@ -183,21 +184,21 @@ function VoiceTab() {
       <h2>Voice & video</h2>
       {!limits?.media_enabled && <p className="warn-text">This server hasn't configured its media server yet, so calls can't connect. Settings still save.</p>}
       <div className="row wrap">
-        <Field label="Microphone"><select value={s.inputDeviceId} onChange={(e) => switchDevice("audioinput", e.target.value)}><option value="default">Default</option>{list("audioinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microphone"}</option>)}</select></Field>
-        <Field label="Speaker"><select value={s.outputDeviceId} disabled={!caps.setSinkId} onChange={(e) => switchDevice("audiooutput", e.target.value)}><option value="default">Default</option>{list("audiooutput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Speaker"}</option>)}</select></Field>
-        <Field label="Camera"><select value={s.videoDeviceId} onChange={(e) => switchDevice("videoinput", e.target.value)}><option value="">Default</option>{list("videoinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}</select></Field>
+        <Field label="Microphone"><Select value={s.inputDeviceId} onChange={(e) => switchDevice("audioinput", e.target.value)}><option value="default">Default</option>{list("audioinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microphone"}</option>)}</Select></Field>
+        <Field label="Speaker"><Select value={s.outputDeviceId} disabled={!caps.setSinkId} onChange={(e) => switchDevice("audiooutput", e.target.value)}><option value="default">Default</option>{list("audiooutput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Speaker"}</option>)}</Select></Field>
+        <Field label="Camera"><Select value={s.videoDeviceId} onChange={(e) => switchDevice("videoinput", e.target.value)}><option value="">Default</option>{list("videoinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}</Select></Field>
       </div>
       {!caps.setSinkId && <p className="muted small">This browser can't choose a speaker; it uses the system default.</p>}
       <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><input type="range" min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
-      <Field label="Input mode"><select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></select></Field>
+      <Field label="Input mode"><Select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></Select></Field>
       {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when SEND is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
       <h3>Audio quality — free for everyone</h3>
-      <Field label="Preset"><select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></select></Field>
+      <Field label="Preset"><Select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></Select></Field>
       <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">
-        <select value={Math.round(s.bitrate / 1000)} onChange={(e) => updateVoiceSettings({ bitrate: +e.target.value * 1000, presetId: "custom" })}>
+        <Select value={Math.round(s.bitrate / 1000)} onChange={(e) => updateVoiceSettings({ bitrate: +e.target.value * 1000, presetId: "custom" })}>
           {AUDIO_BITRATES_KBPS.filter((k) => k <= maxKbps).map((k) => <option key={k} value={k}>{k} kbps</option>)}
-        </select>
+        </Select>
       </Field>
       <Toggle label="Stereo (music mode)" hint="Needs a stereo source and turn off echo cancellation for true stereo; the receiver's device must play stereo." checked={s.stereo} onChange={(v) => updateVoiceSettings({ stereo: v, presetId: "custom" })} />
       <Toggle label="Echo cancellation" checked={s.echoCancellation} onChange={(v) => updateVoiceSettings({ echoCancellation: v, presetId: "custom" })} />
@@ -208,12 +209,12 @@ function VoiceTab() {
       <Toggle label="Redundant audio (RED)" hint="Survives packet loss better; roughly doubles audio traffic." checked={s.red} onChange={(v) => updateVoiceSettings({ red: v, presetId: "custom" })} />
       <h3>Screen sharing defaults</h3>
       <div className="row wrap">
-        <Field label="Resolution"><select value={String(s.stream.height)} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, height: e.target.value === "source" ? "source" : +e.target.value } })}>
-          {STREAM_HEIGHTS.filter((h) => h <= (limits?.max_stream_height ?? 2160)).map((h) => <option key={h} value={h}>{h === 2160 ? "2160p (4K)" : `${h}p`}</option>)}<option value="source">Source (native size)</option></select></Field>
-        <Field label="Frame rate"><select value={s.stream.fps} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, fps: +e.target.value as any } })}>{STREAM_FPS.filter((f) => f <= (limits?.max_stream_fps ?? 60)).map((f) => <option key={f} value={f}>{f} fps</option>)}</select></Field>
-        <Field label="Optimise for"><select value={s.stream.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, contentHint: e.target.value as any } })}><option value="detail">Readable text (keeps resolution)</option><option value="motion">Motion (keeps frame rate)</option></select></Field>
-        <Field label="Bitrate"><select value={s.stream.bitrate} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, bitrate: +e.target.value } })}><option value={0}>Automatic</option>{[2500, 4000, 6000, 8000, 12000, 16000, 20000].filter((k) => k <= (limits?.max_stream_bitrate_kbps ?? 20000)).map((k) => <option key={k} value={k * 1000}>{k / 1000} Mbps</option>)}</select></Field>
-        <Field label="Codec"><select value={s.stream.codec} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, codec: e.target.value as any } })}><option value="auto">Automatic</option><option value="av1">AV1</option><option value="vp9">VP9</option><option value="h264">H.264</option><option value="vp8">VP8</option></select></Field>
+        <Field label="Resolution"><Select value={String(s.stream.height)} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, height: e.target.value === "source" ? "source" : +e.target.value } })}>
+          {STREAM_HEIGHTS.filter((h) => h <= (limits?.max_stream_height ?? 2160)).map((h) => <option key={h} value={h}>{h === 2160 ? "2160p (4K)" : `${h}p`}</option>)}<option value="source">Source (native size)</option></Select></Field>
+        <Field label="Frame rate"><Select value={s.stream.fps} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, fps: +e.target.value as any } })}>{STREAM_FPS.filter((f) => f <= (limits?.max_stream_fps ?? 60)).map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></Field>
+        <Field label="Optimise for"><Select value={s.stream.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, contentHint: e.target.value as any } })}><option value="detail">Readable text (keeps resolution)</option><option value="motion">Motion (keeps frame rate)</option></Select></Field>
+        <Field label="Bitrate"><Select value={s.stream.bitrate} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, bitrate: +e.target.value } })}><option value={0}>Automatic</option>{[2500, 4000, 6000, 8000, 12000, 16000, 20000].filter((k) => k <= (limits?.max_stream_bitrate_kbps ?? 20000)).map((k) => <option key={k} value={k * 1000}>{k / 1000} Mbps</option>)}</Select></Field>
+        <Field label="Codec"><Select value={s.stream.codec} onChange={(e) => updateVoiceSettings({ stream: { ...s.stream, codec: e.target.value as any } })}><option value="auto">Automatic</option><option value="av1">AV1</option><option value="vp9">VP9</option><option value="h264">H.264</option><option value="vp8">VP8</option></Select></Field>
       </div>
       <Toggle label="Share audio with my screen" checked={s.stream.audio} onChange={(v) => updateVoiceSettings({ stream: { ...s.stream, audio: v } })} />
       <h3>What this browser can do</h3>
@@ -260,8 +261,8 @@ function DesktopTab() {
       {d.refreshInterface && <div className="row"><button className="btn" onClick={() => d.refreshInterface?.()}>Refresh to latest interface</button><span className="muted small">Load the latest Cloudflare update.</span></div>}
       {desktop.capabilities.windowMaterial ? (
         <Field label="Window material (Windows 11)" hint="Lets the desktop show through the app background. Panels keep the transparency you set in SEND Studio.">
-          <select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
-            <option value="none">None</option><option value="mica">Mica</option><option value="acrylic">Acrylic</option></select></Field>
+          <Select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
+            <option value="none">None</option><option value="mica">Mica</option><option value="acrylic">Acrylic</option></Select></Field>
       ) : <p className="muted small">See-through window materials need Windows 11 (22H2 or newer).</p>}
       <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={() => confirm("Switch to a different SEND server? You'll need to sign in there.") && d.changeServer()}>Change server</button></div></Field>
       <ul className="small keys">

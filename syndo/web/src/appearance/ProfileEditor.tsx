@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { CollectionArt } from "./CollectionArt.tsx";
 import { Range } from "../components/Range.tsx";
 import { ArrowDown, ArrowUp, Plus, Trash2, Pencil } from "lucide-react";
@@ -72,16 +73,16 @@ export function CosmeticsEditor({ value, onChange }: { value: ProfileTheme; onCh
         <label>Colour 2 <input type="color" value={v.secondary} onChange={(e) => set({ secondary: e.target.value.toUpperCase() })} /></label>
       </div>
       <div className="grid2">
-        <label className="field"><span className="field-l">Avatar ring</span><select value={v.ring.style} onChange={(e) => set({ ring: { ...v.ring, style: e.target.value as ProfileTheme["ring"]["style"] } })}>{opts(RING_STYLES)}</select></label>
+        <label className="field"><span className="field-l">Avatar ring</span><Select value={v.ring.style} onChange={(e) => set({ ring: { ...v.ring, style: e.target.value as ProfileTheme["ring"]["style"] } })}>{opts(RING_STYLES)}</Select></label>
         <label className="field"><span className="field-l">Ring colour / speed</span><span className="row"><input type="color" value={v.ring.color} onChange={(e) => set({ ring: { ...v.ring, color: e.target.value.toUpperCase() } })} /><Range min={0.25} max={3} step={0.25} value={v.ring.speed} onChange={(e) => set({ ring: { ...v.ring, speed: +e.target.value } })} aria-label="Ring speed" /></span></label>
-        <label className="field"><span className="field-l">Profile frame</span><select value={v.frame} onChange={(e) => set({ frame: e.target.value as ProfileTheme["frame"] })}>{opts(FRAMES)}</select></label>
-        <label className="field"><span className="field-l">Avatar decoration</span><select value={v.decoration} onChange={(e) => set({ decoration: e.target.value as ProfileTheme["decoration"] })}>{opts(DECORATIONS)}</select></label>
-        <label className="field"><span className="field-l">Display-name style</span><select value={v.nameStyle} onChange={(e) => set({ nameStyle: e.target.value as ProfileTheme["nameStyle"] })}>{opts(NAME_STYLES)}</select></label>
+        <label className="field"><span className="field-l">Profile frame</span><Select value={v.frame} onChange={(e) => set({ frame: e.target.value as ProfileTheme["frame"] })}>{opts(FRAMES)}</Select></label>
+        <label className="field"><span className="field-l">Avatar decoration</span><Select value={v.decoration} onChange={(e) => set({ decoration: e.target.value as ProfileTheme["decoration"] })}>{opts(DECORATIONS)}</Select></label>
+        <label className="field"><span className="field-l">Display-name style</span><Select value={v.nameStyle} onChange={(e) => set({ nameStyle: e.target.value as ProfileTheme["nameStyle"] })}>{opts(NAME_STYLES)}</Select></label>
         <label className="field"><span className="field-l">Name glow</span><Range min={0} max={100} value={v.nameGlow} onChange={(e) => set({ nameGlow: +e.target.value })} /></label>
-        <label className="field"><span className="field-l">Nameplate</span><select value={v.nameplate} onChange={(e) => set({ nameplate: e.target.value as ProfileTheme["nameplate"] })}>{opts(NAMEPLATES)}</select></label>
-        <label className="field"><span className="field-l">Status indicator shape</span><select value={v.statusShape} onChange={(e) => set({ statusShape: e.target.value as ProfileTheme["statusShape"] })}>{opts(STATUS_SHAPES)}</select></label>
-        <label className="field"><span className="field-l">Card entrance</span><select value={v.entrance} onChange={(e) => set({ entrance: e.target.value as ProfileTheme["entrance"] })}>{opts(ENTRANCES)}</select></label>
-        <label className="field"><span className="field-l">Banner animation</span><select value={v.bannerAnimation} onChange={(e) => set({ bannerAnimation: e.target.value as ProfileTheme["bannerAnimation"] })}>{opts(["none", "pan", "shimmer"])}</select></label>
+        <label className="field"><span className="field-l">Nameplate</span><Select value={v.nameplate} onChange={(e) => set({ nameplate: e.target.value as ProfileTheme["nameplate"] })}>{opts(NAMEPLATES)}</Select></label>
+        <label className="field"><span className="field-l">Status indicator shape</span><Select value={v.statusShape} onChange={(e) => set({ statusShape: e.target.value as ProfileTheme["statusShape"] })}>{opts(STATUS_SHAPES)}</Select></label>
+        <label className="field"><span className="field-l">Card entrance</span><Select value={v.entrance} onChange={(e) => set({ entrance: e.target.value as ProfileTheme["entrance"] })}>{opts(ENTRANCES)}</Select></label>
+        <label className="field"><span className="field-l">Banner animation</span><Select value={v.bannerAnimation} onChange={(e) => set({ bannerAnimation: e.target.value as ProfileTheme["bannerAnimation"] })}>{opts(["none", "pan", "shimmer"])}</Select></label>
       </div>
       <h4>Effect layers <small className="muted">drawn bottom to top; up to 6</small></h4>
       <div className="timeline" aria-label="Effect timeline">
@@ -97,9 +98,9 @@ export function CosmeticsEditor({ value, onChange }: { value: ProfileTheme; onCh
           <legend>{i + 1}. {LABEL[l.kind]}</legend>
           <div className="row wrap">
             <label className="row"><input type="checkbox" checked={l.enabled} onChange={(e) => setLayer(i, { enabled: e.target.checked })} /> On</label>
-            <select value={l.kind} onChange={(e) => setLayer(i, { kind: e.target.value as EffectLayer["kind"] })} aria-label="Effect">{opts(EFFECT_KINDS)}</select>
+            <Select value={l.kind} onChange={(e) => setLayer(i, { kind: e.target.value as EffectLayer["kind"] })} aria-label="Effect">{opts(EFFECT_KINDS)}</Select>
             <input type="color" value={l.color} onChange={(e) => setLayer(i, { color: e.target.value.toUpperCase() })} aria-label="Effect colour" />
-            <select value={l.trigger} onChange={(e) => setLayer(i, { trigger: e.target.value as EffectLayer["trigger"] })} aria-label="When"><option value="always">Always on</option><option value="hover">On hover</option></select>
+            <Select value={l.trigger} onChange={(e) => setLayer(i, { trigger: e.target.value as EffectLayer["trigger"] })} aria-label="When"><option value="always">Always on</option><option value="hover">On hover</option></Select>
             <label className="row"><input type="checkbox" checked={l.loop} onChange={(e) => setLayer(i, { loop: e.target.checked })} /> Loop</label>
             <button className="icon-btn sm" onClick={() => move(i, -1)} aria-label="Move layer up"><ArrowUp size={14} /></button>
             <button className="icon-btn sm" onClick={() => move(i, 1)} aria-label="Move layer down"><ArrowDown size={14} /></button>
@@ -129,9 +130,9 @@ export function ProfileEditor({ embedded }: { embedded?: boolean }) {
       <h3>Profile {embedded && <small className="muted">— public, saved immediately with “Save profile”</small>}</h3>
       <div className="tabs" role="tablist" aria-label="Which profile">
         <button role="tab" aria-selected={tab === "global"} className={tab === "global" ? "active" : ""} onClick={() => setTab("global")}>Global profile</button>
-        <select value={tab === "global" ? "" : tab} onChange={(e) => setTab(e.target.value || "global")} aria-label="Edit a server profile">
+        <Select value={tab === "global" ? "" : tab} onChange={(e) => setTab(e.target.value || "global")} aria-label="Edit a server profile">
           <option value="">Server profile…</option>{Object.values(guilds).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
+        </Select>
       </div>
       {tab === "global" ? <GlobalProfile key="g" /> : <ServerProfile key={tab} guildId={tab} />}
       <p className="muted small">Your username (@{me.username}) always shows under any decorative name, so styling can't be used to impersonate someone.</p>

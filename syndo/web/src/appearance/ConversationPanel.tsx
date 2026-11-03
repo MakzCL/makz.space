@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { Range } from "../components/Range.tsx";
 import { X } from "lucide-react";
 import { ChannelType, type Background, type Channel, type ConversationPrefs, type ScopeAppearance } from "@syndo/shared";
@@ -48,7 +49,7 @@ export function ConversationPanel({ channel, onClose }: { channel: Channel; onCl
       </div>
       <label className="slide"><span>Chat surface opacity</span><Range min={0} max={100} value={conv.chatOpacity ?? 100} onChange={(e) => setConv({ chatOpacity: +e.target.value })} /><output>{conv.chatOpacity ?? 100}%</output></label>
       <label className="row">Accent <input type="color" value={(scope.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => patch((s) => ({ ...s, overrides: { ...s.overrides, colors: { ...(s.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></label>
-      <label className="field"><span className="field-l">Messages</span><select value={conv.messageStyle ?? ""} onChange={(e) => setConv({ messageStyle: (e.target.value || undefined) as any })}><option value="">Use global</option><option value="list">Traditional list</option><option value="bubbles">Bubbles</option></select></label>
+      <label className="field"><span className="field-l">Messages</span><Select value={conv.messageStyle ?? ""} onChange={(e) => setConv({ messageStyle: (e.target.value || undefined) as any })}><option value="">Use global</option><option value="list">Traditional list</option><option value="bubbles">Bubbles</option></Select></label>
       {(conv.messageStyle === "bubbles") && (
         <div className="row wrap">
           <label>Mine <input type="color" value={conv.bubbles?.mine ?? "#3D6BFF"} onChange={(e) => setConv({ bubbles: { ...conv.bubbles, mine: e.target.value.toUpperCase() } })} /></label>

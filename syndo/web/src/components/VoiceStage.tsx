@@ -1,3 +1,4 @@
+import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Activity, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -69,9 +70,9 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           {shareMenu && !v.sharing && (
             <div className="share-menu" role="dialog" aria-label="Screen share quality">
               <h3>Share your screen</h3>
-              <label>Resolution <select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></select></label>
-              <label>Frame rate <select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</select></label>
-              <label>Optimise for <select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></select></label>
+              <label>Resolution <Select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></Select></label>
+              <label>Frame rate <Select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></label>
+              <label>Optimise for <Select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></Select></label>
               <label className="row"><input type="checkbox" checked={st.audio} onChange={(e) => updateVoiceSettings({ stream: { ...st, audio: e.target.checked } })} /> Include audio {!caps.tabAudio && <small className="muted">(not supported in this browser)</small>}</label>
               <p className="muted small">Your browser will ask which screen, window or tab to share.</p>
               <button className="btn primary" onClick={() => { setShareMenu(false); startScreenShare(); }}>Go live</button>
