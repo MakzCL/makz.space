@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NUCLEUS — electronics design, simulation and PCB engineering suite",
+  "description": "NUCLEUS \u2014 electronics design, simulation and PCB engineering suite",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 4280",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "desktop": "vite build && electron .",
+    "package:win": "vite build && node desktop/package-win.mjs"
   },
   "dependencies": {
     "eecircuit-engine": "^1.9.0",
@@ -22,8 +24,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^45.2.1",
     "typescript": "5.9",
     "vite": "^7.3.7",
     "vitest": "^3.2.7"
-  }
+  },
+  "main": "desktop/main.cjs"
 }
