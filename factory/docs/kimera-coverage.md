@@ -180,7 +180,7 @@ advisory lock per item, so concurrent requests serialise.
 | WH-09 | Complete | realtime store; tasks auto-close when their PO is received, order shipped or transfer received (`wh_autoclose`) |
 | WH-10 | Missing | |
 
-## I. Planning — PLAN-01..08: **Complete (core), phase 6a — not yet published**
+## I. Planning — PLAN-01..08: **Complete (core), phase 6a — live**
 
 | ID | Status | Evidence |
 |---|---|---|
@@ -193,7 +193,7 @@ advisory lock per item, so concurrent requests serialise.
 | PLAN-07 | Complete | overrides flow straight into projection and recommendation (tested: 13 → 21) |
 | PLAN-08 | Complete | any function call can be limited to one location; Plan → Forecast has a location filter |
 
-## J. Reporting — REP-01..09: **Complete (core), phase 6b — not yet published**
+## J. Reporting — REP-01..09: **Complete (core), phase 6b — live**
 
 | ID | Status | Evidence |
 |---|---|---|
@@ -207,7 +207,7 @@ advisory lock per item, so concurrent requests serialise.
 | REP-08 | Complete | CSV export of every report as shown |
 | REP-09 | Complete | tests: inventory closing = stock on hand (company and per location), consumption = ledger, MO materials = MO cost card, sales cost = ledger, PO count; costs only to roles with Costs & margins |
 
-## K. Integrations — INT-06..09 **Complete (core), phase 6c — not yet published**; INT-02..05 wait for your answers
+## K. Integrations — INT-06..09 **Complete (core), phase 6c — live**; INT-02..05 wait for your answers
 
 | ID | Status | Notes |
 | --- | --- | --- |
@@ -365,6 +365,8 @@ key per intent and disables the button while it runs.
 - 2026-11-03 — **Phase 6b — reports — built, not yet published.** Section J. Insights → Reports. Tests: 10 new report checks ALL PASSED; browser: sales table with totals, sorting, drill-through to the item, purchasing report — no errors. Header navigation tightened so every section fits from 1280 px with Scan + Create.
 
 - 2026-11-03 — **Phase 6c — API & webhooks — built, not yet published.** Section K. Tests: 22 new checks (keys hashed/shown once/revoked, secrets hidden from the app, events queue only for subscribers, claim-once, retry schedule, give-up, owner-only screen, API order creation + duplicate reference) ALL PASSED; edge functions `api` and `webhooks` compile; browser smoke of Settings → Integrations — no errors. To go live they must be deployed (JWT verification off) and `app_settings.webhooks_url` set.
+
+- 2026-11-03 — **Phases 5b, 5c, 6a, 6b, 6c published.** Migrations `kortana_phase6ab_planning_reports` + `kortana_phase6c_api_webhooks`, deploy of `d887675`, edge functions `api` and `webhooks` (JWT verification off), `app_settings.webhooks_url` set, pg_cron job `webhook-retries` active. Restore point: `backup_20261103_phase5b6` (57 tables) + branch `backup/pre-phase5b6-2026-11-03` (1745d6b). Live checks: API refuses missing/bad keys (401) and read-only writes (403), returns items/orders/stock without costs; a webhook test ping was delivered and signed (HTTP 200, first attempt); temporary key and webhook removed; costs still hidden; 0 stock mismatches; plan overview of 438 items ≈ 1 s, reports ≈ 10 ms.
 
 ## Next steps (continuation plan)
 
