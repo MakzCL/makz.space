@@ -109,6 +109,10 @@ git pull && cd syndo/deploy && docker compose up -d --build
 
 Migrations in `server/migrations/` run automatically at start, each in a transaction. Restart the API after rebuilding the web client (static routes are registered at start).
 
+## Hosted web app & desktop app
+
+The interface can also be hosted on Cloudflare Pages (with a same-origin proxy to your API) and shipped as a Windows app that self-updates from Cloudflare R2. See DESKTOP.md.
+
 ## Costs
 
 | Item | Required? | Cost driver |

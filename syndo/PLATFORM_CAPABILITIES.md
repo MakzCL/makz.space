@@ -36,11 +36,22 @@ What each client platform can actually do. These come from browser/OS capture AP
 - Opus is variable-rate: a 320 kbps target with speech or silence can measure far lower. DTX makes silence nearly free. Stereo only survives end to end if capture is stereo, echo cancellation is off, the SDP negotiates `stereo=1`, and the listener's output is stereo.
 - Unsupported capture-audio modes are labelled "not supported in this browser" in the share menu and settings, and a share that comes back without audio produces an explanatory notice.
 
+## Syndo desktop app (Windows)
+
+| Capability | Status |
+|---|---|
+| Everything in the web app | Yes — the window loads the hosted web app |
+| Global push-to-talk (keys, mouse 4/5) | Implemented (uiohook); not yet tested on Windows hardware |
+| Screen share with whole-system audio | Implemented (WASAPI loopback via Electron); not yet tested on Windows hardware |
+| Single-application audio | No |
+| Window transparency to the desktop | Windows 11 22H2+ only (Mica/Acrylic); in-app panel transparency works everywhere |
+| Tray, close-to-tray, native notifications, taskbar flash, `syndo://` links | Implemented |
+| Auto-update | electron-updater from a Cloudflare R2 feed |
+
 ## Native clients (not built)
 
 | Platform | Status | Why it matters |
 |---|---|---|
-| Desktop app (Electron or Tauri) | Missing — CLIENT-08 | Global push-to-talk, per-application audio capture, tray, native notifications, auto-start |
 | iOS app | Missing — CLIENT-09 | Push notifications (APNs), CallKit, background audio, screen broadcast via ReplayKit extension |
 | Android app | Missing — CLIENT-09 | FCM push, ConnectionService, foreground service for calls, MediaProjection screen share |
 

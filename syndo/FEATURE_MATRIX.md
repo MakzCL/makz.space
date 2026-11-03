@@ -4,7 +4,7 @@ Status key — **Complete**: works end to end with persistent data and server-en
 
 Evidence references: `S/<file>:<describe>` = server integration test (`server/test/*.test.ts`, real PostgreSQL, real HTTP + WebSocket clients). `E2E` = two-browser UI test (`e2e/smoke.cjs`, Chromium, separate browser contexts). Results: [TEST_RESULTS.md](TEST_RESULTS.md).
 
-Last updated: phase 2 delivery (2026-11-03).
+Last updated: customization extension + desktop/web distribution (2026-11-03).
 
 ## Accounts, identity, friends
 
@@ -14,7 +14,7 @@ Last updated: phase 2 delivery (2026-11-03).
 | AUTH-02 | Secure sessions, device/session list, revocation | Complete | S/core: "revoking a session closes its gateway…"; httpOnly SameSite cookie, Origin check ("rejects cookie-authenticated writes from foreign origins") | — | Revoke laptop session from phone → laptop gateway closes (4004), HTTP 401 |
 | AUTH-03 | Optional MFA + recovery codes | Complete | S/core: "Multifactor authentication" (TOTP, pending session can't act, recovery code single-use) | Browser test of the settings UI flow | Enable TOTP, log in elsewhere, prompted for code, recovery code works once |
 | AUTH-04 | Unique username + editable display name | Complete | DB unique citext; S/core duplicate username; E2E registration with display names | — | Two users can't share a username (case-insensitive); display names are free |
-| AUTH-05 | Profile card, avatar, banner, bio, pronouns, custom status | Partial | S/extra "uploads an avatar (validated by content)…"; profile card UI | Custom-status emoji picker; status expiry UI; browser test of profile card | Upload avatar/banner (incl. animated), set bio/pronouns/status → visible on others' profile card |
+| AUTH-05 | Profile card, avatar, banner, bio, pronouns, custom status | Complete | S/extra avatar upload; S/appearance server profiles; A/e2e "other members see the server profile"; profile card shows global or server values | Custom-status emoji picker; status expiry UI | Upload avatar/banner (incl. animated), set bio/pronouns/status → visible on others' profile card |
 | AUTH-06 | Online / idle / DND / invisible | Partial | Gateway presence + status op; invisible reported as offline to others | Automatic idle after inactivity; automated presence test | Set invisible → friends see offline; DND suppresses notifications |
 | AUTH-07 | Presence sync across devices | Partial | Status stored on account, `PRESENCE_UPDATE` with `self_status` to all own connections | Per-device activity aggregation (mobile idle vs desktop active) | Change status on phone → desktop UI updates within 1 s |
 | AUTH-08 | Account settings, data export, deletion | Complete | S/core "exports data and deletes the account"; E2E settings sync | Export of uploaded files as an archive (JSON metadata only today) | Export contains profile/messages; delete → can't log in, messages show "Deleted user" |
@@ -90,7 +90,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 |---|---|---|---|---|---|
 | VOICE-01 | 1:1, group DM, server voice | Unverified | `voice/session.ts`; S/core "mints tokens whose grants match SPEAK/VIDEO…" | Two-device call test on deployed stack | Two users on different networks hear each other |
 | VOICE-02 | Ring, accept, decline, cancel, missed, history | Unverified | `routes/voice.ts` call records (ongoing/ended/missed) | Automated ring/decline test; incoming-call sound | Unanswered ring → "Missed call" in DM |
-| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT while window focused; VAD default; `USE_VAD` forces PTT | Global PTT needs desktop app (CLIENT-08) | — |
+| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT in the browser while focused; global PTT in the desktop app (keyboard keys, mouse 4/5, uiohook); `USE_VAD` forces PTT | Media test on deployed LiveKit; desktop PTT test on Windows | Hold PTT key while Syndo is in the background → others hear you |
 | VOICE-04 | Device selection, gain, per-user volume | Unverified | WebAudio gain, `setSinkId`, per-user volume 0–200 % | — | — |
 | VOICE-05 | Speaking indicators, states, participants | Unverified | ActiveSpeakers, connection pill, sidebar participants (voice state tested) | — | — |
 | VOICE-06 | AEC / NS / AGC individually configurable | Unverified | Three independent toggles, re-publish on change | — | — |
@@ -128,7 +128,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
 | STREAM-01 | Screen / window / tab | Unverified | `getDisplayMedia` via LiveKit with surface switching | — | — |
-| STREAM-02 | System/app/tab audio where permitted | Unverified | Requested; capability table is honest (tab audio Chromium; system audio Windows Chromium only) | — | — |
+| STREAM-02 | System/app/tab audio where permitted | Unverified | Browser: tab audio (Chromium), system audio (Windows Chromium). Desktop app: own picker with whole-system audio via WASAPI loopback on Windows. Per-app audio: not supported (shown honestly) | Real capture test on Windows | Share screen with audio in the desktop app → viewers hear system sound |
 | STREAM-03 | In DMs, groups, servers | Unverified | Same session code for all | — | — |
 | STREAM-04 | Multiple simultaneous publishers | Unverified | Per-participant screen tiles | — | — |
 | STREAM-05 | Viewer select/focus/fullscreen/mute/volume | Unverified | Tile tools + stream volume | — | — |
@@ -150,21 +150,21 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
-| CUSTOM-01 | Animated avatars/banners | Partial | Upload accepts animated GIF/WebP/APNG (S/extra avatar upload) | Test with animated files; static preview when animations disabled | — |
-| CUSTOM-02 | Profile colours, gradients, themes | Partial | Profile theme colours; gradient banner; card border | Automated test | — |
-| CUSTOM-03 | Original decorations, effects, frames, nameplates | Partial | 5 decorations, 3 effects, 3 name styles (CSS, original) | Larger illustrated library; nameplates | — |
-| CUSTOM-04 | Display-name styles with readability/reduced motion | Partial | Name styles; animations disabled under reduced motion | Contrast check on name styles | — |
-| CUSTOM-05 | Per-server nickname, avatar, bio, banner, styling | Partial | Nickname + server bio | Per-server avatar/banner upload | — |
-| CUSTOM-06 | Light/dark/system/high-contrast/custom themes | Complete | E2E "light theme applies", synced to second device | — | — |
-| CUSTOM-07 | Accent, backgrounds, density, spacing, font size | Complete | Appearance + Accessibility settings, synced | — | — |
-| CUSTOM-08 | Preview, save/reset, validated import/export | Partial | Live preview; validator whitelists hex tokens | Automated import test incl. malicious file | — |
+| CUSTOM-01 | Animated avatars/banners | Complete | Global + per-server avatar/banner accept animated GIF/WebP/APNG (content-sniffed); S/appearance server avatar/banner; viewers can freeze/hide cosmetics | — | — |
+| CUSTOM-02 | Profile colours, gradients, themes | Complete | Profile theme schema (validated server-side); gradient banners, frames; A/e2e server profile card | — | — |
+| CUSTOM-03 | Original decorations, effects, frames, nameplates | Complete | 7 rings, 5 frames, 7 decorations, 4 nameplates, 6 effect kinds, entrances, banner animations — original CSS/canvas; A/e2e ring renders | Illustrated (bitmap) decoration library | — |
+| CUSTOM-04 | Display-name styles with readability/reduced motion | Complete | 5 name styles + glow; stable @username always shown; A/e2e reduced motion stops animations | Contrast warning specific to name styles | — |
+| CUSTOM-05 | Per-server nickname, avatar, bio, banner, styling | Complete | S/appearance "Server profiles" (separate storage, use-global, others see it, nobody else can edit); A/e2e 5–6 | — | — |
+| CUSTOM-06 | Light/dark/system/high-contrast/custom themes | Complete | 12 presets + follow-system + high contrast (a11y, always wins); A/e2e 16 (all presets style the app); E2E theme sync | — | — |
+| CUSTOM-07 | Accent, backgrounds, density, spacing, font size | Complete | Studio colours/typography/layout; A/e2e 1–2, 14 | — | — |
+| CUSTOM-08 | Preview, save/reset, validated import/export | Complete | Studio draft with Apply/Cancel/Undo/Redo/Reset section/Reset all; versioned JSON with optional packaged assets; S/appearance rejects URLs/@import; A/e2e Cancel reverts, import 10, .theme.css rejected | — | — |
 | CUSTOM-09 | Server emoji/stickers/soundboard management | Missing | — | With MSG-14 / VOICE-09 | — |
 | CUSTOM-10 | Role icons, colours, gradients | Partial | Colours + gradient names | Role icons | — |
 | CUSTOM-11 | Server tags, banners, animated icons, invite presentation | Partial | Tags, banners, animated icon upload, invite page | Test coverage | — |
-| CUSTOM-12 | Custom video backgrounds, notification sounds | Missing | — | — | — |
-| CUSTOM-13 | Original cosmetic library, no purchases | Partial | See CUSTOM-03; no purchase code anywhere | Expand library | — |
+| CUSTOM-12 | Custom video backgrounds, notification sounds | Partial | Muted looping MP4/WebM backgrounds with still fallback, paused when hidden/low power | Custom notification sounds; camera background replacement (VIDEO-06) | — |
+| CUSTOM-13 | Original cosmetic library, no purchases | Complete | Built-in themes, 6 original wallpapers, cosmetics library; no purchase code anywhere | Grow the library | — |
 | CUSTOM-14 | Larger limits without tiers | Complete | All limits are operator env vars, identical for every account, published in `/api/instance` and Settings → About | — | — |
-| CUSTOM-15 | Settings persistence + sync | Complete | E2E "theme synced to second device"; S/core settings export | — | — |
+| CUSTOM-15 | Settings persistence + sync | Complete | Per-scope prefs with revisions; live sync; device-only overrides; A/e2e 18; S/appearance stale-revision conflict | — | — |
 
 ## Roles, permissions, moderation
 
@@ -195,10 +195,48 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 | CLIENT-05 | Keyboard, shortcuts, labels, focus | Partial | Skip link (E2E), focus-trapped modals, labelled controls, Ctrl+K switcher | Full keyboard audit; roving focus in message list | — |
 | CLIENT-06 | Reduced motion, contrast, typography | Partial | Reduced motion (system/on/off), high-contrast theme, font scaling | Contrast audit of every theme | — |
 | CLIENT-07 | Responsive / mobile screens | Partial | E2E mobile width without horizontal scroll; off-canvas navigation | Touch gestures, mobile call layout testing | — |
-| CLIENT-08 | Desktop app | Missing | — | Electron/Tauri shell: global PTT, window audio capture, tray, native notifications | — |
+| CLIENT-08 | Desktop app | Partial | `syndo/desktop` (Electron): loads the hosted web app; global PTT; screen picker with Windows system audio; tray/close-to-tray; `syndo://` invites; Windows 11 Mica/Acrylic; native toasts; electron-updater from Cloudflare R2. Compiles; CI builds the NSIS .exe on windows-latest | Run the .exe on real Windows (not possible in the build sandbox); code-signing certificate; macOS/Linux packaging | Install .exe → sign in → global PTT works in a game → update installs from R2 |
 | CLIENT-09 | Native mobile apps | Missing | Responsive web only (not parity) | React Native/LiveKit SDKs, push (APNs/FCM), CallKit/ConnectionService | — |
 | CLIENT-10 | Game/activity presence, connected accounts | Missing | — | — | — |
 | CLIENT-11 | Game overlay | Missing | — | Separate native assessment | — |
+
+## Syndo Studio & appearance (customization extension)
+
+Evidence: `A/e2e` = `e2e/appearance.cjs` (real Chromium contexts against a running server, 26 checks), `S/appearance` = `server/test/appearance.test.ts`.
+
+| ID | Feature | Status | Evidence | Remaining work | Acceptance test |
+|---|---|---|---|---|---|
+| STUDIO-01 | Studio workspace (Settings → Appearance → Open Syndo Studio; user menu & server menu “Edit appearance”; chat header palette) | Complete | A/e2e opens via Settings; preview/Apply/Cancel | — | Open from each entry point |
+| STUDIO-02 | Theme gallery with engine-rendered thumbnails, tags, light/dark, duplicate | Complete | A/e2e applies Syndo Glass; screenshots | — | — |
+| STUDIO-03 | Visual editor with inherited/overridden indicator + reset to inherited per field | Complete | `controls.tsx` provenance from `resolveAppearance` | Browser test of per-field reset | — |
+| STUDIO-04 | Undo/Redo/Apply/Cancel/Reset section/Reset all; preview reversible until saved | Complete | A/e2e “Cancel reverts the preview”, undo/redo then Apply | — | — |
+| STUDIO-05 | Independent panel styling for 14 regions (colour, 0–100 % opacity, gradient, blur, border colour/opacity/width, radius, shadow, image, text/icon overrides) | Complete | A/e2e 1 (text/icons opaque at 30 % background), 2 (each panel keeps its own after refresh) | — | — |
+| STUDIO-06 | Clickable interface map + accessible region list | Complete | Live preview regions are buttons; region listbox | — | — |
+| STUDIO-07 | Backgrounds at global/server/channel/DM/group scopes; colour/gradient/image/animated/video; fit, focal point, zoom, filters, tint, overlay, vignette; dark/light variants; still fallback; pause when hidden; app-vs-chat target | Complete (video Unverified) | A/e2e 3, 11; S/appearance per-DM | Video background test with a real file | — |
+| STUDIO-08 | Background library: previews, favourites, replace, delete (reference-aware), usage/quota, cleanup | Complete | S/appearance “Background library” | — | — |
+| STUDIO-09 | Per-conversation appearance: wallpaper, chat opacity, accent, bubbles/list, bubble colours/radius/spacing, compact, private label, reset | Complete | A/e2e 3, labels | — | — |
+| STUDIO-10 | Shared conversation themes by explicit acceptance; personal override still wins | Complete | S/appearance; A/e2e 8 | — | — |
+| STUDIO-11 | Server-specific profiles (nick, avatar, banner, bio, pronouns, colours, effects, status) with use-global and preview | Complete | S/appearance; A/e2e 5, 6 | — | — |
+| STUDIO-12 | Profile animations: rings, frames, particles, entrances, banner animation, nameplates, name glow/gradient, hover-only, status shapes; layered editor with timeline | Complete | A/e2e ring renders, reduced motion stops it | Visual QA on low-end hardware | — |
+| STUDIO-13 | Layout: vertical/horizontal nav, 1–3 rail columns, widths, collapsible lists, density/spacing, avatar size, grouping, timestamps & format, panel style/gaps/margins, bubbles, unread/mention/status styles, font/size/line height, scale | Complete | A/e2e 13a/13b (keyboard), 14 (small window + large text) | — | — |
+| STUDIO-14 | 12 original presets using the real engine | Complete | A/e2e 16 (chat, profile cards, dialogs, call screen styled for each); screenshots | — | — |
+| STUDIO-15 | Deterministic hierarchy default → theme → global → device → server → shared → conversation → accessibility | Complete | `shared/src/theme.ts resolveAppearance`; A/e2e 4 | — | — |
+| STUDIO-16 | Documented theme schema, versioned import/export with assets, metadata, migrations, preview before apply, private data excluded | Complete | THEMES.md; S/appearance v1 import; A/e2e 10 | — | — |
+| STUDIO-17 | Advanced token editor + opt-in scoped custom CSS (parser with allowlists) | Complete | S/appearance rejects @import/url; validator blocks layout-changing properties | — | — |
+| STUDIO-18 | BetterDiscord themes | Not supported (by design) | Rejected with a clear message (A/e2e) | A converter would be a separate project | — |
+| STUDIO-19 | Accessibility & performance: reduced motion, no animated backgrounds, no profile effects, hide others’ cosmetics, blur levels, high contrast, readable overlay, keep-text-readable, low power, device-only overrides | Complete | A/e2e 9, “viewers can disable…”, 18 | — | — |
+| STUDIO-20 | Recovery: Ctrl+Shift+Alt+R safe mode, `?safe-appearance=1`, reset button on sign-in and in settings; recovery UI outside the themed tree | Complete | A/e2e 17 + sign-in link | — | — |
+| STUDIO-21 | Theme changes don't interrupt calls | Partial | Engine only touches CSS; voice session code is untouched by appearance changes | Run with a live call once LiveKit is deployed (scenario 12) | — |
+| STUDIO-22 | Private assets and preferences never exposed | Complete | A/e2e 7, 15; S/appearance | — | — |
+
+## Distribution
+
+| ID | Feature | Status | Evidence | Remaining work | Acceptance test |
+|---|---|---|---|---|---|
+| DIST-01 | Hosted web app on Cloudflare Pages with same-origin API/gateway proxy | Complete (locally verified) | `web/functions` + `web/edge/proxy.ts`; messaging E2E 18/18 through `wrangler pages dev` (Cloudflare runtime) incl. WebSocket | Set `SYNDO_API_ORIGIN` in the Pages project; first production deploy | Open the Pages URL → sign in → chat works |
+| DIST-02 | Windows installer (.exe) built in CI | Partial | `.github/workflows/syndo.yml` desktop job (electron-builder NSIS on windows-latest) | Confirm a green CI run; code signing | Download artifact → install → app opens |
+| DIST-03 | Desktop auto-updates from Cloudflare | Partial | electron-updater generic provider; CI uploads installer + latest.yml to R2 on `syndo-desktop-v*` tags | Create the R2 bucket + public URL; test an update between two tagged versions | Install v0.2.0, tag v0.2.1 → app downloads and offers “Restart to update” |
+| DIST-04 | Web interface updates reach desktop users instantly | Complete (by design) | The desktop window loads the hosted web app | — | — |
 
 ## Bots, apps, activities
 
@@ -220,9 +258,10 @@ Existing Discord bots/integrations are not compatible; a compatibility adapter w
 
 | Status | Count |
 |---|---|
-| Complete | 41 |
-| Partial | 41 |
+| Complete | 71 |
+| Partial | 38 |
 | Unverified | 39 |
-| Missing | 35 |
+| Missing | 33 |
+| Not supported | 1 |
 | Broken | 0 |
-| **Total tracked** | 156 |
+| **Total tracked** | 182 |

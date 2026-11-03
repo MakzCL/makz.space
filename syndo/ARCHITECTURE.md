@@ -97,6 +97,15 @@ The API never carries audio/video. `POST /api/voice/token` returns a 10-minute L
 
 Origin check + SameSite=Lax httpOnly cookies against CSRF; per-route and global rate limits; Zod validation on every body; uploads sniffed by content (claimed MIME ignored), SVG never rendered, downloads sent with `nosniff`, `sandbox` CSP and `attachment` disposition for non-media; profile media restricted to strict key patterns; message markdown rendered to React elements only (no HTML strings); themes are whitelisted colour tokens only; masked links confirm their destination; no account enumeration via login, reset or friend requests; blocked users aren't told they're blocked.
 
+## Appearance system
+
+`shared/src/theme.ts` defines the theme schema, validator, layered resolution and the scoped custom-CSS parser; `shared/src/presets.ts` the 12 built-in themes. The server stores personal appearance per scope in `appearance_prefs` (private, revisioned), presets in `theme_presets`, wallpapers in `appearance_assets` (owner-only, served via `/api/appearance/assets/:id`), shared conversation themes in `conversation_themes` + votes, and server profiles as columns on `members`. The client (`web/src/appearance/`) resolves the hierarchy for the current server/channel, writes CSS variables per region (background-layer alpha only), renders wallpapers in a dedicated layer, and caches a snapshot so the next start paints without a flash. Details: THEMES.md.
+
+## Distribution
+
+- Web app: static build on Cloudflare Pages with Pages Functions proxying `/api/*` and `/gateway` to the API origin (`web/functions`, `web/edge/proxy.ts`).
+- Desktop: `desktop/` Electron shell loading the hosted web app, electron-updater feed on Cloudflare R2. CI: `.github/workflows/syndo.yml`. Details: DESKTOP.md.
+
 ## Code map
 
 ```
@@ -109,6 +118,8 @@ syndo/
   web/src/      main.tsx, store.ts, gateway.ts, actions.ts, markdown.tsx, theme.ts, notify.ts
                 components/ Shell, ChannelView, Friends, Dialogs, UserSettings, ServerSettings, VoiceStage, …
                 voice/ session.ts, settings.ts, diagnostics.ts
-  e2e/          two-browser UI test
+  web/src/appearance/  engine, store, Studio, backgrounds, effects, profile editor, recovery
+  desktop/      Electron shell (main, preload, local picker/connect pages)
+  e2e/          browser tests (smoke.cjs, appearance.cjs)
   deploy/       docker-compose, Caddyfile, livekit.yaml
 ```

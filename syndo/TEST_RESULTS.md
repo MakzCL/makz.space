@@ -52,6 +52,22 @@ Screenshots: `docs/screenshots/`.
 
 `pg_dump -Fc` of the E2E database → `pg_restore` into a new database → identical row counts for users, guilds, channels, messages, relationships, invites, reactions, sessions → a server booted on the restored database and an existing user logged in (HTTP 200). Attachment files are on disk and must be backed up alongside (see OPERATIONS.md); file restore was not part of this run.
 
+## Customization extension (Syndo Studio)
+
+### Server — `npm test` → **46 / 46 passed** (adds `appearance.test.ts`, 9 tests)
+Validation and conflict handling of appearance settings; per-DM backgrounds; privacy (nothing personal in profiles or other users' views); scope limits; rejection of URLs, scripts and invalid CSS; background library (content sniffing, owner-only access, reference-aware delete and cleanup); shared conversation themes (explicit acceptance; asset access only for participants, ends on withdrawal); server profiles (separate from global, visible to members, use-global, nobody else can edit). Found and fixed: member queries let user columns overwrite server-profile columns.
+
+### Browser — `node e2e/appearance.cjs <url> <dir>` → **26 / 26 passed**
+Real Chromium contexts against the running server: Studio preview/Cancel/Undo/Redo/Apply; (1) chat background at 30 % with text and icons fully opaque; (2) each panel keeps its own style after refresh; (3) two DMs with different backgrounds, no leaking; private labels; (4) server→channel overrides inherit and reset; (5–6) server profile separate and visible to members with the stable @username; animated ring; (7) personal appearance private; (8) shared theme only after acceptance; (9) reduced motion stops rings/particles; viewers can hide others' cosmetics; (10) import keeps settings and rejects invalid packages; .theme.css rejected; (11) deleted wallpaper falls back to colour; (13) horizontal and multi-column server navigation by keyboard; (14) 820×560 window + 22 px text + scale 1.3 + hidden sidebar keep settings/composer reachable; (15) private wallpaper not fetchable by others; (16) all 12 presets style chat, profile cards, dialogs and the call screen; (17) safe mode + reset recover from unreadable custom CSS; recovery link on sign-in; (18) live sync to a second device while its device-only layout stays local. Screenshots: `docs/screenshots/appearance/`.
+
+Not run: (12) theme changes during an active high-bitrate call/screen share — needs a deployed LiveKit. The appearance engine only writes CSS and never calls the voice module.
+
+### Hosted web app through the Cloudflare runtime
+`wrangler pages dev dist` with the Pages Functions proxy in front of the API: messaging E2E **18 / 18 passed**, including the WebSocket gateway through the proxy.
+
+### Desktop app
+Compiles (`tsc`). The Windows installer is built by CI (`.github/workflows/syndo.yml`, windows-latest). Not run on a real Windows machine from this environment.
+
 ## Required scenarios — status
 
 | # | Scenario | Result |
