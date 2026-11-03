@@ -270,7 +270,13 @@ export interface Customer {
   notes: string;
   archived: boolean;
   created_at: string;
+  /** Price list that sets this customer's default prices; null = item sale prices. */
+  price_list_id: string | null;
 }
+export interface PriceList { id: string; name: string; currency: string; notes: string; archived: boolean; created_at: string }
+export interface PriceListItem { id: string; price_list_id: string; item_id: string; /** quantity break: applies from this quantity */ min_qty: number; price: number; created_at: string }
+/** Additional cost on a purchase order (freight, duty…), spread over its lines when received. Hidden without Buy/Costs. */
+export interface PoCost { id: string; po_id: string; label: string; amount: number; allocate: "value" | "quantity"; created_by: string | null; created_at: string }
 export interface TaxRate {
   id: string;
   name: string;
@@ -289,6 +295,10 @@ export interface ItemSupplier {
   lead_days: number | null;
   preferred: boolean;
   created_at: string;
+  /** Unit the supplier sells in (e.g. "box"); empty = same as stock unit. */
+  purchase_unit: string;
+  /** Stock units in one purchase unit (box of 100 → 100). */
+  units_per_purchase: number;
 }
 export interface AuditEntry {
   id: number;
@@ -608,9 +618,12 @@ export interface PoLine {
   item_id: string;
   quantity: number;
   received: number;
-  /** null when hidden from this role (needs Buy or Costs). */
+  /** null when hidden from this role (needs Buy or Costs). Per stock unit. */
   unit_cost: number | null;
   created_at: string;
+  /** Purchase unit for showing/sending the PO in the supplier's units; quantity stays in stock units. */
+  purchase_unit: string;
+  units_per_purchase: number;
 }
 
 export type MoveReason = "adjust" | "count" | "receive" | "consume" | "produce" | "import" | "opening" | "ship" | "return" | "transfer" | "pick";
@@ -718,6 +731,9 @@ export interface Tables {
   bom_lines: BomLine;
   purchase_orders: PurchaseOrder;
   po_lines: PoLine;
+  price_lists: PriceList;
+  price_list_items: PriceListItem;
+  po_costs: PoCost;
   stock_movements: StockMovement;
   notifications: AppNotification;
   conversations: Conversation;
@@ -736,7 +752,7 @@ export const TABLES: TableName[] = [
   "profiles", "shifts", "breaks", "jobs", "work_sessions", "participants",
   "invites", "issues", "stock_items", "absences", "announcements", "join_links",
   "stations", "station_members", "products", "orders", "order_lines", "order_returns", "company_settings", "customers", "tax_rates", "item_suppliers", "kimera_access", "locations", "stock_levels", "stock_transfers", "transfer_lines", "mo_materials", "po_materials", "wh_tasks", "product_families", "stocktakes", "stocktake_lines", "forecast_overrides", "product_operations", "lots", "lot_levels", "issue_comments", "job_steps",
-  "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements",
+  "suppliers", "bom_lines", "purchase_orders", "po_lines", "stock_movements", "price_lists", "price_list_items", "po_costs",
   "notifications", "conversations", "conversation_members", "messages", "message_reactions",
   "events", "event_attendees", "calls", "call_participants",
 ];

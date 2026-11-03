@@ -132,8 +132,13 @@ export function printPurchaseOrder(db: DB, poId: string, showCost: boolean) {
     meta: [[t("Order date"), day(po.ordered_at ?? po.created_at)], [t("Expected"), day(po.expected_date)], [t("Currency"), cur]],
     parties: [{ label: t("Supplier"), text: [sup?.name, sup?.email, sup?.phone].filter(Boolean).join("\n") }, { label: t("Deliver to"), text: [co.name, deliver?.name, deliver && "address" in deliver ? String((deliver as { address?: string }).address ?? "") : co.address].filter(Boolean).join("\n") }],
     columns: [{ label: "SKU" }, { label: t("Supplier's code") }, { label: t("Item") }, { label: t("Qty"), num: true }, ...(showCost ? [{ label: t("Unit price"), num: true }, { label: t("Total"), num: true }] : [])],
-    rows: lines.map((l) => { const it = db.stock_items.find((s) => s.id === l.item_id); return [it?.sku ?? "", ref(l.item_id), it?.name ?? "", `${q(l.quantity)} ${it?.unit ?? ""}`, ...(showCost ? [fm(l.unit_cost ?? 0), fm((l.unit_cost ?? 0) * l.quantity)] : [])]; }),
-    totals: showCost ? [[t("Total"), `${fm(total)} ${cur}`]] : undefined,
+    // in the supplier's purchase unit when one is set (2 box, not 200 pcs), with the price per that unit
+    rows: lines.map((l) => { const it = db.stock_items.find((s) => s.id === l.item_id); const pu = l.purchase_unit && l.units_per_purchase !== 1 ? l : null;
+      return [it?.sku ?? "", ref(l.item_id), it?.name ?? "", pu ? `${q(l.quantity / pu.units_per_purchase)} ${pu.purchase_unit} (${q(l.quantity)} ${it?.unit ?? ""})` : `${q(l.quantity)} ${it?.unit ?? ""}`,
+        ...(showCost ? [fm((l.unit_cost ?? 0) * (pu?.units_per_purchase ?? 1)), fm((l.unit_cost ?? 0) * l.quantity)] : [])]; }),
+    totals: showCost ? (() => { const extra = db.po_costs.filter((c) => c.po_id === po.id); return extra.length
+      ? [[t("Goods"), `${fm(total)} ${cur}`], ...extra.map((c) => [c.label, `${fm(c.amount)} ${cur}`] as [string, string]), [t("Total"), `${fm(total + extra.reduce((a, c) => a + c.amount, 0))} ${cur}`]] as [string, string][]
+      : [[t("Total"), `${fm(total)} ${cur}`]] as [string, string][]; })() : undefined,
     note: po.notes,
   });
 }

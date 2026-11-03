@@ -7210,5 +7210,142 @@ end $$;
 revoke all on function public.end_my_session(uuid) from public, anon;
 grant execute on function public.end_my_session(uuid) to authenticated;
 
+-- ==== Katana parity: price lists, purchase units of measure, additional costs on purchase orders ====
+-- Price lists: a customer's list sets the default price of a sales-order line (with quantity breaks); no list → item sale price.
+create table if not exists public.price_lists (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(trim(name)) > 0),
+  currency text not null default 'GBP' check (currency ~ '^[A-Z]{3}$'),
+  notes text not null default '',
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists price_lists_name_key on public.price_lists (lower(name));
+create table if not exists public.price_list_items (
+  id uuid primary key default gen_random_uuid(),
+  price_list_id uuid not null references public.price_lists(id) on delete cascade,
+  item_id uuid not null references public.stock_items(id) on delete cascade,
+  min_qty numeric(14,3) not null default 1 check (min_qty > 0),
+  price numeric(14,4) not null check (price >= 0),
+  created_at timestamptz not null default now(),
+  unique (price_list_id, item_id, min_qty)
+);
+alter table public.customers add column if not exists price_list_id uuid references public.price_lists(id) on delete set null;
+alter table public.price_lists enable row level security;
+alter table public.price_list_items enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['price_lists', 'price_list_items'] loop
+    execute format('drop policy if exists "staff read" on public.%I', t);
+    execute format('drop policy if exists "sales write" on public.%I', t);
+    execute format('create policy "staff read" on public.%I for select to authenticated using (public.is_active())', t);
+    execute format('create policy "sales write" on public.%I for all to authenticated using (public.is_active() and (public.is_admin() or ''sell'' = any(public.my_kimera_sections()))) with check (public.is_active() and (public.is_admin() or ''sell'' = any(public.my_kimera_sections())))', t);
+  end loop;
+end $$;
+-- Price of an item for a customer at a quantity: the customer's price list (largest quantity break not above the quantity), else the item's sale price.
+create or replace function public.price_for(p_customer uuid, p_item uuid, p_qty numeric default 1) returns numeric
+language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select pli.price from public.customers c join public.price_lists pl on pl.id = c.price_list_id and not pl.archived
+       join public.price_list_items pli on pli.price_list_id = pl.id and pli.item_id = p_item and pli.min_qty <= greatest(coalesce(p_qty, 1), 0.001)
+      where c.id = p_customer order by pli.min_qty desc limit 1),
+    (select sale_price from public.stock_items where id = p_item))
+$$;
+revoke all on function public.price_for(uuid, uuid, numeric) from public, anon;
+grant execute on function public.price_for(uuid, uuid, numeric) to authenticated;
+
+-- Purchase units of measure: buy in boxes, stock in pieces. PO quantity and unit cost stay in stock units; the purchase
+-- unit and its size are kept so the PO can be shown and sent in the supplier's units.
+alter table public.item_suppliers add column if not exists purchase_unit text not null default '';
+alter table public.item_suppliers add column if not exists units_per_purchase numeric(14,4) not null default 1;
+alter table public.po_lines add column if not exists purchase_unit text not null default '';
+alter table public.po_lines add column if not exists units_per_purchase numeric(14,4) not null default 1;
+do $$ begin alter table public.item_suppliers add constraint item_suppliers_upp_pos check (units_per_purchase > 0); exception when duplicate_object then null; end $$;
+do $$ begin alter table public.po_lines add constraint po_lines_upp_pos check (units_per_purchase > 0); exception when duplicate_object then null; end $$;
+
+-- Additional costs on a purchase order (freight, duty, handling): spread over the lines by value or by quantity and
+-- added to each unit's cost when it is received, so average cost includes them. Amounts are in the PO's currency.
+create table if not exists public.po_costs (
+  id uuid primary key default gen_random_uuid(),
+  po_id uuid not null references public.purchase_orders(id) on delete cascade,
+  label text not null check (length(trim(label)) > 0),
+  amount numeric(14,4) not null check (amount >= 0),
+  allocate text not null default 'value' check (allocate in ('value', 'quantity')),
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index if not exists po_costs_po_idx on public.po_costs (po_id);
+alter table public.po_costs enable row level security;
+drop policy if exists "buyers read" on public.po_costs;
+drop policy if exists "keepers write" on public.po_costs;
+-- like PO unit costs: visible only to people who may see costs or work in Buy
+create policy "buyers read" on public.po_costs for select to authenticated using (public.is_active() and (public.can_see_costs() or 'buy' = any(public.my_kimera_sections())));
+create policy "keepers write" on public.po_costs for all to authenticated using (public.is_active() and public.is_stock_keeper()) with check (public.is_active() and public.is_stock_keeper());
+-- Additional cost per stock unit for a PO line (PO currency).
+create or replace function public.po_landed_unit(p_line uuid) returns numeric
+language sql stable security definer set search_path = public as $$
+  with l as (select * from public.po_lines where id = p_line),
+       tot as (select sum(amount) filter (where allocate = 'value') as by_value, sum(amount) filter (where allocate = 'quantity') as by_qty
+                 from public.po_costs where po_id = (select po_id from l)),
+       lines as (select sum(unit_cost * quantity) as val, sum(quantity) as qty from public.po_lines where po_id = (select po_id from l))
+  select round(coalesce((select by_value from tot) * (select unit_cost from l) / nullif((select val from lines), 0), 0)
+             + coalesce((select by_qty from tot) / nullif((select qty from lines), 0), 0), 6)
+$$;
+revoke all on function public.po_landed_unit(uuid) from public, anon, authenticated;
+
+create or replace function public.receive_po_line(p_line uuid, p_qty numeric, p_key text default null, p_over boolean default false,
+  p_lot text default null, p_expiry date default null) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  l public.po_lines; po public.purchase_orders; it public.stock_items; m record;
+  prev text; st text; cost numeric; mat numeric := 0; i int; n int;
+begin
+  if not public.is_stock_keeper() then raise exception 'Only stock keepers can receive deliveries'; end if;
+  if p_qty is null or p_qty <= 0 then raise exception 'Receive at least one'; end if;
+  prev := public.claim_op('receive_po_line', p_key);
+  if prev is not null then return prev; end if;
+  select * into l from public.po_lines where id = p_line for update;
+  if l.id is null then raise exception 'Purchase order line not found'; end if;
+  select * into po from public.purchase_orders where id = l.po_id for update;
+  if po.status = 'draft' then raise exception 'Mark the purchase order as ordered first'; end if;
+  if po.status in ('cancelled','received') then raise exception 'This purchase order is closed'; end if;
+  if l.received + p_qty > l.quantity and not p_over then
+    raise exception 'That is more than ordered — % still to come', trim_scale(l.quantity - l.received);
+  end if;
+  select * into it from public.stock_items where id = l.item_id;
+  update public.po_lines set received = received + p_qty where id = l.id;
+  perform public.stock_source('po_line', l.id);
+  if po.kind = 'outsourced' then
+    perform set_config('app.po_mat', 'on', true);
+    for m in select pm.*, s.avg_cost from public.po_materials pm join public.stock_items s on s.id = pm.item_id
+              where pm.po_line_id = l.id and pm.quantity_per > 0 order by s.sku loop
+      mat := mat + m.quantity_per * p_qty * m.avg_cost;
+      perform public.stock_location(po.partner_location_id);
+      perform public.move_stock(m.item_id, -(m.quantity_per * p_qty), 'consume', po.number, 'Used by contractor');
+      update public.po_materials set consumed = consumed + m.quantity_per * p_qty where id = m.id;
+    end loop;
+    perform set_config('app.po_mat', 'off', true);
+    perform public.stock_location(null);
+  end if;
+  cost := round((l.unit_cost + public.po_landed_unit(l.id)) * po.fx_rate + mat / p_qty, 4); -- includes additional costs (freight, duty…)
+  if it.tracking = 'serial' then
+    if p_qty <> trunc(p_qty) then raise exception 'Serial-numbered items are received in whole pieces'; end if;
+    select count(*) into n from public.lots where item_id = it.id and code like coalesce(nullif(trim(p_lot), ''), po.number) || '-%';
+    for i in 1..p_qty::int loop
+      perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number) || '-' || lpad((n + i)::text, 3, '0'), p_expiry));
+      perform public.move_stock(l.item_id, 1, 'receive', po.number, '', cost);
+    end loop;
+  else
+    if it.tracking = 'batch' then perform public.stock_lot(public.lot_for(it.id, coalesce(nullif(trim(p_lot), ''), po.number), p_expiry)); end if;
+    perform public.move_stock(l.item_id, p_qty, 'receive', po.number, '', cost);
+  end if;
+  perform public.stock_lot(null);
+  st := public.po_status_after(po.id);
+  return public.finish_op('receive_po_line', p_key, st);
+end $$;
+revoke all on function public.receive_po_line(uuid, numeric, text, boolean, text, date) from public, anon;
+grant execute on function public.receive_po_line(uuid, numeric, text, boolean, text, date) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

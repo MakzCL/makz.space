@@ -655,6 +655,7 @@ function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }
   const [code, setCode] = useState("");
   const [cost, setCost] = useState("");
   const [lead, setLead] = useState("");
+  const [pu, setPu] = useState(""); const [upp, setUpp] = useState("");
   const [err, setErr] = useState("");
   const refs = db.item_suppliers.filter((r) => r.item_id === item.id);
   const names = new Map(db.suppliers.map((s) => [s.id, s]));
@@ -668,7 +669,7 @@ function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }
       {refs.length ? (
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>{t("Supplier")}</th><th>{t("Their code")}</th><th className="num">{t("Price")}</th><th className="num">{t("Lead time")}</th><th /></tr></thead>
+            <thead><tr><th>{t("Supplier")}</th><th>{t("Their code")}</th><th className="num">{t("Price")}</th><th className="num">{t("Lead time")}</th><th>{t("Buy in")}</th><th /></tr></thead>
             <tbody>
               {refs.map((r) => {
                 const s = names.get(r.supplier_id);
@@ -678,6 +679,9 @@ function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }
                     <td><span className="code">{r.supplier_sku || "—"}</span></td>
                     <td className="num">{r.unit_cost === null ? "—" : `${r.unit_cost.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${s?.currency ?? ""}`}</td>
                     <td className="num">{r.lead_days === null ? "—" : t("{n} d", { n: r.lead_days })}</td>
+                    <td>{editable ? <span className="row gap-s"><input className="cell-input" defaultValue={r.purchase_unit} placeholder={item.unit} aria-label={t("Purchase unit")} onBlur={(e) => { const v = e.target.value.trim(); if (v !== r.purchase_unit) save(() => B.update("item_suppliers", r.id, { purchase_unit: v, ...(v ? {} : { units_per_purchase: 1 }) })); }} />
+                      <small>×</small><input className="cell-input" inputMode="decimal" defaultValue={r.units_per_purchase} key={`${r.id}-${r.units_per_purchase}`} aria-label={t("Units per purchase unit")} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== r.units_per_purchase) save(() => B.update("item_suppliers", r.id, { units_per_purchase: v })); }} /><small>{item.unit}</small></span>
+                      : r.purchase_unit ? `${r.purchase_unit} × ${r.units_per_purchase} ${item.unit}` : item.unit}</td>
                     <td className="nowrap">{editable && <>
                       {!r.preferred && <Btn small tone="ghost" onClick={() => save(async () => {
                         for (const o of refs) if (o.preferred) await B.update("item_suppliers", o.id, { preferred: false });
@@ -701,10 +705,13 @@ function SupplierRefs({ item, editable }: { item: StockItem; editable: boolean }
           <input className="qty-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Their code")} aria-label={t("Their code")} />
           <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={t("Price")} aria-label={t("Price")} />
           <input className="qty-input" inputMode="numeric" value={lead} onChange={(e) => setLead(e.target.value)} placeholder={t("Days")} aria-label={t("Lead time")} />
+          <input className="qty-input" value={pu} onChange={(e) => setPu(e.target.value)} placeholder={t("Buy in (e.g. box)")} aria-label={t("Purchase unit")} />
+          <input className="qty-input" inputMode="decimal" value={upp} onChange={(e) => setUpp(e.target.value)} placeholder={t("{u} per", { u: item.unit })} aria-label={t("Units per purchase unit")} />
           <Btn tone="soft" small icon={<Plus size={15} />} disabled={!sup} onClick={async () => {
             const ok = await save(() => B.insert("item_suppliers", { item_id: item.id, supplier_id: sup, supplier_sku: code.trim(),
-              unit_cost: cleanNumber(cost) ? Number(cleanNumber(cost)) : null, lead_days: /^\d+$/.test(lead.trim()) ? Number(lead.trim()) : null, preferred: !refs.length }));
-            if (ok) { setSup(""); setCode(""); setCost(""); setLead(""); }
+              unit_cost: cleanNumber(cost) ? Number(cleanNumber(cost)) : null, lead_days: /^\d+$/.test(lead.trim()) ? Number(lead.trim()) : null, preferred: !refs.length,
+              purchase_unit: pu.trim(), units_per_purchase: pu.trim() && Number(cleanNumber(upp)) > 0 ? Number(cleanNumber(upp)) : 1 }));
+            if (ok) { setSup(""); setCode(""); setCost(""); setLead(""); setPu(""); setUpp(""); }
           }}>{t("Add")}</Btn>
         </div>
       )}

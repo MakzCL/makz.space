@@ -14,10 +14,11 @@ import { jobCode } from "../screens/parts";
 import { useKimera } from "./actions";
 import { Channel, PageHead, Pill, SubTabs, fullDate, shortDate } from "./kit";
 import { CustomerPicker, CustomersView } from "./Customers";
+import { PriceListsView, priceFor } from "./PriceLists";
 import { analyse, orderTotals, type OrderInfo } from "./status";
 import { printPackingSlip, printPickList } from "../lib/printdoc";
 
-type Kind = "order" | "quote" | "customers";
+type Kind = "order" | "quote" | "customers" | "prices";
 type OrderKind = "order" | "quote";
 
 export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
@@ -41,9 +42,9 @@ export function Sell({ openId, onOpen, kind, setKind, creating, setCreating }: {
   return (
     <div className="k-page">
       <PageHead title={t("Sell")}
-        tabs={<SubTabs value={kind} onChange={setKind} tabs={[{ value: "quote", label: t("Quotes"), count: openCount("quote") }, { value: "order", label: t("Sales orders"), count: openCount("order") }, { value: "customers", label: t("Customers") }]} />}
-        actions={editable && kind !== "customers" && <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setCreating(kind)}>{kind === "quote" ? t("Quote") : t("Sales order")}</Btn>} />
-      {kind === "customers" ? <CustomersView onOrder={(id) => { const o = db.orders.find((x) => x.id === id); if (o) setKind(o.kind); onOpen(id); }} /> : <>
+        tabs={<SubTabs value={kind} onChange={setKind} tabs={[{ value: "quote", label: t("Quotes"), count: openCount("quote") }, { value: "order", label: t("Sales orders"), count: openCount("order") }, { value: "customers", label: t("Customers") }, { value: "prices", label: t("Price lists") }]} />}
+        actions={editable && kind !== "customers" && kind !== "prices" && <Btn tone="primary" small icon={<Plus size={16} />} onClick={() => setCreating(kind)}>{kind === "quote" ? t("Quote") : t("Sales order")}</Btn>} />
+      {kind === "prices" ? <PriceListsView /> : kind === "customers" ? <CustomersView onOrder={(id) => { const o = db.orders.find((x) => x.id === id); if (o) setKind(o.kind); onOpen(id); }} /> : <>
       <div className="toolbar">
         <Segmented size="s" value={done ? "done" : "open"} onChange={(v) => setDone(v === "done")} options={[{ value: "open", label: t("Open") }, { value: "done", label: t("Done") }]} />
         <div className="searchbar grow"><Search size={18} /><input placeholder={t("Search order, customer, SKU…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -232,12 +233,12 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
           )}
           {editable && o.status === "open" && o.delivery === "not_shipped" && (
             <div className="row gap wrap">
-              <div className="grow" key={pickKey}><ItemPicker value={item} onChange={(id) => { setItem(id); const s = db.stock_items.find((x) => x.id === id); if (s?.sale_price != null) setPrice(String(s.sale_price)); }} filter={(s) => s.kind !== "material"} placeholder={t("Add product — type SKU or name…")} /></div>
-              <input className="qty-input" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t("Quantity")} />
+              <div className="grow" key={pickKey}><ItemPicker value={item} onChange={(id) => { setItem(id); if (id) { const pr = priceFor(db, o.customer_id, id, Number(cleanNumber(qty)) || 1); setPrice(pr == null ? "" : String(pr)); } }} filter={(s) => s.kind !== "material"} placeholder={t("Add product — type SKU or name…")} /></div>
+              <input className="qty-input" inputMode="decimal" value={qty} onChange={(e) => { setQty(e.target.value); if (item) { const pr = priceFor(db, o.customer_id, item, Number(cleanNumber(e.target.value)) || 1); if (pr != null) setPrice(String(pr)); } }} aria-label={t("Quantity")} />
               <input className="qty-input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="£" aria-label={t("Price")} />
               <Btn tone="primary" icon={<Plus size={17} />} disabled={!picked || !(Number(cleanNumber(qty)) > 0)} onClick={async () => {
                 await k.addLine({ order_id: o.id, item_id: picked!.id, sku: picked!.sku, name: picked!.name, quantity: Number(cleanNumber(qty)),
-                  unit_price: cleanNumber(price) ? Number(cleanNumber(price)) : picked!.sale_price, sort: info.lines.length });
+                  unit_price: cleanNumber(price) ? Number(cleanNumber(price)) : priceFor(db, o.customer_id, picked!.id, Number(cleanNumber(qty))), sort: info.lines.length });
                 setItem(null); setQty("1"); setPrice(""); setPickKey((x) => x + 1);
               }}>{t("Add")}</Btn>
             </div>

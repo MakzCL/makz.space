@@ -109,6 +109,12 @@ function CustomerSheet({ customer, onClose, onOrder }: { customer: Customer | "n
               {rates.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </Field>
+          <Field label={t("Price list")}>
+            <select value={(f.price_list_id !== undefined ? f.price_list_id : c?.price_list_id) ?? ""} disabled={!editable} onChange={(e) => setF({ ...f, price_list_id: e.target.value || null })} data-testid="customer-price-list">
+              <option value="">{t("Standard prices")}</option>
+              {db.price_lists.filter((l) => !l.archived || l.id === c?.price_list_id).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </Field>
           <Field label={t("Notes")}><textarea rows={2} value={val("notes")} disabled={!editable} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
           {editable && (isNew || Object.keys(f).length > 0) && <Btn type="submit" tone="primary" wide busy={busy}>{isNew ? t("Add customer") : t("Save changes")}</Btn>}
           {!isNew && (

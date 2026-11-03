@@ -19,8 +19,8 @@ const TIME_COL: Partial<Record<TableName, string>> = {
 const COST: Partial<Record<TableName, { col: string; cols: string }>> = {
   stock_items: { col: "avg_cost", cols: "id,sku,name,location,unit,quantity,min_quantity,updated_by,updated_at,created_at,kind,category,sale_price,supplier_id,supplier_code,lead_days,notes,archived,make_min,make_batch,barcode,tracking,family_id,variant" },
   stock_movements: { col: "unit_cost", cols: "id,item_id,delta,after,reason,ref,note,user_id,created_at,job_id,source_type,source_id,location_id,lot_id" },
-  po_lines: { col: "unit_cost", cols: "id,po_id,item_id,quantity,received,created_at" },
-  item_suppliers: { col: "unit_cost", cols: "id,item_id,supplier_id,supplier_sku,lead_days,preferred,created_at" },
+  po_lines: { col: "unit_cost", cols: "id,po_id,item_id,quantity,received,created_at,purchase_unit,units_per_purchase" },
+  item_suppliers: { col: "unit_cost", cols: "id,item_id,supplier_id,supplier_sku,lead_days,preferred,created_at,purchase_unit,units_per_purchase" },
   stations: { col: "cost_per_hour", cols: "id,name,sort,in_default,created_at" },
   product_operations: { col: "fixed_cost", cols: "id,product_id,station_id,name,setup_minutes,unit_minutes,sort,step,created_at" },
 };

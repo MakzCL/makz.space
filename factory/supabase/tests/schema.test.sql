@@ -1422,6 +1422,44 @@ select pg_temp.check((select count(*) > 0 from public.audit_log where table_name
 
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
+
+-- ---------------------------------------------------------------- Katana parity: price lists, purchase units, additional PO costs
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+insert into public.stock_items (sku, name, kind, sale_price) values ('PL-WID', 'Price-list widget', 'product', 20), ('LC-A', 'Landed A', 'material', 0), ('LC-B', 'Landed B', 'material', 0);
+select id as plw from public.stock_items where sku = 'PL-WID' \gset
+select id as lca from public.stock_items where sku = 'LC-A' \gset
+select id as lcb from public.stock_items where sku = 'LC-B' \gset
+insert into public.price_lists (name, currency) values ('Trade', 'GBP') returning id as pl \gset
+insert into public.price_list_items (price_list_id, item_id, min_qty, price) values (:'pl', :'plw', 1, 15), (:'pl', :'plw', 10, 12.5);
+insert into public.customers (name) values ('Trade Buyer') returning id as tcust \gset
+insert into public.customers (name) values ('Walk-in') returning id as wcust \gset
+update public.customers set price_list_id = :'pl' where id = :'tcust';
+select pg_temp.check(public.price_for(:'tcust', :'plw', 1) = 15, 'price list: 1 off at the list price');
+select pg_temp.check(public.price_for(:'tcust', :'plw', 25) = 12.5, 'price list: quantity break from 10');
+select pg_temp.check(public.price_for(:'wcust', :'plw', 25) = 20, 'no price list → item sale price');
+update public.price_lists set archived = true where id = :'pl';
+select pg_temp.check(public.price_for(:'tcust', :'plw', 25) = 20, 'an archived price list no longer applies');
+select pg_temp.expect_fail($$insert into public.price_list_items (price_list_id, item_id, min_qty, price) values ('$$ || :'pl' || $$', '$$ || :'plw' || $$', 0, 1)$$, 'a quantity break of 0');
+-- purchase unit: a box of 100 at £25 = 100 pieces at £0.25; plus £40 freight split by value and £10 handling split by quantity
+insert into public.purchase_orders (supplier_id, status) values (:'osup', 'ordered') returning id as lpo \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost, purchase_unit, units_per_purchase) values (:'lpo', :'lca', 100, 0.25, 'box', 100) returning id as la \gset
+insert into public.po_lines (po_id, item_id, quantity, unit_cost) values (:'lpo', :'lcb', 25, 3) returning id as lb \gset
+select pg_temp.expect_fail($$insert into public.po_lines (po_id, item_id, quantity, unit_cost, units_per_purchase) values ('$$ || :'lpo' || $$', '$$ || :'lca' || $$', 1, 1, 0)$$, 'a purchase unit of size 0');
+insert into public.po_costs (po_id, label, amount, allocate) values (:'lpo', 'Freight', 40, 'value'), (:'lpo', 'Handling', 10, 'quantity');
+-- line values 25 and 75 (total 100): freight 10 and 30 → 0.10/pc and 1.20/pc; handling 10 over 125 pcs → 0.08/pc
+reset role;
+select pg_temp.check(public.po_landed_unit(:'la') = 0.18 and public.po_landed_unit(:'lb') = 1.28, 'additional costs split by value and by quantity');
+set role authenticated;
+select pg_temp.expect_fail($$select public.po_landed_unit('$$ || :'la' || $$')$$, 'staff calling the cost split directly');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+select public.receive_po_line(:'la', 100); select public.receive_po_line(:'lb', 25);
+reset role;
+select pg_temp.check((select avg_cost from public.stock_items where id = :'lca') = 0.43 and (select avg_cost from public.stock_items where id = :'lcb') = 4.28, 'received cost includes additional costs (0.25+0.18, 3+1.28)');
+select pg_temp.check((select sum(delta * unit_cost) from public.stock_movements where ref = (select number from public.purchase_orders where id = :'lpo')) = 150, 'stock value received = goods 100 + freight 40 + handling 10');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.check((select count(*) from public.po_costs where po_id = :'lpo') = 0 or 'buy' = any(public.my_kimera_sections()) or public.can_see_costs(), 'additional PO costs are hidden from people without Buy or cost access');
+select pg_temp.become(null);
+
 delete from auth.users;
 select pg_temp.check((select count(*) from public.profiles) + (select count(*) from public.shifts) + (select count(*) from public.participants) = 0, 'deleting users cascades');
 \echo ALL SCHEMA TESTS PASSED

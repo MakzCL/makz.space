@@ -27,6 +27,7 @@ export function rpcs(D, who) {
   const once = (k, fn) => { if (k && ops.has(k)) return ops.get(k); const r = fn(); if (k) ops.set(k, r); return r; };
   const ALL = ["manage", "design", "prepare", "produce", "admin", "approve"];
   const this_ = {
+    my_costs: ({ p_table }) => { const col = { stock_items: "avg_cost", stock_movements: "unit_cost", po_lines: "unit_cost", item_suppliers: "unit_cost", stations: "cost_per_hour", product_operations: "fixed_cost" }[p_table]; return col ? Object.fromEntries((D[p_table] ?? []).map((r) => [r.id, r[col] ?? null])) : null; },
     my_sessions: () => (D.sessions ?? []).filter((x) => x.user === who()).map(({ user, ...x }) => x),
     end_my_session: ({ p_id }) => { const i = (D.sessions ?? []).findIndex((x) => x.id === p_id && x.user === who()); if (i < 0) return false; D.sessions.splice(i, 1); return true; },
     trotan_my_sections: () => { const pr = D.profiles.find((x) => x.id === who()); if (!pr?.active) return []; if (["boss", "developer"].includes(pr.role)) return ALL;
@@ -130,6 +131,7 @@ export async function context(browser, D, { user = OWNER, w = 1440, h = 900, dsf
       const rows = (Array.isArray(body) ? body : [body]).map((x) => {
         if (upsert && m[1] === "trotan_access") { const ex = tbl.find((t) => t.role === x.role); if (ex) return Object.assign(ex, x); }
         const row = { id: randomUUID(), created_at: now(), updated_at: now(), ...x };
+        if (m[1] === "orders") Object.assign(row, { status: "open", delivery: "not_shipped", production: "not_started", prices_include_tax: false, total_price: null, custom: {}, currency: "GBP", source: "manual", order_number: x.order_number || `SO-${String(tbl.length + 1).padStart(4, "0")}`, ...x });
         if (m[1] === "trotan_projects") Object.assign(row, { number: `TP-${String(tbl.length + 1).padStart(4, "0")}`, version: 1, archived: false, template: false, tags: [], customer: "", notes: "", mo_job_id: null, created_by: user, ...x });
         if (m[1] === "trotan_jobs") Object.assign(row, { number: `TJ-${String(tbl.length + 1).padStart(4, "0")}`, position: 0, qty_good: null, qty_scrap: null, actual_s: null, operator: null, error: null, created_by: user, ...x });
         if (m[1] === "trotan_profiles") { if (x.status === "approved") throw Object.assign(new Error("New settings cannot start as approved"), { pg: true }); Object.assign(row, { status: "untested", approved_by: null, approved_at: null, notes: "", ...x }); }

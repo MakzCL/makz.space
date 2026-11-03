@@ -118,6 +118,7 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
   const [item, setItem] = useState<string | null>(null);
   const [qty, setQty] = useState("1");
   const [cost, setCost] = useState("");
+  const [inPU, setInPU] = useState(true); // enter quantity/cost in the supplier's purchase unit when one is set
   const [pk, setPk] = useState(0);
   const [recv, setRecv] = useState<Record<string, string>>({});
   const [lotIn, setLotIn] = useState<Record<string, { code: string; expiry: string }>>({});
@@ -129,6 +130,8 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
   const base = db.company_settings[0]?.base_currency ?? "GBP";
   const cur = p.currency ?? base;
   const foreign = cur !== base;
+  const puRef = item && p ? db.item_suppliers.find((r) => r.item_id === item && r.supplier_id === p.supplier_id) : undefined;
+  const pu = puRef?.purchase_unit && puRef.units_per_purchase !== 1 ? puRef : null;
   const fmtCost = (n: number | null) => n === null ? "—" : foreign ? `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${cur}` : money(n);
   const hidden = lines.some((l) => l.unit_cost === null);
   const total = hidden ? null : lines.reduce((x, l) => x + l.quantity * (l.unit_cost ?? 0), 0);
@@ -205,7 +208,7 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
                 return (
                   <tr key={l.id} className="static">
                     <td><span className="code">{it?.sku}</span></td><td>{it?.name}</td>
-                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== l.quantity) a.savePo({ id: p.id }, [{ id: l.id, quantity: v }]); }} /> : fmtQty(l.quantity)} <small>{it?.unit}</small></td>
+                    <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.quantity} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v !== l.quantity) a.savePo({ id: p.id }, [{ id: l.id, quantity: v }]); }} /> : fmtQty(l.quantity)} <small>{it?.unit}{l.purchase_unit && l.units_per_purchase !== 1 ? ` = ${fmtQty(l.quantity / l.units_per_purchase)} ${l.purchase_unit}` : ""}</small></td>
                     <td className="num">{draft && editable ? <input className="cell-input" inputMode="decimal" defaultValue={l.unit_cost ?? ""} onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v >= 0 && v !== l.unit_cost) a.savePo({ id: p.id }, [{ id: l.id, unit_cost: v }]); }} /> : fmtCost(l.unit_cost)}</td>
                     <td className="num">{fmtCost(l.unit_cost === null ? null : l.quantity * l.unit_cost)}</td>
                     {!draft && <td className={`num ${left ? "" : "ok-t"}`}>{fmtQty(l.received)}
@@ -230,13 +233,16 @@ export function PoSheet({ po, onClose }: { po: PurchaseOrder | null; onClose: ()
           </table>
         </div>
         {p.kind === "outsourced" && <OutsourcedMaterials po={p} lines={lines} editable={editable} />}
+        {!hidden && <PoCosts po={p} lines={lines} editable={editable && p.status !== "cancelled" && p.status !== "received"} fmtCost={fmtCost} />}
         {draft && editable && (
           <div className="row gap">
-            <div className="grow" key={pk}><ItemPicker value={item} onChange={(id) => { setItem(id); const it = db.stock_items.find((s) => s.id === id); if (it) { const ref = db.item_suppliers.find((r) => r.item_id === it.id && r.supplier_id === p.supplier_id); setCost(String(ref?.unit_cost ?? (foreign ? "" : it.avg_cost || ""))); } }} placeholder={t("Add item — type SKU or name…")} /></div>
+            <div className="grow" key={pk}><ItemPicker value={item} onChange={(id) => { setItem(id); const it = db.stock_items.find((s) => s.id === id); if (it) { const ref = db.item_suppliers.find((r) => r.item_id === it.id && r.supplier_id === p.supplier_id); const per = ref?.purchase_unit && ref.units_per_purchase !== 1 && inPU ? ref.units_per_purchase : 1; const c = ref?.unit_cost ?? (foreign ? null : it.avg_cost || null); setCost(c === null ? "" : String(Math.round(c * per * 10000) / 10000)); } }} /></div>
+            {pu && <label className="row gap-s fine k-check" title={t("Enter quantity and cost per {u} of {n}", { u: pu.purchase_unit, n: fmtQty(pu.units_per_purchase) })}><input type="checkbox" checked={inPU} onChange={(e) => { const on = e.target.checked; setInPU(on); const c = Number(cleanNumber(cost)); if (c > 0) setCost(String(Math.round((on ? c * pu.units_per_purchase : c / pu.units_per_purchase) * 10000) / 10000)); }} />{t("in {u} ({n})", { u: pu.purchase_unit, n: fmtQty(pu.units_per_purchase) })}</label>}
             <input className="qty-input" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t("Quantity")} />
             <input className="qty-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={foreign ? cur : "£"} aria-label={t("Unit cost")} />
             <Btn tone="primary" icon={<Plus size={17} />} disabled={!item || !(Number(cleanNumber(qty)) > 0)} onClick={async () => {
-              await a.savePo({ id: p.id }, [{ item_id: item!, quantity: Number(cleanNumber(qty)), unit_cost: Number(cleanNumber(cost) || 0) }]);
+              const per = pu && inPU ? pu.units_per_purchase : 1;
+              await a.savePo({ id: p.id }, [{ item_id: item!, quantity: Number(cleanNumber(qty)) * per, unit_cost: Number(cleanNumber(cost) || 0) / per, ...(pu ? { purchase_unit: pu.purchase_unit, units_per_purchase: pu.units_per_purchase } : {}) }]);
               setItem(null); setQty("1"); setCost(""); setPk((x) => x + 1);
             }}>{t("Add")}</Btn>
           </div>
@@ -396,3 +402,31 @@ function SupplierSheet({ s, onClose }: { s: Supplier | "new" | null; onClose: ()
   );
 }
 
+
+/** Additional costs (freight, duty, handling): spread over the lines by value or quantity and added to each unit's cost on receipt. */
+function PoCosts({ po, lines, editable, fmtCost }: { po: PurchaseOrder; lines: PoLine[]; editable: boolean; fmtCost: (n: number | null) => string }) {
+  const { db, backend: B, refresh } = useStore(); const byId = new Map(db.stock_items.map((s) => [s.id, s]));
+  const costs = db.po_costs.filter((c) => c.po_id === po.id);
+  const [label, setLabel] = useState(""); const [amount, setAmount] = useState(""); const [allocate, setAllocate] = useState<"value" | "quantity">("value"); const [err, setErr] = useState<string | null>(null);
+  const run = async (fn: () => Promise<unknown>) => { setErr(null); try { await fn(); await refresh("po_costs"); } catch (e) { setErr(e instanceof Error ? t(e.message) : String(e)); } };
+  const val = lines.reduce((x, l) => x + l.quantity * (l.unit_cost ?? 0), 0), q = lines.reduce((x, l) => x + l.quantity, 0);
+  const byV = costs.filter((c) => c.allocate === "value").reduce((x, c) => x + c.amount, 0), byQ = costs.filter((c) => c.allocate === "quantity").reduce((x, c) => x + c.amount, 0);
+  const extra = (l: PoLine) => (val ? (byV * (l.unit_cost ?? 0)) / val : 0) + (q ? byQ / q : 0);
+  const anyReceived = lines.some((l) => l.received > 0);
+  return (
+    <div className="card flat stack" data-testid="po-costs">
+      <div className="row between"><b>{t("Additional costs")}</b><small className="muted">{t("Freight, duty, handling: added to the cost of received items")}</small></div>
+      {costs.map((c) => <div key={c.id} className="row between"><span>{c.label} <small className="muted">· {c.allocate === "value" ? t("split by value") : t("split by quantity")}</small></span>
+        <span className="row gap-s"><b>{fmtCost(c.amount)}</b>{editable && <button type="button" className="icon-btn subtle" aria-label={t("Remove")} onClick={() => run(() => B.remove("po_costs", c.id))}><Trash2 size={15} /></button>}</span></div>)}
+      {editable && <div className="row gap wrap">
+        <input className="grow" placeholder={t("e.g. Freight")} value={label} onChange={(e) => setLabel(e.target.value)} aria-label={t("Cost")} data-testid="po-cost-label" />
+        <input className="qty-input" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label={t("Amount")} data-testid="po-cost-amount" />
+        <select value={allocate} onChange={(e) => setAllocate(e.target.value as "value" | "quantity")} aria-label={t("Split")}><option value="value">{t("split by value")}</option><option value="quantity">{t("split by quantity")}</option></select>
+        <Btn tone="soft" icon={<Plus size={16} />} disabled={!label.trim() || !(Number(cleanNumber(amount)) >= 0) || amount === ""} onClick={() => run(async () => { await B.insert("po_costs", { po_id: po.id, label: label.trim(), amount: Number(cleanNumber(amount)), allocate }); setLabel(""); setAmount(""); })} >{t("Add cost")}</Btn>
+      </div>}
+      {costs.length > 0 && lines.length > 0 && <div className="fine">{lines.map((l) => <div key={l.id}>{byId.get(l.item_id)?.sku}: {fmtCost(l.unit_cost)} + {fmtCost(Math.round(extra(l) * 10000) / 10000)} = <b>{fmtCost(Math.round(((l.unit_cost ?? 0) + extra(l)) * 10000) / 10000)}</b> {t("per {u}", { u: byId.get(l.item_id)?.unit ?? "pcs" })}</div>)}</div>}
+      {anyReceived && costs.length > 0 && <small className="muted">{t("Only items received after a cost is added include it.")}</small>}
+      {err && <p className="err">{err}</p>}
+    </div>
+  );
+}
