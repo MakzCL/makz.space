@@ -12,7 +12,7 @@ import { PageHead, SubTabs } from "./kit";
 
 type View = "company" | "tax" | "activity" | "access" | "locations";
 
-/** Kimera → Settings (ADMIN-06): company defaults, tax rates and the activity log. */
+/** Kortana → Settings (ADMIN-06): company defaults, tax rates and the activity log. */
 export function Settings() {
   const { me } = useStore();
   const [view, setView] = useState<View>(isOwner(me.role) ? "access" : "company");
@@ -169,7 +169,7 @@ const SECTION_HINT: Partial<Record<KimeraSection, string>> = {
   costs: "Average costs, stock value, purchase prices and margins — hidden on the server, not just on screen",
 };
 
-/** Owner dashboard: which Kimera sections each role may open (Owner and Developer: always everything). */
+/** Owner dashboard: which Kortana sections each role may open (Owner and Developer: always everything). */
 function Access() {
   const { db, backend: B, refresh, person } = useStore();
   const [busy, setBusy] = useState("");
@@ -188,7 +188,7 @@ function Access() {
   const last = [...db.kimera_access].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   return (
     <div className="stack">
-      <p className="muted">{t("Choose which parts of Kimera each role can open. Owner and Developer always see everything. People see the change straight away.")}</p>
+      <p className="muted">{t("Choose which parts of Kortana each role can open. Owner and Developer always see everything. People see the change straight away.")}</p>
       <div className="tbl-wrap">
         <table className="tbl k-access">
           <thead><tr><th>{t("Role")}</th>{KIMERA_SECTIONS.map((s) => <th key={s} className="c" title={SECTION_HINT[s] ? t(SECTION_HINT[s]!) : undefined}>{t(SECTION_LABEL[s])}</th>)}</tr></thead>
@@ -217,7 +217,7 @@ function Access() {
         </table>
       </div>
       {err && <p className="hint red-t">{err}</p>}
-      <p className="fine" style={{ textAlign: "left" }}>{t("Costs & margins is enforced on the server: without it, costs and stock value are never sent to that person's phone or computer. Roles with Buy still see purchase prices. Other sections hide screens in Kimera; editing rights (stock, purchasing, orders) still follow each role's permissions on the server.")}</p>
+      <p className="fine" style={{ textAlign: "left" }}>{t("Costs & margins is enforced on the server: without it, costs and stock value are never sent to that person's phone or computer. Roles with Buy still see purchase prices. Other sections hide screens in Kortana; editing rights (stock, purchasing, orders) still follow each role's permissions on the server.")}</p>
       {last && <p className="fine" style={{ textAlign: "left" }}>{t("Last change")} {new Date(last.updated_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{last.updated_by ? ` · ${person(last.updated_by)?.full_name ?? ""}` : ""}</p>}
     </div>
   );

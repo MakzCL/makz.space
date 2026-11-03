@@ -1660,7 +1660,7 @@ create policy "report errors" on public.client_errors for insert to anon, authen
   with check ((user_id is null or user_id = auth.uid()) and length(message) <= 500 and length(stack) <= 4000);
 
 -- ============================================================================
--- Kimera (back office): sales orders + quotes, order lines, manufacturing
+-- Kortana (back office): sales orders + quotes, order lines, manufacturing
 -- orders, delivery, and a ticket system on top of worker issues.
 -- ============================================================================
 create sequence if not exists public.so_seq start 90001;
@@ -1974,7 +1974,7 @@ do $$ begin
 exception when others then null; end $$;
 grant usage, select on sequence public.so_seq, public.qt_seq, public.mo_seq, public.tk_seq to authenticated;
 
--- Office plans production in Kimera: owner, managers and office manage jobs.
+-- Office plans production in Kortana: owner, managers and office manage jobs.
 drop policy if exists "leads create jobs" on public.jobs;
 drop policy if exists "leads or crew update jobs" on public.jobs;
 drop policy if exists "leads delete jobs" on public.jobs;
@@ -2129,14 +2129,14 @@ drop policy if exists "admin adds shifts" on public.shifts;
 create policy "admin adds shifts" on public.shifts for insert to authenticated with check (public.is_admin());
 
 -- ============================================================================
--- Kimera = Katana 1:1 for manufacturing stock:
+-- Kortana = Katana 1:1 for manufacturing stock:
 --  * every movement booked by a manufacturing order carries its job_id
 --  * finishing an MO consumes its recipe × quantity (sub-assemblies are their own
 --    MOs: building the frame consumes screws/pieces and puts the frame on stock;
 --    building the pedestal consumes the frame)
 --  * reopening a finished MO reverses exactly what it booked (even if the recipe
 --    changed since), so stock always matches reality
---  * the office can complete / reopen an MO from Kimera
+--  * the office can complete / reopen an MO from Kortana
 -- ============================================================================
 alter table public.stock_movements add column if not exists job_id uuid references public.jobs(id) on delete set null;
 create index if not exists stock_movements_job_idx on public.stock_movements (job_id);
@@ -2205,7 +2205,7 @@ drop trigger if exists book_job_stock on public.jobs;
 create trigger book_job_stock before update of status on public.jobs
   for each row execute function public.book_job_stock();
 
--- Office: finish or reopen a manufacturing order from Kimera.
+-- Office: finish or reopen a manufacturing order from Kortana.
 create or replace function public.complete_mo(p_job uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare j public.jobs;
@@ -2240,7 +2240,7 @@ grant execute on function public.complete_mo(uuid) to authenticated;
 grant execute on function public.reopen_mo(uuid) to authenticated;
 
 -- ============================================================================
--- KIMERA phase 1 — ledger foundations (docs/kimera-coverage.md, defects D1–D7)
+-- KORTANA phase 1 — ledger foundations (docs/kimera-coverage.md, defects D1–D7)
 --  * company settings: base currency every cost and value is kept in
 --  * service items (never stocked)
 --  * the ledger keeps its history (no cascade delete), every movement records
@@ -2876,7 +2876,7 @@ begin
 end $$;
 
 -- ============================================================================
--- KIMERA phase 2 — master data (docs/kimera-coverage.md)
+-- KORTANA phase 2 — master data (docs/kimera-coverage.md)
 --  * customers with order history; every order is linked to one (CAT-04)
 --  * tax rates; each order line keeps the rate it was sold at (CAT-07, SALES-02)
 --  * barcodes and per-supplier item references with their own cost/lead time (CAT-05)
@@ -3112,7 +3112,7 @@ end $$;
 revoke all on function public.check_import(text, jsonb) from public, anon;
 grant execute on function public.check_import(text, jsonb) to authenticated;
 
--- Activity (audit log) for Kimera → Settings, newest first, with who did it.
+-- Activity (audit log) for Kortana → Settings, newest first, with who did it.
 create or replace function public.recent_activity(p_table text default null, p_row text default null, p_limit int default 200) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -3127,7 +3127,7 @@ revoke all on function public.recent_activity(text, text, int) from public, anon
 grant execute on function public.recent_activity(text, text, int) to authenticated;
 
 -- ============================================================================
--- Kimera section access (Settings → Access): the owner decides which Kimera
+-- Kortana section access (Settings → Access): the owner decides which Kortana
 -- sections each role sees. Owner and Developer always see everything.
 -- ============================================================================
 create table if not exists public.kimera_access (
@@ -3249,7 +3249,7 @@ revoke all on function public.my_costs(text, timestamptz) from public, anon;
 grant execute on function public.my_costs(text, timestamptz) to authenticated;
 
 -- ============================================================================
--- KIMERA phase 3a — locations, per-location stock, bins, transfers
+-- KORTANA phase 3a — locations, per-location stock, bins, transfers
 --  (INV-01, INV-05, INV-06, INV-07; scenario 6)
 --  * one ledger: every movement now also records its location; stock_items.quantity
 --    stays the company total and stock_levels holds the split per location
@@ -3526,7 +3526,7 @@ revoke all on function public.post_transfer(uuid, text, text) from public, anon;
 grant execute on function public.post_transfer(uuid, text, text) to authenticated;
 
 -- ============================================================================
--- KIMERA phase 3b — priority ranks, server-side allocation, no over-shipping
+-- KORTANA phase 3b — priority ranks, server-side allocation, no over-shipping
 --  (ALLOC-01..07, SALES-03/04, MFG-04; scenarios 2 and 13)
 -- Policy (deterministic, recomputed on every call, same answer for everyone):
 --  demand  = open sales lines not yet shipped (stocked items, no MO),
@@ -3724,7 +3724,7 @@ drop trigger if exists guard_overdraw on public.stock_movements;
 create trigger guard_overdraw after insert on public.stock_movements for each row execute function public.guard_overdraw();
 
 -- ============================================================================
--- KIMERA phase 4a — picking, partial completion, actual consumption,
+-- KORTANA phase 4a — picking, partial completion, actual consumption,
 -- unused materials (MFG-10..13, MFG-14 materials; scenario 5)
 --  * pick: materials move from the MO's location to "Production floor (WIP)";
 --    they stay company stock but are no longer free for other orders
@@ -3934,7 +3934,7 @@ end $$;
 revoke all on function public.produce_mo(uuid, numeric, jsonb, text) from public, anon;
 grant execute on function public.produce_mo(uuid, numeric, jsonb, text) to authenticated;
 
--- Finishing / reopening an MO any other way (Factory app last station, Kimera Complete/Reopen).
+-- Finishing / reopening an MO any other way (Factory app last station, Kortana Complete/Reopen).
 create or replace function public.book_job_stock() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare m record; rest numeric;
@@ -3972,7 +3972,7 @@ create trigger book_job_stock before update of status on public.jobs
   for each row execute function public.book_job_stock();
 
 -- ============================================================================
--- KIMERA phase 4b — operations, resource rates, manufacturing cost, deadlines
+-- KORTANA phase 4b — operations, resource rates, manufacturing cost, deadlines
 -- (MFG-06/08/09/14/15, REP-04)
 --  * product_operations: the steps to make a product, each at a station
 --    (resource) with setup minutes (once per MO), minutes per unit and a fixed cost
@@ -4096,7 +4096,7 @@ revoke all on function public.my_costs(text, timestamptz) from public, anon;
 grant execute on function public.my_costs(text, timestamptz) to authenticated;
 
 -- ============================================================================
--- KIMERA phase 4c — batches, serial numbers, expiry, traceability
+-- KORTANA phase 4c — batches, serial numbers, expiry, traceability
 -- (INV-10..13, BUY-04, MFG lot genealogy; scenario 7)
 --  * stock_items.tracking: none | batch | serial
 --  * a movement of a tracked item carries its lot; stock leaving without a named
@@ -4862,7 +4862,7 @@ begin
   if not public.can_remove_staff(p.role) then raise exception 'Your role cannot remove a %', initcap(p.role::text); end if;
   if p.role in ('boss', 'developer') and not exists (
        select 1 from public.profiles where role in ('boss', 'developer') and active and removed_at is null and id <> p.id) then
-    raise exception 'Kimera needs at least one Owner or Developer';
+    raise exception 'Kortana needs at least one Owner or Developer';
   end if;
   perform set_config('app.staff_remove', 'on', true);
   update public.profiles set active = false, removed_at = now(), removed_by = auth.uid() where id = p.id;

@@ -985,7 +985,7 @@ p { margin: 0; }
 .crash { display: grid; justify-items: center; gap: 0.8rem; padding: 2.5rem 1.2rem; text-align: center; }
 .crash.full { position: relative; z-index: 1; min-height: 100%; align-content: center; }
 
-/* ================================================================ Kimera
+/* ================================================================ Kortana
    Back office: same tokens, violet accent, top navigation, dense tables. */
 :root.is-kimera { --k-accent: #8a6bff; --k-berry: #c7368f; --red: #8a6bff; --brand: #8a6bff; --brand-hi: #a58dff; --k-ok: #3fcf8e; --k-warn: #f5c85c; --k-bad: #ff5d4f; --k-info: #8f9bff; }
 :root.is-kimera[data-theme="light"] { --k-accent: #6d4ff0; --k-berry: #b0286f; --red: #6d4ff0; --brand: #6d4ff0; --k-ok: #14935a; --k-warn: #9a6400; --k-bad: #d42a25; --k-info: #3b4cca; }
@@ -1110,7 +1110,7 @@ p { margin: 0; }
 .k-kept-card b { font-weight: 600; font-size: 0.9rem; }
 .k-kept-card.bad { box-shadow: inset 3px 0 0 var(--k-bad), var(--shadow); }
 .k-kept-card.warn { box-shadow: inset 3px 0 0 var(--k-warn), var(--shadow); }
-/* Kimera link: header on phones, bottom of the side menu on desktop. */
+/* Kortana link: header on phones, bottom of the side menu on desktop. */
 .kimera-link .k-logo { display: block; }
 .nav-foot { display: none; }
 @media (min-width: 1024px) {
@@ -1126,7 +1126,7 @@ p { margin: 0; }
 }
 .k-lockup .k-logo { display: block; flex: none; }
 .login-brand .k-logo { display: block; }
-/* Kimera shares the Skalarki navy; its violet → berry sweep echoes the SK red. */
+/* Kortana shares the Skalarki navy; its violet → berry sweep echoes the SK red. */
 .is-kimera .btn.primary { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); border-color: transparent; }
 .is-kimera .k-nav button em, .is-kimera .splash-bar i { background: linear-gradient(90deg, var(--k-accent), var(--k-berry)); }
 .is-kimera .tri > div.hl { background: linear-gradient(120deg, var(--k-accent), var(--k-berry)); }

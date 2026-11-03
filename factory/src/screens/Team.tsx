@@ -80,7 +80,7 @@ function RemovedMembers() {
   const gone = db.profiles.filter((p) => p.removed_at && can.removeStaff(me.role, p.role)).sort((x, y) => (y.removed_at ?? "").localeCompare(x.removed_at ?? ""));
   if (!gone.length) return null;
   return (
-    <Section title={t("Removed staff")} sub={t("No access to SK Factory or Kimera. Their shifts and work history are kept.")}>
+    <Section title={t("Removed staff")} sub={t("No access to SK Factory or Kortana. Their shifts and work history are kept.")}>
       {!open ? <Btn tone="ghost" small onClick={() => setOpen(true)}>{t("Show {n}", { n: gone.length })}</Btn> : (
         <div className="stack">
           {gone.map((p) => (

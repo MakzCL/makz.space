@@ -14,7 +14,7 @@ const TIME_COL: Partial<Record<TableName, string>> = {
 /**
  * ADMIN-03: cost columns are not readable through the API. These tables are read
  * column by column, and the costs come from my_costs() — only for roles whose
- * Kimera access includes "Costs" (PO/supplier prices also for "Buy").
+ * Kortana access includes "Costs" (PO/supplier prices also for "Buy").
  */
 const COST: Partial<Record<TableName, { col: string; cols: string }>> = {
   stock_items: { col: "avg_cost", cols: "id,sku,name,location,unit,quantity,min_quantity,updated_by,updated_at,created_at,kind,category,sale_price,supplier_id,supplier_code,lead_days,notes,archived,make_min,make_batch,barcode,tracking" },

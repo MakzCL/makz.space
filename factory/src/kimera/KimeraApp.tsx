@@ -59,7 +59,7 @@ export function KimeraApp() {
         <AnimatePresence>{splash && <Splash key="splash" onDone={endSplash} />}</AnimatePresence>
         <div className="kimera">
           {!backend || user === undefined ? <FullLoader label={t("Starting up…")} />
-            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kimera", sub: t("Inventory · Skalarki Electronics Ltd"), logo: <KLogo size={30} /> }} /></div>
+            : user === null ? <div className="fill"><Login backend={backend} onIn={check} brand={{ name: "Kortana", sub: t("Inventory · Skalarki Electronics Ltd"), logo: <KLogo size={30} /> }} /></div>
               : (
                 <StoreProvider key={user} backend={backend} userId={user} onMissingProfile={async () => { await backend.signOut(); check(); }}>
                   <Gate signOut={async () => { await backend.signOut(); setUser(null); }} />
@@ -73,7 +73,7 @@ export function KimeraApp() {
 
 function Gate({ signOut }: { signOut: () => void }) {
   const has = useHasStore();
-  if (!has) return <FullLoader label={t("Loading Kimera…")} />;
+  if (!has) return <FullLoader label={t("Loading Kortana…")} />;
   return <Access signOut={signOut} />;
 }
 
@@ -83,8 +83,8 @@ function Access({ signOut }: { signOut: () => void }) {
     return (
       <div className="k-locked">
         <KLogo size={48} />
-        <h2>{t("Kimera is not open for your role yet")}</h2>
-        <p className="muted">{t("The owner can give your role access in Kimera → Settings → Access.")}</p>
+        <h2>{t("Kortana is not open for your role yet")}</h2>
+        <p className="muted">{t("The owner can give your role access in Kortana → Settings → Access.")}</p>
         <p className="muted">{t("Your jobs, chat and clock-in live in the Factory app.")}</p>
         <a className="btn primary" href={FACTORY_URL}>{t("Open Factory")}</a>
         <button type="button" className="link center" onClick={signOut}>{t("Sign out")}</button>
@@ -124,7 +124,7 @@ function Shell({ signOut }: { signOut: () => void }) {
 
   const go = (x: Tab) => { setTab(x); setMenu(null); history.replaceState(null, "", `#${x}`); main.current?.scrollTo({ top: 0 }); };
   useEffect(() => { const f = () => setTab(readHash()); window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); }, []);
-  useEffect(() => { document.title = `Kimera · ${t(NAV.find((n) => n.v === (cur ?? "sell"))!.label)}`; }, [cur]);
+  useEffect(() => { document.title = `Kortana · ${t(NAV.find((n) => n.v === (cur ?? "sell"))!.label)}`; }, [cur]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest(".k-menu-wrap")) setMenu(null); };
@@ -142,8 +142,8 @@ function Shell({ signOut }: { signOut: () => void }) {
 
   const screen = (() => {
     if (!cur) return (
-      <div className="k-page"><Empty icon={<Boxes size={28} />} title={t("No Kimera sections for your role yet")}
-        hint={t("Ask the owner to give your role access in Kimera → Settings → Access.")} /></div>
+      <div className="k-page"><Empty icon={<Boxes size={28} />} title={t("No Kortana sections for your role yet")}
+        hint={t("Ask the owner to give your role access in Kortana → Settings → Access.")} /></div>
     );
     switch (cur) {
       case "sell": return <Sell openId={order} onOpen={setOrder} kind={sellKind} setKind={setSellKind} creating={newOrder} setCreating={setNewOrder} />;
@@ -219,7 +219,7 @@ function Shell({ signOut }: { signOut: () => void }) {
         </div>
       </header>
       <main ref={main} className="k-main">
-        {!ready ? <FullLoader label={t("Loading Kimera…")} /> : (
+        {!ready ? <FullLoader label={t("Loading Kortana…")} /> : (
           <motion.div key={cur ?? "none"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
             <ErrorBoundary place={`kimera:${cur}`}>
               <DocLinkProvider value={(d) => d.kind === "po" ? setPoPeek(d.id) : d.kind === "job" ? setJobPeek(d.id) : allowed.includes("sell") ? openOrder(d.id) : undefined}>{screen}</DocLinkProvider>

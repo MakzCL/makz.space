@@ -5,7 +5,7 @@ import type { DB, StockMovement } from "./types";
 export interface DocTarget { kind: "po" | "order" | "job"; id: string; label: string }
 
 const Ctx = createContext<((d: DocTarget) => void) | null>(null);
-/** Kimera provides this so references open the document; elsewhere they stay plain text. */
+/** Kortana provides this so references open the document; elsewhere they stay plain text. */
 export const DocLinkProvider = Ctx.Provider;
 export const useDocLink = () => useContext(Ctx);
 

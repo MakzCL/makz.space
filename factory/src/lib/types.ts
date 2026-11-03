@@ -204,7 +204,7 @@ export interface Order {
   ordered_at: string | null;
   total_price: number | null;
   currency: string;
-  /** Kimera: quote or sales order; open / done / cancelled. */
+  /** Kortana: quote or sales order; open / done / cancelled. */
   kind: "quote" | "order";
   status: "open" | "done" | "cancelled";
   delivery: DeliveryState;
@@ -293,7 +293,7 @@ export interface AuditEntry {
   action: "insert" | "update" | "delete";
   changes: Record<string, unknown>;
 }
-/** Kimera sections, plus "costs" = may see costs, stock value and margins (ADMIN-03). */
+/** Kortana sections, plus "costs" = may see costs, stock value and margins (ADMIN-03). */
 export interface Location {
   id: string;
   name: string;

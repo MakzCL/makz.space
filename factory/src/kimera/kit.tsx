@@ -19,7 +19,7 @@ export function Pill({ cell, onClick }: { cell: Cell; onClick?: () => void }) {
 export function Channel({ source }: { source: "shopify" | "manual" }) {
   return source === "shopify"
     ? <span className="kchan shop" title="Shopify"><ShoppingBag size={14} /></span>
-    : <span className="kchan" title={t("Entered in Kimera")}><PenLine size={14} /></span>;
+    : <span className="kchan" title={t("Entered in Kortana")}><PenLine size={14} /></span>;
 }
 
 export function PageHead({ title, sub, tabs, actions }: { title: string; sub?: ReactNode; tabs?: ReactNode; actions?: ReactNode }) {

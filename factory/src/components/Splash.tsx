@@ -22,7 +22,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, handoff ? 2600 : 2400); return () => clearTimeout(t); }, [onDone, handoff]);
   // The splash now shows the same frame: drop the static one from index.html.
   useEffect(() => { document.getElementById("boot")?.remove(); }, []);
-  const word = IS_KIMERA ? <>Kimera <span>Inventory</span></> : <>Skalarki <span>Electronics</span></>;
+  const word = IS_KIMERA ? <>Kortana <span>Inventory</span></> : <>Skalarki <span>Electronics</span></>;
 
   if (handoff) {
     const tile = Math.min(innerWidth, innerHeight) * TILE_VW / 100;

@@ -52,7 +52,7 @@ export function Header({ onProfile, scrolled, hidden, extra }: { onProfile: () =
 
 export function BottomNav({ tabs, tab, onTab, badges, foot }: {
   tabs: Tab[]; tab: Tab; onTab: (t: Tab) => void; badges: Partial<Record<Tab, number>>;
-  /** Desktop only: pinned to the bottom of the side menu (e.g. the Kimera button). */
+  /** Desktop only: pinned to the bottom of the side menu (e.g. the Kortana button). */
   foot?: ReactNode;
 }) {
   return (

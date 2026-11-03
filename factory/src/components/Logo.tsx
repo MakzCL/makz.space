@@ -10,14 +10,14 @@ export const SK_PATHS = [
 ];
 export const SK_VIEWBOX = "30 55 840 368";
 
-/** Kimera "K": a rounded upright stem plus the SK arm (same blade geometry). */
+/** Kortana "K": a rounded upright stem plus the SK arm (same blade geometry). */
 export const K_PATHS = [
   "M96 150 C104 98 146 66 206 66 L262 66 L262 412 L96 412 Z",
   "M282 238 L572 72 C578 69 584 68 590 68 L682 68 C692 68 694 78 686 83 L458 238 L564 412 L448 412 C434 412 424 406 418 396 Z",
 ];
 export const K_VIEWBOX = "86 60 614 358";
 
-/** Kimera runs on kimera.makz.space (or /kimera): loaders and splash use the K there. */
+/** Kortana runs on kimera.makz.space (or /kimera): loaders and splash use the K there. */
 export const IS_KIMERA = typeof location !== "undefined" && (location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera"));
 export interface Mark { paths: string[]; viewBox: string; ratio: number; /** viewBox height ÷ drawn mark height */ pad: number; fill: string; hi: string; from: { x: number; y: number; rotate: number }[]; origin: string }
 export const SK_MARK: Mark = { paths: [], viewBox: "30 55 840 368", ratio: 840 / 368, pad: 368 / 347, fill: "var(--brand)", hi: "var(--brand-hi)", from: [], origin: "450px 240px" };
@@ -43,7 +43,7 @@ SK_MARK.paths = SK_PATHS; SK_MARK.from = FROM;
 K_MARK.paths = K_PATHS; K_MARK.from = [{ x: -280, y: 60, rotate: -14 }, { x: 300, y: -60, rotate: 12 }];
 export const MARK = IS_KIMERA ? K_MARK : SK_MARK;
 
-/** Kimera's violet → berry sweep, continuous across the whole K.
+/** Kortana's violet → berry sweep, continuous across the whole K.
  *  Every SVG gets its own gradient id: a shared id resolves to the first copy on the
  *  page, and if that one sits in a hidden element the K renders invisible. */
 const useGradId = () => `k-grad-${useId().replace(/:/g, "")}`;
@@ -51,11 +51,11 @@ const useGradId = () => `k-grad-${useId().replace(/:/g, "")}`;
 export const fillOf = (mark: Mark, gid: string) => (mark.fill === "k-grad" ? `url(#${gid})` : mark.fill);
 export const KGrad = ({ id }: { id: string }) => <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="92" y1="66" x2="691" y2="412"><stop offset="0" stopColor="#8a6bff" /><stop offset="1" stopColor="#c7368f" /></linearGradient>;
 
-/** Plain Kimera K (no tile) — for headers, the sidebar button and the notch. */
+/** Plain Kortana K (no tile) — for headers, the sidebar button and the notch. */
 export function KLogo({ size = 24, className = "" }: { size?: number; className?: string }) {
   const gid = useGradId();
   return (
-    <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kimera">
+    <svg viewBox={K_VIEWBOX} width={size * K_MARK.ratio} height={size} className={`k-logo ${className}`} aria-label="Kortana">
       <defs><KGrad id={gid} /></defs>
       {K_PATHS.map((d) => <path key={d} d={d} fill={`url(#${gid})`} />)}
     </svg>

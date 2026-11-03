@@ -1,4 +1,4 @@
-# Kimera — questions for Skalarki
+# Kortana — questions for Skalarki
 
 Answers decide how the next phases are built. Until they come in, I use the
 default shown in brackets. Every default can be changed later.
@@ -8,8 +8,8 @@ default shown in brackets. Every default can be changed later.
 1. **Accounting:** QuickBooks Online, Xero, or neither for now?
    *(Default: no accounting connector; CSV exports only.)*
 2. **Shopify webhook secret:** Shopify admin → Settings → Notifications → Webhooks → the "signed by" key.
-   Kimera can't receive real Shopify orders until it's set.
-3. **Shopify sync direction:** besides taking orders in, should Kimera
+   Kortana can't receive real Shopify orders until it's set.
+3. **Shopify sync direction:** besides taking orders in, should Kortana
    - (a) push stock levels back to Shopify, and
    - (b) mark orders fulfilled in Shopify with the tracking number?
    *(Default: orders in only.)*
@@ -21,7 +21,7 @@ default shown in brackets. Every default can be changed later.
    Do you need named bins or shelves inside them?
    *(Default: one warehouse "Skalarki", bins added later.)*
 6. **Who may see costs, margins and stock value?** You can now set this yourself in
-   Kimera → Settings → Access → "Costs & margins". It is enforced on the server.
+   Kortana → Settings → Access → "Costs & margins". It is enforced on the server.
    *(Default: Owner, Developer, Manager, Office. Hidden from Assistant, Support and Operator.)*
 7. **Warehouse staff:** a new "Warehouse" role, or use Assistant?
    *(Default: use Assistant.)*
@@ -32,11 +32,11 @@ default shown in brackets. Every default can be changed later.
 9. **Batch or serial tracking:** which items need it? For example, a serial number on every finished trainer, or batches for electronics.
    Does anything have an expiry date?
    *(Default: serials on finished products only, no expiry.)*
-10. **Barcodes:** do items already carry barcodes (supplier or EAN codes), or should Kimera print its own labels?
+10. **Barcodes:** do items already carry barcodes (supplier or EAN codes), or should Kortana print its own labels?
     Which label printer do you use?
-    *(Default: Kimera generates Code-128 labels from the SKU.)*
+    *(Default: Kortana generates Code-128 labels from the SKU.)*
 11. **Outsourcing:** do you send work to outside companies (powder coating, PCB assembly, CNC, etc.)? Which ones?
-    Kimera now supports this (Buy → PO type "Outsourced work"). For each company I need its name and whether it holds any of your stock now, so I can set up its contractor location.
+    Kortana now supports this (Buy → PO type "Outsourced work"). For each company I need its name and whether it holds any of your stock now, so I can set up its contractor location.
 12. **Other channels:** do you use or plan to use WooCommerce, BigCommerce, eBay or Amazon, a shipping tool (ShipStation, DHL, FedEx…), or HubSpot?
 13. **Order priority:** is this order OK for who gets stock first?
     1. The rank you set by hand.
@@ -58,23 +58,23 @@ default shown in brackets. Every default can be changed later.
     *(Default: Owner is left unassigned until you say.)*
 20. **Assistants and stock costs:** assistants keep stock and enter costs when they book opening stock, but can no longer see average cost or stock value. Is that right?
     *(Default: yes, hidden. Tick "Costs & margins" for Assistant in Settings → Access to change it.)*
-21. **Job priority P1–P5 vs queue order:** Kimera now has a queue order (the arrows in Sell and Make), and that decides who gets stock first. Should the P1–P5 priority on jobs also move the queue, or stay as a shop-floor urgency label only?
+21. **Job priority P1–P5 vs queue order:** Kortana now has a queue order (the arrows in Sell and Make), and that decides who gets stock first. Should the P1–P5 priority on jobs also move the queue, or stay as a shop-floor urgency label only?
     *(Default: P1–P5 stays a label for the crew; the arrows decide stock.)*
 22. **Transfers:** do you ever receive only part of a transfer (e.g. 8 of 10 arrive)?
     *(Default: a transfer is received in full; a short delivery is fixed with a stock count at the destination.)*
 23. **Shipping more than the system shows:** if the system says 0 on the shelf but the goods are physically there, should someone be able to ship anyway?
     *(Default: no. Count the stock first, then ship. This prevents two people shipping the same last unit.)*
 24. **Locations:** besides "Skalarki" (all current stock), which locations should I create? For example: Upstairs store, Downstairs workshop, Dispatch, any contractor holding your stock.
-    *(Default: only "Skalarki" until you add more in Kimera → Settings → Locations.)*
+    *(Default: only "Skalarki" until you add more in Kortana → Settings → Locations.)*
 25. **Labour in stock value:** should the cost of operations and labour be added to the value of finished products in stock (full manufacturing cost)? Or should stock be valued at material cost, with labour shown on each MO's cost?
     *(Default: stock is valued at material cost; each MO shows planned vs actual materials, operations and labour.)*
 26. **Rates:** what does an hour cost at each station (e.g. CNC, powder coating, assembly), and what is your labour cost per person-hour? I need these for real MO costs and finish dates.
     *(Default: £0 until you enter them in Stations & routes and Settings → Company.)*
-27. **Over-consumption:** when the crew uses more material than the recipe (scrap, mistakes), should Kimera ask for a reason, or just record it?
+27. **Over-consumption:** when the crew uses more material than the recipe (scrap, mistakes), should Kortana ask for a reason, or just record it?
     *(Default: just record it; the MO shows planned vs actual.)*
 28. **Serial number format:** finished pieces currently get the MO code plus a number (e.g. MO-1043-001), and received pieces get the batch/PO code plus a number. Do you have your own serial format (e.g. SK-A32X-2026-0001), or do you print serial plates?
     *(Default: MO/PO code + running number.)*
-29. **Expired stock:** should Kimera refuse to use or ship expired batches, or only warn?
+29. **Expired stock:** should Kortana refuse to use or ship expired batches, or only warn?
     *(Default: warn only; the first-to-expire batch is used first.)*
 
 ## Added 2 Nov (outsourcing + warehouse)
@@ -91,3 +91,5 @@ default shown in brackets. Every default can be changed later.
     *(Default: per job as now, plus optional per-operation start/stop for stations that have a tablet.)*
 35. **Who may remove staff:** Owner/Developer can remove anyone (except themselves, and never the last Owner/Developer). Manager and Office can remove anyone except Owner/Developer. Assistants can remove Operators and Support only. Is that right, or should Assistants be able to remove other roles too?
     *(Default: as described. Removing someone keeps all their history, and they can be restored from Team → Removed staff.)*
+36. **Web address for Kortana:** the app is renamed, but it still opens at kimera.makz.space. Should I add kortana.makz.space as the main address and have the old one forward to it?
+    *(Default: keep kimera.makz.space until you say so; nothing on screen shows the old name.)*

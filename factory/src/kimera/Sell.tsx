@@ -161,7 +161,7 @@ export function OrderSheet({ info, onClose }: { info: OrderInfo | null; onClose:
         <div className="stack">
           <div className="tri">
             <div className="hl"><small>{t("Amount")}</small><b>{money(info.amount)}</b><em>{o.currency}</em></div>
-            <div><small>{o.kind === "quote" ? t("Created") : t("Ordered")}</small><b>{fullDate(o.ordered_at ?? o.created_at)}</b><em>{o.source === "shopify" ? "Shopify" : "Kimera"}</em></div>
+            <div><small>{o.kind === "quote" ? t("Created") : t("Ordered")}</small><b>{fullDate(o.ordered_at ?? o.created_at)}</b><em>{o.source === "shopify" ? "Shopify" : "Kortana"}</em></div>
             <div><small>{t("Deadline")}</small><b className={info.late ? "red-t" : ""}>{fullDate(o.delivery_deadline)}</b><em>{info.late ? t("Late") : ""}</em></div>
           </div>
           {o.kind === "order" && (

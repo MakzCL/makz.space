@@ -8,15 +8,15 @@ import "./styles.css";
 
 apply();
 installGlobalHandlers();
-/** Kimera (inventory) runs from kimera.makz.space, or /kimera on any host. */
+/** Kortana (inventory) runs from kimera.makz.space, or /kimera on any host. */
 const kimera = location.hostname.startsWith("kimera.") || location.pathname.startsWith("/kimera");
 if (kimera) {
-  document.title = "Kimera";
+  document.title = "Kortana";
   document.documentElement.classList.add("is-kimera");
   document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/kimera.webmanifest");
   document.querySelector('link[rel="icon"]')?.setAttribute("href", "/kimera.svg");
   document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", "/kimera-apple-touch.png");
-  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "Kimera");
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "Kortana");
 }
 const Root = lazy(() => kimera ? import("./kimera/KimeraApp").then((m) => ({ default: m.KimeraApp })) : import("./App").then((m) => ({ default: m.App })));
 createRoot(document.getElementById("root")!).render(<StrictMode><ErrorBoundary place="app" full><Suspense fallback={null}><Root /></Suspense></ErrorBoundary></StrictMode>);

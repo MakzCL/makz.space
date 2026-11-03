@@ -5,7 +5,7 @@ import { opKey } from "../lib/actions";
 import { useStore } from "../lib/store";
 import type { CompanySettings, Customer, DeliveryState, Issue, ItemSupplier, Job, Order, OrderLine, TableName, TaxRate } from "../lib/types";
 
-/** Back-office actions (Kimera). Every call refreshes what it touched and toasts on failure. */
+/** Back-office actions (Kortana). Every call refreshes what it touched and toasts on failure. */
 export function useKimera() {
   const { backend: B, refresh } = useStore();
   const toast = useToast();

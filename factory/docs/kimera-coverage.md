@@ -1,4 +1,4 @@
-# KIMERA — feature coverage matrix (Katana reference)
+# KORTANA — feature coverage matrix (Katana reference)
 
 Audit date: 2026-11-02 · baseline commit `34f9539` (live app = `843bb16`)
 Method: read `supabase/schema.sql` (2,237 lines, every table/function/policy/trigger),
@@ -109,7 +109,7 @@ advisory lock per item, so concurrent requests serialise.
 | SALES-02 | Partial | customer text, deadline, lines, prices, status | No location, no tax | Extend |
 | SALES-03 | Partial | client readiness cells | Not based on reservations | Repair (with ALLOC) |
 | SALES-04 | Missing | — | — | Implement rank |
-| SALES-05 | **Complete** (P1) | `order_lines.shipped`, `ship_lines()`, `unship_lines()`, state `partially_shipped`, Kimera order sheet → Fulfilment panel | — | ✔ scenario 8 |
+| SALES-05 | **Complete** (P1) | `order_lines.shipped`, `ship_lines()`, `unship_lines()`, state `partially_shipped`, Kortana order sheet → Fulfilment panel | — | ✔ scenario 8 |
 | SALES-06 | **Complete** (P1, core) | `return_lines()`, `order_returns`, restock at shipped cost or scrap (no stock), Fulfilment panel | No RMA approval step / refund link | ✔ scenario 8 |
 | SALES-07 | Missing | — | — | Implement kits (BOM exploded at ship) |
 | SALES-08 | **Complete** (P1) | service items + free-text lines ship without stock | — | ✔ |
@@ -170,7 +170,7 @@ advisory lock per item, so concurrent requests serialise.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| WH-01 | Complete (5a) | Kimera → Stock → Tasks works on phones: task list, one sheet per task with the work inside it |
+| WH-01 | Complete (5a) | Kortana → Stock → Tasks works on phones: task list, one sheet per task with the work inside it |
 | WH-02 | Complete (5a) | `wh_tasks` (receive / pick & pack / ship / transfer / count), office assigns to Assistant-or-above, due date + note; one open task per document |
 | WH-03 | Complete (5a) | `wh_task_step()` start / done (assignee or office); pick done → order Packed; assigned assistants may ship that order (`my_wh_task` in `ship_lines`) |
 | WH-04 / WH-05 | Partial | task flows done; barcode scanning is 5b |
@@ -304,17 +304,17 @@ key per intent and disables the button while it runs.
   - CAT-07 / SALES-02 → Partial→ mostly complete: `tax_rates`, per-line `tax_rate` snapshot, customer default rate, net/VAT/total, prices-include-VAT. (Shopify orders: tax not yet read from the payload.)
   - CAT-05 → **Complete** (core): unique `barcode`, scannable in pickers, `item_suppliers` (code, price, lead time, preferred), PO line default price.
   - CAT-08 / ADMIN-08 → **Complete** (core): `check_import()` dry run with per-row problems/changes; only clean rows imported.
-  - ADMIN-06 → Partial: Kimera → Settings (base currency + lock, default lead time, tax rates). Locations/workflows wait for phase 3.
+  - ADMIN-06 → Partial: Kortana → Settings (base currency + lock, default lead time, tax rates). Locations/workflows wait for phase 3.
   - ADMIN-04 → Partial: activity log viewer (`recent_activity()`, office only).
   - Tests: 259 schema checks ALL PASSED; tsc clean; build ok; browser smoke of Customers, customer sheet, order VAT, Settings (company/tax/activity), item sheet — no errors.
   - Remaining in phase 2: ADMIN-03 (hide costs/prices from operators at the API), INV-04 drill-through, Shopify tax/currency mapping.
 
 - 2026-11-02 — **Phase 2 part A + Developer role published** (migrations `developer_role_enum`, `kimera_phase2_master_data_developer_role`; deploy `32285036` of `1cad042`). Restore point: `backup_20261102_phase2` + branch `backup/pre-phase2-2026-11-02`. Karol Kuklinski → Developer (same full access as Owner).
-- 2026-11-02 — **Kimera section access published** (ADMIN-02/04): Settings → Access, owner-only `set_kimera_access()`, `kimera_access` per role; nav, deep links and Create menu follow it; Kimera gate now uses it (support can open Kimera). Defaults: manager/office all; assistant/support all but Insights & Settings; operator none. Migration `kimera_section_access`, deploy of `6158a10`. Restore point: `backup_20261102_access` + branch `backup/pre-access-2026-11-02`. Note: this hides sections in the app; protecting cost/price *data* at the API is ADMIN-03 (next).
+- 2026-11-02 — **Kortana section access published** (ADMIN-02/04): Settings → Access, owner-only `set_kimera_access()`, `kimera_access` per role; nav, deep links and Create menu follow it; Kortana gate now uses it (support can open Kortana). Defaults: manager/office all; assistant/support all but Insights & Settings; operator none. Migration `kimera_section_access`, deploy of `6158a10`. Restore point: `backup_20261102_access` + branch `backup/pre-access-2026-11-02`. Note: this hides sections in the app; protecting cost/price *data* at the API is ADMIN-03 (next).
 
 - 2026-11-02 — **Phase 2 part B done locally — not yet published.**
   - ADMIN-03 → **Complete** (core): cost columns (`stock_items.avg_cost`, `stock_movements.unit_cost`, `po_lines.unit_cost`, `item_suppliers.unit_cost`) are not readable through the API (column privileges, `apply_cost_privileges()`); `my_costs()` releases them only to roles with the new **Costs & margins** permission (Settings → Access), PO/supplier prices also to roles with Buy. UI hides cost columns, stock value, Insights stock value; import check masks cost changes.
-  - INV-04 → **Complete**: every stock movement's reference opens its purchase order, sales order or manufacturing order in Kimera (`lib/doclink.tsx`), using `source_type/source_id`, falling back to the reference text for older rows.
+  - INV-04 → **Complete**: every stock movement's reference opens its purchase order, sales order or manufacturing order in Kortana (`lib/doclink.tsx`), using `source_type/source_id`, falling back to the reference text for older rows.
   - Questions list kept in `docs/open-questions.md` + `docs/open-questions.pdf` (regenerate: `node docs/tools/md2pdf.cjs docs/open-questions.md docs/open-questions.pdf`).
   - Tests: 280 schema checks ALL PASSED; concurrency PASSED; tsc clean; build ok; browser: Developer sees Avg cost/Value, Support does not; movement links open the source document.
   - Still open in phase 2: Shopify VAT/currency mapping (waits for question 17). Sales-price hiding waits for question 18.
@@ -338,7 +338,7 @@ key per intent and disables the button while it runs.
   - Not done in phase 4: outsourced manufacturing (OUT-01..06) — next.
 - 2026-11-02 — **Phase 4 published.** Migration `kimera_phase4_production_costs_lots_a` → deploy of `aa64aa5` → `_b` (`apply_cost_privileges()` hides station £/h and operation fixed costs). The app went in between so the old app never lost a column it selects. Restore point: `backup_20261102_phase4` + branch `backup/pre-phase4-2026-11-02` (fa69c28). Live check: WIP location present, lot_id/tracking visible, avg_cost/cost_per_hour/fixed_cost hidden from the API, 0 stock mismatches.
 - 2026-11-02 — **Phase 4d — outsourced manufacturing (OUT-01..06) built** (part of phase 4 in the plan). See section G. Also: `move_by_source_lots` now returns untracked stock to the location of the original movement (needed for contractor returns; same result for existing callers). Tests: 371 schema checks ALL PASSED (21 new), concurrency PASSED, tsc clean, build ok, browser smoke of the outsourced PO sheet (desktop + phone) — no errors.
-- 2026-11-02 — Fix: Kimera "Create" menu opened to the right and went off-screen; it now opens leftwards from the button and is capped to the screen width.
+- 2026-11-02 — Fix: Kortana "Create" menu opened to the right and went off-screen; it now opens leftwards from the button and is capped to the screen width.
 - 2026-11-02 — **Phase 4d + Create-menu fix published** (migration `kimera_phase4d_outsourcing`, deploy of `9a5f22d`). Restore point: `backup_20261102_phase4d` (55 tables) + branch `backup/pre-phase4d-2026-11-02` (aa64aa5). Live check: po_materials + outsourced PO columns present, costs still hidden, 0 stock mismatches.
 
 - 2026-11-03 — **Staff removal published** (migration `sk_factory_remove_staff`, deploy of `7aa10f4`). Restore point: `backup_20261103_staffremoval` (56 tables) + branch `backup/pre-staff-removal-2026-11-03` (9a5f22d). `remove_staff()` / `restore_staff()`: access gone at once (inactive, signed out, clocked out, off their jobs and stations), history kept, restorable; role rules in `can_remove_staff()`. Tests: 383 checks ALL PASSED.
@@ -353,5 +353,5 @@ key per intent and disables the button while it runs.
 2. **Phase 2:** customers table + backfill from order text (CAT-04), barcode + supplier refs
    (CAT-05), tax rates & order tax (CAT-07/SALES-02), hide costs/margins from operators at
    the API (ADMIN-03, D9), import dry-run with per-row errors (CAT-08/ADMIN-08), audit log
-   viewer in Kimera Settings, movement drill-through (INV-04).
+   viewer in Kortana Settings, movement drill-through (INV-04).
 3. **Phase 3:** locations/bins/transfers + server reservations by rank (scenarios 2, 6, 13b).

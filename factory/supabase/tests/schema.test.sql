@@ -329,7 +329,7 @@ select pg_temp.check((select status = 'ended' and ended_at is not null from publ
 update public.profiles set status = 'dnd' where id = auth.uid();
 select pg_temp.check((select status = 'dnd' from public.profiles where id = auth.uid()), 'set own presence status');
 
--- Kimera: sales orders, quotes, delivery, manufacturing orders
+-- Kortana: sales orders, quotes, delivery, manufacturing orders
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from public.jobs where order_id is not null and order_line_id is null) = 0, 'every Shopify job has an order line');
 select pg_temp.check((select count(*) from public.order_lines ol join public.orders o on o.id = ol.order_id where o.source = 'shopify') >= 2, 'Shopify orders keep their lines');
@@ -480,10 +480,10 @@ select pg_temp.check((select not stock_booked and status = 'open' from public.jo
 select public.complete_mo((select id from public.jobs where sku = 'PED-FRAME' limit 1));
 select pg_temp.check((select quantity = 40 from public.stock_items where sku = 'SCR-M4x12') and (select quantity = 1 from public.stock_items where sku = 'PED-FRAME'), 'completing again books the current recipe once');
 select pg_temp.become(:'A2');
-select pg_temp.expect_fail($$select public.complete_mo((select id from public.jobs where sku = 'PED' limit 1))$$, 'operator completes MOs from Kimera');
+select pg_temp.expect_fail($$select public.complete_mo((select id from public.jobs where sku = 'PED' limit 1))$$, 'operator completes MOs from Kortana');
 
 -- ============================================================================
--- KIMERA phase 1 acceptance (numerical fixtures; docs/kimera-coverage.md)
+-- KORTANA phase 1 acceptance (numerical fixtures; docs/kimera-coverage.md)
 -- ============================================================================
 select pg_temp.become(:'B');
 select pg_temp.check((select base_currency = 'GBP' from public.company_settings), 'base currency defaults to GBP');
@@ -599,7 +599,7 @@ update public.company_settings set base_currency = 'USD';
 select pg_temp.check((select base_currency = 'GBP' from public.company_settings), 'operator cannot change the base currency (RLS: 0 rows)');
 
 -- ============================================================================
--- KIMERA phase 2 acceptance: customers, tax, barcodes, supplier refs, import check
+-- KORTANA phase 2 acceptance: customers, tax, barcodes, supplier refs, import check
 -- ============================================================================
 select pg_temp.become(:'B');
 select pg_temp.check((select count(*) = 0 from public.orders where customer_id is null and coalesce(customer, '') <> ''), 'every existing order with a customer name is linked to a customer');
@@ -669,9 +669,9 @@ select pg_temp.expect_fail($$update public.profiles set role = 'operator' where 
 select pg_temp.become(:'B');
 update public.profiles set role = :'a1role' where id = :'A1';
 
--- Kimera section access: owner decides, others only read
+-- Kortana section access: owner decides, others only read
 select pg_temp.become(:'B');
-select pg_temp.check('insights' = any(public.my_kimera_sections()) and cardinality(public.my_kimera_sections()) = 10, 'owner sees every Kimera section (+ costs)');
+select pg_temp.check('insights' = any(public.my_kimera_sections()) and cardinality(public.my_kimera_sections()) = 10, 'owner sees every Kortana section (+ costs)');
 select pg_temp.check((select not ('insights' = any(sections)) and 'tickets' = any(sections) from public.kimera_access where role = 'support'), 'support: everything + tickets, no insights by default');
 select public.set_kimera_access('support', array['tickets']);
 select pg_temp.check((select sections = array['tickets'] from public.kimera_access where role = 'support'), 'owner changes what support sees');
@@ -703,7 +703,7 @@ select pg_temp.become(:'B');
 select public.set_kimera_access('operator', array[]::text[]);
 
 -- ============================================================================
--- KIMERA phase 3a: locations, per-location stock, transfers (scenario 6)
+-- KORTANA phase 3a: locations, per-location stock, transfers (scenario 6)
 -- ============================================================================
 select pg_temp.become(:'B');
 select pg_temp.check((select count(*) = 1 from public.locations where is_default) and (select count(*) = 1 from public.locations where kind = 'transit'), 'default location + in-transit exist');
@@ -756,7 +756,7 @@ select pg_temp.expect_fail($$select public.post_transfer('$$ || :'tr' || $$', 'c
 select pg_temp.expect_fail($$insert into public.locations (name) values ('Sneaky')$$, 'operator adds locations');
 
 -- ============================================================================
--- KIMERA phase 3b: priority allocation (scenario 2), no over-shipping
+-- KORTANA phase 3b: priority allocation (scenario 2), no over-shipping
 -- ============================================================================
 select pg_temp.become(:'B');
 insert into public.stock_items (sku, name, kind) values ('AL-W', 'Alloc widget', 'product'), ('AL-R', 'Alloc raw', 'material');
@@ -804,7 +804,7 @@ select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.set_rank('order', '$$ || :'soa' || $$', null)$$, 'operator changes priorities');
 
 -- ============================================================================
--- KIMERA phase 4a: pick, partial completion, actual use, unused returned (scenario 5)
+-- KORTANA phase 4a: pick, partial completion, actual use, unused returned (scenario 5)
 -- recipe P5 = 2 × M5A (£1.00) + 1 × M5B (£3.00); MO for 10
 -- ============================================================================
 select pg_temp.become(:'B');
@@ -853,7 +853,7 @@ select pg_temp.become(:'A2');
 select pg_temp.expect_fail($$select public.pick_mo('$$ || :'mo5' || $$')$$, 'operator not on the job picks materials');
 
 -- ============================================================================
--- KIMERA phase 4b: operations + costs (MFG-08/09/14/15). P5 ×10: setup 30 min + 6 min/unit
+-- KORTANA phase 4b: operations + costs (MFG-08/09/14/15). P5 ×10: setup 30 min + 6 min/unit
 -- at £30/h + £5 fixed = £50 planned operations; materials £50 planned (10 × (2×£1 + 1×£3))
 -- ============================================================================
 select pg_temp.become(:'B');
@@ -877,7 +877,7 @@ select pg_temp.become(:'A2');
 select pg_temp.check(public.mo_costs(:'mo5') is null, 'operators without Costs & margins get no MO costs');
 
 -- ============================================================================
--- KIMERA phase 4c: batches, expiry, serials, trace (scenario 7)
+-- KORTANA phase 4c: batches, expiry, serials, trace (scenario 7)
 -- ============================================================================
 select pg_temp.become(:'B');
 insert into public.stock_items (sku, name, kind, tracking) values ('LT-MAT', 'Resin', 'material', 'batch'), ('LT-PROD', 'Moulded part', 'product', 'batch'), ('LT-SER', 'Control unit', 'product', 'serial');

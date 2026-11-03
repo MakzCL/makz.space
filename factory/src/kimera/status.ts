@@ -1,5 +1,5 @@
 /**
- * Kimera status engine: works out, for every open sales order, whether its
+ * Kortana status engine: works out, for every open sales order, whether its
  * items are in stock, whether ingredients are there for its manufacturing
  * orders, how production is going and where delivery stands.
  * Stock is allocated to orders by rank (oldest first), like a real MRP.

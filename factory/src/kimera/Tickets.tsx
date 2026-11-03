@@ -79,7 +79,7 @@ export function Tickets({ openId, onOpen, onJob }: { openId: string | null; onOp
   );
 }
 
-/** Ticket detail + conversation. Used by Kimera and by the Factory Issues screen. */
+/** Ticket detail + conversation. Used by Kortana and by the Factory Issues screen. */
 export function TicketSheet({ issue, onClose, onJob }: { issue: Issue | null; onClose: () => void; onJob?: (id: string) => void }) {
   const { db, me, person } = useStore();
   const k = useKimera();

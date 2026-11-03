@@ -6,7 +6,7 @@ export function KimeraMark({ size = 30 }: { size?: number }) {
   return <img className="k-mark" src="/kimera.svg" width={size} height={size} alt="" />;
 }
 
-/** Header lockup: the Kimera K, then "Kimera". */
+/** Header lockup: the Kortana K, then "Kortana". */
 export function SkKimera({ height = 24 }: { height?: number }) {
-  return <span className="k-lockup"><KLogo size={height} /><b>Kimera</b></span>;
+  return <span className="k-lockup"><KLogo size={height} /><b>Kortana</b></span>;
 }
