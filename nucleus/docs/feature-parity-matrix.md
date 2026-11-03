@@ -38,7 +38,20 @@ The reference behaviour is unverified for Proteus 9.2 (see `proteus-reference-au
 | Graphs | Many types | Transient / AC (dB + phase) / DC sweep, cursors A/B with deltas, zoom, CSV/PNG | Implemented | Visual | — |
 | Logic analyser, counter, terminal, SPI/I²C, pattern gen, wattmeter | Yes | — | Planned | — | Need digital simulation first |
 | BOM | Yes | Grouped, filterable, CSV; simulation-only sources excluded | Verified | e2e step 12 | PDF/XLSX planned |
-| PCB layout and everything after it (routing, DRC, zones, 3D, Gerber, drill, pick and place) | ARES | — | Planned (next milestone) | — | e2e steps 13–21 cannot run yet |
+| Footprints | Package library | 26 footprints generated from package dimensions (IPC-7351 nominal SMD; standard THT drills); pad names match symbol pins | Verified | `pcb.test.ts` (every library footprint covers every pin; 0805 pitch 1.825 mm; DIP row 7.62 mm) | No footprint editor yet |
+| Netlist transfer to PCB | Forward annotation | Update from schematic: adds, removes, renames, changes footprints; simulation-only sources skipped; reports parts without footprints | Verified | `pcb.test.ts`; e2e PCB step 2 | — |
+| Placement | Move/rotate/flip | Drag with grid snap, rotate 90°, flip to bottom (mirrored), lock | Verified (move/undo) | e2e PCB step 6 | No auto-placement |
+| Ratsnest | Yes | Minimum spanning tree between separate copper islands of each net (pads, tracks, vias, pours) | Verified | `pcb.test.ts` (exact counts per net) | — |
+| Interactive routing | Yes | Click-to-route with 45° posture, layer change with via (V), snap to pads, net check, track width per rules/track | Verified | e2e PCB step 5 (hand-routed connection, DRC clean) | No push-and-shove |
+| Autorouter | Electra-based | Own two-layer A* grid router with vias, shortest-first; result must pass DRC | Verified | `pcb.test.ts` (complete, DRC clean); e2e PCB step 3 | Grid router: dense boards may leave connections unrouted (reported, never forced); no rip-up-and-retry |
+| Vias | Yes | Through vias, drill/diameter from rules | Verified | Router + DRC tests | No blind/buried vias |
+| DRC | Yes | Shorts, clearance (measured value vs limit), unrouted, track width, drill, annular ring, board edge, outside board, courtyard overlap, dangling track | Verified | `pcb.test.ts` (clearance reported as exactly 0.15 mm < 0.2 mm; shorts; outside; tiny via) | — |
+| Copper pours | Zones / power planes | Per net and layer; clearance, edge keep-out, sliver removal, unconnected islands removed, thermal reliefs or solid | Verified | `pcb.test.ts` (DRC clean; Gerber regions read by gerbonara); e2e PCB step 7 | No hatched fill; one outline per board |
+| Gerber RS-274X | Yes | Copper ×2, mask ×2, silkscreen with references, board outline; X2 file attributes; mm 4.6 | Verified | gerbonara: flash/track/region counts equal the board; gerbv renders every file | Paste layers not yet |
+| Excellon drill | Yes | Plated holes, metric, tools sorted by size | Verified | gerbonara: hit count and sizes equal the board | No NPTH/slots (no footprint uses them yet) |
+| Pick-and-place | Yes | CSV: ref, value, package, X/Y (mm, same origin as Gerber), rotation, side | Verified | `pcb.test.ts` | — |
+| Manufacturing zip | — | One download with every file | Verified | e2e PCB step 8 (unzip + gerbonara) | — |
+| 3D visualiser | Yes | — | Planned | — | — |
 | Symbol / footprint editors, library versioning | Yes | Library has a version field per device | Planned | — | — |
 | Firmware / MCU co-simulation | VSM | — | Planned | — | No MCU is claimed as supported |
 | Visual Designer, IoT Builder, AI assistant | Yes | — | Planned | — | Later phases |

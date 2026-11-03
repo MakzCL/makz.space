@@ -27,5 +27,6 @@ describe("built-in examples", { timeout: 60000 }, () => {
     const r = await run("rc-ac"); const f = r.axis!.values, o = r.netV.get("OUT")!; const fc = 1 / (2 * Math.PI * 1e3 * 100e-9);
     const i = f.findIndex((x) => x >= fc); expect(20 * Math.log10(Math.hypot(o.re[i], o.im![i]))).toBeCloseTo(-3.01, 0);
   });
+  it("LED board: about 10 mA through the LED with SW1 pressed", async () => { const r = await run("led-pcb"); const i = -r.branchI.get("v1")![0]; expect(i).toBeGreaterThan(0.0095); expect(i).toBeLessThan(0.0102); });
   it("pot: WIPER = 7.5 V at 25 %", async () => { expect(vDiff(await run("pot"), "WIPER")).toBeCloseTo(7.5, 1); });
 });

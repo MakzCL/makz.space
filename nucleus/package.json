@@ -15,11 +15,13 @@
     "package:win": "vite build && node desktop/package-win.mjs"
   },
   "dependencies": {
+    "clipper-lib": "^6.4.2",
     "eecircuit-engine": "^1.9.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@types/clipper-lib": "^6.4.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

@@ -124,3 +124,24 @@ select.n-in { padding: 0 2px; }
 .n-start-ex { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 14px; }
 .n-start-card { text-align: left; display: flex; flex-direction: column; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; color: var(--text); cursor: pointer; font: inherit; font-size: 11.5px; }
 .n-start-card:hover { border-color: var(--accent); } .n-start-card span { color: var(--dim); } .n-start-card em { font-style: normal; color: var(--ok); font-size: 11px; }
+
+/* ---- PCB layout ---- */
+.n-pcb { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.n-pcb-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.n-pcb-bar .n-in { width: auto; } .n-grow { flex: 1; }
+.n-sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.n-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dim); }
+.n-pcb-main { flex: 1; display: grid; grid-template-columns: 1fr 270px; min-height: 0; }
+.n-pcb-canvas { position: relative; min-height: 0; overflow: hidden; } .n-pcb-canvas canvas { display: block; touch-action: none; }
+.n-pcb-side { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 4px 10px 12px; font-size: 12px; }
+.n-pcb-side h4 { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); display: flex; justify-content: space-between; }
+.n-pcb-side p { margin: 4px 0; line-height: 1.45; } .n-pcb-side .n-row { padding: 4px 0; }
+.n-ok { color: var(--ok); } .n-warn { color: var(--warn); } .n-err { color: var(--err); }
+.n-drc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; max-height: 320px; overflow: auto; }
+.n-drc li { padding: 4px 6px; border-radius: 3px; background: var(--panel2); cursor: pointer; border-left: 3px solid var(--warn); }
+.n-drc li.error { border-left-color: var(--err); } .n-drc li.ok { border-left-color: var(--ok); cursor: default; }
+.n-keys { margin-top: 12px; font-size: 11px; }
+.n-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; padding: 0 12px; }
+.n-modal h3 { margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; } .n-row.end { justify-content: flex-end; padding: 8px 12px; }
+.n-pcb-empty { padding: 30px; max-width: 560px; }
+.n-zone { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--line); }

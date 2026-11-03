@@ -11,6 +11,7 @@ import { Graph, dl } from "./sim/Instruments";
 import { useSim } from "./sim/useSim";
 import { Menu, Modal, Split, type MenuItem } from "./kit";
 import { Logo } from "./Logo";
+import { PcbView, pcbCommand } from "./pcb/PcbView";
 import { sheetTheme, type Palette } from "./schematic/render";
 import { COMMANDS, conflicts, keyOf, loadKeys, saveKeys } from "./shortcuts";
 import * as ops from "../schematic/ops";
@@ -83,6 +84,7 @@ function Shell() {
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   });
   const k = (id: string) => keys[id];
+  const pcbDo = (c: string) => { S.openDoc("pcb"); setTimeout(() => pcbCommand(c), 60); };
   const MENUS: Record<string, MenuItem[]> = {
     File: [{ label: "New project…", key: k("file.new"), onClick: cmds["file.new"] }, { label: "Open…", key: k("file.open"), onClick: cmds["file.open"] }, { label: "Save", key: k("file.save"), onClick: cmds["file.save"] }, { label: "Save as…", key: k("file.saveAs"), onClick: cmds["file.saveAs"] }, { sep: true, label: "" },
       { label: "Export netlist (text)", onClick: () => dl(`${S.pr.name}.net.txt`, netlistText(S.pr, S.con), "text/plain") }, { label: "Export SPICE deck (.cir)", onClick: () => dl(`${S.pr.name}.cir`, buildSpice(S.pr, S.con).text, "text/plain") },
@@ -101,9 +103,10 @@ function Shell() {
       { label: "Show netlist", onClick: () => setBtab("netlist") }, { label: "Bill of materials", onClick: () => S.openDoc("bom") }],
     Simulation: [{ label: "Run (current analysis)", key: k("sim.run"), onClick: () => runSim() }, { label: "Run DC operating point", onClick: () => runSim("op") }, { label: "Run transient", onClick: () => runSim("tran") }, { label: "Run AC sweep", onClick: () => runSim("ac") }, { label: "Run DC sweep", onClick: () => runSim("dc") },
       { label: "Stop", key: k("sim.stop"), onClick: sim.stop, disabled: sim.state !== "running" }, { sep: true, label: "" }, { label: "Interactive (re-solve when a switch or pot changes)", checked: interactive, onClick: () => setInteractive(!interactive) }, { label: "Instruments", onClick: () => setBtab("instruments") }, { label: "Analysis graph", onClick: () => S.openDoc("graph") }],
-    PCB: [{ label: "PCB layout (next milestone)", disabled: "not built yet" }],
+    PCB: [{ label: "Open PCB layout", onClick: () => S.openDoc("pcb") }, { label: "Update PCB from schematic", onClick: () => pcbDo("update") }, { sep: true, label: "" },
+      { label: "Autoroute", onClick: () => pcbDo("autoroute") }, { label: "Remove all tracks and vias", onClick: () => pcbDo("unroute") }, { label: "Design rule check (DRC)", onClick: () => pcbDo("drc") }, { label: "Add copper pour…", onClick: () => pcbDo("zone") }, { label: "Board setup…", onClick: () => pcbDo("setup") }, { label: "Zoom to board", onClick: () => pcbDo("fit") }],
     Library: [{ label: "Pick devices…", key: "P", onClick: () => setPicker(true) }, { label: "Symbol editor", disabled: "planned" }, { label: "Footprint editor", disabled: "planned" }],
-    Manufacturing: [{ label: "Bill of materials", onClick: () => S.openDoc("bom") }, { label: "Export BOM CSV", onClick: () => dl(`${S.pr.name}-BOM.csv`, bomCsv(bomLines(S.pr))) }, { label: "Gerber / drill", disabled: "needs PCB layout" }],
+    Manufacturing: [{ label: "Bill of materials", onClick: () => S.openDoc("bom") }, { label: "Export BOM CSV", onClick: () => dl(`${S.pr.name}-BOM.csv`, bomCsv(bomLines(S.pr))) }, { label: "Gerber, drill and pick-and-place (zip)…", onClick: () => pcbDo("export") }],
     Tools: [{ label: "Keyboard shortcuts…", key: k("help.keys"), onClick: () => setModal("keys") }],
     Window: S.docs.map((d) => ({ label: d.title, checked: d.id === S.active, onClick: () => S.setActive(d.id) })),
     Help: [{ label: "Keyboard shortcuts", onClick: () => setModal("keys") }, { label: "About NUCLEUS", onClick: () => setModal("about") }],
@@ -151,7 +154,7 @@ function Shell() {
             {doc.kind === "schematic" && !S.pr.parts.length && !S.pr.wires.length && tool.k !== "place" && <Start onExample={openExample} onPick={() => setPicker(true)} />}
             {doc.kind === "graph" && <Graph dark={dark} />}
             {doc.kind === "bom" && <Bom />}
-            {doc.kind === "pcb" && <div className="n-pad"><h3>PCB layout</h3><p>Not built yet — it is the next milestone (board outline, footprints, netlist transfer, two-layer routing, vias, DRC, Gerber/Excellon). This tab does nothing until then.</p></div>}
+            {doc.kind === "pcb" && <PcbView dark={dark} />}
           </div>
           {bottom > 0 && <div className="n-dock" style={{ height: bottom }}><Split side="bottom" size={bottom} setSize={setBottom} min={120} max={600} /><Bottom tab={btab} setTab={setBtab} sim={sim} dark={dark} /></div>}
         </main>
