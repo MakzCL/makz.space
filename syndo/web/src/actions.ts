@@ -163,3 +163,14 @@ export async function updateSettings(patch: Record<string, unknown>) {
   if (me) set({ me: { ...me, settings: { ...me.settings, ...patch } } });
   try { await api.patch("/api/users/@me/settings", patch); } catch (e) { toast(errMsg(e), "error"); }
 }
+
+/** Persist before confirming the change; failed writes leave the old mute state intact. */
+export async function setConversationMuted(channelId: string, muted: boolean) {
+  const me = get().me;
+  if (!me) return;
+  const previous = me.settings?.muted_channels;
+  const ids = Array.isArray(previous) ? previous.filter((x): x is string => typeof x === "string") : [];
+  const next = muted ? [...new Set([...ids, channelId])] : ids.filter((id) => id !== channelId);
+  const settings = await api.patch<Record<string, unknown>>("/api/users/@me/settings", { muted_channels: next });
+  set((s) => s.me?.id === me.id ? { me: { ...s.me, settings } } : {});
+}

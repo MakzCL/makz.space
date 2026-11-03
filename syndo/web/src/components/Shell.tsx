@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import {
   ChevronDown, Hash, Headphones, HeadphoneOff, Megaphone, Mic, MicOff, Plus, Settings, Users, Volume2, Lock, MessageSquare,
-  Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Monitor, Video, Signal, Image, Radio,
+  Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Monitor, Video, Signal, Image, Radio, Bookmark,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { BRAND, ChannelType, P, has, isVoiceType, type Channel, type Guild } from "@syndo/shared";
@@ -14,6 +14,7 @@ import { joinVoice, leaveVoice, setDeafened, setMuted, useVoice } from "../voice
 import { ChannelView } from "./ChannelView.tsx";
 import { CreateChannel, CreateServer, InviteDialog, NewGroupDm } from "./Dialogs.tsx";
 import { Friends } from "./Friends.tsx";
+import { SavedMessages } from "./SavedMessages.tsx";
 import { ServerSettings } from "./ServerSettings.tsx";
 import { UserSettings } from "./UserSettings.tsx";
 import { Avatar, Mark, statusLabel } from "./ui.tsx";
@@ -46,6 +47,7 @@ export function Shell() {
   const gid = route.params.guild ?? "@me";
   const guild = gid !== "@me" ? guilds[gid] : null;
   const cid = route.params.channel || (guild ? defaultChannel(guild) : "");
+  const viewingSaved = gid === "@me" && cid === "saved";
 
   useEffect(() => {
     if (gid !== "@me" && !guild && conn === "ready") navigate("/channels/@me", true);
@@ -61,7 +63,7 @@ export function Shell() {
   const voiceChannel = useVoice((s) => s.channelId);
   const viewingVoice = guild && guild.channels.find((c) => c.id === cid && isVoiceType(c.type));
   // Appearance follows the route: server and channel/conversation scopes apply immediately on navigation.
-  useEffect(() => { setContext(guild?.id ?? null, cid || null); }, [guild?.id, cid]);
+  useEffect(() => { setContext(guild?.id ?? null, viewingSaved ? null : cid || null); }, [guild?.id, cid, viewingSaved]);
   const { bg, target } = useActiveBackground();
   const showSidebar = useAppearance((s) => s.resolved.theme.layout.showSidebar);
 
@@ -85,7 +87,7 @@ export function Shell() {
         </div>
       )}
       <main id="main" className="main" tabIndex={-1}>
-        {viewingVoice ? <VoiceStage channel={viewingVoice} guild={guild!} />
+        {viewingSaved ? <SavedMessages /> : viewingVoice ? <VoiceStage channel={viewingVoice} guild={guild!} />
           : cid ? <ChannelView key={cid} channelId={cid} guildId={guild?.id ?? null} highlight={route.params.message || null} />
             : <Friends onDialog={setDialog} />}
       </main>
@@ -178,6 +180,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
         <button className={`side-link ${!current ? "active" : ""}`} onClick={() => navigate("/channels/@me")}>
           <Users size={20} /> <span>Friends</span>{pending > 0 && <span className="badge inline">{pending}</span>}
         </button>
+        <button className={`side-link ${current === "saved" ? "active" : ""}`} aria-current={current === "saved" ? "page" : undefined} onClick={() => navigate("/channels/@me/saved")}><Bookmark size={20} /><span>Saved messages</span></button>
         <div className="side-sec"><span>Conversations</span><button className="icon-btn sm" aria-label="New group conversation" title="New group" onClick={() => onDialog({ kind: "groupDm" })}><Plus size={16} /></button></div>
         {list.map((c) => {
           const other = c.type === ChannelType.DM ? c.recipients?.[0] : null;

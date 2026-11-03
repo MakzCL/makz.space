@@ -214,7 +214,22 @@ img.freeze { /* animated images still animate in <img>; this hint is used where 
 .dots { display: inline-flex; gap: 2px; } .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--textMuted); }
 [data-motion="full"] .dots i { animation: dot 1.2s infinite; } .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
 @keyframes dot { 50% { opacity: .2; transform: translateY(-2px); } }
-.composer-wrap { padding: 0 16px 12px; }
+.composer-wrap { padding: 0 16px 12px; position: relative; }
+.mention-popup { position: absolute; bottom: 100%; left: 16px; right: 16px; max-height: min(320px, 40vh); overflow-y: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); padding: 6px; z-index: 25; box-shadow: 0 8px 24px #0003; }
+.mention-popup > p { margin: 4px 6px 8px; }
+.mention-option { display: flex; align-items: center; gap: 10px; padding: 8px; cursor: pointer; border-radius: var(--r-sm); }
+.mention-option.selected { background: var(--accent-soft); }
+.mention-option > .small { margin-left: auto; }
+.saved-tools { display: flex; align-items: center; gap: 8px; margin: 12px 20px 0; }
+.saved-tools input { flex: 1; min-width: 0; }
+.saved-body { padding-top: 12px; }
+.saved-messages .ch-h { flex-wrap: wrap; height: auto; min-height: 48px; padding-block: 8px; }
+.saved-messages .ch-h > .small { margin-left: auto; }
+.saved-card { max-width: 900px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin: 0 auto 12px; overflow-wrap: anywhere; }
+.saved-card .msg-head { flex-wrap: wrap; }
+.saved-source { margin: 6px 0 10px; }
+.saved-file { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.saved-card-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 14px; }
 .composer { display: flex; align-items: flex-end; gap: 4px; background: var(--bg3); border-radius: var(--r); padding: 6px; }
 .composer textarea { flex: 1; border: 0; background: none; resize: none; max-height: 40vh; field-sizing: content; padding: 6px; }
 .composer textarea:focus-visible { outline: 0; } .composer:focus-within { box-shadow: 0 0 0 2px var(--accent-soft); }

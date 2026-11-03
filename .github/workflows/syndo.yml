@@ -31,6 +31,8 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
       - run: npm ci
       - run: npm run typecheck
+      - name: Messaging interface interaction tests
+        run: npm run test:web
       - name: Server integration tests (real PostgreSQL)
         run: npm test
         env: { DATABASE_URL: "postgres://syndo:syndo@localhost:5432/syndo_test" }

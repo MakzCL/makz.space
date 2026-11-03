@@ -2,6 +2,15 @@
 
 Only tests that were actually run are reported as passed. Date of runs: 2026-11-03.
 
+## Messaging tools follow-up — 2026-11-03
+
+- `npm run typecheck`: passed for shared, server and web.
+- `npm run build`: passed. Existing bundle-size and mixed static/dynamic import warnings remain.
+- `npm run test:web`: **10 / 10 passed**, using real React components in JSDOM with controlled HTTP responses. Covers keyboard/pointer mention insertion, preserving trailing text, role permissions, debounced member search beyond the loaded page, saved-inbox search/jump/remove, updates from another session, permission invalidation and stale-response ordering, fetch-error retry, mute persistence/failure handling and notification suppression. These are DOM interaction tests, not browser visual or screen-reader tests.
+- Existing server suite: **46 / 46 passed** against PGlite with `citext`, exposed over the PostgreSQL wire protocol. A native PostgreSQL process could not be started in this workspace. This run does not replace the real PostgreSQL 16 job already configured in CI; the new DOM suite now runs in that job as well.
+
+No changes to media code; real LiveKit calling, Windows desktop behaviour and browser visual layout were not exercised in this follow-up. Saved-message search covers the existing API's 200-save window; cursor pagination remains tracked.
+
 ## Environment
 
 | Item | Value |
