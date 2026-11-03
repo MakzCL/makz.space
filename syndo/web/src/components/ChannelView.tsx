@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
   AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Phone, Pin, PinOff,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square,
@@ -156,13 +157,13 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   const mine = m.author.id === me.id;
   const canManage = !!guildId && can(channel, P.MANAGE_MESSAGES);
   const mentioned = m.mentions.includes(me.id) || m.mention_everyone || (guildId ? m.mention_roles.some((r) => useStore.getState().guilds[guildId]?.me.roles.includes(r)) : false);
-  const roleColor = useStore((s) => {
+  const roleColor = useStore(useShallow((s) => {
     if (!guildId) return null;
     const g = s.guilds[guildId]; const mem = s.members[guildId]?.[m.author.id];
     if (!g || !mem) return null;
     const r = g.roles.filter((r) => mem.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
     return r ? { c: r.color!, c2: r.color2 } : null;
-  });
+  }));
   if (m.type !== 0 && m.type !== 19) return <SystemMessage m={m} channel={channel} />;
   const name = m.member_nick || memberName(guildId, m.author);
   const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;

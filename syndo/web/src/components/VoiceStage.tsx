@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { Activity, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { STREAM_FPS, STREAM_HEIGHTS, type Channel, type Guild } from "@syndo/shared";
@@ -13,7 +14,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const v = useVoice();
   const users = useStore((s) => s.users);
   const me = useStore((s) => s.me!);
-  const states = useStore((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id));
+  const states = useStore(useShallow((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id)));
   const [diag, setDiag] = useState(false);
   const [shareMenu, setShareMenu] = useState(false);
   const here = v.channelId === channel.id;

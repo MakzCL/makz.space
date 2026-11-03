@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@syndo/shared";
 import { api, errMsg, upload } from "../api.ts";
 import { logout, updateSettings } from "../actions.ts";
@@ -155,7 +155,8 @@ function Privacy() {
 }
 
 function useAppearance(): [Appearance, (p: Partial<Appearance>) => void] {
-  const a = useStore((s) => validateAppearance((s.me?.settings as any)?.appearance ?? DEFAULT_APPEARANCE));
+  const raw = useStore((s) => (s.me?.settings as any)?.appearance);
+  const a = useMemo(() => validateAppearance(raw ?? DEFAULT_APPEARANCE), [raw]);
   return [a, (p) => { const next = validateAppearance({ ...a, ...p }); applyAppearance(next); updateSettings({ appearance: next }); }];
 }
 
@@ -282,7 +283,7 @@ function VoiceTab() {
 }
 
 function NotificationsTab() {
-  const n = useStore((s) => ((s.me?.settings as any)?.notifications ?? {}) as { desktop?: boolean; sounds?: boolean; quietStart?: string; quietEnd?: string });
+  const n = (useStore((s) => (s.me?.settings as any)?.notifications) ?? {}) as { desktop?: boolean; sounds?: boolean; quietStart?: string; quietEnd?: string };
   const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const set = (p: Partial<typeof n>) => updateSettings({ notifications: { ...n, ...p } });
   return (

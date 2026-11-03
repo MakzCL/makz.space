@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { Copy, Hash, Lock, MessageSquare, Volume2, Megaphone, FolderPlus, Radio, MessageSquareText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BRAND, ChannelType, type Channel, type Guild, type Invite, type User } from "@syndo/shared";
@@ -116,7 +117,7 @@ export function CreateChannel({ guildId, parentId, type: initial, onClose }: { g
 }
 
 export function NewGroupDm({ onClose }: { onClose: () => void }) {
-  const friends = useStore((s) => Object.values(s.relationships).filter((r) => r.type === 1));
+  const friends = useStore(useShallow((s) => Object.values(s.relationships).filter((r) => r.type === 1)));
   const limits = useStore((s) => s.limits);
   const [picked, setPicked] = useState<string[]>([]); const [q, setQ] = useState("");
   const max = (limits?.max_group_dm_recipients ?? 10) - 1;

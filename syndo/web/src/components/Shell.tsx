@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
   ChevronDown, Hash, Headphones, HeadphoneOff, Megaphone, Mic, MicOff, Plus, Settings, Users, Volume2, Lock, MessageSquare,
   Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Monitor, Video, Signal, Image, Radio,
@@ -80,10 +81,11 @@ function defaultChannel(g: Guild) {
   return [...loose, ...cats.flatMap((c) => c.children)].find((c) => c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT)?.id ?? "";
 }
 
+const NO_ORDER: string[] = [];
 /* -------------------------------------------------------------- rail -- */
 function GuildRail({ current, onDialog }: { current: string; onDialog: (d: Dialog) => void }) {
   const guilds = useStore((s) => s.guilds);
-  const order = useStore((s) => ((s.me?.settings as any)?.guild_order as string[] | undefined) ?? []);
+  const order = useStore((s) => (s.me?.settings as any)?.guild_order as string[] | undefined) ?? NO_ORDER;
   const readStates = useStore((s) => s.readStates);
   const dms = useStore((s) => s.dms);
   const sorted = useMemo(() => {
@@ -218,7 +220,7 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
   const Icon = CHANNEL_ICON[c.type] ?? Hash;
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
-  const voiceUsers = useStore((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id));
+  const voiceUsers = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id)));
   const users = useStore((s) => s.users);
   const priv = c.permission_overwrites.some((o) => o.target_id === guild.id && (BigInt(o.deny) & P.VIEW_CHANNEL));
   const open = () => {
@@ -255,7 +257,7 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
 /* -------------------------------------------------------- voice bar -- */
 function VoiceBar() {
   const v = useVoice();
-  const ch = useStore((s) => { for (const g of Object.values(s.guilds)) { const c = g.channels.find((x) => x.id === v.channelId); if (c) return { name: c.name, guild: g.name, gid: g.id }; } const d = v.channelId ? s.dms[v.channelId] : null; return d ? { name: dmTitle(d), guild: "Call", gid: "@me" } : null; });
+  const ch = useStore(useShallow((s) => { for (const g of Object.values(s.guilds)) { const c = g.channels.find((x) => x.id === v.channelId); if (c) return { name: c.name, guild: g.name, gid: g.id }; } const d = v.channelId ? s.dms[v.channelId] : null; return d ? { name: dmTitle(d), guild: "Call", gid: "@me" } : null; }));
   const label = { idle: "Disconnected", connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…", error: "Connection failed" }[v.status];
   return (
     <section className={`voice-bar vs-${v.status}`} aria-label="Voice connection">
