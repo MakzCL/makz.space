@@ -234,9 +234,9 @@ function Settings({ onSignOut }: { onSignOut: () => void }) {
         <div className="set col"><span><b>{t("Start screen")}</b><small>{t("Tab shown when the app opens")}</small></span>
           <Segmented size="s" value={TABS_FOR[me.role].includes(prefs.startTab) ? prefs.startTab : "home"} onChange={(v: Tab) => setPrefs({ startTab: v })}
             options={TABS_FOR[me.role].slice(0, 4).map((x) => ({ value: x, label: tabLabel(x) }))} /></div>
-        <div className="set"><span><b>{t("Reduce animations")}</b><small>{t("Open panels instantly")}</small></span><Toggle on={prefs.reduceMotion} onChange={(v) => setPrefs({ reduceMotion: v })} /></div>
-        <div className="set"><span><b>{t("Vibration")}</b><small>{t("Short buzz on taps (Android)")}</small></span><Toggle on={prefs.haptics} onChange={(v) => setPrefs({ haptics: v })} /></div>
-        <div className="set"><span><b>{t("Sounds")}</b><small>{t("Soft clicks on actions")}</small></span><Toggle on={prefs.sounds} onChange={(v) => setPrefs({ sounds: v })} /></div>
+        <div className="set"><span><b>{t("Reduce animations")}</b><small>{t("Open panels instantly")}</small></span><Toggle label={t("Reduce animations")} on={prefs.reduceMotion} onChange={(v) => setPrefs({ reduceMotion: v })} /></div>
+        <div className="set"><span><b>{t("Vibration")}</b><small>{t("Short buzz on taps (Android)")}</small></span><Toggle label={t("Vibration")} on={prefs.haptics} onChange={(v) => setPrefs({ haptics: v })} /></div>
+        <div className="set"><span><b>{t("Sounds")}</b><small>{t("Soft clicks on actions")}</small></span><Toggle label={t("Sounds")} on={prefs.sounds} onChange={(v) => setPrefs({ sounds: v })} /></div>
         <div className="set"><span><b>{t("Update app")}</b><small>v{__APP_VERSION__} · {t("cloud sync")}</small></span>
           <Btn small tone="soft" icon={<RefreshCw size={15} />} onClick={async () => {
             const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];

@@ -32,9 +32,9 @@ function render() {
 }
 function paintUpdate() {
   const u = STATE.update ?? { status: "idle" }; const v = VERSION;
-  const text = { idle: `SK Suite ${v}.`, checking: `SK Suite ${v} · checking for updates…`, current: `SK Suite ${v} is up to date.`, available: `SK Suite ${u.version} is available (you have ${v}). Takes about a minute; the suite restarts when it is done.`,
+  const text = { idle: `SK Suite ${v}.`, checking: `SK Suite ${v} · checking for updates…`, current: `SK Suite ${v} is up to date (checked ${new Date(u.checkedAt ?? Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}).`, available: `SK Suite ${u.version} is available (you have ${v}). Takes about a minute; the suite restarts when it is done.`,
     downloading: `Downloading SK Suite ${u.version}… ${Math.round((u.progress || 0) * 100)}%`, ready: `SK Suite ${u.version} installed. Restarting…`, "ready-restart": `SK Suite ${u.version} is installed. Restart to finish (an app still had unsaved work).`,
-    full: `SK Suite ${u.version} needs the full download this time (a newer runtime). Download the new zip and replace this folder.`, error: `Couldn't update: ${u.error}. SK Suite ${v} keeps working.` }[u.status] ?? `SK Suite ${v}`;
+    full: `SK Suite ${u.version} needs the full download this time (a newer runtime). Download the new zip and replace this folder.`, error: `Couldn't check or update (${new Date(u.checkedAt ?? Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}): ${u.error}. SK Suite ${v} keeps working.` }[u.status] ?? `SK Suite ${v}`;
   $("#upd-text").textContent = text + (u.notes && (u.status === "available") ? ` What's new: ${u.notes}` : "");
   const go = $("#upd-go"); go.hidden = !["available", "ready-restart"].includes(u.status); go.textContent = u.status === "ready-restart" ? "Restart now" : `Update to ${u.version}`;
   $("#upd-check").disabled = ["checking", "downloading", "ready"].includes(u.status);

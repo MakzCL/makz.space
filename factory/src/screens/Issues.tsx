@@ -110,7 +110,7 @@ export function ReportSheet({ open, preset, onClose }: { open: boolean; preset: 
         <Field label={t("How bad?")}><div className="chips">{SEV.map((s) => <Chip key={s.v} on={f.severity === s.v} onClick={() => setF({ ...f, severity: s.v })}>{t(s.label)}</Chip>)}</div></Field>
         <Field label={t("Short title")}><input required maxLength={90} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={t("e.g. Feeder 4 jamming")} /></Field>
         <Field label={t("Details")}><textarea rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder={t("What happened, what you tried…")} /></Field>
-        {f.job_id && <div className="row between toggle-row"><span><b>{t("Block this job")}</b><small className="muted">{t("Stops the timer and flags it red")}</small></span><Toggle on={f.block} onChange={(v) => setF({ ...f, block: v })} /></div>}
+        {f.job_id && <div className="row between toggle-row"><span><b>{t("Block this job")}</b><small className="muted">{t("Stops the timer and flags it red")}</small></span><Toggle label={t("Block this job")} on={f.block} onChange={(v) => setF({ ...f, block: v })} /></div>}
         <div className="sheet-foot"><Btn type="submit" tone="primary" wide icon={<Send size={18} />}>{t("Send report")}</Btn></div>
       </form>
     </Sheet>

@@ -203,8 +203,8 @@ function EventEditor({ e, day, onClose, onSaved }: { e: CalEvent | "new" | null;
           {!f.all_day && <Field label={t("Start")}><input type="time" required value={f.time} onChange={(x) => setF({ ...f, time: x.target.value })} /></Field>}
         </div>
         {!f.all_day && <Field label={t("Length")}><div className="chips">{DUR.map((m) => <Chip key={m} on={f.mins === m} onClick={() => setF({ ...f, mins: m })}>{m < 60 ? `${m} min` : `${m / 60} h`}</Chip>)}</div></Field>}
-        <div className="set"><span><b>{t("All day")}</b></span><Toggle on={f.all_day} onChange={(v) => setF({ ...f, all_day: v })} /></div>
-        <div className="set"><span><b>{t("Online meeting")}</b><small>{t("Video call in the app with a Join button")}</small></span><Toggle on={f.online} onChange={(v) => setF({ ...f, online: v })} /></div>
+        <div className="set"><span><b>{t("All day")}</b></span><Toggle label={t("All day")} on={f.all_day} onChange={(v) => setF({ ...f, all_day: v })} /></div>
+        <div className="set"><span><b>{t("Online meeting")}</b><small>{t("Video call in the app with a Join button")}</small></span><Toggle label={t("Online meeting")} on={f.online} onChange={(v) => setF({ ...f, online: v })} /></div>
         <Field label={t("Location")}><input value={f.location} onChange={(x) => setF({ ...f, location: x.target.value })} placeholder={t("Optional — e.g. Office upstairs")} /></Field>
         <Field label={t("Invite people")}>
           <div className="pick-grid">

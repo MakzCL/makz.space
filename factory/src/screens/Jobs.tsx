@@ -12,7 +12,7 @@ import { can } from "../lib/roles";
 import { useNow, useStore } from "../lib/store";
 import { clock, dayLabel, hm, human, jobStats, participantMs } from "../lib/time";
 import type { Job } from "../lib/types";
-import { InviteSheet, JobCard, STATUS, jobCode, priorityLabel, statusLabel } from "./parts";
+import { InviteSheet, JobCard, statusMeta, jobCode, priorityLabel, statusLabel } from "./parts";
 import { ProductionSheet } from "./Production";
 import { MoProduction } from "../kimera/MoProduction";
 import { moIngredients } from "../kimera/status";
@@ -102,7 +102,7 @@ export function JobSheet({ job, onClose, onEdit, onReport }: { job: Job | null; 
   const doneLabel = !routed ? t("Hold to complete") : nextStation ? t("Hold when done → {station}", { station: nextStation }) : t("Hold to finish the order line");
 
   return (
-    <Sheet open={!!job} onClose={onClose} tall title={j && <span className="row gap-s"><span className="code">{jobCode(j)}</span><Badge tone={STATUS[j.status].tone} dot>{statusLabel(j.status)}</Badge></span>}>
+    <Sheet open={!!job} onClose={onClose} tall title={j && <span className="row gap-s"><span className="code">{jobCode(j)}</span><Badge tone={statusMeta(j.status).tone} dot>{statusLabel(j.status)}</Badge></span>}>
       {j && st && (() => {
         const imIn = mine.part?.job_id === j.id;
         const crew = st.live ? db.participants.filter((p) => p.session_id === st.live!.id && !p.left_at) : [];

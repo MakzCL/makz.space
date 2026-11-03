@@ -21,7 +21,9 @@ export const STATUS: Record<Job["status"], { label: string; tone: string }> = {
   blocked: { label: "Blocked", tone: "alert" },
   done: { label: "Done", tone: "muted" },
 };
-export const statusLabel = (s: Job["status"]) => t(STATUS[s].label);
+/** Status meta that never crashes on an unexpected value (shown as Open). */
+export const statusMeta = (s: Job["status"]) => STATUS[s] ?? STATUS.open;
+export const statusLabel = (s: Job["status"]) => t(statusMeta(s).label);
 /** Orders in production show as MO-<order number>; finished ones as the plain Shopify number. */
 export const jobCode = (j: Pick<Job, "code" | "order_id" | "route" | "status">) =>
   j.order_id && j.route?.length && j.status !== "done" ? `MO-${j.code.replace(/^#/, "").replace(/^SO-/, "")}` : j.code;

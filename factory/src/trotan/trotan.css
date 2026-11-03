@@ -95,7 +95,7 @@ html[data-trotan-theme="light"] { --t-bg: #f3f4fa; --t-panel: #ffffff; --t-panel
 .t-modal .t-btn, .t-menu .t-btn { font-family: inherit; }
 
 /* pages */
-.t-page { height: 100%; overflow: auto; padding: 18px 22px 40px; }
+.t-page { height: 100%; overflow-y: auto; overflow-x: hidden; padding: 18px 22px 40px; } /* wide tables scroll inside their own wrapper, never the page */
 .t-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; } .t-head > div:first-child { flex: 1; min-width: 220px; }
 .t-filters { margin-bottom: 12px; }
 .t-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
@@ -173,9 +173,18 @@ html[data-trotan-theme="light"] { --t-bg: #f3f4fa; --t-panel: #ffffff; --t-panel
   .t-prep-c, .t-prod-c { min-height: 60vh; }
   .t-prep-l, .t-prep-r, .t-prod-l, .t-prod-r { overflow: visible; border: 0; }
   .t-editor { grid-template-columns: 44px 1fr; } .t-right { display: none; }
-  .t-me, .t-applink { display: none; }
+  .t-applink { display: none; } .t-me small { display: none; } .t-me { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 }
-@media (max-width: 720px) { .t-nav button { padding: 6px 7px; letter-spacing: .02em; } .t-proj { display: none; } }
+@media (max-width: 720px) {
+  .t-nav button { padding: 6px 7px; letter-spacing: .02em; flex: 0 0 auto; } .t-proj { display: none; }
+  /* phones: the module tabs scroll sideways instead of pushing the header off screen; colours move to the Account panel */
+  .t-top { gap: 8px; padding: 0 8px; } .t-brand b { display: none; }
+  .t-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; } .t-nav::-webkit-scrollbar { display: none; }
+  .t-top-r .t-themes { display: none; }
+  .t-seg { max-width: 100%; } .t-head > div:first-child { min-width: 0; flex-basis: 100%; }
+  .t-produce.hist { grid-template-columns: minmax(0, 1fr); }
+  .t-page { padding: 14px 12px 32px; } .t-row { flex-wrap: wrap; }
+}
 /* toasts inside TROTAN: palette colours, green tick for success, bottom-centre so they never cover the module tabs */
 html[data-trotan-theme] .toasts { top: auto; bottom: 46px; }
 html[data-trotan-theme] .toast { background: var(--t-panel2); color: var(--t-text); border: 1px solid var(--t-line2); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .3); }
@@ -187,5 +196,6 @@ html[data-trotan-theme] .toast.error { background: var(--t-err); color: #fff; bo
 html[data-trotan-theme] .devices-list li { background: var(--t-panel2); border-radius: 8px; }
 html[data-trotan-theme] .devices-list li.current { box-shadow: inset 0 0 0 1px var(--t-ok); } html[data-trotan-theme] .devices-list li em { color: var(--t-ok); }
 html[data-trotan-theme] .dev-btn { background: var(--t-panel2); border-color: var(--t-line2); color: var(--t-text); border-radius: 7px; }
-html[data-trotan-theme] .dev-btn.danger { background: var(--t-err); border-color: var(--t-err); color: #fff; }
+html[data-trotan-theme] .dev-btn.danger { background: #c4271f; border-color: #c4271f; color: #fff; } /* 5.6:1 with white text */
 html[data-trotan-theme] .devices-ok { color: var(--t-ok); } html[data-trotan-theme] .devices-err { color: var(--t-err); }
+.t-acct-themes { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }

@@ -93,11 +93,13 @@ function Shell({ theme, setTheme, signOut }: { theme: Palette; setTheme: (t: Pal
         <div className="t-top-r">
           <a className="t-applink" href={FACTORY_URL} title="SK Factory">Factory</a><a className="t-applink" href={KORTANA_URL} title="KORTANA inventory">Kortana</a>
           <div className="t-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((p) => <button key={p} type="button" className={theme === p ? "on" : ""} onClick={() => setTheme(p)} title={{ light: "Light", granat: "Granat (navy)", dark: "Dark" }[p]} data-testid={`theme-${p}`}>{{ light: <Sun size={13} />, granat: "G", dark: <Moon size={13} /> }[p]}</button>)}</div>
-          <button type="button" className="t-me" title="Account and signed-in devices" onClick={() => setAccount(true)} data-testid="account">{me.full_name}<small>{ROLE_META[me.role]?.label}</small></button>
+          <button type="button" className="t-me" title={`${me.full_name}: account, colours and signed-in devices`} onClick={() => setAccount(true)} data-testid="account">{me.full_name}<small>{ROLE_META[me.role]?.label}</small></button>
           <button type="button" className="t-btn icon" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut size={16} /></button>
         </div>
       </header>
-      {account && <Modal title="Account" onClose={() => setAccount(false)}><Devices backend={backend} onSignedOutHere={signOut} /></Modal>}
+      {account && <Modal title="Account" onClose={() => setAccount(false)}>
+        <div className="t-acct-themes"><b>Colours</b><div className="t-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((x) => <button key={x} type="button" className={theme === x ? "on" : ""} onClick={() => setTheme(x)}>{{ light: "Light", granat: "Granat", dark: "Dark" }[x]}</button>)}</div></div>
+        <Devices backend={backend} onSignedOutHere={signOut} /></Modal>}
       {S.recovery && <div className="t-banner warn" data-testid="recovery">Unsaved changes from {new Date(S.recovery.at).toLocaleString("en-GB")} were found in this browser. <Btn small tone="primary" onClick={S.restoreRecovery} testid="restore-recovery">Restore them</Btn><Btn small onClick={S.dropRecovery}>Discard</Btn></div>}
       {S.saveState === "conflict" && <div className="t-banner err">Someone else saved this project while you were editing. Your changes are kept in this browser. <Btn small onClick={() => S.project && S.open(S.project.id)}>Reload their version</Btn></div>}
       {T.error && <div className="t-banner err">{T.error}</div>}

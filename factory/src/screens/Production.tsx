@@ -87,7 +87,7 @@ function StationCard({ s, first, last }: { s: Station; first: boolean; last: boo
               })}
             </div>
             <div className="set"><span><b>{t("Part of the standard route")}</b><small>{t("New products from Shopify go through this station")}</small></span>
-              <Toggle on={s.in_default} onChange={(v) => a.saveStation({ id: s.id, in_default: v })} /></div>
+              <Toggle label={t("In the default route")} on={s.in_default} onChange={(v) => a.saveStation({ id: s.id, in_default: v })} /></div>
             <HoldButton tone="danger" icon={<Trash2 size={16} />} onConfirm={() => a.deleteStation(s)}>{t("Hold to remove station")}</HoldButton>
           </motion.div>
         )}

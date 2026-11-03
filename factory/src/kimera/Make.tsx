@@ -13,7 +13,7 @@ import { useStore } from "../lib/store";
 import type { Job } from "../lib/types";
 import { ItemPicker, fmtQty, money } from "../screens/Inventory";
 import { RoutePicker } from "../screens/Jobs";
-import { RouteDots, STATUS, jobCode, statusLabel } from "../screens/parts";
+import { RouteDots, statusMeta, jobCode, statusLabel } from "../screens/parts";
 import { useKimera } from "./actions";
 import { PageHead, Pill, fullDate, shortDate } from "./kit";
 import { analyse, moIngredients, type Cell } from "./status";
@@ -91,7 +91,7 @@ export function Make({ openId, onOpen, onOrder, creating, setCreating }: {
                     <td><Pill cell={ingr.get(j.id) ?? (j.stock_booked || j.status === "done" ? { label: "Processed", tone: "ok" } : { label: "—", tone: "none" })} /></td>
                     <td><span className="row gap-s"><RouteDots job={j} /><small>{j.status === "done" ? "" : stations.get(j.station_id ?? "") ?? ""}</small></span></td>
                     <td><span className="avatars">{j.assignees.slice(0, 4).map((id) => <Avatar key={id} p={person(id)} size={22} />)}</span></td>
-                    <td><Badge tone={STATUS[j.status].tone} dot>{statusLabel(j.status)}</Badge></td>
+                    <td><Badge tone={statusMeta(j.status).tone} dot>{statusLabel(j.status)}</Badge></td>
                   </tr>
                 );
               })}
@@ -147,7 +147,7 @@ export function MoSheet({ job, onClose, onOrder, onOpenJob }: { job: Job | null;
   const steps = job ? db.job_steps.filter((s) => s.job_id === job.id) : [];
   const ingr = job ? moIngredients(db, job) : [];
   return (
-    <Sheet open={!!job} onClose={onClose} tall title={job && <span className="row gap-s"><span className="code">{jobCode(job)}</span>{job.title}<Badge tone={STATUS[job.status].tone} dot>{statusLabel(job.status)}</Badge></span>}>
+    <Sheet open={!!job} onClose={onClose} tall title={job && <span className="row gap-s"><span className="code">{jobCode(job)}</span>{job.title}<Badge tone={statusMeta(job.status).tone} dot>{statusLabel(job.status)}</Badge></span>}>
       {job && (
         <div className="stack">
           <div className="row end">{SCANNING && <Btn small tone="ghost" icon={<Tags size={15} />} title={t("A label for the job card: scanning it on the floor opens this order")}
@@ -359,8 +359,8 @@ function SubMos({ job, editable, onOpen }: { job: Job; editable: boolean; onOpen
   return (
     <div className="card flat stack">
       <small className="label">{t("Linked orders")}</small>
-      {parent && <div className="row between"><span>{t("Feeds into")} <button type="button" className="link" onClick={() => onOpen?.(parent.id)}>{jobCode(parent)}</button> {parent.title}</span><Badge tone={STATUS[parent.status].tone} dot>{statusLabel(parent.status)}</Badge></div>}
-      {kids.map((c) => <div key={c.id} className="row between"><span>{t("Sub-assembly")} <button type="button" className="link" onClick={() => onOpen?.(c.id)}>{jobCode(c)}</button> {c.title} × {c.quantity ?? 1}</span><Badge tone={STATUS[c.status].tone} dot>{statusLabel(c.status)}</Badge></div>)}
+      {parent && <div className="row between"><span>{t("Feeds into")} <button type="button" className="link" onClick={() => onOpen?.(parent.id)}>{jobCode(parent)}</button> {parent.title}</span><Badge tone={statusMeta(parent.status).tone} dot>{statusLabel(parent.status)}</Badge></div>}
+      {kids.map((c) => <div key={c.id} className="row between"><span>{t("Sub-assembly")} <button type="button" className="link" onClick={() => onOpen?.(c.id)}>{jobCode(c)}</button> {c.title} × {c.quantity ?? 1}</span><Badge tone={statusMeta(c.status).tone} dot>{statusLabel(c.status)}</Badge></div>)}
       {editable && subs > 0 && job.status !== "done" && <Btn small tone="soft" icon={<Layers size={15} />} onClick={() => k.subMos(job.id)}>{t("Create sub-assembly orders")}</Btn>}
       {editable && subs > 0 && job.status !== "done" && <p className="fine" style={{ textAlign: "left" }}>{t("Only for parts you make yourself and don't have enough of on the shelf or already on order.")}</p>}
     </div>

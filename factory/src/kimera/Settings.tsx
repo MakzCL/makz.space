@@ -62,7 +62,7 @@ function Company() {
           onBlur={(e) => { const v = Number(cleanNumber(e.target.value)); if (v > 0 && v <= 24 && v !== s.work_hours_per_day) k.saveSettings({ work_hours_per_day: v }); }} /></Field>
       </div>
       <p className="fine">{t("Labour cost turns the time people log on a job in the Factory app into actual MO cost. Working hours set how many days an MO's remaining operations take.")}</p>
-      <div className="row between"><span>{t("Raise sub-assembly orders automatically")}</span><Toggle on={s.auto_sub_mos} onChange={(v) => k.saveSettings({ auto_sub_mos: v })} /></div>
+      <div className="row between"><span>{t("Raise sub-assembly orders automatically")}</span><Toggle label={t("Raise sub-assembly orders automatically")} on={s.auto_sub_mos} onChange={(v) => k.saveSettings({ auto_sub_mos: v })} /></div>
       <p className="fine">{t("When a manufacturing order needs a part you make yourself and there isn't enough of it, a linked order for that part is created at the same time.")}</p>
       <small className="label">{t("On printed documents")}</small>
       <Field label={t("Company name")}><input defaultValue={s.company_name} key={`cn-${s.company_name}`} onBlur={(e) => e.target.value !== s.company_name && k.saveSettings({ company_name: e.target.value.trim() })} /></Field>

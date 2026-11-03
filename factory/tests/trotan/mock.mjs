@@ -14,7 +14,7 @@ export function seed() {
   vm.prohibited = [pvc.id];
   return {
     profiles: [{ id: OWNER, full_name: "Test Owner", role: "boss", active: true, created_at: now(), status: "available" }, { id: OPERATOR, full_name: "Test Operator", role: "operator", active: true, created_at: now(), status: "available" }],
-    stock_items: [ply], jobs: [{ id: randomUUID(), code: "MO-0042", title: "Display panels", customer: "Acme", status: "todo", priority: 2, assignees: [], route: [], stage: 0, created_at: now() }],
+    stock_items: [ply], jobs: [{ id: randomUUID(), code: "MO-0042", title: "Display panels", customer: "Acme", status: "open", priority: 2, assignees: [], route: [], stage: 0, created_at: now() }],
     trotan_access: [{ role: "manager", sections: ["manage", "design", "prepare", "produce", "admin", "approve"] }, { role: "operator", sections: ["manage", "produce"] }, { role: "office", sections: ["manage", "design", "prepare", "produce"] }],
     trotan_projects: [], trotan_revisions: [], trotan_machines: [vm], trotan_profiles: [], trotan_tests: [], trotan_jobs: [], trotan_runs: [], trotan_reservations: [], audit_log: [], stock_movements: [],
     trotan_materials: [{ id: randomUUID(), name: "Plywood 3 mm", category: "Plywood", supplier: "", thickness_mm: 3, sheet_w: 400, sheet_h: 300, stock_item_id: ply.id, notes: "", archived: false, created_at: now() }, pvc],
