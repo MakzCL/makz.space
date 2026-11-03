@@ -39,12 +39,12 @@ public class MainActivity extends Activity {
         TextView title = new TextView(this); title.setText("Syndo · preview"); title.setTextColor(Color.WHITE); title.setTextSize(17);
         bar.addView(title, new LinearLayout.LayoutParams(0, dp(52), 1)); title.setGravity(android.view.Gravity.CENTER_VERTICAL);
         Button update = new Button(this); update.setText("Update"); update.setTextColor(Color.rgb(247,186,0)); update.setContentDescription("Load latest Cloudflare preview");
-        update.setOnClickListener(v -> { web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?preview=1&build=" + System.currentTimeMillis()); });
+        update.setOnClickListener(v -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?preview=1&build=" + System.currentTimeMillis()); });
         bar.addView(update);
         Button menu = new Button(this); menu.setText("⋮"); menu.setContentDescription("App menu"); bar.addView(menu, new LinearLayout.LayoutParams(dp(48), dp(48)));
         menu.setOnClickListener(v -> {
             PopupMenu popup = new PopupMenu(this, menu);
-            popup.getMenu().add("Local interface preview").setOnMenuItemClickListener(item -> { web.loadUrl(LOCAL); return true; });
+            popup.getMenu().add("Local interface preview").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); return true; });
             popup.getMenu().add("Open live Syndo").setOnMenuItemClickListener(item -> { web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
             popup.getMenu().add("Open in browser").setOnMenuItemClickListener(item -> { browse(Uri.parse(BuildConfig.HOSTED_URL)); return true; });
             popup.show();
@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        if (state == null) web.loadUrl(LOCAL); else web.restoreState(state);
+        if (state == null) web.loadUrl(getPreferences(MODE_PRIVATE).getBoolean("hosted", false) ? BuildConfig.HOSTED_URL + "/?preview=1" : LOCAL); else if (web.restoreState(state) == null) web.loadUrl(LOCAL);
     }
     private void grantMedia() {
         PermissionRequest request = pendingPermission; pendingPermission = null; if (request == null) return;
