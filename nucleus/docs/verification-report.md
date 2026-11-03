@@ -44,3 +44,18 @@ Date: 2026-11-03. Environment: Linux, Node 22, Chromium (Playwright), ngspice 45
 - No PCB, manufacturing outputs, 3D, firmware or digital simulation.
 - Web build only (no Windows executable has been built or verified).
 - labcenter.com could not be reached, so reference behaviour is unverified for 9.2.
+
+## Update — palettes, examples, desktop and Windows build (2026-11-03)
+
+| Check | Result |
+|---|---|
+| `npm test` (core, simulation, examples) | 23 / 23 pass |
+| `tests/e2e/beta.mjs` (first-beta steps 1–12, Chromium) | pass; multimeter 1.7364 V = native ngspice 1.7364 V |
+| `tests/e2e/examples.mjs` (local preview) | 7 / 7 pass |
+| `tests/e2e/examples.mjs` against https://nucleus-eda.pages.dev | 7 / 7 pass |
+| `tests/e2e/desktop.mjs` (Electron 45.2.1, Linux, from source) | 8 / 8 pass |
+| `tests/e2e/desktop.mjs` on the packaged `resources/app` of the Windows zip | 8 / 8 pass |
+| Windows zip | `unzip -t` clean; `NUCLEUS.exe` is PE32+ x86-64 GUI; Electron runtime sha256 matches the official SHASUMS256.txt |
+| `NUCLEUS.exe` started on real Windows | **not verified** (no Windows machine available to the build) |
+
+Built-in examples are checked against hand calculations: divider 2.5 V, LED ≈ 10 mA, RC 63.2 % at τ, RC −3 dB at 1/(2πRC), potentiometer 7.5 V at 25 %.
