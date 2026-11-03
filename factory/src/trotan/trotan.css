@@ -1,15 +1,16 @@
 /* TROTAN — dark-first desktop UI. Tokens are redefined for light mode. */
-.trotan {
-  --t-bg: #0b0d12; --t-panel: #12151c; --t-panel2: #181c25; --t-line: #262b37; --t-line2: #323949;
-  --t-text: #e8eaf0; --t-muted: #8a90a2; --t-accent: #ff6a2b; --t-accent2: #ff2f5f; --t-accent-text: #fff;
-  --t-sel: #3aa0ff; --t-ok: #34c77b; --t-warn: #f2a93b; --t-err: #ff5a52; --t-info: #4aa8ff;
-  --t-input: #0f1218; --t-shadow: 0 12px 40px rgba(0,0,0,.45);
+/* Ecosystem palettes (same as SK Factory and KORTANA): Granat (default), Dark (deep navy), Light. TROTAN keeps its own accent. */
+.trotan, .trotan.granat {
+  --t-bg: #0b1033; --t-panel: #0e1440; --t-panel2: #151c4d; --t-line: #20285a; --t-line2: #2c3570; --t-text: #ffffff; --t-muted: #8a91c4;
+  --t-accent: #ff6a2b; --t-accent2: #ff2f5f; --t-accent-text: #fff; --t-sel: #5868e6; --t-ok: #3fcf8e; --t-warn: #f5c85c; --t-err: #ff5d4f; --t-info: #aab3ff;
+  --t-input: #0b1033; --t-shadow: 0 12px 40px rgba(3,6,25,.55);
   font-family: "Cabinet Grotesk", Poppins, system-ui, sans-serif; font-size: 13px; color: var(--t-text); background: var(--t-bg);
   position: fixed; inset: 0; overflow: hidden; color-scheme: dark;
 }
+.trotan.dark { --t-bg: #060920; --t-panel: #080c28; --t-panel2: #10163d; --t-line: #161d4d; --t-line2: #1d255c; --t-input: #060920; }
 .trotan.light {
-  --t-bg: #eef0f4; --t-panel: #ffffff; --t-panel2: #f5f6f9; --t-line: #dfe2e9; --t-line2: #cdd2dc;
-  --t-text: #141821; --t-muted: #5d6474; --t-input: #ffffff; --t-shadow: 0 12px 40px rgba(20,24,33,.16); color-scheme: light;
+  --t-bg: #f3f4fa; --t-panel: #ffffff; --t-panel2: #eef0f8; --t-line: #dfe2f1; --t-line2: #c9cde3; --t-text: #0b1033; --t-muted: #676d96;
+  --t-sel: #3b4cca; --t-ok: #14935a; --t-warn: #9a6400; --t-err: #d42a25; --t-info: #3b4cca; --t-input: #ffffff; --t-shadow: 0 12px 40px rgba(11,16,51,.16); color-scheme: light;
 }
 .trotan *, .trotan *::before, .trotan *::after { box-sizing: border-box; }
 .trotan h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -.01em; }
@@ -28,6 +29,7 @@
 .t-nav button.on { background: linear-gradient(135deg, var(--t-accent), var(--t-accent2)); color: #fff; }
 .t-proj { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .t-proj-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.t-themes { display: inline-flex; border: 1px solid var(--t-line2); border-radius: 7px; overflow: hidden; } .t-themes button { border: 0; background: none; color: var(--t-muted); padding: 4px 8px; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; } .t-themes button.on { background: var(--t-panel2); color: var(--t-text); }
 .t-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t-ok); flex: none; }
 .t-dot.dirty, .t-dot.saving { background: var(--t-warn); } .t-dot.error, .t-dot.conflict { background: var(--t-err); }
 .t-top-r { display: flex; align-items: center; gap: 8px; }
@@ -86,10 +88,10 @@
 .t-modal-b { padding: 12px 16px; overflow: auto; display: flex; flex-direction: column; gap: 8px; } .t-modal footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--t-line); }
 .t-x { border: 0; background: none; color: var(--t-muted); font-size: 22px; cursor: pointer; line-height: 1; }
 /* menus and modals are portalled to <body>, so the tokens also live on <html> */
-html[data-trotan-theme="dark"] { --t-bg: #0b0d12; --t-panel: #12151c; --t-panel2: #181c25; --t-line: #262b37; --t-line2: #323949; --t-text: #e8eaf0; --t-muted: #8a90a2; --t-input: #0f1218; --t-shadow: 0 12px 40px rgba(0,0,0,.45);
-  --t-accent: #ff6a2b; --t-accent2: #ff2f5f; --t-sel: #3aa0ff; --t-ok: #34c77b; --t-warn: #f2a93b; --t-err: #ff5a52; --t-info: #4aa8ff; }
-html[data-trotan-theme="light"] { --t-bg: #eef0f4; --t-panel: #ffffff; --t-panel2: #f5f6f9; --t-line: #dfe2e9; --t-line2: #cdd2dc; --t-text: #141821; --t-muted: #5d6474; --t-input: #ffffff; --t-shadow: 0 12px 40px rgba(20,24,33,.16);
-  --t-accent: #ff6a2b; --t-accent2: #ff2f5f; --t-sel: #1f7ae0; --t-ok: #1f9d5c; --t-warn: #c27a0e; --t-err: #d93a32; --t-info: #1f7ae0; }
+html[data-trotan-theme] { --t-accent: #ff6a2b; --t-accent2: #ff2f5f; }
+html[data-trotan-theme="granat"] { --t-bg: #0b1033; --t-panel: #0e1440; --t-panel2: #151c4d; --t-line: #20285a; --t-line2: #2c3570; --t-text: #ffffff; --t-muted: #8a91c4; --t-sel: #5868e6; --t-ok: #3fcf8e; --t-warn: #f5c85c; --t-err: #ff5d4f; --t-info: #aab3ff; --t-input: #0b1033; --t-shadow: 0 12px 40px rgba(3,6,25,.55); }
+html[data-trotan-theme="dark"] { --t-bg: #060920; --t-panel: #080c28; --t-panel2: #10163d; --t-line: #161d4d; --t-line2: #1d255c; --t-text: #ffffff; --t-muted: #8a91c4; --t-sel: #5868e6; --t-ok: #3fcf8e; --t-warn: #f5c85c; --t-err: #ff5d4f; --t-info: #aab3ff; --t-input: #060920; --t-shadow: 0 12px 40px rgba(0,0,0,.6); }
+html[data-trotan-theme="light"] { --t-bg: #f3f4fa; --t-panel: #ffffff; --t-panel2: #eef0f8; --t-line: #dfe2f1; --t-line2: #c9cde3; --t-text: #0b1033; --t-muted: #676d96; --t-sel: #3b4cca; --t-ok: #14935a; --t-warn: #9a6400; --t-err: #d42a25; --t-info: #3b4cca; --t-input: #ffffff; --t-shadow: 0 12px 40px rgba(11,16,51,.16); }
 .t-modal .t-btn, .t-menu .t-btn { font-family: inherit; }
 
 /* pages */

@@ -10,7 +10,7 @@ import { useSession } from "../session";
 import { Menu, type MenuItem } from "../ui";
 import * as A from "./actions";
 import { ACCEPT, IMPORT_FORMATS, exportAs, importFile } from "./io";
-import { DARK, LIGHT, RULER, drawDoc, drawRulers, hitTest, toScreen, toWorld, type View } from "./render";
+import { RULER, canvasTheme, type Palette, drawDoc, drawRulers, hitTest, toScreen, toWorld, type View } from "./render";
 import { simplify, snapBox, snapPoint, targets, type SnapLines, type SnapOpts } from "./snap";
 import { Panels } from "./Panels";
 import { useSplit } from "../ui";
@@ -45,7 +45,7 @@ type Drag =
 interface PenPt { p: Vec; inH?: Vec; outH?: Vec }
 const loadPref = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? { ...d, ...JSON.parse(v) } : d; } catch { return d; } };
 
-export function Editor({ dark, readOnly }: { dark: boolean; readOnly: boolean }) {
+export function Editor({ palette, readOnly }: { palette: Palette; readOnly: boolean }) {
   const S = useSession(); const toast = useToast();
   const { doc, sel, setSel } = S;
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null), fileIn = useRef<HTMLInputElement>(null);
@@ -65,7 +65,7 @@ export function Editor({ dark, readOnly }: { dark: boolean; readOnly: boolean })
   const pen = useRef<PenPt[]>([]); const [, bump] = useState(0);
   const fitted = useRef<string | null>(null);
   const split = useSplit("editor-right", 300, 240, 520);
-  const theme = dark ? DARK : LIGHT;
+  const theme = canvasTheme(palette);
   useEffect(() => { try { localStorage.setItem("trotan-editor", JSON.stringify(opts)); } catch { /* ignore */ } }, [opts]);
   useEffect(() => { if (!doc.layers.some((l) => l.id === activeLayer)) setActiveLayer(doc.layers.find((l) => l.op === "cut")?.id ?? doc.layers[0]?.id ?? ""); }, [doc.layers, activeLayer]);
 

@@ -21,7 +21,7 @@ export const usedOps = (doc: Doc): OpType[] => {
 };
 const blank = (dpi: number): OpParams => ({ power: NaN, speed: NaN, freq: null, passes: 1, focus: 0, dpi, air: false, direction: "down", order: 0 });
 
-export function Prepare({ dark, go }: { dark: boolean; go: (w: "manage" | "design" | "produce") => void }) {
+export function Prepare({ palette, go }: { palette: import("../editor/render").Palette; go: (w: "manage" | "design" | "produce") => void }) {
   const T = useT(); const S = useSession(); const toast = useToast(); const { db } = useStore();
   const { doc, prep, setPrep } = S;
   const machines = T.machines.filter((m) => m.active);
@@ -169,7 +169,7 @@ export function Prepare({ dark, go }: { dark: boolean; go: (w: "manage" | "desig
         </section>
       </div>
       <div className="t-prep-c">
-        <Workbed testid="workbed" dark={dark} doc={doc} placements={prep.placements} bed={{ w: caps?.bedW ?? 600, h: caps?.bedH ?? 400 }} sheet={sheet} margin={prep.margin}
+        <Workbed testid="workbed" palette={palette} doc={doc} placements={prep.placements} bed={{ w: caps?.bedW ?? 600, h: caps?.bedH ?? 400 }} sheet={sheet} margin={prep.margin}
           toolpath={showPath ? tp : null} highlight={highlight} selected={selPl} onSelect={setSelPl}
           onMove={(id, dx, dy, commit) => { if (!commit) return; setPrep((p) => ({ ...p, placements: p.placements.map((q) => (q.id === id ? { ...q, m: [q.m[0], q.m[1], q.m[2], q.m[3], q.m[4] + dx, q.m[5] + dy] } : q)) })); }} />
         <div className="t-bed-bar"><Check on={showPath} onChange={setShowPath} label="Show toolpath (order: raster → marks → scores → cuts, holes first)" testid="show-path" /></div>

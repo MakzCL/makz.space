@@ -31,12 +31,14 @@ const WORKSPACES: { v: WS; label: string; need: Section[] }[] = [
   { v: "admin", label: "Administration", need: ["admin", "approve", "manage"] },
 ];
 const FACTORY_URL = "https://factory.makz.space", KORTANA_URL = "https://kortana.makz.space";
-const getTheme = () => { try { return localStorage.getItem("trotan-theme") === "light" ? "light" : "dark"; } catch { return "dark"; } };
+type Palette = "light" | "granat" | "dark";
+/** Same three palettes as SK Factory and KORTANA; Granat by default. */
+const getTheme = (): Palette => { try { const v = localStorage.getItem("trotan-theme"); return v === "light" || v === "dark" ? v : "granat"; } catch { return "granat"; } };
 
 export function TrotanApp() {
   const [backend, setBackend] = useState<Backend | null>(null);
   const [user, setUser] = useState<string | null | undefined>(undefined);
-  const [theme, setTheme] = useState<"dark" | "light">(getTheme);
+  const [theme, setTheme] = useState<Palette>(getTheme);
   const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem("trotan-splashed"); } catch { return true; } });
   const endSplash = useCallback(() => { try { sessionStorage.setItem("trotan-splashed", "1"); } catch { /* storage blocked */ } setSplash(false); }, []);
   useEffect(() => { createBackend().then(setBackend); }, []);
@@ -56,14 +58,14 @@ export function TrotanApp() {
     </ToastProvider>
   );
 }
-function Gate(p: { theme: "dark" | "light"; setTheme: (t: "dark" | "light") => void; signOut: () => void }) {
+function Gate(p: { theme: Palette; setTheme: (t: Palette) => void; signOut: () => void }) {
   const has = useHasStore();
   if (!has) return <FullLoader label="Loading TROTAN…" />;
   return <TrotanProvider><SessionProvider><Shell {...p} /></SessionProvider></TrotanProvider>;
 }
 const readHash = (): WS => { const h = location.hash.replace("#", "") as WS; return WORKSPACES.some((w) => w.v === h) ? h : "manage"; };
 
-function Shell({ theme, setTheme, signOut }: { theme: "dark" | "light"; setTheme: (t: "dark" | "light") => void; signOut: () => void }) {
+function Shell({ theme, setTheme, signOut }: { theme: Palette; setTheme: (t: Palette) => void; signOut: () => void }) {
   const T = useT(); const S = useSession(); const { me } = useStore();
   const [ws, setWs] = useState<WS>(readHash);
   const allowed = WORKSPACES.filter((w) => w.need.some((n) => T.can(n)));
@@ -78,7 +80,6 @@ function Shell({ theme, setTheme, signOut }: { theme: "dark" | "light"; setTheme
       {T.error && <p className="t-note err">{T.error}</p>}
       <div className="t-row"><a className="t-btn" href={FACTORY_URL}>Open SK Factory</a><Btn onClick={signOut}>Sign out</Btn></div></div>
   );
-  const dark = theme === "dark";
   return (
     <div className="t-app">
       <header className="t-top">
@@ -89,7 +90,7 @@ function Shell({ theme, setTheme, signOut }: { theme: "dark" | "light"; setTheme
         <div className="t-proj">{S.project ? <><span className="t-proj-n" title={S.project.name}>{S.project.number} · {S.project.name}</span><span className={`t-dot ${S.saveState}`} title={S.saveState} /></> : <span className="t-muted">No project open</span>}</div>
         <div className="t-top-r">
           <a className="t-applink" href={FACTORY_URL} title="SK Factory">Factory</a><a className="t-applink" href={KORTANA_URL} title="KORTANA inventory">Kortana</a>
-          <button type="button" className="t-btn icon" onClick={() => setTheme(dark ? "light" : "dark")} title={dark ? "Light mode" : "Dark mode"} aria-label="Toggle theme">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
+          <div className="t-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((p) => <button key={p} type="button" className={theme === p ? "on" : ""} onClick={() => setTheme(p)} title={{ light: "Light", granat: "Granat (navy)", dark: "Dark" }[p]} data-testid={`theme-${p}`}>{{ light: <Sun size={13} />, granat: "G", dark: <Moon size={13} /> }[p]}</button>)}</div>
           <span className="t-me" title={ROLE_META[me.role]?.label}>{me.full_name}<small>{ROLE_META[me.role]?.label}</small></span>
           <button type="button" className="t-btn icon" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut size={16} /></button>
         </div>
@@ -99,9 +100,9 @@ function Shell({ theme, setTheme, signOut }: { theme: "dark" | "light"; setTheme
       {T.error && <div className="t-banner err">{T.error}</div>}
       <main className="t-main">
         {cur === "manage" && <Manage go={go} />}
-        {cur === "design" && (S.project ? <Editor dark={dark} readOnly={!T.can("design")} /> : <div className="t-page"><Empty title="No project open" hint="Create or open a project in MANAGE."><Btn tone="primary" onClick={() => go("manage")}>Go to MANAGE</Btn></Empty></div>)}
-        {cur === "prepare" && <Prepare dark={dark} go={go} />}
-        {cur === "produce" && <Produce dark={dark} />}
+        {cur === "design" && (S.project ? <Editor palette={theme} readOnly={!T.can("design")} /> : <div className="t-page"><Empty title="No project open" hint="Create or open a project in MANAGE."><Btn tone="primary" onClick={() => go("manage")}>Go to MANAGE</Btn></Empty></div>)}
+        {cur === "prepare" && <Prepare palette={theme} go={go} />}
+        {cur === "produce" && <Produce palette={theme} />}
         {cur === "admin" && <Admin go={go} />}
       </main>
     </div>

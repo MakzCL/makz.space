@@ -24,8 +24,13 @@ export function imageFor(src: string, onload: () => void) {
   return im;
 }
 export interface Theme { bg: string; page: string; pageEdge: string; grid: string; gridMajor: string; ruler: string; rulerText: string; sel: string; guide: string; text: string }
-export const DARK: Theme = { bg: "#0b0d12", page: "#14171f", pageEdge: "#2b3140", grid: "rgba(255,255,255,.04)", gridMajor: "rgba(255,255,255,.08)", ruler: "#10131a", rulerText: "#7d8396", sel: "#3aa0ff", guide: "#ff8a1f", text: "#e7e9f0" };
-export const LIGHT: Theme = { bg: "#e9ebf0", page: "#ffffff", pageEdge: "#c8ccd6", grid: "rgba(0,0,0,.04)", gridMajor: "rgba(0,0,0,.09)", ruler: "#f5f6f9", rulerText: "#5b6170", sel: "#1f7ae0", guide: "#e06a00", text: "#141821" };
+// Canvas colours for the three ecosystem palettes.
+export const GRANAT: Theme = { bg: "#080d2b", page: "#10163d", pageEdge: "#2c3570", grid: "rgba(255,255,255,.05)", gridMajor: "rgba(255,255,255,.10)", ruler: "#0e1440", rulerText: "#8a91c4", sel: "#5868e6", guide: "#f5c85c", text: "#ffffff" };
+export const DEEP: Theme = { bg: "#04061a", page: "#0c1233", pageEdge: "#232c70", grid: "rgba(255,255,255,.045)", gridMajor: "rgba(255,255,255,.09)", ruler: "#080c28", rulerText: "#8a91c4", sel: "#5868e6", guide: "#f5c85c", text: "#ffffff" };
+export const LIGHT: Theme = { bg: "#e9ebf6", page: "#ffffff", pageEdge: "#c9cde3", grid: "rgba(11,16,51,.05)", gridMajor: "rgba(11,16,51,.10)", ruler: "#f3f4fa", rulerText: "#676d96", sel: "#3b4cca", guide: "#9a6400", text: "#0b1033" };
+export const DARK = GRANAT;
+export type Palette = "light" | "granat" | "dark";
+export const canvasTheme = (p: Palette): Theme => (p === "light" ? LIGHT : p === "dark" ? DEEP : GRANAT);
 
 export interface DrawOpts { theme: Theme; sel: Set<string>; hover: string | null; grid: number; showGrid: boolean; outline: boolean; fills: boolean; redraw: () => void; layerFilter?: (id: string) => boolean }
 const OP_FILL: Partial<Record<OpType, boolean>> = { raster: true };

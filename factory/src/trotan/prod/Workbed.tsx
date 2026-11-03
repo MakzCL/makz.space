@@ -10,7 +10,7 @@ export interface WorkbedProps {
   doc: Doc | null; placements: Placement[]; bed: { w: number; h: number }; sheet: { w: number; h: number } | null; margin: number;
   toolpath?: Toolpath | null; showTravel?: boolean; head?: Vec | null; laserOn?: boolean; doneItems?: number;
   highlight?: Set<string>; selected?: string | null; onSelect?: (id: string | null) => void; onMove?: (id: string, dx: number, dy: number, commit: boolean) => void;
-  dark: boolean; testid?: string;
+  palette: import("../editor/render").Palette; testid?: string;
 }
 export function Workbed(p: WorkbedProps) {
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
@@ -41,19 +41,22 @@ export function Workbed(p: WorkbedProps) {
     const dpr = window.devicePixelRatio || 1, { W, H } = size;
     if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
     const ctx = c.getContext("2d")!; ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = p.dark ? "#0a0c10" : "#e6e8ee"; ctx.fillRect(0, 0, c.width, c.height);
+    const L = p.palette === "light", D = p.palette === "dark";
+    const C = L ? { out: "#e9ebf6", bed: "#ffffff", grid: "rgba(11,16,51,.07)", edge: "#c9cde3", label: "#676d96", sheetF: "rgba(196,150,90,.22)", sheetS: "#a7834c", travel: "rgba(11,16,51,.32)", head: "#0b1033" }
+      : { out: D ? "#04061a" : "#080d2b", bed: D ? "#0c1233" : "#10163d", grid: "rgba(255,255,255,.06)", edge: D ? "#232c70" : "#2c3570", label: "#8a91c4", sheetF: "rgba(214,170,110,.16)", sheetS: "#c9a46a", travel: "rgba(255,255,255,.3)", head: "#ffffff" };
+    ctx.fillStyle = C.out; ctx.fillRect(0, 0, c.width, c.height);
     const base: Mat = [view.zoom * dpr, 0, 0, view.zoom * dpr, view.x * dpr, view.y * dpr];
     const set = (m: Mat) => ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
     set(base); const px = 1 / view.zoom;
     // bed + grid
-    ctx.fillStyle = p.dark ? "#161a22" : "#fafbfc"; ctx.fillRect(0, 0, p.bed.w, p.bed.h);
-    ctx.lineWidth = px; ctx.strokeStyle = p.dark ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.06)"; ctx.beginPath();
+    ctx.fillStyle = C.bed; ctx.fillRect(0, 0, p.bed.w, p.bed.h);
+    ctx.lineWidth = px; ctx.strokeStyle = C.grid; ctx.beginPath();
     for (let x = 50; x < p.bed.w; x += 50) { ctx.moveTo(x, 0); ctx.lineTo(x, p.bed.h); } for (let y = 50; y < p.bed.h; y += 50) { ctx.moveTo(0, y); ctx.lineTo(p.bed.w, y); } ctx.stroke();
-    ctx.strokeStyle = p.dark ? "#3a4252" : "#b9bfcc"; ctx.lineWidth = 2 * px; ctx.strokeRect(0, 0, p.bed.w, p.bed.h);
-    ctx.fillStyle = p.dark ? "#7d8396" : "#5b6170"; ctx.font = `${11 * px}px 'Cabinet Grotesk', Poppins, sans-serif`; ctx.fillText(`Bed ${p.bed.w} × ${p.bed.h} mm · origin top-left`, 4 * px, -6 * px);
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * px; ctx.strokeRect(0, 0, p.bed.w, p.bed.h);
+    ctx.fillStyle = C.label; ctx.font = `${11 * px}px 'Cabinet Grotesk', Poppins, sans-serif`; ctx.fillText(`Bed ${p.bed.w} × ${p.bed.h} mm · origin top-left`, 4 * px, -6 * px);
     if (p.sheet) {
-      ctx.fillStyle = p.dark ? "rgba(214,170,110,.16)" : "rgba(196,150,90,.22)"; ctx.fillRect(0, 0, p.sheet.w, p.sheet.h);
-      ctx.strokeStyle = p.dark ? "#c9a46a" : "#a7834c"; ctx.lineWidth = 1.5 * px; ctx.strokeRect(0, 0, p.sheet.w, p.sheet.h);
+      ctx.fillStyle = C.sheetF; ctx.fillRect(0, 0, p.sheet.w, p.sheet.h);
+      ctx.strokeStyle = C.sheetS; ctx.lineWidth = 1.5 * px; ctx.strokeRect(0, 0, p.sheet.w, p.sheet.h);
       if (p.margin > 0) { ctx.setLineDash([4 * px, 4 * px]); ctx.lineWidth = px; ctx.strokeRect(p.margin, p.margin, p.sheet.w - 2 * p.margin, p.sheet.h - 2 * p.margin); ctx.setLineDash([]); }
     }
     // copies
@@ -73,7 +76,7 @@ export function Workbed(p: WorkbedProps) {
     if (p.toolpath) {
       set(base);
       const done = p.doneItems ?? -1;
-      if (p.showTravel !== false) { ctx.strokeStyle = p.dark ? "rgba(255,255,255,.28)" : "rgba(0,0,0,.3)"; ctx.lineWidth = px; ctx.setLineDash([3 * px, 3 * px]); ctx.beginPath(); for (const t of p.toolpath.travel) { ctx.moveTo(t.from[0], t.from[1]); ctx.lineTo(t.to[0], t.to[1]); } ctx.stroke(); ctx.setLineDash([]); }
+      if (p.showTravel !== false) { ctx.strokeStyle = C.travel; ctx.lineWidth = px; ctx.setLineDash([3 * px, 3 * px]); ctx.beginPath(); for (const t of p.toolpath.travel) { ctx.moveTo(t.from[0], t.from[1]); ctx.lineTo(t.to[0], t.to[1]); } ctx.stroke(); ctx.setLineDash([]); }
       p.toolpath.items.forEach((it, i) => {
         const on = done < 0 || i < done; ctx.globalAlpha = on ? 1 : 0.35;
         if ("box" in it) { ctx.fillStyle = hexA(OP_COLOR.raster, 0.22); ctx.fillRect(it.box.x, it.box.y, it.box.w, it.box.h); ctx.strokeStyle = OP_COLOR.raster; ctx.lineWidth = px; ctx.strokeRect(it.box.x, it.box.y, it.box.w, it.box.h); }
@@ -84,7 +87,7 @@ export function Workbed(p: WorkbedProps) {
     if (p.head) {
       set(base); const [hx, hy] = p.head;
       if (p.laserOn) { const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, 9 * px); g.addColorStop(0, "rgba(255,80,40,.9)"); g.addColorStop(1, "rgba(255,80,40,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, hy, 9 * px, 0, Math.PI * 2); ctx.fill(); }
-      ctx.strokeStyle = p.dark ? "#fff" : "#111"; ctx.lineWidth = 1.2 * px; ctx.beginPath(); ctx.arc(hx, hy, 4 * px, 0, Math.PI * 2); ctx.moveTo(hx - 7 * px, hy); ctx.lineTo(hx + 7 * px, hy); ctx.moveTo(hx, hy - 7 * px); ctx.lineTo(hx, hy + 7 * px); ctx.stroke();
+      ctx.strokeStyle = C.head; ctx.lineWidth = 1.2 * px; ctx.beginPath(); ctx.arc(hx, hy, 4 * px, 0, Math.PI * 2); ctx.moveTo(hx - 7 * px, hy); ctx.lineTo(hx + 7 * px, hy); ctx.moveTo(hx, hy - 7 * px); ctx.lineTo(hx, hy + 7 * px); ctx.stroke();
     }
   });
   const toBed = (e: { clientX: number; clientY: number }): Vec => { const r = cv.current!.getBoundingClientRect(); const v = view!; return [(e.clientX - r.left - v.x) / v.zoom, (e.clientY - r.top - v.y) / v.zoom]; };

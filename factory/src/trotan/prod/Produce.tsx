@@ -16,7 +16,7 @@ const OPERATOR_CHECKS = ["Material is on the bed, flat and inside the marked are
 const key = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 export const STATUS_TONE: Record<string, "" | "ok" | "warn" | "err" | "info"> = { draft: "", ready: "info", queued: "info", running: "warn", done: "ok", failed: "err", cancelled: "" };
 
-export function Produce({ dark }: { dark: boolean }) {
+export function Produce({ palette }: { palette: import("../editor/render").Palette }) {
   const T = useT(); const toast = useToast(); const { db } = useStore();
   const [machineId, setMachineId] = useState<string | null>(null);
   const machine = T.machines.find((m) => m.id === machineId) ?? T.machines.find((m) => m.active) ?? null;
@@ -82,7 +82,7 @@ export function Produce({ dark }: { dark: boolean }) {
         </> : <History />}
       </div>
       {tab === "queue" && <div className="t-prod-c">
-        {machine && doc && job ? <Workbed testid="produce-bed" dark={dark} doc={doc} placements={job.placements} bed={{ w: machine.caps.bedW, h: machine.caps.bedH }} sheet={(() => { const m = material(job.material_id); return m?.sheet_w && m?.sheet_h ? { w: Number(m.sheet_w), h: Number(m.sheet_h) } : null; })()} margin={0}
+        {machine && doc && job ? <Workbed testid="produce-bed" palette={palette} doc={doc} placements={job.placements} bed={{ w: machine.caps.bedW, h: machine.caps.bedH }} sheet={(() => { const m = material(job.material_id); return m?.sheet_w && m?.sheet_h ? { w: Number(m.sheet_w), h: Number(m.sheet_h) } : null; })()} margin={0}
           toolpath={tp} head={prog?.head ?? null} laserOn={!!prog?.laserOn} doneItems={prog ? prog.item : -1} /> : <Empty title={job ? "Loading design…" : "Select a queued job"} />}
         {prog && <div className="t-progress" data-testid="sim-progress"><div style={{ width: `${(prog.t / prog.total) * 100}%` }} /><span>{prog.state === "running" ? `Simulating ${prog.item}/${prog.items} · ${fmtTime(prog.t)} of ${fmtTime(prog.total)} (20× speed)` : prog.state}</span></div>}
       </div>}
