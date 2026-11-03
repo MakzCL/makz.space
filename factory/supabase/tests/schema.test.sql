@@ -972,6 +972,40 @@ select pg_temp.check(public.receive_po_line(:'opl', 3) = 'received', 'finish the
 select pg_temp.check((select quantity = 0 from public.stock_levels where item_id = :'omat' and location_id = :'oloc'), 'contractor used all the materials');
 reset role; select pg_temp.check((select bool_and(s.quantity = coalesce(l.total, 0)) from public.stock_items s left join (select item_id, sum(quantity) total from public.stock_levels group by item_id) l on l.item_id = s.id), 'every item: Σ locations = company total (with contractors)'); set role authenticated;
 
+-- ---------------------------------------------------------------- removing staff
+select pg_temp.become(null);
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-0000000000d1', 'dev@x.test', '{"full_name":"Dee Dev"}'),
+  ('00000000-0000-0000-0000-0000000000d2', 'mgr@x.test', '{"full_name":"Max Manager"}'),
+  ('00000000-0000-0000-0000-0000000000d3', 'ast@x.test', '{"full_name":"Ann Assistant"}'),
+  ('00000000-0000-0000-0000-0000000000d4', 'opr@x.test', '{"full_name":"Oscar Operator"}');
+update public.profiles set active = true, role = 'developer' where id = '00000000-0000-0000-0000-0000000000d1';
+update public.profiles set active = true, role = 'manager' where id = '00000000-0000-0000-0000-0000000000d2';
+update public.profiles set active = true, role = 'assistant' where id = '00000000-0000-0000-0000-0000000000d3';
+update public.profiles set active = true, role = 'operator' where id = '00000000-0000-0000-0000-0000000000d4';
+insert into public.shifts (user_id, clock_in) values ('00000000-0000-0000-0000-0000000000d4', now() - interval '2 hours');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d3');
+select pg_temp.expect_fail($$select public.remove_staff('00000000-0000-0000-0000-0000000000d2')$$, 'assistant removes a manager');
+select pg_temp.expect_fail($$select public.remove_staff('00000000-0000-0000-0000-0000000000d3')$$, 'removing yourself');
+select pg_temp.check(public.remove_staff('00000000-0000-0000-0000-0000000000d4') = 'removed', 'assistant removes an operator');
+select pg_temp.become(null);
+select pg_temp.check((select not active and removed_at is not null from public.profiles where id = '00000000-0000-0000-0000-0000000000d4'), 'removed person loses access');
+select pg_temp.check((select count(*) = 0 from public.shifts where user_id = '00000000-0000-0000-0000-0000000000d4' and clock_out is null)
+  and (select count(*) = 1 from public.shifts where user_id = '00000000-0000-0000-0000-0000000000d4'), 'their open shift is closed and their history kept');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d4');
+select pg_temp.check((select count(*) = 0 from public.stock_items), 'a removed person sees nothing');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.expect_fail($$select public.remove_staff('00000000-0000-0000-0000-0000000000d1')$$, 'manager removes a developer');
+select pg_temp.expect_fail($$update public.profiles set removed_at = now() where id = '00000000-0000-0000-0000-0000000000d3'$$, 'manager sets removed_at directly');
+select pg_temp.check(public.restore_staff('00000000-0000-0000-0000-0000000000d4') = 'active', 'manager restores the operator');
+select pg_temp.check((select active and removed_at is null from public.profiles where id = '00000000-0000-0000-0000-0000000000d4'), 'restored person is active again');
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+select pg_temp.check(public.remove_staff('00000000-0000-0000-0000-0000000000d2') = 'removed', 'developer removes a manager');
+select pg_temp.become(null);
+update public.profiles set role = 'operator' where role in ('boss') and id <> '00000000-0000-0000-0000-0000000000d1';
+select pg_temp.become('00000000-0000-0000-0000-0000000000d1');
+select pg_temp.check((select count(*) = 1 from public.profiles where role in ('boss','developer') and active and removed_at is null), 'only one owner/developer left');
+
 select pg_temp.become(null);
 select pg_temp.check((select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0, 'every table has RLS');
 delete from auth.users;

@@ -9,6 +9,9 @@ export interface Profile {
   holiday_allowance: number;
   /** False until approved by an admin or joined through an invite link. */
   active: boolean;
+  /** Set when someone was removed from SK Factory (history is kept; they can be restored). */
+  removed_at?: string | null;
+  removed_by?: string | null;
   created_at: string;
   /** Teams-style status the person picks. */
   status: PresenceStatus;

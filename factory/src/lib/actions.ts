@@ -431,12 +431,19 @@ export function useActions() {
     async function approve(p: Profile) {
       try { await B.update("profiles", p.id, { active: true }); await refresh("profiles"); ok(t("{name} can now use the app", { name: p.full_name.split(" ")[0]! })); } catch (e) { fail(e); }
     }
+    async function removeStaff(p: Profile) {
+      try { await B.rpc("remove_staff", { p_user: p.id }); await Promise.all([refresh("profiles"), refresh("shifts"), refresh("jobs")]); ok(t("{name} was removed from SK Factory", { name: p.full_name }), "info"); return true; }
+      catch (e) { fail(e); return false; }
+    }
+    async function restoreStaff(p: Profile) {
+      try { await B.rpc("restore_staff", { p_user: p.id }); await refresh("profiles"); ok(t("{name} is back in SK Factory", { name: p.full_name })); } catch (e) { fail(e); }
+    }
     async function removeMember(p: Profile) {
       try { await B.remove("profiles", p.id); await refresh("profiles"); ok(t("Account removed"), "info"); } catch (e) { fail(e); }
     }
 
     return {
-      createJoinLink, revokeJoinLink, approve, removeMember,
+      createJoinLink, revokeJoinLink, approve, removeMember, removeStaff, restoreStaff,
       clockIn, clockOut, toggleBreak, startJob, stopJob, leaveSession, invite, cancelInvite, respond,
       saveJob, deleteJob, reopenJob, sendBack, reportIssue, setIssue, adjustStock, countStock, saveStock, importRows,
       saveBomLine, removeBomLine, saveSupplier, savePo, removePoLine, receive, reverseReceipt, requestAbsence,

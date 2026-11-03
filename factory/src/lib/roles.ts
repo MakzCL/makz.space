@@ -32,6 +32,8 @@ export const KIMERA_URL = "https://kimera.makz.space";
 export const tabsFor = (r: Role, _desktop?: boolean): Tab[] => TABS_FOR[r];
 
 export const can = {
+  /** Remove (or restore) someone from SK Factory — mirrors can_remove_staff() in the database. */
+  removeStaff: (me: Role, them: Role) => isOwner(me) || ((me === "manager" || me === "office") && !isOwner(them)) || (me === "assistant" && (them === "operator" || them === "support")),
   manageJobs: (r: Role) => isOwner(r) || r === "manager",
   admin: (r: Role) => isOwner(r) || r === "manager" || r === "office",
   editStock: (r: Role) => r !== "operator" && r !== "support",

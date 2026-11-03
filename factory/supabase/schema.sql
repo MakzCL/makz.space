@@ -4805,5 +4805,99 @@ begin
   return jsonb_build_object('lines', lines, 'mos', ingr, 'items', items, 'at', now());
 end $$;
 
+-- ============================================================================
+-- Removing staff. Removing someone keeps their history (shifts, jobs, stock
+-- movements) but takes away all access at once; they can be restored.
+--   Owner / Developer: anyone except themselves (the last Owner/Developer stays).
+--   Manager / Office:  anyone except Owner and Developer.
+--   Assistant:         Operators and Support.
+-- ============================================================================
+alter table public.profiles add column if not exists removed_at timestamptz;
+alter table public.profiles add column if not exists removed_by uuid references public.profiles(id) on delete set null;
+
+create or replace function public.guard_profile_update() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or current_setting('app.join_redeem', true) = 'on' or current_setting('app.staff_remove', true) = 'on' then return new; end if;
+  if (new.removed_at is distinct from old.removed_at) or (new.removed_by is distinct from old.removed_by) then
+    raise exception 'Use Remove / Restore to change this';
+  end if;
+  if (new.active is distinct from old.active) and not public.is_admin() then
+    raise exception 'Only boss, manager or office can approve accounts';
+  end if;
+  if (new.role is distinct from old.role) then
+    if not public.is_admin() then raise exception 'Only the owner, managers or office can change roles'; end if;
+    if new.id = auth.uid() then raise exception 'You cannot change your own role'; end if;
+    if (new.role in ('boss','developer') or old.role in ('boss','developer')) and public.my_role() not in ('boss','developer') then
+      raise exception 'Only the owner can give or take away Owner or Developer';
+    end if;
+  end if;
+  if (new.holiday_allowance is distinct from old.holiday_allowance) and not public.is_admin() then
+    raise exception 'Only boss, manager or office can change holiday allowance';
+  end if;
+  if (new.employee_code is distinct from old.employee_code) and not public.is_admin() then
+    raise exception 'Only boss, manager or office can change employee codes';
+  end if;
+  return new;
+end $$;
+
+create or replace function public.can_remove_staff(p_role public.staff_role) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_active() and case public.my_role()
+    when 'boss' then true when 'developer' then true
+    when 'manager' then p_role not in ('boss', 'developer')
+    when 'office' then p_role not in ('boss', 'developer')
+    when 'assistant' then p_role in ('operator', 'support')
+    else false end
+$$;
+
+create or replace function public.remove_staff(p_user uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare p public.profiles;
+begin
+  select * into p from public.profiles where id = p_user for update;
+  if p.id is null then raise exception 'Person not found'; end if;
+  if p.id = auth.uid() then raise exception 'You cannot remove yourself'; end if;
+  if p.removed_at is not null then return 'removed'; end if;
+  if not public.can_remove_staff(p.role) then raise exception 'Your role cannot remove a %', initcap(p.role::text); end if;
+  if p.role in ('boss', 'developer') and not exists (
+       select 1 from public.profiles where role in ('boss', 'developer') and active and removed_at is null and id <> p.id) then
+    raise exception 'Kimera needs at least one Owner or Developer';
+  end if;
+  perform set_config('app.staff_remove', 'on', true);
+  update public.profiles set active = false, removed_at = now(), removed_by = auth.uid() where id = p.id;
+  perform set_config('app.staff_remove', 'off', true);
+  update public.breaks set ended_at = now() where user_id = p.id and ended_at is null;
+  update public.shifts set clock_out = now() where user_id = p.id and clock_out is null;
+  update public.participants set left_at = now() where user_id = p.id and left_at is null;
+  update public.work_sessions w set ended_at = now() where w.ended_at is null
+     and not exists (select 1 from public.participants x where x.session_id = w.id and x.left_at is null)
+     and exists (select 1 from public.participants x where x.session_id = w.id and x.user_id = p.id);
+  update public.jobs set assignees = array_remove(assignees, p.id) where p.id = any(assignees) and status <> 'done';
+  delete from public.station_members where user_id = p.id;
+  begin  -- sign them out everywhere (their current token also stops working: they are no longer active)
+    execute 'delete from auth.refresh_tokens where user_id = $1' using p.id::text;
+  exception when others then null; end;
+  return 'removed';
+end $$;
+revoke all on function public.remove_staff(uuid) from public, anon;
+grant execute on function public.remove_staff(uuid) to authenticated;
+
+create or replace function public.restore_staff(p_user uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare p public.profiles;
+begin
+  select * into p from public.profiles where id = p_user for update;
+  if p.id is null then raise exception 'Person not found'; end if;
+  if p.removed_at is null then return 'active'; end if;
+  if not public.can_remove_staff(p.role) then raise exception 'Your role cannot restore a %', initcap(p.role::text); end if;
+  perform set_config('app.staff_remove', 'on', true);
+  update public.profiles set active = true, removed_at = null, removed_by = null where id = p.id;
+  perform set_config('app.staff_remove', 'off', true);
+  return 'active';
+end $$;
+revoke all on function public.restore_staff(uuid) from public, anon;
+grant execute on function public.restore_staff(uuid) to authenticated;
+
 -- Keep last in the file (and re-run after any migration that adds columns to these tables).
 select public.apply_cost_privileges();

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Copy, Link2, Search, Share2, ShieldCheck, Trash2, UserCheck, X } from "lucide-react";
+import { Check, Copy, Link2, RotateCcw, Search, Share2, ShieldCheck, Trash2, UserCheck, UserMinus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar } from "../components/Avatar";
 import { Scene } from "../components/Scene";
@@ -66,8 +66,33 @@ export function Team({ onPerson }: { onPerson: (id: string) => void }) {
           );
         })}
       </motion.div>
+      <RemovedMembers />
       <JoinLinksSheet open={links} onClose={() => setLinks(false)} />
     </motion.div>
+  );
+}
+
+/** People removed from SK Factory — their history stays; they can be brought back. */
+function RemovedMembers() {
+  const { db, me, person } = useStore();
+  const a = useActions();
+  const [open, setOpen] = useState(false);
+  const gone = db.profiles.filter((p) => p.removed_at && can.removeStaff(me.role, p.role)).sort((x, y) => (y.removed_at ?? "").localeCompare(x.removed_at ?? ""));
+  if (!gone.length) return null;
+  return (
+    <Section title={t("Removed staff")} sub={t("No access to SK Factory or Kimera. Their shifts and work history are kept.")}>
+      {!open ? <Btn tone="ghost" small onClick={() => setOpen(true)}>{t("Show {n}", { n: gone.length })}</Btn> : (
+        <div className="stack">
+          {gone.map((p) => (
+            <div key={p.id} className="card person">
+              <Avatar p={p} size={40} />
+              <div className="grow"><b>{p.full_name}</b><small className="muted">{roleLabel(p.role)} · {t("removed {when}", { when: ago(p.removed_at!) })}{p.removed_by ? ` · ${person(p.removed_by)?.full_name ?? ""}` : ""}</small></div>
+              <Btn small tone="soft" icon={<RotateCcw size={15} />} onClick={() => a.restoreStaff(p)}>{t("Restore")}</Btn>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }
 
@@ -75,7 +100,7 @@ export function Team({ onPerson }: { onPerson: (id: string) => void }) {
 export function PendingMembers() {
   const { db, me } = useStore();
   const a = useActions();
-  const pending = db.profiles.filter((p) => !p.active);
+  const pending = db.profiles.filter((p) => !p.active && !p.removed_at);
   if (!can.admin(me.role) || !pending.length) return null;
   return (
     <Section title={t("Waiting for approval")} sub={t("Signed up without an invite link")}>
@@ -272,6 +297,12 @@ export function PersonSheet({ id, onClose }: { id: string | null; onClose: () =>
           </Field>
         )}
         {(isAdmin || p.id === me.id) && <motion.div className="card flat" variants={list} initial="hidden" animate="show"><TimeSheet userId={p.id} /></motion.div>}
+        {p.id !== me.id && p.active && can.removeStaff(me.role, p.role) && (
+          <Btn tone="danger" icon={<UserMinus size={17} />} onClick={async () => {
+            if (!window.confirm(t("Remove {name} from SK Factory? They lose access straight away (signed out, clocked out, taken off their jobs). Their history is kept and you can restore them later.", { name: p.full_name }))) return;
+            if (await a.removeStaff(p)) onClose();
+          }}>{t("Remove from SK Factory")}</Btn>
+        )}
       </div>
     </Sheet>
   );
