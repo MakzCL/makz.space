@@ -809,3 +809,21 @@ input[type="color"]:focus-visible { outline: 2px solid var(--text); outline-offs
 @media(max-width:720px) { .effects-workbench { grid-template-columns: 1fr; gap: 28px; padding: 24px; } .effects-showcase { max-width: 280px; width: 100%; margin: auto; } .effects-toolbar { align-items: flex-start; flex-direction: column; } .collection-grid { grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 12px; } .effects-selection { align-items: center; text-align: center; } }
 @media(prefers-reduced-motion:reduce) { .send-startup *, .collection-art * { animation: none !important; } .startup-sheen { display: none; } }
 [data-low-power="true"] .collection-art *, [data-reduce-motion="true"] .collection-art * { animation: none !important; }
+/* The effects gallery and ordinary settings share Studio's scroll beam. */
+.modal:has(.settings) .modal-b { overflow: hidden; }
+.settings { height: min(72dvh, 760px); min-height: 0; }
+.settings-scroll-nav .scroll-content { gap: 3px; }
+.settings-scroll-body .settings-body { padding: 0 18px 8px 0; }
+.effects-workbench { grid-template-columns: 210px 1fr; gap: 28px; padding: 24px; }
+.effects-showcase { width: 210px; height: 230px; padding: 0; position: relative; }
+.effects-showcase .pcv { width: 280px; min-height: 280px; transform: scale(.7); transform-origin: 0 0; }
+.effects-preview-caption { position: absolute; bottom: 0; width: 100%; margin: 0; }
+@media(max-width:720px) {
+  .settings { display: flex; flex-direction: column; gap: 12px; }
+  .settings-scroll-nav { flex: 0 0 44px; }
+  .settings-scroll-nav .scroll-content { flex-direction: row; width: max-content; min-height: auto; }
+  .settings-scroll-nav button { white-space: nowrap; }
+  .settings-scroll-nav hr { display: none; }
+  .settings-scroll-body { flex: 1; }
+  .effects-workbench { grid-template-columns: 1fr; }
+}

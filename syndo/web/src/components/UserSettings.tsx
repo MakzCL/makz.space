@@ -1,3 +1,4 @@
+import { ScrollArea } from "./ScrollArea.tsx";
 import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@syndo/shared";
@@ -20,11 +21,11 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
   return (
     <Modal title="User settings" onClose={onClose} wide>
       <div className="settings">
-        <nav className="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
+        <ScrollArea className="settings-scroll-nav" viewportClassName="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
           {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
           <hr /><button className="danger" onClick={() => { onClose(); logout(); }}>Sign out</button>
-        </nav>
-        <section className="settings-body" role="tabpanel">
+        </ScrollArea>
+        <ScrollArea key={tab} className="settings-scroll-body" viewportClassName="settings-body" role="tabpanel">
           {tab === "account" && <Account />}
           {tab === "profile" && <ProfileEditor />}
           {tab === "effects" && <EffectsGallery />}
@@ -35,7 +36,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
           {tab === "notifications" && <NotificationsTab />}
           {tab === "about" && <About />}
           {tab === "desktop" && <DesktopTab />}
-        </section>
+        </ScrollArea>
       </div>
     </Modal>
   );

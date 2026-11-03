@@ -8,5 +8,5 @@
   "durable_objects":{"bindings":[{"name":"BACKEND","class_name":"SENDBackend"}]},
   "migrations":[{"tag":"v1","new_sqlite_classes":["SENDBackend"]}],
   "r2_buckets":[{"binding":"UPLOADS","bucket_name":"syndo-beta-uploads"}],
-  "vars":{"SOURCE_COMMIT":"8c51188080da28dcf15650acba0518b876805c8f","STORAGE_ORIGIN":"https://send-beta-api.kuklinskikarol04.workers.dev"}
+  "vars":{"SOURCE_COMMIT":"0e29efa1e5c9a709598344a6b64655709785ea80","STORAGE_ORIGIN":"https://send-beta-api.kuklinskikarol04.workers.dev"}
 }
