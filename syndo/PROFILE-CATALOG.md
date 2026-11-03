@@ -1,6 +1,6 @@
 # SEND profile collections
 
-174 of the 430 requested collections currently have a selectable treatment. The other entries retain the requested design brief and are labelled upcoming in the gallery. These are SEND-made motion treatments around the sourced artwork, not official brand animation packs.
+207 of the 430 requested collections currently have a selectable treatment. The other entries retain the requested design brief and are labelled upcoming in the gallery. These are SEND-made motion treatments around the sourced artwork, not official brand animation packs.
 
 ## Artwork sources
 
@@ -148,5 +148,38 @@
 - **bundle-210 — The Witcher**: https://www.tvmaze.com/shows/28276/the-witcher (TVmaze / original distributor).
 - **bundle-211 — Bluey**: https://www.tvmaze.com/shows/41821/bluey (TVmaze / original distributor).
 - **bundle-213 — Severance**: https://www.tvmaze.com/shows/44933/severance (TVmaze / original distributor).
+- **bundle-2 — Frozen Official Website on Disney Movies**: https://movies.disney.com/frozen (Disney / original film publisher).
+- **bundle-3 — The Lion King presented by Disney Movies**: https://movies.disney.com/the-lion-king (Disney / original film publisher).
+- **bundle-4 — Toy Story**: https://movies.disney.com/toy-story (Disney / original film publisher).
+- **bundle-5 — Monsters, Inc.**: https://movies.disney.com/monsters-inc (Disney / original film publisher).
+- **bundle-6 — UP**: https://movies.disney.com/up (Disney / original film publisher).
+- **bundle-7 — Inside Out 2**: https://movies.disney.com/inside-out-2 (Disney / original film publisher).
+- **bundle-8 — Encanto**: https://movies.disney.com/encanto (Disney / original film publisher).
+- **bundle-9 — Moana**: https://movies.disney.com/moana (Disney / original film publisher).
+- **bundle-10 — Coco**: https://movies.disney.com/coco (Disney / original film publisher).
+- **bundle-11 — Lilo & Stitch**: https://movies.disney.com/lilo-stitch (Disney / original film publisher).
+- **bundle-12 — The Nightmare Before Christmas**: https://movies.disney.com/the-nightmare-before-christmas (Disney / original film publisher).
+- **bundle-16 — WALL·E**: https://movies.disney.com/wall-e (Disney / original film publisher).
+- **bundle-24 — Black Panther**: https://movies.disney.com/black-panther (Disney / original film publisher).
+- **bundle-26 — Marvel's Guardians of the Galaxy**: https://movies.disney.com/marvels-guardians-of-the-galaxy (Disney / original film publisher).
+- **bundle-214 — Naruto**: https://www.tvmaze.com/shows/495/naruto (TVmaze / original distributor).
+- **bundle-216 — One Piece**: https://www.tvmaze.com/shows/46065/one-piece (TVmaze / original distributor).
+- **bundle-217 — Dragon Ball Z**: https://www.tvmaze.com/shows/2103/dragon-ball-z (TVmaze / original distributor).
+- **bundle-218 — Demon Slayer**: https://www.tvmaze.com/shows/41469/demon-slayer (TVmaze / original distributor).
+- **bundle-220 — Jujutsu Kaisen**: https://www.tvmaze.com/shows/48450/jujutsu-kaisen (TVmaze / original distributor).
+- **bundle-221 — Chainsaw Man**: https://www.tvmaze.com/shows/63451/chainsaw-man (TVmaze / original distributor).
+- **bundle-222 — Attack on Titan**: https://www.tvmaze.com/shows/919/attack-on-titan (TVmaze / original distributor).
+- **bundle-223 — My Hero Academia**: https://www.tvmaze.com/shows/13615/my-hero-academia (TVmaze / original distributor).
+- **bundle-224 — Bleach**: https://www.tvmaze.com/shows/1905/bleach (TVmaze / original distributor).
+- **bundle-225 — Hunter x Hunter**: https://www.tvmaze.com/shows/1536/hunter-x-hunter (TVmaze / original distributor).
+- **bundle-226 — Death Note**: https://www.tvmaze.com/shows/40/death-note (TVmaze / original distributor).
+- **bundle-227 — Tokyo Ghoul**: https://www.tvmaze.com/shows/1440/tokyo-ghoul (TVmaze / original distributor).
+- **bundle-228 — Solo Leveling**: https://www.tvmaze.com/shows/64632/solo-leveling (TVmaze / original distributor).
+- **bundle-232 — Cowboy Bebop**: https://www.tvmaze.com/shows/1121/cowboy-bebop (TVmaze / original distributor).
+- **bundle-234 — Dandadan**: https://www.tvmaze.com/shows/73023/dandadan (TVmaze / original distributor).
+- **bundle-235 — Blue Lock**: https://www.tvmaze.com/shows/60383/blue-lock (TVmaze / original distributor).
+- **bundle-236 — Haikyuu!!**: https://www.tvmaze.com/shows/5193/haikyuu (TVmaze / original distributor).
+- **bundle-237 — Sakamoto Days**: https://www.tvmaze.com/shows/77383/sakamoto-days (TVmaze / original distributor).
+- **bundle-238 — [Oshi no Ko]**: https://www.tvmaze.com/shows/67635/oshi-no-ko (TVmaze / original distributor).
 
 Simple Icons SVGs are distributed under its CC0 package license. Brand artwork and trademarks remain with their owners; availability here does not grant reuse rights. TV and game cover art is sourced from the listed distributor catalogs. No external URLs are fetched by the profile renderer. All thumbnails are served locally.

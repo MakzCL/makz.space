@@ -1,5 +1,5 @@
 import { Track } from "livekit-client";
-import { currentRoom, useVoice } from "./session.ts";
+import { currentCloudflare, currentRoom, useVoice } from "./session.ts";
 
 /**
  * Measured media statistics from WebRTC getStats(). Reported next to the
@@ -27,6 +27,8 @@ function codecOf(report: RTCStatsReport, codecId: string | undefined) {
 }
 
 export async function collect(): Promise<Diagnostics | null> {
+  const call = currentCloudflare();
+  if (call) return collectCloudflare(call);
   const room = currentRoom();
   if (!room) return null;
   const now = performance.now();
@@ -93,4 +95,25 @@ export async function collect(): Promise<Diagnostics | null> {
 export function opusFmtp(fmtp: string) {
   const m = Object.fromEntries(fmtp.split(";").map((kv) => kv.trim().split("=")).filter((x) => x.length === 2));
   return { stereo: m["stereo"] === "1", dtx: m["usedtx"] === "1", fec: m["useinbandfec"] === "1", maxAvgBitrate: m["maxaveragebitrate"] ? Number(m["maxaveragebitrate"]) : null };
+}
+
+/** Cloudflare calls expose the same measured stats as the LiveKit transport. */
+async function collectCloudflare(call:NonNullable<ReturnType<typeof currentCloudflare>>):Promise<Diagnostics>{
+ const now=performance.now(),settings=useVoice.getState().settings;
+ const out:Diagnostics={at:Date.now(),audio:null,screen:null,camera:null,inbound:[],candidate:null};
+ for(const [kind,sender]of call.senders){
+  const report=await sender.getStats();const rows=[...report.values()]as any[];const outbound=rows.filter(r=>r.type==="outbound-rtp"),remote=rows.find(r=>r.type==="remote-inbound-rtp");
+  const c=codecOf(report,outbound[0]?.codecId);
+  for(const row of rows)if(row.type==="candidate-pair"&&row.nominated&&row.state==="succeeded"&&!out.candidate){const local=report.get(row.localCandidateId)as any;out.candidate=local?`${local.candidateType}${local.relayProtocol?` via TURN/${local.relayProtocol}`:""} (${local.protocol})`:null;}
+  if(kind==="mic"){const row=outbound[0];out.audio={...c,requestedKbps:Math.round(settings.bitrate/1000),sendKbps:kbps(`cf:${call.id}:audio:${row?.id}`,row?.bytesSent,now),packetLossPct:remote?.fractionLost!=null?Math.round(remote.fractionLost*1000)/10:null,jitterMs:remote?.jitter!=null?Math.round(remote.jitter*1000):null,rttMs:remote?.roundTripTime!=null?Math.round(remote.roundTripTime*1000):null};}
+  if(kind==="screen"||kind==="camera"){
+   const layers:VideoLayerDiag[]=outbound.map(row=>({rid:row.rid??"single",width:row.frameWidth??null,height:row.frameHeight??null,fps:row.framesPerSecond??null,kbps:kbps(`cf:${call.id}:video:${row.id}`,row.bytesSent,now),limitation:row.qualityLimitationReason??null,active:row.active!==false}));
+   if(kind==="camera")out.camera={codec:c.codec,layers};else{const capture=call.tracks.get("screen")?.getSettings();out.screen={codec:c.codec,layers,capture:capture?.width?{width:capture.width,height:capture.height??0,fps:Math.round(capture.frameRate??0)}:null};}
+  }
+ }
+ for(const transceiver of call.consumer.getTransceivers()){
+  const ref=transceiver.mid?call.refs.get(transceiver.mid):null;if(!ref)continue;const report=await transceiver.receiver.getStats(),row=[...report.values()].find((r:any)=>r.type==="inbound-rtp")as any;if(!row)continue;const c=codecOf(report,row.codecId),total=(row.packetsReceived??0)+(row.packetsLost??0);
+  out.inbound.push({identity:ref.user,kind:row.kind,source:ref.kind,codec:c.codec,channels:c.channels,width:row.frameWidth??null,height:row.frameHeight??null,fps:row.framesPerSecond??null,kbps:kbps(`cf:${call.id}:in:${row.id}`,row.bytesReceived,now),lossPct:total?Math.round((row.packetsLost/total)*1000)/10:null,jitterMs:row.jitter!=null?Math.round(row.jitter*1000):null,dropped:row.framesDropped??null});
+ }
+ return out;
 }

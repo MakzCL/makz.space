@@ -1,3 +1,5 @@
+import { previewMode } from "../preview-mode.ts";
+import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
 import { DmKeySettings } from "./DmPrivacy.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
@@ -182,14 +184,14 @@ function VoiceTab() {
   return (
     <div className="stack">
       <h2>Voice & video</h2>
-      {!limits?.media_enabled && <p className="warn-text">This server hasn't configured its media server yet, so calls can't connect. Settings still save.</p>}
+      {!limits?.media_enabled && <p className="warn-text">{previewMode ? "Calls connect in the live app. This preview uses sample data." : "Calling is temporarily unavailable. Your voice settings still save."}</p>}
       <div className="row wrap">
         <Field label="Microphone"><Select value={s.inputDeviceId} onChange={(e) => switchDevice("audioinput", e.target.value)}><option value="default">Default</option>{list("audioinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microphone"}</option>)}</Select></Field>
         <Field label="Speaker"><Select value={s.outputDeviceId} disabled={!caps.setSinkId} onChange={(e) => switchDevice("audiooutput", e.target.value)}><option value="default">Default</option>{list("audiooutput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Speaker"}</option>)}</Select></Field>
         <Field label="Camera"><Select value={s.videoDeviceId} onChange={(e) => switchDevice("videoinput", e.target.value)}><option value="">Default</option>{list("videoinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}</Select></Field>
       </div>
       {!caps.setSinkId && <p className="muted small">This browser can't choose a speaker; it uses the system default.</p>}
-      <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><input type="range" min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
+      <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><Range min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
       <Field label="Input mode"><Select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></Select></Field>
       {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when SEND is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}

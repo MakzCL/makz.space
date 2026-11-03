@@ -18,11 +18,16 @@ export const PROFILE_CATALOG = [
     "name": "Frozen",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "ice-crystal ring; snowflakes swirl into Elsa’s ice palace",
-    "ready": false,
+    "ready": true,
     "primary": "#bee28c",
     "secondary": "#33431d",
     "motif": "crystal",
-    "motion": "snow"
+    "motion": "snow",
+    "art": "/collections/bundle-2.webp",
+    "artTitle": "Frozen Official Website on Disney Movies",
+    "source": "https://movies.disney.com/frozen",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-3",
@@ -30,11 +35,16 @@ export const PROFILE_CATALOG = [
     "name": "The Lion King",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "Pride Rock frame; sunrise effect with “Circle of Life” rays",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cd7",
     "secondary": "#431d3f",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-3.webp",
+    "artTitle": "The Lion King presented by Disney Movies",
+    "source": "https://movies.disney.com/the-lion-king",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-4",
@@ -42,11 +52,16 @@ export const PROFILE_CATALOG = [
     "name": "Toy Story",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "Woody’s hat and Buzz’s wings; “To infinity and beyond” rocket trail",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2d4",
     "secondary": "#1d433d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-4.webp",
+    "artTitle": "Toy Story",
+    "source": "https://movies.disney.com/toy-story",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-5",
@@ -54,11 +69,16 @@ export const PROFILE_CATALOG = [
     "name": "Monsters, Inc.",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "door frame; scream canister fills up with energy",
-    "ready": false,
+    "ready": true,
     "primary": "#e2bb8c",
     "secondary": "#43321d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-5.webp",
+    "artTitle": "Monsters, Inc.",
+    "source": "https://movies.disney.com/monsters-inc",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-6",
@@ -66,11 +86,16 @@ export const PROFILE_CATALOG = [
     "name": "Up",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "a bunch of balloons; house floats across the banner",
-    "ready": false,
+    "ready": true,
     "primary": "#a28ce2",
     "secondary": "#261d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-6.webp",
+    "artTitle": "UP",
+    "source": "https://movies.disney.com/up",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-7",
@@ -78,11 +103,16 @@ export const PROFILE_CATALOG = [
     "name": "Inside Out 2",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "memory-orb ring in emotion colors; orbs roll across",
-    "ready": false,
+    "ready": true,
     "primary": "#90e28c",
     "secondary": "#1e431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-7.webp",
+    "artTitle": "Inside Out 2",
+    "source": "https://movies.disney.com/inside-out-2",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-8",
@@ -90,11 +120,16 @@ export const PROFILE_CATALOG = [
     "name": "Encanto",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "butterfly candle frame; magic door glows",
-    "ready": false,
+    "ready": true,
     "primary": "#e28ca9",
     "secondary": "#431d2a",
     "motif": "butterfly",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-8.webp",
+    "artTitle": "Encanto",
+    "source": "https://movies.disney.com/encanto",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-9",
@@ -102,11 +137,16 @@ export const PROFILE_CATALOG = [
     "name": "Moana",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "wave and Heart of Te Fiti; ocean parts on hover",
-    "ready": false,
+    "ready": true,
     "primary": "#8cc2e2",
     "secondary": "#1d3543",
     "motif": "wave",
-    "motion": "tide"
+    "motion": "tide",
+    "art": "/collections/bundle-9.webp",
+    "artTitle": "Moana",
+    "source": "https://movies.disney.com/moana",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-10",
@@ -114,11 +154,16 @@ export const PROFILE_CATALOG = [
     "name": "Coco",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "marigold and alebrije frame; bridge of petals",
-    "ready": false,
+    "ready": true,
     "primary": "#dbe28c",
     "secondary": "#40431d",
     "motif": "blossom",
-    "motion": "petals"
+    "motion": "petals",
+    "art": "/collections/bundle-10.webp",
+    "artTitle": "Coco",
+    "source": "https://movies.disney.com/coco",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-11",
@@ -126,11 +171,16 @@ export const PROFILE_CATALOG = [
     "name": "Stitch",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "ears popping out of the frame; chaotic paw prints",
-    "ready": false,
+    "ready": true,
     "primary": "#d08ce2",
     "secondary": "#3b1d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-11.webp",
+    "artTitle": "Lilo & Stitch",
+    "source": "https://movies.disney.com/lilo-stitch",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-12",
@@ -138,11 +188,16 @@ export const PROFILE_CATALOG = [
     "name": "Nightmare Before Christmas",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "Jack’s spiral hill; Halloween Town fog",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2b7",
     "secondary": "#1d4330",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-12.webp",
+    "artTitle": "The Nightmare Before Christmas",
+    "source": "https://movies.disney.com/the-nightmare-before-christmas",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-13",
@@ -186,11 +241,16 @@ export const PROFILE_CATALOG = [
     "name": "WALL-E",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "robot eyes peeking over; a plant sprouts, EVE flies by",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cc6",
     "secondary": "#431d36",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-16.webp",
+    "artTitle": "WALL·E",
+    "source": "https://movies.disney.com/wall-e",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-17",
@@ -282,11 +342,16 @@ export const PROFILE_CATALOG = [
     "name": "Black Panther",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "vibranium necklace; purple kinetic pulse",
-    "ready": false,
+    "ready": true,
     "primary": "#e28ce2",
     "secondary": "#431d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-24.webp",
+    "artTitle": "Black Panther",
+    "source": "https://movies.disney.com/black-panther",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-25",
@@ -306,11 +371,16 @@ export const PROFILE_CATALOG = [
     "name": "Guardians of the Galaxy",
     "category": "Disney, Pixar, Marvel & Star Wars",
     "brief": "cassette tape frame; Awesome Mix soundwave",
-    "ready": false,
+    "ready": true,
     "primary": "#e2b08c",
     "secondary": "#432d1d",
     "motif": "wave",
-    "motion": "tide"
+    "motion": "tide",
+    "art": "/collections/bundle-26.webp",
+    "artTitle": "Marvel's Guardians of the Galaxy",
+    "source": "https://movies.disney.com/marvels-guardians-of-the-galaxy",
+    "provider": "Disney / original film publisher",
+    "kind": "cover"
   },
   {
     "id": "bundle-27",
@@ -3002,11 +3072,16 @@ export const PROFILE_CATALOG = [
     "name": "Naruto",
     "category": "Anime & Manga",
     "brief": "Hidden Leaf headband; Rasengan spin",
-    "ready": false,
+    "ready": true,
     "primary": "#b2e28c",
     "secondary": "#2e431d",
     "motif": "vine",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-214.jpg",
+    "artTitle": "Naruto",
+    "source": "https://www.tvmaze.com/shows/495/naruto",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-215",
@@ -3026,11 +3101,16 @@ export const PROFILE_CATALOG = [
     "name": "One Piece",
     "category": "Anime & Manga",
     "brief": "Straw Hat; Gear 5 bubbly cartoon effect",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2e0",
     "secondary": "#1d4342",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-216.jpg",
+    "artTitle": "One Piece",
+    "source": "https://www.tvmaze.com/shows/46065/one-piece",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-217",
@@ -3038,11 +3118,16 @@ export const PROFILE_CATALOG = [
     "name": "Dragon Ball Z",
     "category": "Anime & Manga",
     "brief": "Dragon Balls orbit; Shenron coil",
-    "ready": false,
+    "ready": true,
     "primary": "#e2c78c",
     "secondary": "#43371d",
     "motif": "filigree",
-    "motion": "orbit"
+    "motion": "orbit",
+    "art": "/collections/bundle-217.jpg",
+    "artTitle": "Dragon Ball Z",
+    "source": "https://www.tvmaze.com/shows/2103/dragon-ball-z",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-218",
@@ -3050,11 +3135,16 @@ export const PROFILE_CATALOG = [
     "name": "Demon Slayer",
     "category": "Anime & Manga",
     "brief": "Tanjiro’s earrings; Water Breathing wave",
-    "ready": false,
+    "ready": true,
     "primary": "#ae8ce2",
     "secondary": "#2c1d43",
     "motif": "wave",
-    "motion": "tide"
+    "motion": "tide",
+    "art": "/collections/bundle-218.jpg",
+    "artTitle": "Demon Slayer",
+    "source": "https://www.tvmaze.com/shows/41469/demon-slayer",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-219",
@@ -3074,11 +3164,16 @@ export const PROFILE_CATALOG = [
     "name": "Jujutsu Kaisen",
     "category": "Anime & Manga",
     "brief": "Gojo’s blindfold; Domain Expansion “Infinite Void”",
-    "ready": false,
+    "ready": true,
     "primary": "#e28c9d",
     "secondary": "#431d24",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-220.jpg",
+    "artTitle": "Jujutsu Kaisen",
+    "source": "https://www.tvmaze.com/shows/48450/jujutsu-kaisen",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-221",
@@ -3086,11 +3181,16 @@ export const PROFILE_CATALOG = [
     "name": "Chainsaw Man",
     "category": "Anime & Manga",
     "brief": "chainsaw teeth ring; Makima eyes",
-    "ready": false,
+    "ready": true,
     "primary": "#8cb6e2",
     "secondary": "#1d2f43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-221.jpg",
+    "artTitle": "Chainsaw Man",
+    "source": "https://www.tvmaze.com/shows/63451/chainsaw-man",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-222",
@@ -3098,11 +3198,16 @@ export const PROFILE_CATALOG = [
     "name": "Attack on Titan",
     "category": "Anime & Manga",
     "brief": "Survey Corps wings; ODM gear swing",
-    "ready": false,
+    "ready": true,
     "primary": "#cfe28c",
     "secondary": "#3b431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-222.jpg",
+    "artTitle": "Attack on Titan",
+    "source": "https://www.tvmaze.com/shows/919/attack-on-titan",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-223",
@@ -3110,11 +3215,16 @@ export const PROFILE_CATALOG = [
     "name": "My Hero Academia",
     "category": "Anime & Manga",
     "brief": "One For All lightning",
-    "ready": false,
+    "ready": true,
     "primary": "#dc8ce2",
     "secondary": "#411d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-223.jpg",
+    "artTitle": "My Hero Academia",
+    "source": "https://www.tvmaze.com/shows/13615/my-hero-academia",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-224",
@@ -3122,11 +3232,16 @@ export const PROFILE_CATALOG = [
     "name": "Bleach",
     "category": "Anime & Manga",
     "brief": "Bankai reiatsu; Hollow mask crack",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2c3",
     "secondary": "#1d4335",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-224.jpg",
+    "artTitle": "Bleach",
+    "source": "https://www.tvmaze.com/shows/1905/bleach",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-225",
@@ -3134,11 +3249,16 @@ export const PROFILE_CATALOG = [
     "name": "Hunter x Hunter",
     "category": "Anime & Manga",
     "brief": "Nen aura",
-    "ready": false,
+    "ready": true,
     "primary": "#e2aa8c",
     "secondary": "#432a1d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-225.jpg",
+    "artTitle": "Hunter x Hunter",
+    "source": "https://www.tvmaze.com/shows/1536/hunter-x-hunter",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-226",
@@ -3146,11 +3266,16 @@ export const PROFILE_CATALOG = [
     "name": "Death Note",
     "category": "Anime & Manga",
     "brief": "notebook; Ryuk apple",
-    "ready": false,
+    "ready": true,
     "primary": "#918ce2",
     "secondary": "#1f1d43",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-226.jpg",
+    "artTitle": "Death Note",
+    "source": "https://www.tvmaze.com/shows/40/death-note",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-227",
@@ -3158,11 +3283,16 @@ export const PROFILE_CATALOG = [
     "name": "Tokyo Ghoul",
     "category": "Anime & Manga",
     "brief": "kagune tendrils; kakugan eye",
-    "ready": false,
+    "ready": true,
     "primary": "#a1e28c",
     "secondary": "#26431d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-227.jpg",
+    "artTitle": "Tokyo Ghoul",
+    "source": "https://www.tvmaze.com/shows/1440/tokyo-ghoul",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-228",
@@ -3170,11 +3300,16 @@ export const PROFILE_CATALOG = [
     "name": "Solo Leveling",
     "category": "Anime & Manga",
     "brief": "system window; shadow army rise",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cba",
     "secondary": "#431d31",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-228.jpg",
+    "artTitle": "Solo Leveling",
+    "source": "https://www.tvmaze.com/shows/64632/solo-leveling",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-229",
@@ -3218,11 +3353,16 @@ export const PROFILE_CATALOG = [
     "name": "Cowboy Bebop",
     "category": "Anime & Manga",
     "brief": "jazz “See you space cowboy”",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2a6",
     "secondary": "#1d4328",
     "motif": "star",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-232.jpg",
+    "artTitle": "Cowboy Bebop",
+    "source": "https://www.tvmaze.com/shows/1121/cowboy-bebop",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-233",
@@ -3242,11 +3382,16 @@ export const PROFILE_CATALOG = [
     "name": "Dandadan",
     "category": "Anime & Manga",
     "brief": "Okarun / Turbo Granny chaos",
-    "ready": false,
+    "ready": true,
     "primary": "#8ca4e2",
     "secondary": "#1d2743",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-234.jpg",
+    "artTitle": "Dandadan",
+    "source": "https://www.tvmaze.com/shows/73023/dandadan",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-235",
@@ -3254,11 +3399,16 @@ export const PROFILE_CATALOG = [
     "name": "Blue Lock",
     "category": "Anime & Manga",
     "brief": "ego flame; striker eye",
-    "ready": false,
+    "ready": true,
     "primary": "#bde28c",
     "secondary": "#33431d",
     "motif": "flame",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-235.jpg",
+    "artTitle": "Blue Lock",
+    "source": "https://www.tvmaze.com/shows/60383/blue-lock",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-236",
@@ -3266,11 +3416,16 @@ export const PROFILE_CATALOG = [
     "name": "Haikyuu!!",
     "category": "Anime & Manga",
     "brief": "Karasuno crow wings; volleyball spike",
-    "ready": false,
+    "ready": true,
     "primary": "#e28cd6",
     "secondary": "#431d3e",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-236.jpg",
+    "artTitle": "Haikyuu!!",
+    "source": "https://www.tvmaze.com/shows/5193/haikyuu",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-237",
@@ -3278,11 +3433,16 @@ export const PROFILE_CATALOG = [
     "name": "Sakamoto Days",
     "category": "Anime & Manga",
     "brief": "sweets-shop frame",
-    "ready": false,
+    "ready": true,
     "primary": "#8ce2d5",
     "secondary": "#1d433d",
     "motif": "filigree",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-237.jpg",
+    "artTitle": "Sakamoto Days",
+    "source": "https://www.tvmaze.com/shows/77383/sakamoto-days",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-238",
@@ -3290,11 +3450,16 @@ export const PROFILE_CATALOG = [
     "name": "Oshi no Ko",
     "category": "Anime & Manga",
     "brief": "star-pupil eyes",
-    "ready": false,
+    "ready": true,
     "primary": "#e2bc8c",
     "secondary": "#43321d",
     "motif": "star",
-    "motion": "shimmer"
+    "motion": "shimmer",
+    "art": "/collections/bundle-238.jpg",
+    "artTitle": "[Oshi no Ko]",
+    "source": "https://www.tvmaze.com/shows/67635/oshi-no-ko",
+    "provider": "TVmaze / original distributor",
+    "kind": "cover"
   },
   {
     "id": "bundle-239",

@@ -59,6 +59,7 @@ let gainCtx: { ctx: AudioContext; gain: GainNode; dest: MediaStreamAudioDestinat
 let joinToken = 0;
 
 export const currentRoom = () => room;
+export const currentCloudflare = () => cf;
 
 function reportState() {
   const s = get();
@@ -161,7 +162,7 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
   set({ settings: next });
   saveVoiceSettings(next);
   applyOutput();
-  if (cf) { cf.output(); await cf.microphone(); return; }
+  if (cf) { await cf.applySettings(prev,next).catch(e=>toast(`Couldn’t apply call settings: ${errMsg(e)}`,"error")); return; }
   if (!room || !micTrack) return;
   const needsRepublish = (["stereo", "dtx", "red", "echoCancellation", "noiseSuppression", "autoGainControl", "inputDeviceId"] as const).some((k) => prev[k] !== next[k])
     || (prev.inputGain === 1) !== (next.inputGain === 1);
@@ -190,7 +191,7 @@ export async function joinVoice(channelId: string) {
     if (my !== joinToken) return;
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
-    if (t.provider === "cloudflare" && t.session) { cf = new CloudflareCall(t.session); await cf.start(); reportState(); return; }
+    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
     const r = new Room({
       adaptiveStream: true, // subscribe to the layer that fits the element on screen
       dynacast: true, // stop encoding layers nobody watches
