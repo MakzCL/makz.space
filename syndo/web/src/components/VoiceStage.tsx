@@ -1,5 +1,8 @@
 import { MobileNavButton } from "./ui.tsx";
-import { Popover } from "./overlay.tsx";
+import { contextMenuKey, tileMenuItems } from "./callMenus.tsx";
+import { userMenuItems } from "./menus.tsx";
+import { ProfileCard } from "./Dialogs.tsx";
+import { Popover, openContextMenu } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
@@ -62,9 +65,9 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={tiles.length}>
-        {focused && <VideoTile t={focused} big onFocus={() => useVoice.setState({ focus: null })} />}
+        {focused && <VideoTile t={focused} guildId={guild?.id ?? null} big onFocus={() => useVoice.setState({ focus: null })} />}
         <div className={focused ? "tile-strip" : "tile-grid"}>
-          {tiles.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} onFocus={() => useVoice.setState({ focus: t.key, layout: "focus" })} />)}
+          {tiles.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => useVoice.setState({ focus: t.key, layout: "focus" })} />)}
         </div>
       </div>
       {diag && <DiagPanel />}
@@ -94,8 +97,10 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   );
 }
 
-function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean }; big?: boolean; onFocus: () => void }) {
+export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null; t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean }; big?: boolean; onFocus: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const tileRef = useRef<HTMLElement>(null);
+  const [profile, setProfile] = useState(false);
   const users = useStore((s) => s.users);
   const me = useStore(s => s.me);
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
@@ -105,18 +110,31 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
     const el = ref.current; if (!el) return;
     el.srcObject = t.track ? new MediaStream([t.track]) : null;
   }, [t.track]);
-  const fullscreen = () => ref.current?.parentElement?.requestFullscreen?.();
-  const pip = () => (ref.current as any)?.requestPictureInPicture?.().catch(() => {});
+  const fullscreen = () => tileRef.current?.requestFullscreen?.();
+  const pip = () => (ref.current as HTMLVideoElement & { requestPictureInPicture?: () => Promise<unknown> })?.requestPictureInPicture?.();
+  const context = (e: { clientX?: number; clientY?: number; preventDefault(): void; stopPropagation(): void }) => {
+    e.stopPropagation(); setMenu(false);
+    const user = t.local ? me : users[t.uid];
+    openContextMenu({ clientX: e.clientX, clientY: e.clientY, currentTarget: tileRef.current, preventDefault: () => e.preventDefault() }, tileMenuItems({
+      uid: t.uid, screen: t.kind === "screen", local: t.local, focused: !!big, hasVideo: !!t.track,
+      onFocus, onFullscreen: fullscreen,
+      onPip: ref.current && "requestPictureInPicture" in ref.current && document.pictureInPictureEnabled ? pip : undefined,
+      onProfile: user ? () => setProfile(true) : undefined,
+      participantItems: user ? userMenuItems(user, { guildId, onProfile: () => setProfile(true) }) : [],
+    }));
+  };
   return (
-    <figure className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`} onDoubleClick={fullscreen}>
+    <figure ref={tileRef} tabIndex={0} aria-label={t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`}
+      onContextMenu={context} onKeyDown={e => { if (e.target === e.currentTarget) contextMenuKey(e, () => context(e)); }} onDoubleClick={() => { void fullscreen()?.catch(() => {}); }}>
       {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : 72} /></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis">{t.name}</span></figcaption>
       <div className="tile-tools">
         <button className="icon-btn sm" onClick={onFocus} aria-label={big ? "Unfocus" : `Focus ${t.name}`}><Pin size={14} /></button>
-        {t.track && <button className="icon-btn sm" onClick={fullscreen} aria-label="Fullscreen"><Maximize size={14} /></button>}
-        {t.track && "requestPictureInPicture" in HTMLVideoElement.prototype && <button className="icon-btn sm" onClick={pip} aria-label="Picture in picture"><PictureInPicture2 size={14} /></button>}
+        {t.track && <button className="icon-btn sm" onClick={() => { void fullscreen()?.catch(() => {}); }} aria-label="Fullscreen"><Maximize size={14} /></button>}
+        {t.track && "requestPictureInPicture" in HTMLVideoElement.prototype && <button className="icon-btn sm" onClick={() => { void pip()?.catch(() => {}); }} aria-label="Picture in picture"><PictureInPicture2 size={14} /></button>}
         {!t.local && <button ref={volBtn} className="icon-btn sm" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label={`Volume for ${t.name}`}><Volume2 size={14} /></button>}
       </div>
+      {profile && tileRef.current && <ProfileCard userId={t.uid} guildId={guildId} anchor={tileRef.current} onClose={() => setProfile(false)} />}
       {menu && <Popover className="vol-pop" role="dialog" label={`Volume for ${t.name}`} anchor={() => volBtn.current} onClose={() => setMenu(false)}><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<Range min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></Popover>}
     </figure>
   );

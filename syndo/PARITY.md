@@ -18,7 +18,7 @@ with other third-party lists. They should be re-checked against Discord's in-app
 Behaviours marked *(unverified)* are my best understanding of current Discord and weren't checked
 against the live client.
 
-Last updated: 2026-11-04 (batches 1–2: interaction system, shortcuts and Keybinds).
+Last updated: 2026-11-04 (batches 1–2 plus context-specific participant and stream actions).
 
 ## 1. Dismissal and overlays
 
@@ -145,7 +145,8 @@ Evidence: `e2e/keyboard.cjs` (34/34, stable over 3 runs).
 | Voice channels join/leave, participant list | ✅ (signalling) | Media path can't be verified from the build sandbox (no UDP); see the TURN note |
 | Mute/deafen, speaking indicators | 🟡 | Speaking rings from real audio levels on Cloudflare calls (new); not tested in a real call |
 | Camera, screen share, system audio | 🟡 | Built; local capture stops immediately on request (`stopKind` stops the track before the network call) |
-| Per-user and per-stream volume | ✅ (UI) | Popover now uses the layer manager |
+| Per-user and per-stream volume | ✅ (UI) | Popover and context menus use separate audio keys. Local mute restores the previous level; tested in web/test/call-menus.test.tsx |
+| Participant vs stream context actions | ✅ (UI) | Channel participant buttons, member/message author menus and camera tiles offer profile/social actions, plus voice controls only in the same call. Stream tiles offer media controls and independent stream audio; own streams offer change-window/stop. Shift+F10/ContextMenu, Escape, outside dismissal and focus restoration tested. Live media actions reuse existing capture/SFU functions; no new network path |
 | Input gain, device selection, NS/EC/AGC | ✅ (UI) | Output-only changes don't reacquire the mic (`applySettings` checks capture keys) |
 | Krisp | 🔒 | Embedded SDK needs a licence. Krisp's virtual microphone is supported as an input device. The standard noise-suppression switch is not Krisp |
 | TURN relay (strict networks) | 🔒 | Code ready; needs a TURN key created in the Cloudflare dashboard (the API connector hides the token) |

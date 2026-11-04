@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu } from "./overlay.tsx";
+import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
-import { guildMenuItems, channelMenuItems, dmMenuItems } from "./menus.tsx";
+import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
 import { BRAND, ChannelType, P, has, isVoiceType, type Channel, type Guild } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
 import { updateSettings } from "../actions.ts";
@@ -16,7 +17,7 @@ import { navigate, useRoute } from "../router.ts";
 import { can, channelTree, displayName, dmTitle, guildPerms, isUnread, toast, useStore } from "../store.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, useVoice } from "../voice/session.ts";
 import { ChannelView } from "./ChannelView.tsx";
-import { CreateChannel, CreateServer, InviteDialog, NewGroupDm } from "./Dialogs.tsx";
+import { CreateChannel, CreateServer, InviteDialog, NewGroupDm, ProfileCard } from "./Dialogs.tsx";
 import { Friends } from "./Friends.tsx";
 import { SavedMessages } from "./SavedMessages.tsx";
 import { ServerSettings } from "./ServerSettings.tsx";
@@ -268,6 +269,11 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
 const CHANNEL_ICON: Record<number, typeof Hash> = { [ChannelType.TEXT]: Hash, [ChannelType.VOICE]: Volume2, [ChannelType.ANNOUNCEMENT]: Megaphone, [ChannelType.STAGE]: Radio, [ChannelType.FORUM]: MessageSquare, [ChannelType.MEDIA]: Image };
 
 function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: boolean }) {
+  const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
+  const participantMenu = (id: string, el: HTMLElement, e: { preventDefault(): void; clientX?: number; clientY?: number }) => {
+    const user = useStore.getState().users[id] ?? (id === useStore.getState().me?.id ? useStore.getState().me : null);
+    if (user) openContextMenu({ clientX: e.clientX, clientY: e.clientY, preventDefault: () => e.preventDefault(), currentTarget: el }, userMenuItems(user, { guildId: guild.id, onProfile: () => setProfile({ id, el }) }));
+  };
   const Icon = CHANNEL_ICON[c.type] ?? Hash;
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
@@ -287,16 +293,22 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
         {c.user_limit > 0 && isVoiceType(c.type) && <small className="muted">{voiceUsers.length}/{c.user_limit}</small>}
         {mentions > 0 && <span className="badge inline">{mentions}</span>}
       </button>
+      {profile && <ProfileCard userId={profile.id} guildId={guild.id} anchor={profile.el} onClose={() => setProfile(null)} />}
       {voiceUsers.length > 0 && (
         <ul className="voice-users" aria-label={`In ${c.name}`}>
           {voiceUsers.map((v) => (
             <li key={v.user_id}>
+              <button className="voice-participant" aria-label={`Profile and actions for ${displayName(users[v.user_id])}`} aria-haspopup="menu"
+                onClick={e => setProfile({ id: v.user_id, el: e.currentTarget })}
+                onContextMenu={e => participantMenu(v.user_id, e.currentTarget, e)}
+                onKeyDown={e => contextMenuKey(e, () => participantMenu(v.user_id, e.currentTarget, e))}>
               <Avatar user={users[v.user_id] ?? null} size={22} />
               <span className="ellipsis">{displayName(users[v.user_id])}</span>
               {v.self_stream && <span className="live">LIVE</span>}
               {v.self_video && <Video size={13} aria-label="camera on" />}
               {(v.self_mute || v.server_mute) && <MicOff size={13} aria-label="muted" />}
               {(v.self_deaf || v.server_deaf) && <HeadphoneOff size={13} aria-label="deafened" />}
+              </button>
             </li>
           ))}
         </ul>

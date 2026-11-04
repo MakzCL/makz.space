@@ -1164,3 +1164,11 @@ video.viewer-media { cursor: default; }
 .ctx-emoji-grid .ctx-label { flex: none; overflow: visible; }
 @media (max-width: 760px) { .ctx-emoji-grid { grid-template-columns: repeat(6, 1fr); } .ctx-emoji-grid .ctx-item { font-size: 1.7rem; min-height: 54px; } }
 @media (hover: none) and (pointer: coarse) { .ctx-hint { display: none; } } /* "Alt+click"/"Shift+click" mean nothing on a phone */
+
+/* Voice participants are interactive; retain compact, theme-dependent channel styling. */
+.voice-participant { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding: 4px 6px; border: 0; border-radius: 7px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.voice-participant:hover, .voice-participant:focus-visible { background: var(--bg3); color: var(--text); }
+.call-menu-volume { display: block; min-width: 180px; padding: 5px 4px; font-size: .8rem; }
+.call-menu-volume > span { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 7px; }
+.call-menu-volume output { font-variant-numeric: tabular-nums; color: var(--textMuted); }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }

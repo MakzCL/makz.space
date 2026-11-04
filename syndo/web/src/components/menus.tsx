@@ -1,4 +1,6 @@
 import { ChannelType, P, has, isVoiceType, type Channel, type Guild, type User } from "@syndo/shared";
+import { audioMenuItems, selfCallMenuItems } from "./callMenus.tsx";
+import { useVoice } from "../voice/session.ts";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, openDm, setConversationMuted, updateSettings } from "../actions.ts";
 import { navigate } from "../router.ts";
@@ -102,6 +104,9 @@ export function userMenuItems(u: User, opts: { guildId?: string | null; onProfil
       } });
     }
   }
+  const call = useVoice.getState();
+  const inCall = !!call.channelId && (self || !!call.peers[u.id] || s.voice[u.id]?.channel_id === call.channelId);
+  if (inCall) items.push(sep, ...(self ? selfCallMenuItems() : audioMenuItems(u.id)));
   items.push(sep, { label: "Copy username", onSelect: () => copy(u.username, "Username copied") }, ...idItem(u.id, "Copy user ID"));
   return items;
 }

@@ -140,7 +140,7 @@ function MenuSurface({ items, at, onClose, focusFirst, parentItem, level = 0 }: 
     (focusFirst ? el.querySelector<HTMLElement>("[role=menuitem]:not([aria-disabled=true]),[role=menuitemcheckbox]:not([aria-disabled=true])") ?? el : el).focus({ preventScroll: true });
     return () => { clearTimeout(openTimer.current); clearTimeout(closeTimer.current); };
   }, []); // eslint-disable-line
-  const focusables = () => [...ref.current!.querySelectorAll<HTMLElement>(":scope > [role=menuitem]:not([aria-disabled=true]), :scope > [role=menuitemcheckbox]:not([aria-disabled=true])")];
+  const focusables = () => [...ref.current!.querySelectorAll<HTMLElement>(":scope > [role=menuitem]:not([aria-disabled=true]), :scope > [role=menuitemcheckbox]:not([aria-disabled=true]), :scope > .ctx-custom input:not(:disabled), :scope > .ctx-custom button:not(:disabled)")];
   const run = (it: Extract<MenuItem, { label: string }>) => { if (it.disabled) return; if (it.submenu) return; closeContextMenu(); it.onSelect?.(); };
   const typeahead = useRef({ s: "", t: 0 });
   const key = (e: React.KeyboardEvent) => {
