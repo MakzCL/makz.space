@@ -305,7 +305,7 @@ p { margin: 0; }
 .tile b span { font-size: 0.95rem; font-weight: 500; color: var(--muted); }
 .tile small { font-size: 0.76rem; color: var(--text-2); }
 .tile.red { background: var(--red-fill); } .tile.red small, .tile.blue small { color: #fff; } .tile.blue { background: var(--blue); }
-.tile.red small, .tile.blue small { color: rgba(255, 255, 255, 0.85); }
+.tile.red small, .tile.blue small { color: #fff; }
 .absence-tiles .tile { border-top: 4px solid var(--c); }
 .k-sick { --c: var(--moon); } .k-day_off { --c: var(--blue-2); } .k-holiday { --c: var(--red); }
 
@@ -360,7 +360,7 @@ p { margin: 0; }
 .tri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .tri > div { background: var(--surface-2); border-radius: var(--r-m); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.1rem; }
 .tri > div.hl { background: var(--red); }
-.tri > div.hl small, .tri > div.hl em { color: rgba(255, 255, 255, 0.85); }
+.tri > div.hl small, .tri > div.hl em { color: #fff; }
 .tri small { font-size: 0.72rem; color: var(--muted); }
 .tri b { font-size: 1.25rem; font-weight: 700; }
 .tri em { font-size: 0.68rem; font-style: normal; color: var(--dim); }

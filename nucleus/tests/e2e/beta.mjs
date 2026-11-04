@@ -89,5 +89,5 @@ try {
   const bom = await q.getByTestId("bom").innerText(); assert.match(bom, /R_0805_2012Metric/); assert.match(bom, /LED_D5\.0mm/); assert.doesNotMatch(bom, /missing/);
   step("every PCB part has a valid footprint (BOM shows them; sources excluded)"); await shot(q, "bom");
   assert.deepEqual(errors, [], errors.join("\n"));
-  console.log(`\nNUCLEUS beta steps 1–${n} passed. Steps 13–21 (PCB, DRC, Gerber/drill) are not built yet.`);
+  console.log(`\nNUCLEUS beta steps 1–${n} passed. Steps 13–21 (PCB layout, routing, DRC, Gerber/drill) are covered by tests/e2e/pcb.mjs.`);
 } finally { await b.close(); }

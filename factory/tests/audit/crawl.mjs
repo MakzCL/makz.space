@@ -39,7 +39,7 @@ export const STATIC_JS = () => {
   return out;
 };
 
-const CONTROLS = "button:not([disabled]), a[href]:not([href^='http']):not([download]), [role=tab], [role=menuitem], input[type=checkbox]:not([disabled]), input[type=radio]:not([disabled]), select:not([disabled])";
+const CONTROLS = "button:not([disabled]), a[href]:not([href^='http']):not([download]), [role=tab], [role=menuitem]:not([disabled]):not([aria-disabled=true]), input[type=checkbox]:not([disabled]), input[type=radio]:not([disabled]), select:not([disabled])";
 
 /** Crawl one screen. open(page) must navigate a fresh page to the screen. */
 export async function crawlScreen({ browser, newPage, open, app, screen, viewport, maxControls = 120, skip = [] }) {

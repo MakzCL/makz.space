@@ -199,3 +199,5 @@ html[data-trotan-theme] .dev-btn { background: var(--t-panel2); border-color: va
 html[data-trotan-theme] .dev-btn.danger { background: #c4271f; border-color: #c4271f; color: #fff; } /* 5.6:1 with white text */
 html[data-trotan-theme] .devices-ok { color: var(--t-ok); } html[data-trotan-theme] .devices-err { color: var(--t-err); }
 .t-acct-themes { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+@media (max-width: 1100px) { .t-me { min-height: 36px; padding: 0 8px; line-height: 36px; } }
+.t-modal header .t-x { min-width: 32px; min-height: 32px; }
