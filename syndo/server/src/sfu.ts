@@ -5,10 +5,11 @@ export type Publication = { name:string; mid:string; kind:"mic"|"camera"|"screen
 export type SfuPeer = { id:string; consumer:string; user:string; name:string; auth:string; channel:string; publications:Publication[]; consumerMids:Set<string>; touched:number; tail:Promise<unknown> };
 export const sfuPeers=new Map<string,SfuPeer>();
 export const sfuConfigured=()=>!!(config.sfu.appId&&config.sfu.secret);
-export async function sfuRequest(path:string,method="POST",body?:unknown):Promise<any>{
+export async function sfuRequest(path:string,method="POST",body?:unknown,opts:{partial?:boolean}={}):Promise<any>{
  const r=await fetch(`https://rtc.live.cloudflare.com/v1/apps/${config.sfu.appId}${path}`,{method,headers:{authorization:`Bearer ${config.sfu.secret}`,"content-type":"application/json"},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
  const text=await r.text();let data:any;try{data=JSON.parse(text);}catch{data={errorCode:`http_${r.status}`,errorDescription:text.slice(0,200)};}
- const failed=!r.ok||data.errorCode||data.tracks?.some((t:any)=>t.errorCode);
+ // partial: a subscribe may succeed for some tracks while others aren't flowing yet; the client retries those.
+ const failed=!r.ok||data.errorCode||(opts.partial?data.tracks?.length&&data.tracks.every((t:any)=>t.errorCode):data.tracks?.some((t:any)=>t.errorCode));
  if(failed){const detail=[data.errorCode,data.errorDescription,...(data.tracks??[]).filter((t:any)=>t.errorCode).map((t:any)=>`${t.trackName??t.mid}: ${t.errorCode} ${t.errorDescription??""}`)].filter(Boolean).join("; ");console.error("[sfu]",method,path.replace(/[0-9a-f]{32,}/g,"…"),r.status,detail);
   // 409/422-style errors are not gateway failures; report them as such so proxies don't replace the body with an error page.
   const e=new ApiError(409,"media_error","The media service couldn't complete this connection. Leave and try again.");(e as any).references=detail.slice(0,300);throw e;}
@@ -39,17 +40,20 @@ const sweep=setInterval(()=>{for(const p of sfuPeers.values())if(Date.now()-p.to
  * port 443 gets through those networks. Falls back to STUN only if TURN isn't configured or unreachable.
  */
 const STUN = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
+export const turnStatus = { configured: false, last: "never requested" };
 export async function iceServers(): Promise<RTCIceServerLike[]> {
- if (!config.sfu.turnKeyId || !config.sfu.turnKeyToken) return STUN;
+ turnStatus.configured = !!(config.sfu.turnKeyId && config.sfu.turnKeyToken);
+ if (!config.sfu.turnKeyId || !config.sfu.turnKeyToken) { turnStatus.last = "not configured"; return STUN; }
  try {
   const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${config.sfu.turnKeyId}/credentials/generate-ice-servers`, { method: "POST", headers: { authorization: `Bearer ${config.sfu.turnKeyToken}`, "content-type": "application/json" }, body: JSON.stringify({ ttl: 86400 }), signal: AbortSignal.timeout(4000) });
-  if (!r.ok) throw new Error(`TURN credentials ${r.status}`);
+  if (!r.ok) throw new Error(`TURN credentials ${r.status}: ${(await r.text()).slice(0, 120)}`);
   const data: any = await r.json();
   const list = (Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers]).filter(Boolean)
    // Browsers time out on port-53 TURN URLs (often blocked); drop them.
    .map((s: any) => ({ ...s, urls: (Array.isArray(s.urls) ? s.urls : [s.urls]).filter((u: string) => !/:53(\?|$)/.test(u)) }));
+  turnStatus.last = list.length ? `ok (${list.flatMap((x: any) => x.urls).map((u: string) => u.split("?")[0]).join(", ")})` : "empty response";
   return list.length ? list : STUN;
- } catch (e) { console.error("[turn]", (e as Error).message); return STUN; }
+ } catch (e) { turnStatus.last = (e as Error).message; console.error("[turn]", turnStatus.last); return STUN; }
 }
 type RTCIceServerLike = { urls: string[] | string; username?: string; credential?: string };
 

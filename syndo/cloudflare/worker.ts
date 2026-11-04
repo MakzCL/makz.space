@@ -126,7 +126,7 @@ export default {
     try {
       // One Node process is the backend's realtime coordination unit. The beta
       // caps at one container until a shared event fanout is implemented.
-      return await env.BACKEND.getByName("syndo-beta-weur-v2", { locationHint: "weur" }).fetch(request);
+      return await env.BACKEND.getByName("syndo-beta-weur-v3", { locationHint: "weur" }).fetch(request);
     } catch (error) {
       console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
       return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});

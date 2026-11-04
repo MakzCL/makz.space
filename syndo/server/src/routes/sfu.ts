@@ -28,7 +28,7 @@ export async function sfuRoutes(app:FastifyInstance){app.addHook("preHandler",re
     const {tracks}=z.object({tracks:z.array(z.object({session:z.string().max(80),name:z.string().max(80)})).max(64)}).parse(req.body);
     for(const t of tracks){const owner=sfuPeers.get(t.session);if(!owner||owner.channel!==p.channel||!owner.publications.some(x=>x.name===t.name))throw forbidden("Track is outside this channel.");}
     if(!tracks.length)return {tracks:[]};
-    const r=await sfuRequest(`/sessions/${p.consumer}/tracks/new`,"POST",{tracks:tracks.map(t=>({location:"remote",sessionId:t.session,trackName:t.name}))});for(const t of r.tracks??[])if(t.mid)p.consumerMids.add(t.mid);return r;
+    const r=await sfuRequest(`/sessions/${p.consumer}/tracks/new`,"POST",{tracks:tracks.map(t=>({location:"remote",sessionId:t.session,trackName:t.name}))},{partial:true});for(const t of r.tracks??[])if(t.mid&&!t.errorCode)p.consumerMids.add(t.mid);return r;
    }
    if(req.params.op==="answer"){const b=z.object({sessionDescription:desc}).parse(req.body);return sfuRequest(`/sessions/${p.consumer}/renegotiate`,"PUT",b);}
    if(req.params.op==="close"){const {kind}=z.object({kind:kinds}).parse(req.body);const ts=p.publications.filter(t=>t.kind===kind);await close(p.id,ts.map(t=>t.mid));p.publications=p.publications.filter(t=>t.kind!==kind);announceMedia(p.channel,p.user);return {ok:true};}

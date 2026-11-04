@@ -73,7 +73,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     colo ??= fetch("https://www.cloudflare.com/cdn-cgi/trace", { signal: AbortSignal.timeout(3000) }).then((r) => r.text()).then((t) => /colo=(\w+)/.exec(t)?.[1] ?? "unknown").catch(() => { colo = null; return "unknown"; });
     const samples: number[] = [];
     for (let i = 0; i < 5; i++) { const s = performance.now(); await pool.query("select 1"); samples.push(Math.round((performance.now() - s) * 10) / 10); }
-    return { colo: await colo, db_roundtrip_ms: samples, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } };
+    const { turnStatus } = await import("./sfu.ts");
+    return { colo: await colo, turn: turnStatus, db_roundtrip_ms: samples, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } };
   });
   /** Instance metadata — identical limits for every account, published openly. */
   app.get("/api/instance", async () => ({ name: BRAND.name, tagline: BRAND.tagline, limits: config.limits, registration: true }));
