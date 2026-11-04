@@ -55,7 +55,7 @@ jobs:
       - name: Publish APK to Cloudflare R2
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
-          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/android/SEND-beta.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
+          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/android/SEND.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
       - name: Explain missing Cloudflare connection
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."

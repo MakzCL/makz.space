@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { timingSafeEqual } from "node:crypto";
-import { releaseDownload, releaseUpload } from "./releases";
+import { androidDownload, releaseDownload, releaseUpload } from "./releases";
 const TIMEOUT = 3600000;
 const bootstrap = `
 const fs = require('node:fs'), cp = require('node:child_process');
@@ -120,6 +120,7 @@ export default {
   async fetch(request:Request,env:Env) {
     const path = new URL(request.url).pathname;
     if (path === "/api/downloads/windows") return releaseDownload(request,env);
+    if (path === "/api/downloads/android") return androidDownload(request,env);
     if (path.startsWith("/__release/")) return releaseUpload(request,env);
     if (path.startsWith("/__storage/")) return storage(request,env);
     if (path !== "/gateway" && !path.startsWith("/api/")) return new Response(null,{status:404});

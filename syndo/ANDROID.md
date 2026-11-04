@@ -1,5 +1,9 @@
 # SEND for Android
 
+**Download:** `https://syndo.makz.space/api/downloads/android`. This redirects to the current `SEND.apk` in the public `syndo-desktop` R2 bucket (`android/SEND.apk`). The old `/android/Syndo-preview.apk` and `/android/SEND-beta.apk` links redirect there too. Android browsers get a one-time "Get SEND for Android" prompt.
+
+**Publishing a new APK:** the `SEND Android beta` workflow builds it on every push to the SEND branch and keeps it as a 90-day artifact. Uploading to R2 is automatic once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set as repository secrets (the workflow's R2 step writes `android/SEND-beta.apk`; change its key to `android/SEND.apk`). Until then, upload the artifact's APK to `syndo-desktop/android/SEND.apk` by hand.
+
 The APK (v0.3.0) is a full-screen Android WebView around the hosted SEND app at `https://syndo.makz.space`. Android 8+ (API 26) is supported. Interface updates arrive without reinstalling. An offline preview with sample data is bundled for when the server can't be reached.
 
 ## What's native

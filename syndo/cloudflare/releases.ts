@@ -3,6 +3,15 @@ import { timingSafeEqual } from "node:crypto";
 const installer = "SEND-Setup-0.4.0.exe";
 const allowed = new Set([installer, `${installer}.blockmap`, "latest.yml"]);
 
+/** Android APK, published to the same public bucket as the Windows installer. */
+export const androidApk = "android/SEND.apk";
+export async function androidDownload(request: Request, env: Env) {
+  if (!["GET", "HEAD"].includes(request.method)) return new Response(null, {status:405});
+  const object = await env.RELEASES.head(androidApk);
+  if (!object) return new Response("The Android app is being prepared.", {status:503, headers:{"retry-after":"60"}});
+  return Response.redirect(`https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev/${androidApk}?v=${object.etag}`, 302);
+}
+
 export async function releaseDownload(request: Request, env: Env) {
   if (!["GET", "HEAD"].includes(request.method)) return new Response(null, {status:405});
   const object = await env.RELEASES.head(installer);
