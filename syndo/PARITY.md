@@ -169,9 +169,15 @@ server tests). Interaction gaps:
 
 | Item | SEND | Notes |
 |---|---|---|
-| Crop-to-size editor (avatar square/circle preview, banner ratio) | ❌ | Batch 4 |
-| Animated GIF crop preserving animation | ❌ | Needs frame-by-frame re-encode. If unavailable, the editor must say so and never silently flatten |
-| Bundle catalogue framing review | ❌ | Batch 4: per-asset focal points for avatar vs banner |
+| Crop-to-size editor: avatar (square, circular preview) and banner (16:5, matching the 320×100 card banner) | ✅ | e2e/crop (16/16, twice). Drag, wheel, pinch, keyboard (arrows / Shift / + − 0), slider, reset, cancel; exact-size previews; no upscaling |
+| Previous image kept until Apply and upload succeed | ✅ | e2e: cancel leaves the avatar URL unchanged |
+| Animated GIF keeps its animation | ✅ | e2e: 3-frame GIF banner saved as 3 frames at 320×100. Frames are decoded (gifuct-js), cropped, then re-encoded (gifenc). Results over 10 MB retry smaller, then explain |
+| Animated WebP | 🟡 | Re-encoded to an animated GIF where the browser has WebCodecs ImageDecoder (Chromium, desktop app). Elsewhere the editor explains and offers "keep animation, uncropped" or "save cropped still"; it never flattens silently |
+| Global and per-server profiles | ✅ / 🟡 | Same `ProfileMediaEdit` component for both; e2e covers the global profile |
+| Drag-and-drop an image onto the profile preview | 🟡 | Top 40% = banner, rest = avatar; untested |
+| Crop positioning metadata | — | Not needed: the crop is baked into the saved file, so every client shows the same image |
+| Bundle catalogue framing | ✅ (reviewed) | All 174 cover artworks now carry their real aspect ratio. 33 portrait posters got a focal point after a visual review of contact sheets, so faces stay inside the 16:5 frame band. Avatar decorations show the art as a round badge on the decoration ring instead of a square over the face |
+| Server icon / server banner cropping | ❌ | Server settings still upload directly |
 | Server rail pill vs icon | ✅ | Fixed; e2e geometry check |
 
 ## Order of remaining work
@@ -179,5 +185,5 @@ server tests). Interaction gaps:
 1. ~~Batch 2~~ done (see §3).
 2. **Batch 3**: messaging gaps (jump to present, reaction lists, gallery grid, spoiler attachments,
    custom emoji/stickers, upload progress tests, "only mentions" notifications).
-3. **Batch 4**: crop editor and catalogue framing.
+3. ~~Crop editor and catalogue framing~~ done (§7); server icon/banner cropping remains.
 4. **Batch 5**: call shortcuts, settings unsaved-changes guard, channel drag-reorder, server folders.

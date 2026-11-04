@@ -1,5 +1,31 @@
 # SEND changelog
 
+## 2026-11-04 — Avatar/banner crop editor and bundle framing (batch 3)
+
+### Added
+- **Crop-to-size editor** for global and server profiles. It opens after choosing or dropping an image:
+  - Avatars are square with a circular preview; banners use the profile card's 16:5 ratio.
+  - Drag, scroll-wheel, pinch, keyboard (arrows / Shift / + − / 0), slider and reset.
+  - Live previews at real display sizes.
+  - Output is cropped and resized but never upscaled past the selected area.
+  - The old image stays until "Apply" uploads successfully.
+- **Animated GIFs stay animated.** Frames are decoded, cropped and re-encoded (new dependencies `gifuct-js`
+  and `gifenc`), with automatic downsizing to stay under 10 MB. Animated WebP is converted the same way
+  where WebCodecs is available. Otherwise the editor explains the limitation and offers to keep the
+  animation uncropped or save a still; it never flattens silently.
+
+### Changed
+- `Modal` renders into `<body>`. Dialogs opened from inside other dialogs (like the crop editor in
+  Settings) were being clipped and offset by their parent's backdrop blur. Stacked dialogs get a darker
+  scrim.
+- **Bundle catalogue framing.** All 174 cover artworks record their aspect ratio. After a visual review, 33
+  portrait posters have a focal point so faces stay inside the profile-frame band. Avatar decorations
+  place the artwork in a round badge on the decoration ring, so it no longer covers the person's face.
+
+### Verified
+- `e2e/crop.cjs`: 16/16 (twice). Everything else unchanged: interactions 41/41, keyboard 34/34,
+  smoke 18/18, appearance 26/26, web unit tests 21/21, server tests 49/49.
+
 ## 2026-11-04 — Keyboard shortcuts and Keybinds (batch 2)
 
 ### Added

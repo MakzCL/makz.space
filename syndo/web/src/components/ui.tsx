@@ -2,6 +2,7 @@ import { useLayer } from "../layers.ts";
 import { CollectionArt } from "../appearance/CollectionArt.tsx";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BRAND_ART } from "../brand-art.ts";
 import { BRAND, type User } from "@syndo/shared";
 import { displayName, useStore } from "../store.ts";
@@ -62,15 +63,16 @@ export function Modal({ title, onClose, children, wide, footer, label }: { title
   }, []);
   // Close only when both press and release land on the backdrop (dragging a text selection out of a field must not close it).
   const down = useRef<EventTarget | null>(null);
-  return (
+  // Portalled to <body>: a dialog opened from inside another (e.g. the crop editor in Settings) must not be clipped or
+  // positioned by its parent's backdrop-filter, which would make it a containing block for fixed elements.
+  return createPortal(
     <div className="modal-back" onPointerDown={(e) => { down.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && down.current === e.currentTarget) onClose(); }}>
       <div ref={ref} data-region="overlay" data-layer className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
         {title && <header className="modal-h"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>}
         <div className="modal-b">{children}</div>
         {footer && <footer className="modal-f">{footer}</footer>}
       </div>
-    </div>
-  );
+    </div>, document.body);
 }
 
 export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {

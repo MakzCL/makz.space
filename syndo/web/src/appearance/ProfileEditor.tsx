@@ -1,3 +1,4 @@
+import { useCropUpload, type CropKind } from "../components/CropEditor.tsx";
 import { askConfirm, askText } from "../components/overlay.tsx";
 import { Select } from "../components/Select.tsx";
 import { CollectionArt } from "./CollectionArt.tsx";
@@ -49,12 +50,27 @@ export function ProfileCardView({ d, serverTheme, statusDot }: { d: CardData; se
   );
 }
 
-export function ProfileMediaEdit({ children, avatar, banner }: { children: React.ReactNode; avatar: React.ChangeEventHandler<HTMLInputElement>; banner: React.ChangeEventHandler<HTMLInputElement> }) {
+/**
+ * Avatar/banner editing for global and server profiles. Choosing or dropping an image opens the crop editor;
+ * the upload only happens after "Apply", so the current image is kept until the new one is saved.
+ */
+export function ProfileMediaEdit({ children, onUpload }: { children: React.ReactNode; onUpload: (kind: CropKind, file: File) => Promise<void> }) {
   const av = useRef<HTMLInputElement>(null), bg = useRef<HTMLInputElement>(null);
   const accept = "image/png,image/jpeg,image/gif,image/webp,image/avif";
-  return <div className="profile-media-edit">{children}
-    <input hidden type="file" ref={av} accept={accept} onChange={avatar} aria-label="Upload avatar image or GIF"/>
-    <input hidden type="file" ref={bg} accept={accept} onChange={banner} aria-label="Upload banner image or GIF"/>
+  const crop = useCropUpload(onUpload);
+  const pick = (kind: CropKind) => (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) crop.open(kind, f); };
+  const [over, setOver] = useState(false);
+  // Dropping an image on the preview: the top 40% edits the banner, the rest the avatar.
+  const drop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); setOver(false);
+    const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/")); if (!f) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    crop.open(e.clientY - r.top < r.height * 0.4 ? "banner" : "avatar", f);
+  };
+  return <div className={`profile-media-edit ${over ? "drop-over" : ""}`} onDragOver={(e) => { if ([...e.dataTransfer.items].some((i) => i.kind === "file")) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)} onDrop={drop}>{children}
+    <input hidden type="file" ref={av} accept={accept} onChange={pick("avatar")} aria-label="Upload avatar image or GIF"/>
+    <input hidden type="file" ref={bg} accept={accept} onChange={pick("banner")} aria-label="Upload banner image or GIF"/>
+    {crop.editor}
     <button className="profile-pencil profile-banner-pencil" aria-label="Edit banner" title="Upload image or GIF" onClick={() => bg.current?.click()}><Pencil size={15}/></button>
     <button className="profile-pencil profile-avatar-pencil" aria-label="Edit avatar" title="Upload image or GIF" onClick={() => av.current?.click()}><Pencil size={15}/></button>
   </div>;
@@ -146,10 +162,10 @@ function GlobalProfile() {
   const [f, setF] = useState({ display_name: me.display_name ?? "", bio: me.bio, pronouns: me.pronouns, status: me.custom_status?.text ?? "" });
   const [theme, setTheme] = useState<ProfileTheme>(normalizeTheme(me.profile_theme) ?? DEFAULT_PROFILE_THEME);
   const [pct, setPct] = useState<number | null>(null);
-  const file = (kind: "avatar" | "banner") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const x = e.target.files?.[0]; if (!x) return; const fd = new FormData(); fd.append("file", x);
-    upload(`/api/users/@me/${kind}`, fd, setPct).promise.then(() => toast("Updated.", "success")).catch((er) => toast(errMsg(er), "error")).finally(() => setPct(null));
-    e.target.value = "";
+  const file = async (kind: CropKind, x: File) => {
+    const fd = new FormData(); fd.append("file", x);
+    try { await upload(`/api/users/@me/${kind}`, fd, setPct).promise; toast(kind === "avatar" ? "Avatar updated." : "Banner updated.", "success"); }
+    finally { setPct(null); }
   };
   const save = async () => {
     try { await api.patch("/api/users/@me", { display_name: f.display_name || null, bio: f.bio, pronouns: f.pronouns, custom_status: f.status ? { text: f.status } : null, profile_theme: theme }); toast("Profile saved.", "success"); }
@@ -168,7 +184,7 @@ function GlobalProfile() {
       </div>
       <div className="stack">
         <small className="muted">Preview — how others see you</small>
-        <ProfileMediaEdit avatar={file("avatar")} banner={file("banner")}><ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} /></ProfileMediaEdit>
+        <ProfileMediaEdit onUpload={file}><ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} /></ProfileMediaEdit>
       </div>
     </div>
   );
@@ -226,7 +242,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
       </div>
       <div className="stack">
         <small className="muted">Preview — how members of {guild.name} see you</small>
-        <ProfileMediaEdit avatar={e => { const x = e.target.files?.[0]; if (x) { const fd = new FormData(); fd.append("file", x); upload(`/api/guilds/${guildId}/members/@me/avatar`, fd, () => {}).promise.then(load).catch(er => toast(errMsg(er), "error")); } e.target.value = ""; }} banner={e => { const x = e.target.files?.[0]; if (x) { const fd = new FormData(); fd.append("file", x); upload(`/api/guilds/${guildId}/members/@me/banner`, fd, () => {}).promise.then(load).catch(er => toast(errMsg(er), "error")); } e.target.value = ""; }}><ProfileCardView d={{ user: me, name: d.nick || displayName(me), username: me.username, pronouns: d.pronouns ?? me.pronouns, bio: d.bio ?? me.bio, avatar: server.avatar ?? me.avatar, banner: server.banner ?? me.banner, theme, status: d.status ?? me.custom_status?.text }} serverTheme={theme} /></ProfileMediaEdit>
+        <ProfileMediaEdit onUpload={async (kind, x) => { const fd = new FormData(); fd.append("file", x); await upload(`/api/guilds/${guildId}/members/@me/${kind}`, fd, () => {}).promise; await load(); }}><ProfileCardView d={{ user: me, name: d.nick || displayName(me), username: me.username, pronouns: d.pronouns ?? me.pronouns, bio: d.bio ?? me.bio, avatar: server.avatar ?? me.avatar, banner: server.banner ?? me.banner, theme, status: d.status ?? me.custom_status?.text }} serverTheme={theme} /></ProfileMediaEdit>
       </div>
     </div>
   );

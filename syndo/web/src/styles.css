@@ -1003,3 +1003,25 @@ video.viewer-media { cursor: default; }
 .kb-help dt { font-weight: 600; } .kb-help dd { margin: 0; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; font-size: .85rem; }
 .kb-help kbd { font: 700 .78rem/1 inherit; padding: 4px 7px; border-radius: 6px; background: var(--bg0); box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 30%, transparent); }
 @media (max-width: 700px) { .kb-row { flex-direction: column; align-items: stretch; } .kb-binds { max-width: none; justify-content: flex-start; } .warn-text { text-align: left; } }
+
+/* ============================================================ Crop editor == */
+.crop { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.crop-stage { position: relative; overflow: hidden; border-radius: 14px; cursor: grab; touch-action: none; user-select: none; background: repeating-conic-gradient(color-mix(in srgb, var(--text) 8%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px; outline-offset: 4px; }
+.crop-stage:active { cursor: grabbing; } .crop-stage:focus-visible { outline: 2px solid var(--accent); }
+.crop-stage img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; pointer-events: none; }
+.crop-mask { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 2px #fff6; border-radius: inherit; }
+.crop-avatar .crop-mask { border-radius: 50%; box-shadow: 0 0 0 9999px color-mix(in srgb, #000 55%, transparent), inset 0 0 0 2px #fffa; }
+.crop-avatar .crop-stage { border-radius: 14px; }
+.crop-avatar-hint { position: absolute; left: 4.4%; bottom: -28%; width: 26%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed #fffc; background: color-mix(in srgb, #000 35%, transparent); pointer-events: none; }
+.crop-controls { display: flex; align-items: center; gap: 8px; width: min(420px, 100%); } .crop-controls .send-range { flex: 1; }
+.crop-previews { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.crop-prev-av { display: inline-block; border-radius: 50%; background-repeat: no-repeat; box-shadow: 0 0 0 2px var(--bg0); }
+.crop-prev-card { position: relative; width: 240px; height: 110px; border-radius: 12px; overflow: hidden; background: var(--bg1); }
+.crop-prev-banner { display: block; background-repeat: no-repeat; }
+.crop-prev-card .crop-prev-av { position: absolute; left: 14px; top: 44px; width: 56px; height: 56px; background: var(--bg2); box-shadow: 0 0 0 5px var(--bg1); }
+.crop .notice { background: color-mix(in srgb, var(--brand-warning, #f0b232) 14%, transparent); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.profile-media-edit.drop-over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 14px; }
+
+/* Stacked dialogs: each further dialog gets a stronger scrim so the one underneath reads as background. */
+.modal-back ~ .modal-back { background: color-mix(in srgb, #000 62%, transparent); backdrop-filter: blur(6px); }
+.modal-back ~ .modal-back .modal { background: color-mix(in srgb, var(--bg1) 92%, transparent); }

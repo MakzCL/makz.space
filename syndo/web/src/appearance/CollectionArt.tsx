@@ -1,6 +1,17 @@
 import { useId, type CSSProperties } from "react";
 import { collectionById, type Collection } from "./collections.ts";
 
+/**
+ * Position artwork in a slot. Covers with a known aspect ratio are scaled to fill and shifted so the focal point
+ * (focusY: 0 top … 1 bottom, chosen per image from contact sheets) stays visible; logos and badges are fitted whole.
+ */
+function coverPlacement(slot: { x: number; y: number; w: number; h: number }, ratio: number | undefined, focusY: number) {
+  if (!ratio) return { x: slot.x, y: slot.y, width: slot.w, height: slot.h, preserveAspectRatio: "xMidYMid meet" };
+  const wide = ratio > slot.w / slot.h;
+  const width = wide ? slot.h * ratio : slot.w, height = wide ? slot.h : slot.w / ratio;
+  return { x: slot.x + (slot.w - width) / 2, y: slot.y + (slot.h - height) * Math.max(0, Math.min(1, focusY)), width, height, preserveAspectRatio: "none" };
+}
+
 /** Original vector artwork, shared by avatars, gallery previews and profile frames. */
 function Ornament({ motif }: { motif: Collection["motif"] }) {
   switch (motif) {
@@ -23,10 +34,17 @@ export function CollectionArt({ id, frame = false, animate = true }: { id?: stri
   if (!c) return null;
   return <svg aria-hidden="true" className={`collection-art ${frame ? "collection-frame" : "collection-avatar"} ${animate ? "" : "art-still"} art-${c.motif} motion-${c.motion ?? "shimmer"}`} viewBox={frame ? "0 0 300 420" : "0 0 140 140"} preserveAspectRatio={frame ? "none" : "xMidYMid meet"} style={{ color: c.primary, "--art-dark": c.secondary, "--art-light": "#FFF9EF", "--art-fill": `url(#${uid}-metal)` } as CSSProperties}>
     <defs><linearGradient id={uid} x1="0" y1="0" x2="1" y2="1"><stop stopColor={c.primary}/><stop offset=".5" stopColor={c.secondary}/><stop offset="1" stopColor={c.primary}/></linearGradient><linearGradient id={`${uid}-metal`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor="#FFF9EF"/><stop offset=".2" stopColor={c.primary}/><stop offset=".48" stopColor={c.secondary}/><stop offset=".65" stopColor={c.primary}/><stop offset="1" stopColor={c.secondary}/></linearGradient></defs>
-    {c.art && <>
-      <defs><clipPath id={`${uid}-cover`}><rect x={frame?12:4} y={frame?12:92} width={frame?276:42} height={frame?104:42} rx={frame?20:14}/></clipPath></defs>
-      <image className={`collection-source-art source-${c.artKind}`} href={c.art} x={frame?12:4} y={frame?12:92} width={frame?276:42} height={frame?104:42} preserveAspectRatio={c.artKind!=="cover"?"xMidYMid meet":"xMidYMid slice"} clipPath={`url(#${uid}-cover)`}/>
-    </>}
+    {c.art && (() => {
+      // Frame: a 276×104 band at the top of the card. Avatar decoration: a round badge sitting on the decoration ring
+      // (centre 62 units from the avatar's centre, radius 12), so it never covers the face — the avatar itself spans r≈50.7.
+      const slot = frame ? { x: 12, y: 12, w: 276, h: 104 } : { x: 14, y: 102, w: 24, h: 24 };
+      const place = coverPlacement(slot, c.artKind === "cover" ? c.artRatio : undefined, frame ? (c.focusY ?? 0.5) : 0.5);
+      return <>
+        <defs><clipPath id={`${uid}-cover`}>{frame ? <rect x={slot.x} y={slot.y} width={slot.w} height={slot.h} rx={20}/> : <circle cx={slot.x + slot.w / 2} cy={slot.y + slot.h / 2} r={slot.w / 2}/>}</clipPath></defs>
+        {!frame && <circle cx={slot.x + slot.w / 2} cy={slot.y + slot.h / 2} r={slot.w / 2 + 1.4} fill="var(--bg0, #111)" stroke={`url(#${uid})`} strokeWidth="1.2"/>}
+        <image className={`collection-source-art source-${c.artKind}`} href={c.art} {...place} clipPath={`url(#${uid}-cover)`}/>
+      </>;
+    })()}
     {frame ? <>
       <path d="M42 8H258Q292 8 292 42V378Q292 412 258 412H42Q8 412 8 378V42Q8 8 42 8Z" fill="none" stroke={`url(#${uid})`} strokeWidth="1.3"/>
       <path d="M50 15H250M285 60V360M250 405H50M15 360V60" fill="none" stroke="currentColor" strokeWidth=".35" opacity=".65"/>

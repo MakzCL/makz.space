@@ -27,7 +27,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Frozen Official Website on Disney Movies",
     "source": "https://movies.disney.com/frozen",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-3",
@@ -44,7 +45,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Lion King presented by Disney Movies",
     "source": "https://movies.disney.com/the-lion-king",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-4",
@@ -61,7 +63,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Toy Story",
     "source": "https://movies.disney.com/toy-story",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667,
+    "focusY": 0.25
   },
   {
     "id": "bundle-5",
@@ -78,7 +82,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Monsters, Inc.",
     "source": "https://movies.disney.com/monsters-inc",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-6",
@@ -95,7 +100,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "UP",
     "source": "https://movies.disney.com/up",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-7",
@@ -112,7 +118,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Inside Out 2",
     "source": "https://movies.disney.com/inside-out-2",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-8",
@@ -129,7 +136,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Encanto",
     "source": "https://movies.disney.com/encanto",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-9",
@@ -146,7 +154,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Moana",
     "source": "https://movies.disney.com/moana",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667,
+    "focusY": 0.3
   },
   {
     "id": "bundle-10",
@@ -163,7 +173,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Coco",
     "source": "https://movies.disney.com/coco",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-11",
@@ -180,7 +191,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Lilo & Stitch",
     "source": "https://movies.disney.com/lilo-stitch",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-12",
@@ -197,7 +209,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Nightmare Before Christmas",
     "source": "https://movies.disney.com/the-nightmare-before-christmas",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667,
+    "focusY": 0.35
   },
   {
     "id": "bundle-13",
@@ -250,7 +264,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "WALL·E",
     "source": "https://movies.disney.com/wall-e",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-17",
@@ -351,7 +366,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Black Panther",
     "source": "https://movies.disney.com/black-panther",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-25",
@@ -380,7 +396,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Marvel's Guardians of the Galaxy",
     "source": "https://movies.disney.com/marvels-guardians-of-the-galaxy",
     "provider": "Disney / original film publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6667
   },
   {
     "id": "bundle-27",
@@ -481,7 +498,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Call of Duty®: Black Ops III",
     "source": "https://store.steampowered.com/app/311210/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-35",
@@ -594,7 +612,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Apex Legends™",
     "source": "https://store.steampowered.com/app/1172470/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-44",
@@ -647,7 +666,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Counter-Strike 2",
     "source": "https://store.steampowered.com/app/730/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-48",
@@ -676,7 +696,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Halo: Campaign Evolved",
     "source": "https://store.steampowered.com/app/2806050/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-50",
@@ -693,7 +714,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Tom Clancy's Rainbow Six Siege",
     "source": "https://store.steampowered.com/app/359550/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-51",
@@ -734,7 +756,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "PUBG: BATTLEGROUNDS",
     "source": "https://store.steampowered.com/app/578080/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-54",
@@ -763,7 +786,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "DOOM: The Dark Ages",
     "source": "https://store.steampowered.com/app/3017860/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-56",
@@ -780,7 +804,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Battlefield™ 6",
     "source": "https://store.steampowered.com/app/2807960/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-57",
@@ -797,7 +822,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Escape from Tarkov",
     "source": "https://store.steampowered.com/app/3932890/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-58",
@@ -814,7 +840,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "HELLDIVERS™ 2",
     "source": "https://store.steampowered.com/app/553850/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-59",
@@ -843,7 +870,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Marvel Rivals",
     "source": "https://store.steampowered.com/app/2767030/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-61",
@@ -860,7 +888,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "THE FINALS",
     "source": "https://store.steampowered.com/app/2073850/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-62",
@@ -877,7 +906,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Brawlhalla",
     "source": "https://store.steampowered.com/app/291550/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-63",
@@ -930,7 +960,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Street Fighter™ 6",
     "source": "https://store.steampowered.com/app/1364780/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-67",
@@ -947,7 +978,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "TEKKEN 8",
     "source": "https://store.steampowered.com/app/1778820/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-68",
@@ -964,7 +996,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Mortal Kombat 1",
     "source": "https://store.steampowered.com/app/1971870/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-69",
@@ -981,7 +1014,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "GUILTY GEAR -STRIVE-",
     "source": "https://store.steampowered.com/app/1384160/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-70",
@@ -1010,7 +1044,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "DRAGON BALL FighterZ",
     "source": "https://store.steampowered.com/app/678950/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-72",
@@ -1027,7 +1062,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Arcane: League of Legends",
     "source": "https://www.tvmaze.com/shows/55138/arcane-league-of-legends",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-73",
@@ -1056,7 +1092,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Dota 2",
     "source": "https://store.steampowered.com/app/570/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-75",
@@ -1097,7 +1134,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "ELDEN RING",
     "source": "https://store.steampowered.com/app/1245620/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-78",
@@ -1138,7 +1176,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "FINAL FANTASY VII REMAKE INTERGRADE",
     "source": "https://store.steampowered.com/app/1462040/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-81",
@@ -1155,7 +1194,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "FINAL FANTASY XIV Online",
     "source": "https://store.steampowered.com/app/39210/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-82",
@@ -1196,7 +1236,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Zenless Zone Zero",
     "source": "https://store.steampowered.com/app/4162040/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-85",
@@ -1285,7 +1326,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Diablo® IV",
     "source": "https://store.steampowered.com/app/2344520/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-92",
@@ -1302,7 +1344,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Baldur's Gate 3",
     "source": "https://store.steampowered.com/app/1086940/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-93",
@@ -1331,7 +1374,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Witcher 3: Wild Hunt — Remastered",
     "source": "https://store.steampowered.com/app/292030/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-95",
@@ -1348,7 +1392,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Cyberpunk 2077",
     "source": "https://store.steampowered.com/app/1091500/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-96",
@@ -1365,7 +1410,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Mass Effect (2007)",
     "source": "https://store.steampowered.com/app/17460/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-97",
@@ -1382,7 +1428,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "God of War",
     "source": "https://store.steampowered.com/app/1593500/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-98",
@@ -1399,7 +1446,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Assassin’s Creed Shadows",
     "source": "https://store.steampowered.com/app/3159330/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-99",
@@ -1416,7 +1464,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Persona 5 Royal",
     "source": "https://store.steampowered.com/app/1687950/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-100",
@@ -1433,7 +1482,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "KINGDOM HEARTS -HD 1.5+2.5 ReMIX-",
     "source": "https://store.steampowered.com/app/2552430/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-101",
@@ -1450,7 +1500,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Monster Hunter Wilds",
     "source": "https://store.steampowered.com/app/2246340/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-102",
@@ -1467,7 +1518,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "RuneScape ®",
     "source": "https://store.steampowered.com/app/1343400/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-103",
@@ -1484,7 +1536,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Path of Exile 2",
     "source": "https://store.steampowered.com/app/2694490/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-104",
@@ -1501,7 +1554,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Lost Ark",
     "source": "https://store.steampowered.com/app/1599340/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-105",
@@ -1571,7 +1625,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Terraria",
     "source": "https://store.steampowered.com/app/105600/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-110",
@@ -1588,7 +1643,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Among Us",
     "source": "https://store.steampowered.com/app/945360/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-111",
@@ -1629,7 +1685,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Stardew Valley",
     "source": "https://store.steampowered.com/app/413150/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-114",
@@ -1658,7 +1715,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Sims™ 4",
     "source": "https://store.steampowered.com/app/1222670/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-116",
@@ -1675,7 +1733,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Subnautica 2",
     "source": "https://store.steampowered.com/app/1962700/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-117",
@@ -1692,7 +1751,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Rust",
     "source": "https://store.steampowered.com/app/252490/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-118",
@@ -1709,7 +1769,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Sea of Thieves: 2026 Edition",
     "source": "https://store.steampowered.com/app/1172620/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-119",
@@ -1726,7 +1787,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Palworld",
     "source": "https://store.steampowered.com/app/1623730/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-120",
@@ -1743,7 +1805,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Lethal Company",
     "source": "https://store.steampowered.com/app/1966720/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-121",
@@ -1760,7 +1823,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Phasmophobia",
     "source": "https://store.steampowered.com/app/739630/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-122",
@@ -1777,7 +1841,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Dead by Daylight",
     "source": "https://store.steampowered.com/app/381210/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-123",
@@ -1794,7 +1859,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Valheim",
     "source": "https://store.steampowered.com/app/892970/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-124",
@@ -1811,7 +1877,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Hollow Knight",
     "source": "https://store.steampowered.com/app/367520/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-125",
@@ -1828,7 +1895,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Hollow Knight: Silksong",
     "source": "https://store.steampowered.com/app/1030300/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-126",
@@ -1845,7 +1913,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Celeste",
     "source": "https://store.steampowered.com/app/504230/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-127",
@@ -1862,7 +1931,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Undertale",
     "source": "https://store.steampowered.com/app/391540/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-128",
@@ -1879,7 +1949,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "DELTARUNE",
     "source": "https://store.steampowered.com/app/1671210/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-129",
@@ -1896,7 +1967,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Hades II",
     "source": "https://store.steampowered.com/app/1145350/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-130",
@@ -1913,7 +1985,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Cuphead",
     "source": "https://store.steampowered.com/app/268910/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-131",
@@ -1930,7 +2003,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Cult of the Lamb",
     "source": "https://store.steampowered.com/app/1313140/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-132",
@@ -1947,7 +2021,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Stray",
     "source": "https://store.steampowered.com/app/1332010/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-133",
@@ -1964,7 +2039,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Ori and the Blind Forest",
     "source": "https://store.steampowered.com/app/261570/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-134",
@@ -1981,7 +2057,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Balatro",
     "source": "https://store.steampowered.com/app/2379780/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-135",
@@ -1998,7 +2075,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Hotline Miami",
     "source": "https://store.steampowered.com/app/219150/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-136",
@@ -2015,7 +2093,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Geometry Dash",
     "source": "https://store.steampowered.com/app/322170/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-137",
@@ -2032,7 +2111,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Vampire Survivors",
     "source": "https://store.steampowered.com/app/1794680/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-138",
@@ -2049,7 +2129,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Slay the Spire 2",
     "source": "https://store.steampowered.com/app/2868840/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.6552
   },
   {
     "id": "bundle-139",
@@ -2066,7 +2147,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "OMORI",
     "source": "https://store.steampowered.com/app/1150690/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-140",
@@ -2095,7 +2177,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Barbie",
     "source": "https://www.rottentomatoes.com/m/barbie",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-142",
@@ -2112,7 +2195,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Oppenheimer (2023)",
     "source": "https://www.rottentomatoes.com/m/oppenheimer_2023",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-143",
@@ -2129,7 +2213,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Dune (2021)",
     "source": "https://www.rottentomatoes.com/m/dune_2021",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-144",
@@ -2146,7 +2231,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "John Wick",
     "source": "https://www.rottentomatoes.com/m/john_wick",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-145",
@@ -2163,7 +2249,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Matrix",
     "source": "https://www.rottentomatoes.com/m/matrix",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.35
   },
   {
     "id": "bundle-146",
@@ -2180,7 +2268,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Jurassic Park",
     "source": "https://www.rottentomatoes.com/m/jurassic_park",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-147",
@@ -2197,7 +2286,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Back to the Future",
     "source": "https://www.rottentomatoes.com/m/back_to_the_future",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-148",
@@ -2214,7 +2304,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Ghostbusters",
     "source": "https://www.rottentomatoes.com/m/ghostbusters",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-149",
@@ -2231,7 +2322,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Harry Potter and the Sorcerer's Stone",
     "source": "https://www.rottentomatoes.com/m/harry_potter_and_the_sorcerers_stone",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-150",
@@ -2248,7 +2340,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Harry Potter and the Deathly Hallows: Part 2",
     "source": "https://www.rottentomatoes.com/m/harry_potter_and_the_deathly_hallows_part_2",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-151",
@@ -2265,7 +2359,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Lord of the Rings: The Fellowship of the Ring",
     "source": "https://www.rottentomatoes.com/m/the_lord_of_the_rings_the_fellowship_of_the_ring",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-152",
@@ -2282,7 +2377,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Hobbit: An Unexpected Journey",
     "source": "https://www.rottentomatoes.com/m/the_hobbit_an_unexpected_journey",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.45
   },
   {
     "id": "bundle-153",
@@ -2299,7 +2396,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Pirates of the Caribbean: The Curse of the Black Pearl",
     "source": "https://www.rottentomatoes.com/m/pirates_of_the_caribbean_the_curse_of_the_black_pearl",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-154",
@@ -2316,7 +2414,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Dark Knight",
     "source": "https://www.rottentomatoes.com/m/the_dark_knight",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.45
   },
   {
     "id": "bundle-155",
@@ -2333,7 +2433,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Batman",
     "source": "https://www.rottentomatoes.com/m/the_batman",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-156",
@@ -2350,7 +2451,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Joker (2019)",
     "source": "https://www.rottentomatoes.com/m/joker_2019",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-157",
@@ -2367,7 +2469,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Superman (2025)",
     "source": "https://www.rottentomatoes.com/m/superman_2025",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.25
   },
   {
     "id": "bundle-158",
@@ -2384,7 +2488,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Wonder Woman (2017)",
     "source": "https://www.rottentomatoes.com/m/wonder_woman_2017",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-159",
@@ -2401,7 +2506,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Fast and the Furious",
     "source": "https://www.rottentomatoes.com/m/1108372-fast_and_the_furious",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.25
   },
   {
     "id": "bundle-160",
@@ -2418,7 +2525,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Top Gun: Maverick",
     "source": "https://www.rottentomatoes.com/m/top_gun_maverick",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-161",
@@ -2435,7 +2544,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Mission: Impossible",
     "source": "https://www.rottentomatoes.com/m/mission_impossible",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-162",
@@ -2452,7 +2562,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Casino Royale",
     "source": "https://www.rottentomatoes.com/m/casino_royale",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-163",
@@ -2481,7 +2593,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Godzilla vs. Kong",
     "source": "https://www.rottentomatoes.com/m/godzilla_vs_kong",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-165",
@@ -2498,7 +2611,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Shrek",
     "source": "https://www.rottentomatoes.com/m/shrek",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.6
   },
   {
     "id": "bundle-166",
@@ -2515,7 +2630,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Kung Fu Panda",
     "source": "https://www.rottentomatoes.com/m/kung_fu_panda",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.35
   },
   {
     "id": "bundle-167",
@@ -2532,7 +2649,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "How to Train Your Dragon",
     "source": "https://www.rottentomatoes.com/m/how_to_train_your_dragon",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-168",
@@ -2549,7 +2667,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Minions",
     "source": "https://www.rottentomatoes.com/m/minions",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-169",
@@ -2566,7 +2685,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Spider-Man: Across the Spider-Verse",
     "source": "https://www.rottentomatoes.com/m/spider_man_across_the_spider_verse",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-170",
@@ -2583,7 +2703,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Interstellar (2014)",
     "source": "https://www.rottentomatoes.com/m/interstellar_2014",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-171",
@@ -2600,7 +2721,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Alien",
     "source": "https://www.rottentomatoes.com/m/alien",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-172",
@@ -2617,7 +2739,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Predator",
     "source": "https://www.rottentomatoes.com/m/predator",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.3
   },
   {
     "id": "bundle-173",
@@ -2634,7 +2758,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Terminator",
     "source": "https://www.rottentomatoes.com/m/terminator",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-174",
@@ -2651,7 +2777,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Scream (2022)",
     "source": "https://www.rottentomatoes.com/m/scream_2022",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-175",
@@ -2680,7 +2808,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "It (2017)",
     "source": "https://www.rottentomatoes.com/m/it_2017",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-177",
@@ -2697,7 +2826,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Wicked (2024)",
     "source": "https://www.rottentomatoes.com/m/wicked_2024",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-178",
@@ -2714,7 +2845,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Gladiator",
     "source": "https://www.rottentomatoes.com/m/gladiator",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.3
   },
   {
     "id": "bundle-179",
@@ -2731,7 +2864,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Mad Max: Fury Road",
     "source": "https://www.rottentomatoes.com/m/mad_max_fury_road",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-180",
@@ -2748,7 +2882,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Tron",
     "source": "https://www.rottentomatoes.com/m/tron",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-181",
@@ -2765,7 +2900,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Blade Runner 2049",
     "source": "https://www.rottentomatoes.com/m/blade_runner_2049",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-182",
@@ -2782,7 +2919,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Avatar",
     "source": "https://www.rottentomatoes.com/m/avatar",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-183",
@@ -2799,7 +2937,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Hunger Games",
     "source": "https://www.rottentomatoes.com/m/the_hunger_games",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.35
   },
   {
     "id": "bundle-184",
@@ -2816,7 +2956,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Twilight",
     "source": "https://www.rottentomatoes.com/m/twilight",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-185",
@@ -2833,7 +2974,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "My Neighbor Totoro",
     "source": "https://www.rottentomatoes.com/m/my_neighbor_totoro",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754
   },
   {
     "id": "bundle-186",
@@ -2850,7 +2992,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "KPop Demon Hunters",
     "source": "https://www.rottentomatoes.com/m/kpop_demon_hunters",
     "provider": "Rotten Tomatoes / film promotional artwork",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.6754,
+    "focusY": 0.4
   },
   {
     "id": "bundle-187",
@@ -2867,7 +3011,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Stranger Things",
     "source": "https://www.tvmaze.com/shows/2993/stranger-things",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-188",
@@ -2884,7 +3029,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Wednesday",
     "source": "https://www.tvmaze.com/shows/53647/wednesday",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.3
   },
   {
     "id": "bundle-189",
@@ -2901,7 +3048,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Last of Us",
     "source": "https://www.tvmaze.com/shows/46562/the-last-of-us",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.25
   },
   {
     "id": "bundle-190",
@@ -2918,7 +3067,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Breaking Bad",
     "source": "https://www.tvmaze.com/shows/169/breaking-bad",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-191",
@@ -2935,7 +3085,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Game of Thrones",
     "source": "https://www.tvmaze.com/shows/82/game-of-thrones",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-192",
@@ -2952,7 +3103,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "House of the Dragon",
     "source": "https://www.tvmaze.com/shows/44778/house-of-the-dragon",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-193",
@@ -2969,7 +3121,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Squid Game",
     "source": "https://www.tvmaze.com/shows/43687/squid-game",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-194",
@@ -2986,7 +3139,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Arcane: League of Legends",
     "source": "https://www.tvmaze.com/shows/55138/arcane-league-of-legends",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-195",
@@ -3003,7 +3157,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Boys",
     "source": "https://www.tvmaze.com/shows/15299/the-boys",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.3
   },
   {
     "id": "bundle-196",
@@ -3020,7 +3176,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Invincible",
     "source": "https://www.tvmaze.com/shows/37196/invincible",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-197",
@@ -3037,7 +3194,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Rick and Morty",
     "source": "https://www.tvmaze.com/shows/216/rick-and-morty",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-198",
@@ -3054,7 +3212,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Simpsons",
     "source": "https://www.tvmaze.com/shows/83/the-simpsons",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-199",
@@ -3071,7 +3230,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Family Guy",
     "source": "https://www.tvmaze.com/shows/84/family-guy",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-200",
@@ -3088,7 +3248,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "SpongeBob SquarePants",
     "source": "https://www.tvmaze.com/shows/713/spongebob-squarepants",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.6
   },
   {
     "id": "bundle-201",
@@ -3105,7 +3267,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Avatar: The Last Airbender",
     "source": "https://www.tvmaze.com/shows/38753/avatar-the-last-airbender",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-202",
@@ -3122,7 +3285,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Adventure Time",
     "source": "https://www.tvmaze.com/shows/290/adventure-time",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-203",
@@ -3139,7 +3303,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Gravity Falls",
     "source": "https://www.tvmaze.com/shows/396/gravity-falls",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.6
   },
   {
     "id": "bundle-204",
@@ -3156,7 +3322,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Doctor Who",
     "source": "https://www.tvmaze.com/shows/210/doctor-who",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-205",
@@ -3173,7 +3340,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Office",
     "source": "https://www.tvmaze.com/shows/526/the-office",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-206",
@@ -3190,7 +3358,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Friends",
     "source": "https://www.tvmaze.com/shows/431/friends",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-207",
@@ -3207,7 +3376,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Peaky Blinders",
     "source": "https://www.tvmaze.com/shows/269/peaky-blinders",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-208",
@@ -3224,7 +3394,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "La Casa de Papel",
     "source": "https://www.tvmaze.com/shows/27436/la-casa-de-papel",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-209",
@@ -3241,7 +3412,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Cobra Kai",
     "source": "https://www.tvmaze.com/shows/30960/cobra-kai",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.35
   },
   {
     "id": "bundle-210",
@@ -3258,7 +3431,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "The Witcher",
     "source": "https://www.tvmaze.com/shows/28276/the-witcher",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-211",
@@ -3275,7 +3449,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Bluey",
     "source": "https://www.tvmaze.com/shows/41821/bluey",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-212",
@@ -3292,7 +3467,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Fallout",
     "source": "https://www.tvmaze.com/shows/49041/fallout",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-213",
@@ -3309,7 +3485,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Severance",
     "source": "https://www.tvmaze.com/shows/44933/severance",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.35
   },
   {
     "id": "bundle-214",
@@ -3326,7 +3504,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Naruto",
     "source": "https://www.tvmaze.com/shows/495/naruto",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-215",
@@ -3355,7 +3534,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "One Piece",
     "source": "https://www.tvmaze.com/shows/46065/one-piece",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-217",
@@ -3372,7 +3552,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Dragon Ball Z",
     "source": "https://www.tvmaze.com/shows/2103/dragon-ball-z",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.35
   },
   {
     "id": "bundle-218",
@@ -3389,7 +3571,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Demon Slayer",
     "source": "https://www.tvmaze.com/shows/41469/demon-slayer",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-219",
@@ -3418,7 +3601,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Jujutsu Kaisen",
     "source": "https://www.tvmaze.com/shows/48450/jujutsu-kaisen",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-221",
@@ -3435,7 +3619,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Chainsaw Man",
     "source": "https://www.tvmaze.com/shows/63451/chainsaw-man",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-222",
@@ -3452,7 +3637,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Attack on Titan",
     "source": "https://www.tvmaze.com/shows/919/attack-on-titan",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.35
   },
   {
     "id": "bundle-223",
@@ -3469,7 +3656,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "My Hero Academia",
     "source": "https://www.tvmaze.com/shows/13615/my-hero-academia",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-224",
@@ -3486,7 +3674,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Bleach",
     "source": "https://www.tvmaze.com/shows/1905/bleach",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.4
   },
   {
     "id": "bundle-225",
@@ -3503,7 +3693,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Hunter x Hunter",
     "source": "https://www.tvmaze.com/shows/1536/hunter-x-hunter",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-226",
@@ -3520,7 +3711,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Death Note",
     "source": "https://www.tvmaze.com/shows/40/death-note",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-227",
@@ -3537,7 +3729,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Tokyo Ghoul",
     "source": "https://www.tvmaze.com/shows/1440/tokyo-ghoul",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.3
   },
   {
     "id": "bundle-228",
@@ -3554,7 +3748,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Solo Leveling",
     "source": "https://www.tvmaze.com/shows/64632/solo-leveling",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-229",
@@ -3571,7 +3766,9 @@ export const PROFILE_CATALOG = [
     "artTitle": "Spy×Family",
     "source": "https://www.tvmaze.com/shows/59698/spyfamily",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119,
+    "focusY": 0.4
   },
   {
     "id": "bundle-230",
@@ -3600,7 +3797,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Neon Genesis Evangelion",
     "source": "https://www.tvmaze.com/shows/1925/neon-genesis-evangelion",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-232",
@@ -3617,7 +3815,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Cowboy Bebop",
     "source": "https://www.tvmaze.com/shows/1121/cowboy-bebop",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-233",
@@ -3634,7 +3833,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Frieren: Beyond Journey's End",
     "source": "https://www.tvmaze.com/shows/69956/frieren-beyond-journeys-end",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-234",
@@ -3651,7 +3851,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Dandadan",
     "source": "https://www.tvmaze.com/shows/73023/dandadan",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-235",
@@ -3668,7 +3869,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Blue Lock",
     "source": "https://www.tvmaze.com/shows/60383/blue-lock",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-236",
@@ -3685,7 +3887,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Haikyuu!!",
     "source": "https://www.tvmaze.com/shows/5193/haikyuu",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-237",
@@ -3702,7 +3905,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Sakamoto Days",
     "source": "https://www.tvmaze.com/shows/77383/sakamoto-days",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-238",
@@ -3719,7 +3923,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "[Oshi no Ko]",
     "source": "https://www.tvmaze.com/shows/67635/oshi-no-ko",
     "provider": "TVmaze / original distributor",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 0.7119
   },
   {
     "id": "bundle-239",
@@ -4254,7 +4459,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Need for Speed™ Heat",
     "source": "https://store.steampowered.com/app/1222680/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-274",
@@ -4271,7 +4477,8 @@ export const PROFILE_CATALOG = [
     "artTitle": "Forza Horizon 5",
     "source": "https://store.steampowered.com/app/1551360/",
     "provider": "Steam / game publisher",
-    "kind": "cover"
+    "kind": "cover",
+    "ratio": 2.1395
   },
   {
     "id": "bundle-275",
