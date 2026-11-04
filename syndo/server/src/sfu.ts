@@ -6,7 +6,12 @@ export const sfuPeers=new Map<string,SfuPeer>();
 export const sfuConfigured=()=>!!(config.sfu.appId&&config.sfu.secret);
 export async function sfuRequest(path:string,method="POST",body?:unknown):Promise<any>{
  const r=await fetch(`https://rtc.live.cloudflare.com/v1/apps/${config.sfu.appId}${path}`,{method,headers:{authorization:`Bearer ${config.sfu.secret}`,"content-type":"application/json"},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
- const data:any=await r.json();if(!r.ok||data.errorCode||data.tracks?.some((t:any)=>t.errorCode))throw new ApiError(502,"media_error","The media service couldn't complete this connection. Leave and try again.");return data;
+ const text=await r.text();let data:any;try{data=JSON.parse(text);}catch{data={errorCode:`http_${r.status}`,errorDescription:text.slice(0,200)};}
+ const failed=!r.ok||data.errorCode||data.tracks?.some((t:any)=>t.errorCode);
+ if(failed){const detail=[data.errorCode,data.errorDescription,...(data.tracks??[]).filter((t:any)=>t.errorCode).map((t:any)=>`${t.trackName??t.mid}: ${t.errorCode} ${t.errorDescription??""}`)].filter(Boolean).join("; ");console.error("[sfu]",method,path.replace(/[0-9a-f]{32,}/g,"…"),r.status,detail);
+  // 409/422-style errors are not gateway failures; report them as such so proxies don't replace the body with an error page.
+  const e=new ApiError(409,"media_error","The media service couldn't complete this connection. Leave and try again.");(e as any).references=detail.slice(0,300);throw e;}
+ return data;
 }
 export async function openSfu(user:string,auth:string,channel:string,name=user){
  await closeSfuAccount(user);

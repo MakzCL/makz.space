@@ -13,6 +13,9 @@ let attempt = 0;
 let stopped = false;
 let lastSeq = 0;
 let reconnectTimer: number | null = null;
+let lastFrame = 0;
+/** Frames are applied strictly in arrival order, even when one needs async decryption. */
+let chain: Promise<void> = Promise.resolve();
 
 export function connectGateway() {
   if (previewMode) return;
@@ -21,13 +24,26 @@ export function connectGateway() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/gateway`);
   const sock = ws;
-  sock.onmessage = async (e) => {
+  lastFrame = Date.now();
+  sock.onmessage = (e) => {
+    lastFrame = Date.now();
     const f = JSON.parse(e.data);
     if (f.op === "hello") {
       if (hb) clearInterval(hb);
-      hb = window.setInterval(() => sock.readyState === WebSocket.OPEN && sock.send(JSON.stringify({ op: "heartbeat" })), f.d.heartbeat_interval);
+      const every = f.d.heartbeat_interval as number;
+      hb = window.setInterval(() => {
+        if (sock.readyState !== WebSocket.OPEN) return;
+        // No frame (not even a heartbeat ack) for two intervals: the socket is dead even if the browser hasn't noticed.
+        if (Date.now() - lastFrame > every * 2 + 5000) { sock.close(4000, "Heartbeat timeout"); return; }
+        sock.send(JSON.stringify({ op: "heartbeat" }));
+      }, every);
       return;
     }
+    if (f.op === "heartbeat_ack") return;
+    chain = chain.then(() => handle(sock, f)).catch((err) => console.error("[gateway]", err));
+  };
+  const handle = async (sock: WebSocket, f: any) => {
+    if (sock !== ws) return;
     if (f.op === "error") { import("./store.ts").then((s) => s.toast(f.d?.message ?? "Something went wrong.", "error")); return; }
     if (f.op !== "dispatch") return;
     if (f.t === "MESSAGE_CREATE" || f.t === "MESSAGE_UPDATE") f.d = await (await import("./crypto/dm.ts")).decodeWire(f.d);
@@ -66,7 +82,17 @@ export function gwSend(op: string, d?: unknown) {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ op, d }));
 }
 
-// Reconnect promptly when the network comes back or the tab wakes up.
-window.addEventListener("online", () => { if (!ws && !stopped) { attempt = 0; connectGateway(); } });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !ws && !stopped) { attempt = 0; connectGateway(); } });
+/** Reconnect now instead of waiting out the backoff timer. */
+function reconnectNow() {
+  if (stopped || previewMode) return;
+  if (ws && Date.now() - lastFrame > 75_000) { const old = ws; ws = null; old.close(4000, "Stale"); }
+  if (ws) return;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  attempt = Math.max(attempt, 1); // the next READY triggers a resync of open channels
+  connectGateway();
+}
+// Reconnect promptly when the network comes back or the tab/laptop wakes up.
+window.addEventListener("online", reconnectNow);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnectNow(); });
+window.addEventListener("focus", reconnectNow);
 export const gatewaySeq = () => lastSeq;
