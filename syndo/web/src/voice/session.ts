@@ -1,5 +1,5 @@
 import { playCallSound } from "./sounds.ts";
-import { CloudflareCall } from "./cloudflare.ts";
+import { CloudflareCall, type IceServer } from "./cloudflare.ts";
 import { create } from "zustand";
 import {
   ConnectionState, LocalAudioTrack, LocalVideoTrack, ParticipantEvent, Room, RoomEvent, Track,
@@ -187,11 +187,11 @@ export async function joinVoice(channelId: string) {
   const my = ++joinToken;
   set({ channelId, status: "connecting", error: null, peers: {}, camera: false, sharing: false });
   try {
-    const t = await api.post<{ provider?: string; session?: string; url: string; token: string; grants: { speak: boolean; video: boolean; vad: boolean } }>("/api/voice/token", { channel_id: channelId });
+    const t = await api.post<{ provider?: string; session?: string; ice_servers?: IceServer[]; url: string; token: string; grants: { speak: boolean; video: boolean; vad: boolean } }>("/api/voice/token", { channel_id: channelId });
     if (my !== joinToken) return;
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
-    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
+    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session, t.ice_servers ?? []); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
     const r = new Room({
       adaptiveStream: true, // subscribe to the layer that fits the element on screen
       dynacast: true, // stop encoding layers nobody watches
@@ -425,6 +425,7 @@ export function deviceError(e: unknown): string {
 import("../store.ts").then(({ onEvent }) => {
   onEvent("VOICE_DISCONNECTED", () => { if (get().channelId) { leaveVoice(); toast("You were removed from the voice channel.", "info"); } });
   onEvent("VOICE_MOVE", (d) => joinVoice(d.channel_id));
+  onEvent("VOICE_MEDIA_UPDATE", (d) => { if (cf && get().channelId === d.channel_id) cf.pollNow(); });
 });
 // Device hot-plug: fall back to the default device if the selected one disappears.
 navigator.mediaDevices?.addEventListener?.("devicechange", async () => {

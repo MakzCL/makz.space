@@ -39,7 +39,7 @@ export class SENDBackend extends DurableObject<Env> {
       DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
       SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
       SYNDO_AUTO_MIGRATE:"0", SYNDO_REQUIRE_DM_E2EE:"1", SYNDO_SFU_APP_ID:this.env.SFU_APP_ID, SYNDO_SFU_SECRET:this.env.SFU_APP_SECRET, SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
-      SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT,
+      SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT, SYNDO_TURN_KEY_ID:this.env.TURN_KEY_ID ?? "", SYNDO_TURN_KEY_TOKEN:this.env.TURN_KEY_TOKEN ?? "",
     }});
     await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
     await c.setInactivityTimeout(TIMEOUT);
@@ -126,7 +126,7 @@ export default {
     try {
       // One Node process is the backend's realtime coordination unit. The beta
       // caps at one container until a shared event fanout is implemented.
-      return await env.BACKEND.getByName("syndo-beta-v1").fetch(request);
+      return await env.BACKEND.getByName("syndo-beta-weur-v2", { locationHint: "weur" }).fetch(request);
     } catch (error) {
       console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
       return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});

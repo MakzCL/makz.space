@@ -1,4 +1,4 @@
-import { sfuConfigured, openSfu } from "../sfu.ts";
+import { sfuConfigured, openSfu, iceServers } from "../sfu.ts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ChannelType, MessageType, P, has, isDmType, isVoiceType } from "@syndo/shared";
@@ -69,7 +69,7 @@ export async function voiceRoutes(app: FastifyInstance) {
     const u = await q1<any>("select username, display_name from users where id = $1", [me]);
     const speak = has(perms, P.SPEAK) && !member?.mute;
     const video = has(perms, P.VIDEO);
-    if (sfuConfigured()) { const p = await openSfu(me, req.session!.id, channel.id, u.display_name || u.username); return { provider: "cloudflare", session: p.id, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }
+    if (sfuConfigured()) { const [p, ice] = await Promise.all([openSfu(me, req.session!.id, channel.id, u.display_name || u.username), iceServers()]); return { provider: "cloudflare", session: p.id, ice_servers: ice, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }
     const token = await mintToken({ userId: me, name: u.display_name || u.username, channelId: channel.id, speak, video });
     return {
       url: config.livekit.url, token, room: roomName(channel.id),
