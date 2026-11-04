@@ -1,11 +1,16 @@
 import { playCallSound } from "./sounds.ts";
 import { CloudflareCall, type IceServer } from "./cloudflare.ts";
 import { create } from "zustand";
-import {
-  ConnectionState, LocalAudioTrack, LocalVideoTrack, ParticipantEvent, Room, RoomEvent, Track,
-  createLocalAudioTrack, createLocalScreenTracks, type LocalTrackPublication, type RemoteParticipant, type RemoteTrack,
-  type RemoteTrackPublication, type VideoCodec,
+import type {
+  LocalAudioTrack, LocalVideoTrack, Room, LocalTrackPublication, RemoteParticipant, RemoteTrack,
+  RemoteTrackPublication, VideoCodec,
 } from "livekit-client";
+// LiveKit is only needed on servers that use it (the hosted app uses Cloudflare calls), so it's
+// loaded on first join instead of shipping in the startup bundle.
+type LiveKit = typeof import("livekit-client");
+let LK: LiveKit;
+export const livekit = () => LK;
+async function loadLiveKit() { LK ??= await import("livekit-client"); return LK; }
 import { api, errMsg } from "../api.ts";
 import { gwSend } from "../gateway.ts";
 import { toast } from "../store.ts";
@@ -67,10 +72,10 @@ function reportState() {
 }
 
 function peerFrom(p: RemoteParticipant): Peer {
-  const cam = p.getTrackPublication(Track.Source.Camera);
-  const scr = p.getTrackPublication(Track.Source.ScreenShare);
-  const scrA = p.getTrackPublication(Track.Source.ScreenShareAudio);
-  const mic = p.getTrackPublication(Track.Source.Microphone);
+  const cam = p.getTrackPublication(LK.Track.Source.Camera);
+  const scr = p.getTrackPublication(LK.Track.Source.ScreenShare);
+  const scrA = p.getTrackPublication(LK.Track.Source.ScreenShareAudio);
+  const mic = p.getTrackPublication(LK.Track.Source.Microphone);
   return {
     id: p.identity, name: p.name || p.identity, speaking: p.isSpeaking,
     micMuted: !mic || mic.isMuted,
@@ -90,7 +95,7 @@ function syncPeers() {
 /* ------------------------------------------------------------ audio out -- */
 const audioEls = new Map<string, HTMLAudioElement>();
 function attachAudio(track: RemoteTrack, pub: RemoteTrackPublication, p: RemoteParticipant) {
-  if (track.kind !== Track.Kind.Audio) return;
+  if (track.kind !== LK.Track.Kind.Audio) return;
   const el = track.attach() as HTMLAudioElement;
   el.dataset.identity = p.identity;
   el.dataset.source = pub.source;
@@ -106,7 +111,7 @@ function applyOutput() {
   const s = get();
   for (const el of audioEls.values()) {
     const id = el.dataset.identity!;
-    const key = el.dataset.source === Track.Source.ScreenShareAudio ? `${id}:stream` : id;
+    const key = el.dataset.source === LK.Track.Source.ScreenShareAudio ? `${id}:stream` : id;
     const v = s.deafened ? 0 : (s.settings.userVolumes[key] ?? 1);
     el.volume = Math.min(1, v);
     el.muted = s.deafened;
@@ -115,8 +120,8 @@ function applyOutput() {
   // Volumes above 100% use LiveKit's WebAudio gain per participant.
   if (room) for (const p of room.remoteParticipants.values()) {
     const v = s.deafened ? 0 : (s.settings.userVolumes[p.identity] ?? 1);
-    try { p.setVolume(v, Track.Source.Microphone); } catch { /* */ }
-    try { p.setVolume(s.deafened ? 0 : (s.settings.userVolumes[`${p.identity}:stream`] ?? 1), Track.Source.ScreenShareAudio); } catch { /* */ }
+    try { p.setVolume(v, LK.Track.Source.Microphone); } catch { /* */ }
+    try { p.setVolume(s.deafened ? 0 : (s.settings.userVolumes[`${p.identity}:stream`] ?? 1), LK.Track.Source.ScreenShareAudio); } catch { /* */ }
   }
 }
 
@@ -127,7 +132,7 @@ async function buildMic(s: VoiceSettings): Promise<LocalAudioTrack> {
     echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl,
     channelCount: s.stereo ? 2 : 1, sampleRate: 48000, sampleSize: 16,
   };
-  if (s.inputGain === 1) return createLocalAudioTrack(constraints as any);
+  if (s.inputGain === 1) return LK.createLocalAudioTrack(constraints as any);
   // Input gain via WebAudio; the processed track is what gets published.
   const raw = (await navigator.mediaDevices.getUserMedia({ audio: constraints })).getAudioTracks()[0]!;
   const ctx = new AudioContext({ sampleRate: 48000 });
@@ -136,7 +141,7 @@ async function buildMic(s: VoiceSettings): Promise<LocalAudioTrack> {
   const dest = ctx.createMediaStreamDestination(); dest.channelCount = s.stereo ? 2 : 1;
   src.connect(gain).connect(dest);
   gainCtx = { ctx, gain, dest, raw };
-  return new LocalAudioTrack(dest.stream.getAudioTracks()[0]!, constraints, true);
+  return new LK.LocalAudioTrack(dest.stream.getAudioTracks()[0]!, constraints, true);
 }
 
 async function publishMic() {
@@ -146,7 +151,7 @@ async function publishMic() {
   if (gainCtx) { gainCtx.raw.stop(); gainCtx.ctx.close().catch(() => {}); gainCtx = null; }
   micTrack = await buildMic(s);
   await room.localParticipant.publishTrack(micTrack, {
-    source: Track.Source.Microphone,
+    source: LK.Track.Source.Microphone,
     audioPreset: { maxBitrate: s.bitrate },
     dtx: s.dtx, red: s.red, forceStereo: s.stereo,
     stopMicTrackOnMute: false,
@@ -192,30 +197,32 @@ export async function joinVoice(channelId: string) {
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
     if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session, t.ice_servers ?? []); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
-    const r = new Room({
+    await loadLiveKit();
+    if (my !== joinToken) return;
+    const r = new LK.Room({
       adaptiveStream: true, // subscribe to the layer that fits the element on screen
       dynacast: true, // stop encoding layers nobody watches
       audioOutput: { deviceId: get().settings.outputDeviceId === "default" ? undefined : get().settings.outputDeviceId },
       disconnectOnPageLeave: true,
     });
     room = r;
-    r.on(RoomEvent.TrackSubscribed, (track, pub, p) => { attachAudio(track, pub, p); syncPeers(); })
-      .on(RoomEvent.TrackUnsubscribed, (track, pub) => { detachAudio(track, pub); syncPeers(); })
-      .on(RoomEvent.TrackMuted, syncPeers).on(RoomEvent.TrackUnmuted, syncPeers)
-      .on(RoomEvent.ParticipantConnected, syncPeers).on(RoomEvent.ParticipantDisconnected, syncPeers)
-      .on(RoomEvent.ActiveSpeakersChanged, syncPeers)
-      .on(RoomEvent.ConnectionQualityChanged, syncPeers)
-      .on(RoomEvent.Reconnecting, () => set({ status: "reconnecting" }))
-      .on(RoomEvent.Reconnected, () => { set({ status: "connected" }); reportState(); })
-      .on(RoomEvent.MediaDevicesError, (e) => toast(deviceError(e), "error"))
-      .on(RoomEvent.Disconnected, (reason) => {
+    r.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => { attachAudio(track, pub, p); syncPeers(); })
+      .on(LK.RoomEvent.TrackUnsubscribed, (track, pub) => { detachAudio(track, pub); syncPeers(); })
+      .on(LK.RoomEvent.TrackMuted, syncPeers).on(LK.RoomEvent.TrackUnmuted, syncPeers)
+      .on(LK.RoomEvent.ParticipantConnected, syncPeers).on(LK.RoomEvent.ParticipantDisconnected, syncPeers)
+      .on(LK.RoomEvent.ActiveSpeakersChanged, syncPeers)
+      .on(LK.RoomEvent.ConnectionQualityChanged, syncPeers)
+      .on(LK.RoomEvent.Reconnecting, () => set({ status: "reconnecting" }))
+      .on(LK.RoomEvent.Reconnected, () => { set({ status: "connected" }); reportState(); })
+      .on(LK.RoomEvent.MediaDevicesError, (e) => toast(deviceError(e), "error"))
+      .on(LK.RoomEvent.Disconnected, (reason) => {
         if (room !== r) return;
         cleanup();
         set({ status: "idle", channelId: null });
         reportState();
         if (reason !== undefined && reason !== 1 /* CLIENT_INITIATED */) toast("You were disconnected from voice.", "info");
       });
-    r.localParticipant.on(ParticipantEvent.IsSpeakingChanged, (sp) => set({ localSpeaking: sp }));
+    r.localParticipant.on(LK.ParticipantEvent.IsSpeakingChanged, (sp) => set({ localSpeaking: sp }));
     await r.connect(t.url, t.token, { autoSubscribe: true });
     if (my !== joinToken) { r.disconnect(); return; }
     set({ status: "connected" });
@@ -354,7 +361,7 @@ export async function startScreenShare() {
   const st = get().settings.stream;
   const source = st.height === "source";
   try {
-    const tracks = await createLocalScreenTracks({
+    const tracks = await LK.createLocalScreenTracks({
       audio: st.audio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } as any : false,
       // Source: no resolution constraint → the browser captures at the surface's native size.
       resolution: source ? undefined : { width: Math.round((st.height as number) * 16 / 9), height: st.height as number, frameRate: st.fps },
@@ -365,7 +372,7 @@ export async function startScreenShare() {
       preferCurrentTab: false,
       video: source ? { frameRate: st.fps } as any : undefined,
     } as any);
-    const video = tracks.find((t) => t.kind === Track.Kind.Video) as LocalVideoTrack | undefined;
+    const video = tracks.find((t) => t.kind === LK.Track.Kind.Video) as LocalVideoTrack | undefined;
     if (!video) throw new Error("No screen was selected.");
     const settings = video.mediaStreamTrack.getSettings();
     const capH = settings.height ?? 1080;
@@ -375,7 +382,7 @@ export async function startScreenShare() {
     const codec: VideoCodec | undefined = st.codec === "auto" ? (supportsCodec("video/AV1") ? "av1" : supportsCodec("video/VP9") ? "vp9" : "h264") : (st.codec as VideoCodec);
     const lowH = Math.min(capH, 720);
     const pub = await room.localParticipant.publishTrack(video, {
-      source: Track.Source.ScreenShare,
+      source: LK.Track.Source.ScreenShare,
       videoCodec: codec,
       backupCodec: true, // viewers that can't decode the primary codec get a compatible one
       screenShareEncoding: { maxBitrate, maxFramerate: st.fps, priority: "high" },
@@ -385,8 +392,8 @@ export async function startScreenShare() {
       simulcast: true,
     } as any);
     screenPubs = [pub];
-    const audio = tracks.find((t) => t.kind === Track.Kind.Audio);
-    if (audio) screenPubs.push(await room.localParticipant.publishTrack(audio, { source: Track.Source.ScreenShareAudio, dtx: false, red: false, audioPreset: { maxBitrate: 128_000 }, forceStereo: true } as any));
+    const audio = tracks.find((t) => t.kind === LK.Track.Kind.Audio);
+    if (audio) screenPubs.push(await room.localParticipant.publishTrack(audio, { source: LK.Track.Source.ScreenShareAudio, dtx: false, red: false, audioPreset: { maxBitrate: 128_000 }, forceStereo: true } as any));
     else if (st.audio) toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
     video.mediaStreamTrack.addEventListener("ended", () => stopScreenShare());
     set({ sharing: true, localScreen: video.mediaStreamTrack });
@@ -436,4 +443,4 @@ navigator.mediaDevices?.addEventListener?.("devicechange", async () => {
     await updateVoiceSettings({ inputDeviceId: "default" });
   }
 });
-export { DEFAULT_VOICE, ConnectionState };
+export { DEFAULT_VOICE };

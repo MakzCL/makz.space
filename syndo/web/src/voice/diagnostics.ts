@@ -1,5 +1,4 @@
-import { Track } from "livekit-client";
-import { currentCloudflare, currentRoom, useVoice } from "./session.ts";
+import { currentCloudflare, currentRoom, livekit, useVoice } from "./session.ts";
 
 /**
  * Measured media statistics from WebRTC getStats(). Reported next to the
@@ -31,6 +30,7 @@ export async function collect(): Promise<Diagnostics | null> {
   if (call) return collectCloudflare(call);
   const room = currentRoom();
   if (!room) return null;
+  const { Track } = livekit();
   const now = performance.now();
   const out: Diagnostics = { at: Date.now(), audio: null, screen: null, camera: null, inbound: [], candidate: null };
   const s = useVoice.getState();
