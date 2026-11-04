@@ -43,7 +43,7 @@
     }
   ],
   "vars": {
-    "SOURCE_COMMIT": "42ba8be9a65082744d7d02deb96b30d7a4040a41",
+    "SOURCE_COMMIT": "44e11d9cad56c1e132d9d5f61c006c32881e6c7e",
     "STORAGE_ORIGIN": "https://send-beta-api.kuklinskikarol04.workers.dev",
     "SFU_APP_ID": "a971b7768ec9d5ca3bac994293b2210d"
   }
