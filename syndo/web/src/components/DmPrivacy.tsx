@@ -21,7 +21,7 @@ export function DmPrivacyBar({channel}:{channel:string}) {
   const [open,setOpen]=useState(false),[rows,setRows]=useState<{user_id:string;public_key:string|null;fp?:string}[]>([]),[error,setError]=useState("");
   const me=useStore(s=>s.me);
   useEffect(()=>{if(previewMode)return;let live=true;channelIdentities(channel).then(async list=>{const r=await Promise.all(list.map(async i=>({...i,fp:i.public_key?await fingerprint(i.public_key):undefined})));if(live){setRows(r);setError("")}}).catch(e=>{if(live)setError(errMsg(e))});return()=>{live=false}},[channel]);
-  return <aside className="dm-privacy"><button className="link" aria-expanded={open} onClick={()=>setOpen(!open)}>♧ {previewMode?"Local sample conversation":error?"Encryption needs attention":rows.some(r=>!r.public_key)?"Waiting for encryption setup":"End-to-end encrypted messages"} · Privacy details</button>
+  return <aside className="dm-privacy"><button className="link" aria-expanded={open} onClick={()=>setOpen(!open)}>{error?"Encryption needs attention · Privacy details":rows.some(r=>!r.public_key)?"Waiting for encryption setup · Privacy details":"Privacy details"}</button>
     {open&&<div className="stack"><p className="small">New messages and files are encrypted. Compare these fingerprints outside SEND before trusting a first contact. Older history is labelled separately.</p>{error&&<p className="error">{error} Open Privacy &amp; safety to restore your key.</p>}{rows.map(r=><label className="field" key={r.user_id}><span className="field-l">{r.user_id===me?.id?"You":useStore.getState().users[r.user_id]?.username??r.user_id}</span><code className="key-fingerprint">{r.fp??"Waiting for this person to open the updated app"}</code></label>)}</div>}
   </aside>;
 }

@@ -283,7 +283,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
-              {!m.guild_id && m.type === 0 && <small className="muted encryption-mark">{m._encrypted ? " · Encrypted" : m._encryptionError ? " · Locked" : " · Older unencrypted message"}</small>}
+              {!m.guild_id && m.type === 0 && !m._encrypted && !m._state && <small className="muted encryption-mark">{m._encryptionError ? " · Locked" : " · Older unencrypted message"}</small>}
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
