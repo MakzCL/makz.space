@@ -10,7 +10,7 @@ const seen = (loc, ms = 8000) => loc.waitFor({ state: 'visible', timeout: ms }).
 const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${extra}`); };
 (async () => {
   const b = await chromium.launch();
-  const mk = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); return { c, p, errs }; };
+  const mk = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); return { c, p, errs }; };
   const A = await mk(), B = await mk();
   const reg = async (x, u) => {
     await x.p.goto(BASE + '/register');
@@ -99,7 +99,8 @@ const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); cons
   // Settings: theme persists across devices (second context for A logs in)
   await A.p.getByRole('button', { name: 'User settings' }).click();
   await A.p.getByRole('tab', { name: 'Appearance' }).click();
-  await A.p.locator('.settings-body select').first().selectOption('syndo-paper');
+  await A.p.locator('.settings-body .send-select-trigger').first().click();
+  await A.p.getByRole('option', { name: 'SEND Paper' }).click();
   await A.p.waitForFunction(() => document.documentElement.dataset.scheme === 'light', null, { timeout: 5000 }).catch(() => {}); await A.p.waitForTimeout(1200);
   const scheme = await A.p.evaluate(() => document.documentElement.dataset.scheme);
   check('light theme applies', scheme === 'light');

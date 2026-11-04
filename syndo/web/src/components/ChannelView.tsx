@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { DmPrivacyBar } from "./DmPrivacy.tsx";
 import { useShallow } from "zustand/react/shallow";
@@ -14,8 +15,12 @@ import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
 import { joinVoice, useVoice } from "../voice/session.ts";
 import { openDialog } from "./Shell.tsx";
-import { Avatar, fmtBytes, fmtTime, Modal } from "./ui.tsx";
+import { Avatar, fmtBytes, fmtTime } from "./ui.tsx";
 import { ProfileCard } from "./Dialogs.tsx";
+import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuItem } from "./overlay.tsx";
+import { copy, developerMode, userMenuItems } from "./menus.tsx";
+import { useLayer } from "../layers.ts";
+import { createContext, useContext } from "react";
 import { ChannelType as CT } from "@syndo/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
@@ -63,7 +68,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       if (video) (await import("../voice/session.ts")).toggleCamera();
     } catch (e) { toast(errMsg(e), "error"); }
   };
-  const mdCtx = { guildId, onMention: (id: string, el: HTMLElement) => setProfile({ id, el }), onChannel: (id: string) => { const c = channelById(id); if (c) navigate(`/channels/${c.guild_id ?? "@me"}/${id}`); } };
+  const mdCtx = { guildId, onMention: (id: string, el: HTMLElement) => setProfile((p) => (p && p.el === el ? null : { id, el })), onChannel: (id: string) => { const c = channelById(id); if (c) navigate(`/channels/${c.guild_id ?? "@me"}/${id}`); } };
 
   return (
     <div className="channel">
@@ -102,7 +107,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
-        {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onProfile={(id, el) => setProfile({ id, el })} /> : <Recipients channel={channel} />)}
+        {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} />)}
         {panel === "pins" && <Pins channel={channel} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
         {panel === "appearance" && <ConversationPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "search" && <SearchPanel channel={channel} guildId={guildId} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
@@ -178,7 +183,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   const me = useStore((s) => s.me!);
   const guildId = channel.guild_id;
   const [editing, setEditing] = useState(false);
-  const [picker, setPicker] = useState(false);
+  const [picker, setPicker] = useState<HTMLElement | null>(null);
+  const media = useRef(new Map<number, MediaItem>());
   const mine = m.author.id === me.id;
   const canManage = !!guildId && can(channel, P.MANAGE_MESSAGES);
   const mentioned = m.mentions.includes(me.id) || m.mention_everyone || (guildId ? m.mention_roles.some((r) => useStore.getState().guilds[guildId]?.me.roles.includes(r)) : false);
@@ -193,14 +199,53 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   const name = m.member_nick || memberName(guildId, m.author);
   const cos = useCosmetics(m.author, m.member?.profile_theme ?? undefined);
   const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;
-  const del = async () => {
-    if (!confirm("Delete this message?")) return;
+  const del = async (skipConfirm = false) => {
+    if (!skipConfirm && !(await askConfirm({ title: "Delete message?", body: "Are you sure you want to delete this message? Hold Shift when clicking Delete to skip this.", confirmLabel: "Delete", danger: true }))) return;
     try { await api.del(`/api/channels/${channel.id}/messages/${m.id}`); } catch (e) { toast(errMsg(e), "error"); }
   };
   const pin = async () => { try { m.pinned ? await api.del(`/api/channels/${channel.id}/pins/${m.id}`) : await api.put(`/api/channels/${channel.id}/pins/${m.id}`); } catch (e) { toast(errMsg(e), "error"); } };
   const save = async () => { try { await api.put(`/api/users/@me/saved/${m.id}`); toast("Saved for later.", "success"); } catch (e) { toast(errMsg(e), "error"); } };
+  const canReact = can(channel, P.ADD_REACTIONS) || !guildId;
+  const canSend = can(channel, P.SEND_MESSAGES) || !guildId;
+  const authorMenu = (e: React.MouseEvent<HTMLElement>) => { e.stopPropagation(); const el = e.currentTarget; openContextMenu(e, userMenuItems(m.author, { guildId, onProfile: () => mdCtx.onMention(m.author.id, el) })); };
+  const onContextMenu = (e: React.MouseEvent<HTMLElement>) => {
+    const t = e.target as HTMLElement;
+    if (t.closest("textarea,input,[contenteditable=true]") || m._state === "pending") return; // native menu for text fields (spellcheck, paste)
+    const sel = window.getSelection();
+    const selected = sel && !sel.isCollapsed && e.currentTarget.contains(sel.anchorNode) ? sel.toString() : "";
+    const media = t.closest<HTMLElement>("[data-media-url]"), link = t.closest<HTMLAnchorElement>("a[href]");
+    const sep: MenuItem = { kind: "separator" };
+    const items: MenuItem[] = [];
+    if (selected) items.push({ label: "Copy", hint: "Ctrl+C", onSelect: () => copy(selected, "Copied") }, sep);
+    if (m._state === "failed") items.push({ label: "Retry sending", onSelect: () => sendMessage(channel.id, m.content, { retryOf: m }) }, { label: "Discard", danger: true, onSelect: () => discardFailed(channel.id, m.id) });
+    else {
+      if (canReact) items.push(
+        { kind: "custom", render: (close) => <div className="ctx-emoji-row" role="group" aria-label="Quick reactions">{QUICK.slice(0, 4).map((x) => <button key={x} aria-label={`React ${x}`} onClick={() => { close(); toggleReaction(m, x); }}>{x}</button>)}</div> },
+        { label: "Add reaction", submenu: QUICK.map((x) => ({ label: x, checked: m.reactions.some((r) => r.emoji === x && r.me), onSelect: () => toggleReaction(m, x) })) }, sep);
+      if (mine && m.type === 0) items.push({ label: "Edit message", onSelect: () => setEditing(true) });
+      if (canSend) items.push({ label: "Reply", onSelect: () => onReply(m) });
+      if (canManage || !guildId) items.push({ label: m.pinned ? "Unpin message" : "Pin message", onSelect: pin });
+      items.push(sep);
+      if (m.content) items.push({ label: "Copy text", onSelect: () => copy(plainText(m.content), "Text copied") });
+      items.push({ label: "Mark unread", hint: "Alt+click", onSelect: () => { api.post(`/api/channels/${channel.id}/messages/${m.id}/unread`).catch((x) => toast(errMsg(x), "error")); } });
+      items.push({ label: "Copy message link", onSelect: () => copy(messageLink(guildId, channel.id, m.id), "Link copied") });
+      items.push({ label: "Save message", onSelect: save });
+      if (media) {
+        const url = media.dataset.mediaUrl!, encrypted = url.startsWith("blob:");
+        items.push(sep, { label: "Save image", onSelect: () => { const a = document.createElement("a"); a.href = url; a.download = media.dataset.filename ?? "image"; a.click(); } });
+        if (!encrypted) items.push({ label: "Copy image link", onSelect: () => copy(new URL(url, location.href).href, "Link copied") }, { label: "Open image", onSelect: () => window.open(url, "_blank", "noopener,noreferrer") });
+      } else if (link) items.push(sep, { label: "Copy link", onSelect: () => copy(link.href, "Link copied") }, { label: "Open link", onSelect: () => window.open(link.href, "_blank", "noopener,noreferrer") });
+      if (mine || canManage) items.push(sep, { label: "Delete message", danger: true, hint: "Shift+click", onSelect: () => del() });
+      if (developerMode()) items.push(sep, { label: "Copy message ID", onSelect: () => copy(m.id, "ID copied") });
+    }
+    openContextMenu(e, items);
+  };
+  // Discord-style shortcuts on the message itself: Alt+click marks unread from here.
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (e.altKey && !m._state && !(e.target as HTMLElement).closest("a,button,textarea,input")) { e.preventDefault(); api.post(`/api/channels/${channel.id}/messages/${m.id}/unread`).catch((x) => toast(errMsg(x), "error")); }
+  };
   return (
-    <article className={`msg ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${mine ? "mine" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
+    <article onContextMenu={onContextMenu} onClickCapture={onClickCapture} className={`msg ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${mine ? "mine" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
       {m.reply_to && (
         <button className="reply-ref" onClick={() => navigate(`/channels/${guildId ?? "@me"}/${channel.id}/${m.reply_to!.id}`)}>
           <CornerUpLeft size={14} aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <><strong>@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> <span className="ellipsis">{plainText(m.reply_to.content)}</span></>}
@@ -208,9 +253,9 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
       )}
       <div className="msg-row">
         <div className="msg-gutter">{grouped ? <time className="msg-time-hover" dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
-          : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}><Avatar user={m.author} size={40} src={m.member?.avatar ?? undefined} serverTheme={m.member?.profile_theme ?? undefined} /></button>}</div>
+          : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><Avatar user={m.author} size={40} src={m.member?.avatar ?? undefined} serverTheme={m.member?.profile_theme ?? undefined} /></button>}</div>
         <div className="msg-body">
-          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">APP</span>}<time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
+          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">APP</span>}<time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
@@ -218,7 +263,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
-          {m.attachments.map((a) => <AttachmentView key={a.id} a={a} />)}
+          <GalleryCtx.Provider value={media.current}>{m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</GalleryCtx.Provider>
           {m._state === "pending" && <span className="muted small">Sending…</span>}
           {m._state === "failed" && (
             <div className="send-failed" role="alert">
@@ -234,7 +279,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
                   <span className="r-emoji">{r.emoji}</span> {r.count}
                 </button>
               ))}
-              {can(channel, P.ADD_REACTIONS) || !guildId ? <button className="reaction add" aria-label="Add reaction" onClick={() => setPicker(true)}><SmilePlus size={14} /></button> : null}
+              {can(channel, P.ADD_REACTIONS) || !guildId ? <button className="reaction add" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={14} /></button> : null}
             </div>
           )}
         </div>
@@ -242,17 +287,17 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
       {!m._state && !editing && (
         <div className="msg-tools" role="toolbar" aria-label="Message actions">
           {QUICK.slice(0, 3).map((e) => <button key={e} className="icon-btn sm" aria-label={`React ${e}`} onClick={() => toggleReaction(m, e)}>{e}</button>)}
-          <button className="icon-btn sm" aria-label="Add reaction" onClick={() => setPicker(true)}><SmilePlus size={16} /></button>
+          <button className="icon-btn sm" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={16} /></button>
           <button className="icon-btn sm" aria-label="Reply" onClick={() => onReply(m)}><CornerUpLeft size={16} /></button>
           {mine && <button className="icon-btn sm" aria-label="Edit" onClick={() => setEditing(true)}><Pencil size={16} /></button>}
           {(canManage || !guildId) && <button className="icon-btn sm" aria-label={m.pinned ? "Unpin" : "Pin"} onClick={pin}>{m.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>}
           <button className="icon-btn sm" aria-label="Save message" onClick={save}><Bookmark size={16} /></button>
           <button className="icon-btn sm" aria-label="Copy message link" onClick={() => { navigator.clipboard.writeText(messageLink(guildId, channel.id, m.id)); toast("Link copied.", "success"); }}><Link2 size={16} /></button>
           <button className="icon-btn sm" aria-label="Mark unread" onClick={() => api.post(`/api/channels/${channel.id}/messages/${m.id}/unread`)}><BookmarkCheck size={16} /></button>
-          {(mine || canManage) && <button className="icon-btn sm danger" aria-label="Delete" onClick={del}><Trash2 size={16} /></button>}
+          {(mine || canManage) && <button className="icon-btn sm danger" aria-label="Delete" title="Delete (hold Shift to skip confirmation)" onClick={(e) => del(e.shiftKey)}><Trash2 size={16} /></button>}
         </div>
       )}
-      {picker && <EmojiPicker onPick={(e) => { toggleReaction(m, e); setPicker(false); }} onClose={() => setPicker(false)} />}
+      {picker && <EmojiPicker anchor={picker} onPick={(e) => { toggleReaction(m, e); setPicker(null); }} onClose={() => setPicker(null)} />}
     </article>
   );
 });
@@ -273,7 +318,9 @@ function SystemMessage({ m, channel }: { m: UIMessage; channel: Channel }) {
   return <div className="sys-msg" data-mid={m.id}><span className="muted small">{fmtTime(m.created_at)}</span> {text}</div>;
 }
 
-function AttachmentView({ a }: { a: Message["attachments"][number] }) {
+const GalleryCtx = createContext<Map<number, MediaItem> | null>(null);
+const isVisual = (t: string) => t.startsWith("image/") || t.startsWith("video/");
+function AttachmentView({ a, index }: { a: Message["attachments"][number]; index: number }) {
   const [url, setUrl] = useState<string | null>(a.encryption ? null : a.url);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -287,17 +334,24 @@ function AttachmentView({ a }: { a: Message["attachments"][number] }) {
   }, [a.url, a.encryption?.key]);
   if (error) return <span className="muted">Encrypted attachment could not be opened.</span>;
   if (!url) return <span className="muted">Decrypting attachment…</span>;
-  return <AttachmentContent a={{ ...a, url }} />;
+  return <AttachmentContent a={{ ...a, url }} index={index} />;
 }
-function AttachmentContent({ a }: { a: Message["attachments"][number] }) {
-  const [open, setOpen] = useState(false);
+function AttachmentContent({ a, index }: { a: Message["attachments"][number]; index: number }) {
+  const gallery = useContext(GalleryCtx);
+  // Register resolved (possibly decrypted) media so the viewer can page through everything in this message.
+  useEffect(() => {
+    if (!gallery || !isVisual(a.content_type)) return;
+    gallery.set(index, { url: a.url, filename: a.filename, content_type: a.content_type, width: a.width, height: a.height });
+    return () => { gallery.delete(index); };
+  }, [gallery, index, a.url]); // eslint-disable-line
+  const open = () => {
+    const items = gallery ? [...gallery.entries()].sort((x, y) => x[0] - y[0]) : [[index, { url: a.url, filename: a.filename, content_type: a.content_type, width: a.width, height: a.height }] as const];
+    openMediaViewer(items.map((x) => x[1]), Math.max(0, items.findIndex((x) => x[0] === index)));
+  };
   if (a.content_type.startsWith("image/")) return (
-    <>
-      <button className="att-img" onClick={() => setOpen(true)} aria-label={`Open image ${a.filename}`}>
-        <img src={a.url} alt={a.filename} loading="lazy" style={a.width && a.height ? { aspectRatio: `${a.width}/${a.height}` } : undefined} />
-      </button>
-      {open && <Modal onClose={() => setOpen(false)} label={a.filename} wide><img className="lightbox" src={a.url} alt={a.filename} /><a href={a.url} target="_blank" rel="noreferrer">Open original</a></Modal>}
-    </>
+    <button className="att-img" onClick={open} aria-label={`Open image ${a.filename}`} data-media-url={a.url} data-filename={a.filename}>
+      <img src={a.url} alt={a.filename} loading="lazy" decoding="async" style={a.width && a.height ? { aspectRatio: `${a.width}/${a.height}` } : undefined} />
+    </button>
   );
   if (a.content_type.startsWith("video/")) return <video className="att-video" src={a.url} controls preload="metadata" />;
   if (a.content_type.startsWith("audio/")) return (
@@ -330,11 +384,21 @@ function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {
   );
 }
 
-export function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
+export function EmojiPicker({ onPick, onClose, anchor }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null }) {
   const ALL = "😀 😃 😄 😁 😆 🥹 😅 😂 🤣 🥲 😊 😇 🙂 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 🤗 🤔 🫡 🤭 🤫 😶 😐 😑 😬 🙄 😯 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 👍 👎 👏 🙌 👐 🤝 🙏 ✌️ 🤞 🫶 🤟 🤘 👌 👋 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🌟 ⭐ 🔥 🎉 🎊 🌻 🌈 ☀️ 🌙 ⚡ 🍀 🌸 🐶 🐱 🦊 🐻 🐼 🐨 🦁 🐸 🐧 🦄 🍕 🍔 🍟 🍩 🍪 🎂 🍰 ☕ 🧋 🎮 🎧 🎵 🎨 📚 ⚽ 🏀 🚀 🧦 👀 ✅ ❌ ❓ ❗".split(" ");
   const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  // Outside press and Escape close it; pressing the button that opened it again toggles it closed.
+  useLayer(ref, onClose, { anchor: () => anchor });
+  const [pos, setPos] = useState<React.CSSProperties | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!anchor || !ref.current) return;
+    const r = anchor.getBoundingClientRect(), w = ref.current.offsetWidth, h = ref.current.offsetHeight, m = 8;
+    const top = r.top - h - 8 > m ? r.top - h - 8 : Math.min(window.innerHeight - h - m, r.bottom + 8);
+    setPos({ position: "fixed", left: Math.max(m, Math.min(window.innerWidth - w - m, r.right - w)), top: Math.max(m, top), right: "auto" });
+  }, [anchor]);
   return (
-    <div className="picker" role="dialog" aria-label="Pick an emoji" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <div ref={ref} className="picker" role="dialog" aria-label="Pick an emoji" data-layer style={pos}>
       <div className="picker-h"><input autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter emoji" /><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
       <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => onPick(e)} aria-label={e}>{e}</button>)}</div>
     </div>
@@ -405,7 +469,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
       const buf = new Uint8Array(an.frequencyBinCount);
       const timer = setInterval(() => { an.getByteTimeDomainData(buf); let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v - 128)); levels.push(Math.min(255, peak * 2)); }, 100);
       rec.ondataavailable = (e) => chunks.push(e.data);
-      rec.onstop = () => {
+      rec.onstop = async () => {
         clearInterval(timer); ctx.close(); stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
         const duration = (Date.now() - started) / 1000;
@@ -413,7 +477,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         const step = Math.max(1, Math.floor(levels.length / 64));
         const wf = btoa(String.fromCharCode(...levels.filter((_, i) => i % step === 0).slice(0, 64)));
         const file = new File([blob], `voice-message.${blob.type.includes("mp4") ? "m4a" : "webm"}`, { type: blob.type });
-        if (confirm(`Send this ${Math.round(duration)}s voice message?`)) {
+        if (await askConfirm({ title: `Send this ${Math.round(duration)}s voice message?`, confirmLabel: "Send" })) {
           const u = startUpload(channel.id, file, (x) => { update(x); if (x.status === "done") { sendMessage(channel.id, "", { attachment_ids: [x.id!] }); setUploads((l) => l.filter((y) => y.key !== x.key)); } }, { duration: duration.toFixed(1), waveform: wf });
           void u;
         }
@@ -496,7 +560,7 @@ function MemberList({ guildId, channel, onProfile }: { guildId: string; channel:
             const status = presences[m.user.id] ?? "offline";
             const role = guild.roles.filter((r) => m.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
             return (
-              <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)}>
+              <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)} onContextMenu={(e) => { const el = e.currentTarget; openContextMenu(e, userMenuItems(m.user, { guildId, onProfile: () => onProfile(m.user.id, el) })); }}>
                 <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} serverTheme={m.guild_profile_theme ?? undefined} />
                 <span className="ellipsis" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}</span>
               </button>
@@ -520,8 +584,8 @@ function Recipients({ channel }: { channel: Channel }) {
           {channel.owner_id === me.id && u.id !== me.id && <button className="icon-btn sm danger" aria-label={`Remove ${displayName(u)}`} onClick={() => api.del(`/api/channels/${channel.id}/recipients/${u.id}`).catch((e) => toast(errMsg(e), "error"))}><X size={14} /></button>}
         </div>
       ))}
-      <button className="btn danger sm" onClick={() => confirm("Leave this group?") && api.del(`/api/channels/${channel.id}`).then(() => navigate("/channels/@me"))}>Leave group</button>
-      <button className="btn sm" onClick={async () => { const name = prompt("Group name", channel.name ?? ""); if (name !== null) await api.patch(`/api/channels/${channel.id}`, { name }).catch((e) => toast(errMsg(e), "error")); }}>Rename group</button>
+      <button className="btn danger sm" onClick={async () => (await askConfirm({ title: "Leave this group?", body: "You won't get its messages unless someone adds you back.", confirmLabel: "Leave group", danger: true })) && api.del(`/api/channels/${channel.id}`).then(() => navigate("/channels/@me"))}>Leave group</button>
+      <button className="btn sm" onClick={async () => { const name = await askText({ title: "Rename group", label: "Group name", initial: channel.name ?? "", optional: true }); if (name !== null) await api.patch(`/api/channels/${channel.id}`, { name }).catch((e) => toast(errMsg(e), "error")); }}>Rename group</button>
     </aside>
   );
 }
@@ -530,10 +594,10 @@ function Pins({ channel, mdCtx, onClose }: { channel: Channel; mdCtx: any; onClo
   const [list, setList] = useState<Message[] | null>(null);
   useEffect(() => { api.get<Message[]>(`/api/channels/${channel.id}/pins`).then(setList).catch(() => setList([])); }, [channel.id]);
   return (
-    <aside className="side-panel" data-region="panels" aria-label="Pinned messages">
+    <LayerBox className="side-panel" data-region="panels" role="complementary" aria-label="Pinned messages" onDismiss={onClose} anchor={() => document.querySelector(".ch-actions [aria-label='Pinned messages']")}>
       <header className="panel-h"><h3>Pinned messages</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       {!list ? <p className="muted pad">Loading…</p> : !list.length ? <p className="muted pad">Nothing pinned yet.</p> : list.map((m) => <ResultCard key={m.id} m={m} mdCtx={mdCtx} />)}
-    </aside>
+    </LayerBox>
   );
 }
 
@@ -564,7 +628,7 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
     try { setRes(await api.get(`/api/search?${p}`)); } catch (x) { toast(errMsg(x), "error"); } finally { setBusy(false); }
   };
   return (
-    <aside className="side-panel" data-region="panels" aria-label="Search">
+    <LayerBox className="side-panel" data-region="panels" role="search" aria-label="Search" onDismiss={onClose} opts={{ outside: false, modal: false }}>
       <header className="panel-h"><h3>Search</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       <form className="search-form" onSubmit={run}>
         <input autoFocus placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search text" />
@@ -578,7 +642,7 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
       </form>
       {res && <p className="muted small pad">{res.total} result{res.total === 1 ? "" : "s"}</p>}
       {res?.messages.map((m) => <ResultCard key={m.id} m={m} mdCtx={mdCtx} />)}
-    </aside>
+    </LayerBox>
   );
 }
 

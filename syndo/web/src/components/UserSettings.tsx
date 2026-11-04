@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "./overlay.tsx";
 import { previewMode } from "../preview-mode.ts";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
@@ -94,7 +95,7 @@ function Account() {
       <h3>Your data</h3>
       <div className="row wrap">
         <a className="btn" href="/api/users/@me/export" download>Download my data (JSON)</a>
-        <button className="btn danger" onClick={() => { const p = prompt("This permanently deletes your account. Messages remain but show as 'Deleted user'. Enter your password to confirm."); if (p) run(() => api.del("/api/users/@me", { password: p })).then((ok) => { if (ok) logout(); }); }}>Delete account</button>
+        <button className="btn danger" onClick={async () => { const p = await askText({ title: "Delete your account?", body: "This permanently deletes your account. Messages remain but show as 'Deleted user'.", label: "Password", password: true, confirmLabel: "Delete account", danger: true }); if (p) run(() => api.del("/api/users/@me", { password: p })).then((ok) => { if (ok) logout(); }); }}>Delete account</button>
       </div>
     </div>
   );
@@ -142,7 +143,7 @@ function AccessibilityTab() {
         <li><kbd>Alt+↑/↓</kbd> (or <kbd>Alt+←/→</kbd> in the horizontal bar) on a server icon reorders servers.</li>
         <li><kbd>Ctrl+K</kbd> quick switcher · <kbd>Ctrl+Shift+Alt+R</kbd> safe appearance mode.</li>
       </ul>
-      <div className="row wrap"><button className="btn" onClick={() => setSafeMode(true)}>Pause my appearance (safe mode)</button><button className="btn danger" onClick={() => confirm("Reset all appearance to default?") && resetAppearance("all")}>Reset appearance</button></div>
+      <div className="row wrap"><button className="btn" onClick={() => setSafeMode(true)}>Pause my appearance (safe mode)</button><button className="btn danger" onClick={async () => (await askConfirm({ title: "Reset all appearance?", body: "Global, server and conversation appearance return to the default.", confirmLabel: "Reset", danger: true })) && resetAppearance("all")}>Reset appearance</button></div>
     </div>
   );
 }
@@ -266,7 +267,7 @@ function DesktopTab() {
           <Select value={cfg?.material ?? "none"} onChange={async (e) => { const m = e.target.value as "none" | "mica" | "acrylic"; if (await setDesktopMaterial(m) && cfg) setCfg({ ...cfg, material: m }); }}>
             <option value="none">None</option><option value="mica">Mica</option><option value="acrylic">Acrylic</option></Select></Field>
       ) : <p className="muted small">See-through window materials need Windows 11 (22H2 or newer).</p>}
-      <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={() => confirm("Switch to a different SEND server? You'll need to sign in there.") && d.changeServer()}>Change server</button></div></Field>
+      <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={async () => (await askConfirm({ title: "Switch server?", body: "You'll need to sign in on the other SEND server." })) && d.changeServer()}>Change server</button></div></Field>
       <ul className="small keys">
         <li>Push-to-talk works globally — set it in Voice &amp; video.</li>
         <li>Screen sharing can include whole-system audio{desktop.capabilities.systemAudio ? "" : " (Windows only)"}.</li>

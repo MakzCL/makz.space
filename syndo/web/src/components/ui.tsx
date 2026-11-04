@@ -1,3 +1,4 @@
+import { useLayer } from "../layers.ts";
 import { CollectionArt } from "../appearance/CollectionArt.tsx";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -44,25 +45,26 @@ export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { u
 
 export function Modal({ title, onClose, children, wide, footer, label }: { title?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Escape (topmost layer only) closes; focus returns to the opener; presses outside can't reach what's underneath.
+  useLayer(ref, onClose, { outside: false });
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
     const el = ref.current!;
-    const focusables = () => [...el.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")].filter((x) => !x.hasAttribute("disabled"));
-    (el.querySelector<HTMLElement>("[autofocus]") ?? focusables()[0])?.focus();
+    const focusables = () => [...el.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")].filter((x) => !x.hasAttribute("disabled") && !x.closest("[hidden]"));
+    (el.querySelector<HTMLElement>("[autofocus]") ?? focusables()[0])?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); onClose(); }
-      if (e.key === "Tab") {
-        const f = focusables(); if (!f.length) return;
-        if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1]!.focus(); }
-        else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0]!.focus(); }
-      }
+      if (e.key !== "Tab") return;
+      const f = focusables(); if (!f.length) return;
+      if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1]!.focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0]!.focus(); }
     };
     el.addEventListener("keydown", onKey);
-    return () => { el.removeEventListener("keydown", onKey); prev?.focus?.(); };
-  }, [onClose]);
+    return () => el.removeEventListener("keydown", onKey);
+  }, []);
+  // Close only when both press and release land on the backdrop (dragging a text selection out of a field must not close it).
+  const down = useRef<EventTarget | null>(null);
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} data-region="overlay" className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
+    <div className="modal-back" onPointerDown={(e) => { down.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && down.current === e.currentTarget) onClose(); }}>
+      <div ref={ref} data-region="overlay" data-layer className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
         {title && <header className="modal-h"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>}
         <div className="modal-b">{children}</div>
         {footer && <footer className="modal-f">{footer}</footer>}

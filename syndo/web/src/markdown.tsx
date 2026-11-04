@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "./components/overlay.tsx";
 import { Fragment, useState, type ReactNode } from "react";
 import { channelById, memberName, useStore } from "./store.ts";
 
@@ -121,7 +122,7 @@ function SafeLink({ href, label }: { href: string; label?: string }) {
   const masked = label && label !== href;
   return (
     <a href={href} target="_blank" rel="noopener noreferrer nofollow ugc"
-      onClick={(e) => { if (masked && !confirm(`This link goes to:\n${href}\n\nOpen it?`)) e.preventDefault(); }}
+      onClick={(e) => { if (!masked) return; e.preventDefault(); askConfirm({ title: "Leaving SEND", body: `This link goes to:\n${href}\n\nOpen it?`, confirmLabel: "Visit site" }).then((ok) => { if (ok) window.open(href, "_blank", "noopener,noreferrer"); }); }}
       title={href}>{label ?? href}</a>
   );
 }

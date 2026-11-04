@@ -1,3 +1,6 @@
+import { LayerBox } from "../components/overlay.tsx";
+import { useLayer } from "../layers.ts";
+import { askConfirm, askText } from "../components/overlay.tsx";
 import { Select } from "../components/Select.tsx";
 import { EffectsGallery } from "./EffectsGallery.tsx";
 import { ScrollArea } from "../components/ScrollArea.tsx";
@@ -44,19 +47,21 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !(e.target as HTMLElement).matches("input,textarea")) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-      if (e.key === "Escape") { e.stopPropagation(); close(); }
     };
     window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true);
   }); // eslint-disable-line
-  const close = () => { if (isDirty() && !confirm("Discard your unsaved appearance changes?")) return; cancelDraft(); onClose(); };
+  const studioRef = useRef<HTMLDivElement>(null), backDown = useRef<EventTarget | null>(null);
+  // Topmost-layer Escape: a dropdown or picker inside Studio closes first; Studio itself asks before discarding edits.
+  useLayer(studioRef, () => { void close(); }, { outside: false });
+  const close = async () => { if (isDirty() && !(await askConfirm({ title: "Discard unsaved changes?", body: "Your appearance edits haven't been applied yet.", confirmLabel: "Discard", danger: true }))) return; cancelDraft(); onClose(); };
   const apply = async () => { if (await applyDraft()) onClose(); };
   void draft;
   const sectionKeys = SECTION_KEYS[section];
 
   return (
     <TargetCtx.Provider value={target}>
-      <div className="studio-back" data-region="settings" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-        <div className={`studio ${section === "effects" ? "studio-effects" : ""} ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
+      <div className="studio-back" data-region="settings" onPointerDown={(e) => { backDown.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && backDown.current === e.currentTarget) close(); }}>
+        <div ref={studioRef} data-layer className={`studio ${section === "effects" ? "studio-effects" : ""} ${showPreview ? "" : "studio-without-preview"}`} role="dialog" aria-modal="true" aria-label="SEND Studio">
           <header className="studio-h">
             <h2 className="studio-brand" aria-label="SEND Studio"><Wordmark /><span>Studio</span></h2>
             <TargetPicker target={target} onChange={setTarget} />
@@ -88,7 +93,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
               {section === "advanced" && <AdvancedSection />}
               {section !== "effects" && <footer className="studio-f">
                 {sectionKeys && <button className="btn sm" onClick={() => resetSection(target, sectionKeys)}><RefreshCcw size={14} /> Reset this section{target.kind !== "global" ? " for this scope" : ""}</button>}
-                <button className="btn sm danger" onClick={() => { if (confirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
+                <button className="btn sm danger" onClick={async () => { if (await askConfirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
               </footer>}
             </ScrollArea>
             {showPreview && <ScrollArea id="studio-live-preview" className="studio-preview-area" viewportClassName="studio-preview-wrap" role="complementary" aria-label="Live preview">
@@ -152,7 +157,7 @@ function Gallery() {
               <div className="row wrap">
                 <button className="btn primary sm" onClick={() => editDraft((d) => ({ ...d, global: { ...d.global, themeId: key, ...(doc.meta.scheme === "light" ? {} : {}) } }))} aria-pressed={themeId === key}>{themeId === key ? "Applied (preview)" : "Use"}</button>
                 <button className="btn sm" onClick={async () => { try { await api.post("/api/appearance/presets", { name: `${doc.meta.name} copy`, data: { ...doc, meta: { ...doc.meta, id: "custom" } } }); toast("Duplicated into your presets.", "success"); } catch (e) { toast(errMsg(e), "error"); } }}><Copy size={14} /> Duplicate</button>
-                {mine && <button className="btn sm danger" onClick={() => confirm(`Delete preset ${doc.meta.name}?`) && api.del(`/api/appearance/presets/${key.slice(7)}`).catch((e) => toast(errMsg(e), "error"))}><Trash2 size={14} /></button>}
+                {mine && <button className="btn sm danger" onClick={async () => (await askConfirm(`Delete preset ${doc.meta.name}?`)) && api.del(`/api/appearance/presets/${key.slice(7)}`).catch((e) => toast(errMsg(e), "error"))}><Trash2 size={14} /></button>}
               </div>
             </div>
           </article>
@@ -360,7 +365,7 @@ function Library({ onPick, video }: { onPick?: (ref: string) => void; video?: bo
   };
   const del = async (a: Asset) => {
     try { await api.del(`/api/appearance/assets/${a.id.slice(1)}`); refresh(); }
-    catch (e: any) { if (e?.status === 409 && confirm(e.message)) { await api.del(`/api/appearance/assets/${a.id.slice(1)}?force=1`).catch((x) => toast(errMsg(x), "error")); refresh(); } else if (e?.status !== 409) toast(errMsg(e), "error"); }
+    catch (e: any) { if (e?.status === 409 && await askConfirm(e.message)) { await api.del(`/api/appearance/assets/${a.id.slice(1)}?force=1`).catch((x) => toast(errMsg(x), "error")); refresh(); } else if (e?.status !== 409) toast(errMsg(e), "error"); }
   };
   const list = (assets ?? []).filter((a) => (video === undefined ? true : video ? a.kind === "video" : a.kind === "image"));
   return (
@@ -395,11 +400,11 @@ function Library({ onPick, video }: { onPick?: (ref: string) => void; video?: bo
 
 function AssetPicker({ onPick, onClose, video }: { onPick: (ref: string) => void; onClose: () => void; video?: boolean }) {
   return (
-    <div className="picker-pop" role="dialog" aria-label="Choose a background">
+    <LayerBox className="picker-pop" role="dialog" aria-label="Choose a background" onDismiss={onClose}>
       <header className="row"><strong>Choose {video ? "a video" : "an image"}</strong><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       {!video && <div className="row wrap">{BUILTIN_WALLPAPERS.map(([ref, name]) => <button key={ref} className="wp-chip big" style={{ backgroundImage: `url(${assetUrl(ref)})` }} onClick={() => onPick(ref)} title={name} aria-label={`Built-in ${name}`} />)}</div>}
       <Library onPick={onPick} video={video} />
-    </div>
+    </LayerBox>
   );
 }
 
@@ -571,7 +576,7 @@ function AccessSection() {
       <label className="field"><span className="field-l">Spacing on this device</span><Select value={device.layout?.density ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, density: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="compact">Compact</option><option value="cozy">Comfortable</option><option value="spacious">Spacious</option></Select></label>
       <h3>Recovery</h3>
       <p className="small">If a theme ever makes SEND hard to use: press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> anywhere for safe appearance mode, open <code>/?safe-appearance=1</code>, or use the “Reset appearance” button on the sign-in screen and in the user menu.</p>
-      <button className="btn danger" onClick={() => confirm("Reset all appearance settings (global, servers and conversations) to the default? Presets and your library are kept.") && resetAppearance("all")}>Reset appearance everywhere</button>
+      <button className="btn danger" onClick={async () => (await askConfirm({ title: "Reset appearance everywhere?", body: "Global, server and conversation settings return to the default. Presets and your library are kept.", confirmLabel: "Reset", danger: true })) && resetAppearance("all")}>Reset appearance everywhere</button>
     </div>
   );
 }

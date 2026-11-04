@@ -1,3 +1,5 @@
+import { useLayer } from "../layers.ts";
+import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Copy, Hash, Lock, MessageSquare, Volume2, Megaphone, FolderPlus, Radio, MessageSquareText } from "lucide-react";
@@ -163,16 +165,13 @@ export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: stri
     const r = anchor.getBoundingClientRect(); const h = ref.current?.offsetHeight ?? 400; const w = 320;
     setPos({ top: Math.max(8, Math.min(window.innerHeight - h - 8, r.top)), left: r.right + w + 16 < window.innerWidth ? r.right + 8 : Math.max(8, r.left - w - 8) });
   }, [anchor, p]);
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("mousedown", onDown); document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [onClose]);
+  // Outside press or Escape closes; pressing the same name/avatar again toggles it closed (handled by the opener).
+  useLayer(ref, onClose, { anchor: () => anchor });
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   const act = (fn: () => Promise<unknown>) => fn().then(() => api.get<Profile>(`/api/users/${userId}/profile${guildId ? `?guild_id=${guildId}` : ""}`).then(setP)).catch((e) => toast(errMsg(e), "error"));
   const m = p?.member;
   return (
-    <div ref={ref} className="profile-card" data-region="profileCard" role="dialog" aria-label="Profile" style={pos}>
+    <div ref={ref} className="profile-card" data-region="profileCard" data-layer role="dialog" aria-label="Profile" tabIndex={-1} style={pos}>
       {!p ? <p className="muted pad">Loading…</p> : (
         <ProfileCardView statusDot={p.presence} serverTheme={m?.profile_theme ?? undefined}
           d={{
@@ -192,7 +191,7 @@ export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: stri
                   {p.relationship === 0 && <button className="btn sm" onClick={() => act(() => api.post("/api/users/@me/relationships", { username: p.user.username }))}>Add friend</button>}
                   {p.relationship === 3 && <button className="btn sm" onClick={() => act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 1 }))}>Accept request</button>}
                   {p.relationship === 4 && <span className="muted small">Request sent</span>}
-                  {p.relationship !== 2 ? <button className="btn danger sm" onClick={() => confirm("Block this person?") && act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 2 }))}>Block</button>
+                  {p.relationship !== 2 ? <button className="btn danger sm" onClick={async () => (await askConfirm({ title: "Block this person?", body: "They won't be able to message or call you, and won't be told.", confirmLabel: "Block", danger: true })) && act(() => api.put(`/api/users/@me/relationships/${userId}`, { type: 2 }))}>Block</button>
                     : <button className="btn sm" onClick={() => act(() => api.del(`/api/users/@me/relationships/${userId}`))}>Unblock</button>}
                 </div>
               )}

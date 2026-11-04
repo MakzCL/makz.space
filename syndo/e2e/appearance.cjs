@@ -26,7 +26,7 @@ async function setRange(loc, value) {
 (async () => {
   const b = await chromium.launch();
   const errs = [];
-  const mk = async (opts = {}) => { const c = await b.newContext({ viewport: { width: 1360, height: 860 }, ...opts }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); return { c, p }; };
+  const mk = async (opts = {}) => { const c = await b.newContext({ viewport: { width: 1360, height: 860 }, ...opts }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); return { c, p }; };
   const reg = async (x, u) => {
     await x.p.goto(BASE + '/register');
     await x.p.getByLabel('Email').fill(`${U(u)}@example.test`);
@@ -55,20 +55,22 @@ async function setRange(loc, value) {
   await A.p.goto(`${BASE}/channels/${guild.id}/${text.id}`);
   await A.p.getByRole('button', { name: 'User settings' }).click();
   await A.p.getByRole('tab', { name: 'Appearance' }).click();
-  await A.p.getByRole('button', { name: 'Open Syndo Studio' }).click();
-  await A.p.getByRole('dialog', { name: 'Syndo Studio' }).waitFor();
-  const glass = A.p.locator('.theme-card', { hasText: 'Syndo Glass' });
-  await glass.getByRole('button', { name: 'Use' }).click();
+  await A.p.getByRole('button', { name: 'Open SEND Studio' }).click();
+  await A.p.getByRole('dialog', { name: 'SEND Studio' }).waitFor();
+  // Glass is the default since the SEND rebrand: preview a different theme (Paper, light) and make sure Cancel reverts it.
+  const schemeBefore = await A.p.evaluate(() => document.documentElement.dataset.scheme);
+  await A.p.locator('.theme-card', { hasText: 'SEND Paper' }).getByRole('button', { name: 'Use' }).click();
   await sleep(300);
-  check('Studio previews a theme before saving', (await cssVar(A.p, '--r-chat-bg')).includes('rgba') && alphaOf(await cssVar(A.p, '--r-chat-bg')) < 1);
+  check('Studio previews a theme before saving', (await A.p.evaluate(() => document.documentElement.dataset.scheme)) === 'light' && schemeBefore !== 'light');
   await A.p.screenshot({ path: `${OUT}/studio-gallery.png` });
-  A.p.once('dialog', (d) => d.accept());
   await A.p.getByRole('button', { name: 'Cancel' }).click();
+  const discard = A.p.getByRole('alertdialog');
+  if (await discard.isVisible().catch(() => false) || await discard.waitFor({ timeout: 1500 }).then(() => true, () => false)) await discard.getByRole('button', { name: 'Discard' }).click();
   await sleep(400);
-  check('Cancel reverts the preview', alphaOf(await cssVar(A.p, '--r-chat-bg')) === 1);
+  check('Cancel reverts the preview', (await A.p.evaluate(() => document.documentElement.dataset.scheme)) === schemeBefore && alphaOf(await cssVar(A.p, '--r-chat-bg')) < 1);
   await A.p.evaluate(() => window.dispatchEvent(new CustomEvent('syndo:studio', { detail: { section: 'gallery' } })));
-  await A.p.getByRole('dialog', { name: 'Syndo Studio' }).waitFor();
-  await A.p.locator('.theme-card', { hasText: 'Syndo Glass' }).getByRole('button', { name: 'Use' }).click();
+  await A.p.getByRole('dialog', { name: 'SEND Studio' }).waitFor();
+  await A.p.locator('.theme-card', { hasText: 'SEND Glass' }).getByRole('button', { name: /^(Use|Applied \(preview\))$/ }).first().click();
   // Panels: message area opacity 30 %, rail blur 6 px — independently.
   await A.p.getByRole('tab', { name: 'Panels & transparency' }).click();
   await A.p.getByRole('option', { name: /Message area/ }).click();
@@ -78,7 +80,7 @@ async function setRange(loc, value) {
   await A.p.getByRole('button', { name: 'Undo' }).click(); await A.p.getByRole('button', { name: 'Redo' }).click();
   await A.p.screenshot({ path: `${OUT}/studio-panels.png` });
   await A.p.getByRole('button', { name: 'Apply' }).click();
-  await A.p.getByRole('dialog', { name: 'Syndo Studio' }).waitFor({ state: 'detached', timeout: 8000 });
+  await A.p.getByRole('dialog', { name: 'SEND Studio' }).waitFor({ state: 'detached', timeout: 8000 });
   await sleep(500);
   // Acceptance 1: background opacity changes independently of text and icons.
   const chatBg = await A.p.locator('.ch-main').evaluate((el) => getComputedStyle(el).backgroundImage);
@@ -195,7 +197,8 @@ async function setRange(loc, value) {
   await A.p.goto(`${BASE}/channels/@me`);
   await A.p.waitForFunction(() => window.__syndoTheme === 'syndo-canvas', null, { timeout: 8000 }).catch(() => {});
   await A.p.locator('.app-bd .bd-fill').first().waitFor({ timeout: 5000 }).catch(() => {});
-  await sleep(300);
+  // The colour fallback appears once the deleted image's request fails; wait for it rather than a fixed delay.
+  await A.p.waitForFunction(() => { const el = document.querySelector('.app-bd .bd-fill'); return el && getComputedStyle(el).backgroundColor === 'rgb(51, 68, 85)'; }, null, { timeout: 6000 }).catch(() => {});
   const fb = await A.p.locator('.app-bd .bd-fill').first().evaluate((el) => getComputedStyle(el).backgroundColor).catch(() => 'none');
   check('11. a deleted wallpaper falls back to a usable colour', fb === 'rgb(51, 68, 85)' && await seen(A.p.getByRole('heading', { name: 'Friends' }), 2000), fb);
 

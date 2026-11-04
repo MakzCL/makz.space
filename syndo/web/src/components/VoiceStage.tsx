@@ -1,3 +1,4 @@
+import { Popover } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
@@ -95,6 +96,7 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
   const me = useStore(s => s.me);
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
   const [menu, setMenu] = useState(false);
+  const volBtn = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
     el.srcObject = t.track ? new MediaStream([t.track]) : null;
@@ -109,9 +111,9 @@ function VideoTile({ t, big, onFocus }: { t: { key: string; uid: string; name: s
         <button className="icon-btn sm" onClick={onFocus} aria-label={big ? "Unfocus" : `Focus ${t.name}`}><Pin size={14} /></button>
         {t.track && <button className="icon-btn sm" onClick={fullscreen} aria-label="Fullscreen"><Maximize size={14} /></button>}
         {t.track && "requestPictureInPicture" in HTMLVideoElement.prototype && <button className="icon-btn sm" onClick={pip} aria-label="Picture in picture"><PictureInPicture2 size={14} /></button>}
-        {!t.local && <button className="icon-btn sm" onClick={() => setMenu(!menu)} aria-label={`Volume for ${t.name}`}><Volume2 size={14} /></button>}
+        {!t.local && <button ref={volBtn} className="icon-btn sm" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label={`Volume for ${t.name}`}><Volume2 size={14} /></button>}
       </div>
-      {menu && <div className="vol-pop"><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<Range min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></div>}
+      {menu && <Popover className="vol-pop" role="dialog" label={`Volume for ${t.name}`} anchor={() => volBtn.current} onClose={() => setMenu(false)}><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<Range min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></Popover>}
     </figure>
   );
 }

@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "../components/overlay.tsx";
 import { Select } from "../components/Select.tsx";
 import { CollectionArt } from "./CollectionArt.tsx";
 import { Range } from "../components/Range.tsx";
@@ -221,7 +222,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
         <U k="status" label="Status"><input value={d.status ?? ""} maxLength={128} onChange={(e) => setD({ ...d, status: e.target.value })} /></U>
         <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects", target: { kind: "guild", id: guildId, label: guild.name } } }))}>Explore server profile effects</button>
         <div className="row"><button className="btn primary" onClick={save}>Save server profile</button>
-          <button className="btn" onClick={async () => { if (!confirm("Reset your whole server profile to your global profile?")) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>
+          <button className="btn" onClick={async () => { if (!(await askConfirm({ title: "Reset server profile?", body: "Your server profile goes back to your global profile.", confirmLabel: "Reset", danger: true }))) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>
       </div>
       <div className="stack">
         <small className="muted">Preview — how members of {guild.name} see you</small>

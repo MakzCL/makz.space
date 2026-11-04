@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -155,7 +156,7 @@ function Roles({ guild }: { guild: Guild }) {
         <PermGrid mine={mine} value={{ allow: BigInt(edit.permissions), deny: 0n }} onChange={(v) => setEdit({ ...edit, permissions: v.allow.toString() })} />
         <div className="row sticky-actions">
           <button className="btn primary" onClick={() => run(() => api.patch(`/api/guilds/${guild.id}/roles/${role.id}`, role.id === guild.id ? { permissions: edit.permissions } : { name: edit.name, color: edit.color, color2: edit.color2, hoist: edit.hoist, mentionable: edit.mentionable, permissions: edit.permissions }), "Role saved.")}>Save</button>
-          {role.id !== guild.id && <button className="btn danger" onClick={() => confirm(`Delete ${role.name}?`) && run(() => api.del(`/api/guilds/${guild.id}/roles/${role.id}`)).then(() => setSel(guild.id))}><Trash2 size={14} /> Delete role</button>}
+          {role.id !== guild.id && <button className="btn danger" onClick={async () => (await askConfirm({ title: `Delete ${role.name}?`, body: "Members lose this role and its permissions. This can't be undone.", confirmLabel: "Delete role", danger: true })) && run(() => api.del(`/api/guilds/${guild.id}/roles/${role.id}`)).then(() => setSel(guild.id))}><Trash2 size={14} /> Delete role</button>}
         </div>
       </div>
     </div>
@@ -217,8 +218,8 @@ function Members({ guild }: { guild: Guild }) {
               <div className="row">
                 {has(p, P.MODERATE_MEMBERS) && <Select aria-label="Timeout" value="" onChange={(e) => { const s = +e.target.value; run(() => api.patch(`/api/guilds/${guild.id}/members/${m.user.id}`, { communication_disabled_until: s ? new Date(Date.now() + s * 1000).toISOString() : null }), s ? "Timed out." : "Timeout removed."); }}>
                   <option value="">Timeout…</option><option value={60}>60 seconds</option><option value={300}>5 minutes</option><option value={3600}>1 hour</option><option value={86400}>1 day</option><option value={604800}>1 week</option><option value={0}>Remove timeout</option></Select>}
-                {has(p, P.KICK_MEMBERS) && <button className="btn sm" onClick={() => confirm(`Kick ${displayName(m.user)}?`) && run(() => api.del(`/api/guilds/${guild.id}/members/${m.user.id}`), "Kicked.")}>Kick</button>}
-                {has(p, P.BAN_MEMBERS) && <button className="btn danger sm" onClick={() => { const reason = prompt(`Ban ${displayName(m.user)}? Optional reason:`); if (reason !== null) run(() => api.put(`/api/guilds/${guild.id}/bans/${m.user.id}`, { reason: reason || undefined, delete_message_seconds: 3600 }), "Banned."); }}>Ban</button>}
+                {has(p, P.KICK_MEMBERS) && <button className="btn sm" onClick={async () => (await askConfirm({ title: `Kick ${displayName(m.user)}?`, body: "They can rejoin with a new invite.", confirmLabel: "Kick", danger: true })) && run(() => api.del(`/api/guilds/${guild.id}/members/${m.user.id}`), "Kicked.")}>Kick</button>}
+                {has(p, P.BAN_MEMBERS) && <button className="btn danger sm" onClick={async () => { const reason = await askText({ title: `Ban ${displayName(m.user)}?`, body: "They are removed and can't rejoin. Their messages from the last hour are deleted.", label: "Reason (optional, shown in the audit log)", optional: true, confirmLabel: "Ban", danger: true }); if (reason !== null) run(() => api.put(`/api/guilds/${guild.id}/bans/${m.user.id}`, { reason: reason || undefined, delete_message_seconds: 3600 }), "Banned."); }}>Ban</button>}
               </div>
             )}
           </li>
@@ -295,10 +296,10 @@ function Danger({ guild, onClose }: { guild: Guild; onClose: () => void }) {
   return (
     <div className="stack"><h2>Ownership</h2>
       <Field label="Transfer ownership to"><Select value={to} onChange={(e) => setTo(e.target.value)}><option value="">Choose a member…</option>{Object.values(members ?? {}).filter((m) => m.user.id !== guild.owner_id).map((m) => <option key={m.user.id} value={m.user.id}>{m.nick || displayName(m.user)}</option>)}</Select></Field>
-      <button className="btn" disabled={!to} onClick={() => confirm("Transfer ownership? You'll lose owner rights.") && run(() => api.post(`/api/guilds/${guild.id}/transfer`, { user_id: to }), "Ownership transferred.")}>Transfer</button>
+      <button className="btn" disabled={!to} onClick={async () => (await askConfirm({ title: "Transfer ownership?", body: "You'll lose owner rights. Only the new owner can give them back.", confirmLabel: "Transfer", danger: true })) && run(() => api.post(`/api/guilds/${guild.id}/transfer`, { user_id: to }), "Ownership transferred.")}>Transfer</button>
       <h2>Delete server</h2>
       <p className="muted">This permanently deletes every channel, message and file in {guild.name}.</p>
-      <button className="btn danger" onClick={() => { if (prompt(`Type the server name to confirm: ${guild.name}`) === guild.name) run(() => api.del(`/api/guilds/${guild.id}`)).then((ok) => { if (ok) { onClose(); navigate("/channels/@me"); } }); }}>Delete server</button>
+      <button className="btn danger" onClick={async () => { if (await askText({ title: `Delete ${guild.name}?`, body: "This permanently deletes the server, its channels and messages for everyone.", mustEqual: guild.name, confirmLabel: "Delete server", danger: true }) === guild.name) run(() => api.del(`/api/guilds/${guild.id}`)).then((ok) => { if (ok) { onClose(); navigate("/channels/@me"); } }); }}>Delete server</button>
     </div>
   );
 }

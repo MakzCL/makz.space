@@ -1,3 +1,4 @@
+import { askConfirm, askText } from "./overlay.tsx";
 import { Check, MessageSquare, Shield, UserMinus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errMsg } from "../api.ts";
@@ -49,8 +50,8 @@ export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
                     {r.type === 1 && <button className="icon-btn" aria-label={`Message ${displayName(r.user)}`} onClick={() => openDm(r.id)}><MessageSquare size={18} /></button>}
                     {r.type === 3 && <button className="icon-btn ok" aria-label="Accept" onClick={() => act(() => api.put(`/api/users/@me/relationships/${r.id}`, { type: 1 }))}><Check size={18} /></button>}
                     {(r.type === 3 || r.type === 4) && <button className="icon-btn danger" aria-label={r.type === 3 ? "Decline" : "Cancel request"} onClick={() => act(() => api.del(`/api/users/@me/relationships/${r.id}`))}><X size={18} /></button>}
-                    {r.type === 1 && <button className="icon-btn" aria-label="Remove friend" onClick={() => confirm(`Remove ${displayName(r.user)} as a friend?`) && act(() => api.del(`/api/users/@me/relationships/${r.id}`))}><UserMinus size={18} /></button>}
-                    {r.type !== 2 && <button className="icon-btn" aria-label="Block" onClick={() => confirm(`Block ${displayName(r.user)}? They won't be able to message or call you.`) && act(() => api.put(`/api/users/@me/relationships/${r.id}`, { type: 2 }))}><Shield size={18} /></button>}
+                    {r.type === 1 && <button className="icon-btn" aria-label="Remove friend" onClick={async () => (await askConfirm({ title: `Remove ${displayName(r.user)}?`, body: "You can send a new friend request later.", confirmLabel: "Remove friend", danger: true })) && act(() => api.del(`/api/users/@me/relationships/${r.id}`))}><UserMinus size={18} /></button>}
+                    {r.type !== 2 && <button className="icon-btn" aria-label="Block" onClick={async () => (await askConfirm({ title: `Block ${displayName(r.user)}?`, body: "They won't be able to message or call you, and won't be told.", confirmLabel: "Block", danger: true })) && act(() => api.put(`/api/users/@me/relationships/${r.id}`, { type: 2 }))}><Shield size={18} /></button>}
                     {r.type === 2 && <button className="btn sm" onClick={() => act(() => api.del(`/api/users/@me/relationships/${r.id}`))}>Unblock</button>}
                   </div>
                 </li>
