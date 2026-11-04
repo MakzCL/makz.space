@@ -190,4 +190,4 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
   console.log(`\n${results.length - failed}/${results.length} passed`);
   await b.close();
   process.exit(failed ? 1 : 0);
-})().catch((e) => { console.error('CRASH', e.message.split('\n')[0]); process.exit(2); });
+})().catch((e) => { console.error('CRASH', e.message.split('\n').filter((l, i) => i === 0 || /intercepts|not visible|not stable|outside|resolved/.test(l)).slice(0, 5).join(' | ')); process.exit(2); });

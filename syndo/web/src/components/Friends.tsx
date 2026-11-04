@@ -1,3 +1,4 @@
+import { MobileNavButton } from "./ui.tsx";
 import { askConfirm, askText } from "./overlay.tsx";
 import { Check, MessageSquare, Shield, UserMinus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -24,7 +25,7 @@ export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
   return (
     <div className="friends">
       <header className="ch-h">
-        <Users size={22} aria-hidden /><h1>Friends</h1>
+        <MobileNavButton /><Users size={22} aria-hidden /><h1>Friends</h1>
         <div className="tabs" role="tablist" aria-label="Friend lists">
           {(["online", "all", "pending", "blocked"] as const).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>

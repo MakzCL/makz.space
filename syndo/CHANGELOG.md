@@ -1,5 +1,28 @@
 # SEND changelog
 
+## 2026-11-04 — Phone layout and Android app 0.3.0
+
+### Changed (phones, ≤760px; also used by the Android app)
+- **Two-screen navigation like Discord mobile.** The app opens on the channel list. Picking a channel opens the conversation with a peek of the list. ☰ or a swipe right returns to the list, and switching server keeps the list open.
+- **Headers carry their own ☰ button**, replacing the floating "#" button that overlapped titles on every screen. Chat headers keep members and search; pins, mute and appearance moved into a ⋮ menu.
+- **Long-press opens the same menus as right-click**, as bottom sheets with 48px rows. Emoji-only menus show as a big grid, and the desktop hover toolbar no longer appears over messages on touch.
+- **Members, pins, search and conversation appearance open as full-screen pages** with close buttons. The member list no longer opens by default on phones (it used to cover the chat).
+- **Settings:** a section list first, then each section full screen with "‹ All settings". Nothing runs off the edge, and the Keybinds section is hidden on touch-only devices.
+- **Sheets:** the emoji picker, profile cards, dialogs and menus are solid bottom sheets with safe-area padding. 16px inputs stop focus zoom.
+- **Voice channel:** the screen has a header and navigation before you join.
+- The emoji picker renders at the document root, so a blurred parent can't offset it. While a message's reaction picker is open, that message's desktop toolbar stays visible.
+
+### Android app 0.3.0
+- **Full screen:** the native toolbar is gone and the app runs edge to edge with system-bar, cutout and keyboard insets.
+- **Back button:** closes the topmost layer first, then returns to the channel list, then backgrounds the app.
+- **Settings → About:** now has "Reload latest version", "Open in browser" and "Offline preview".
+- **Other changes:** pickers filter by type; long-press vibrates briefly; the app is named "SEND"; the colours match SEND Glass.
+
+### Verified
+- New `e2e/mobile.cjs`: 52/52 (Pixel 7 and iPhone SE).
+- interactions 41/41, keyboard 34/34, crop 16/16, smoke 18/18, appearance 26/26, web unit tests 21/21, server tests 49/49.
+- The APK itself is built by the `SEND Android beta` GitHub workflow. This environment has no Android SDK, so the Java shell wasn't compiled locally.
+
 ## 2026-11-04 — Avatar/banner crop editor and bundle framing (batch 3)
 
 ### Added

@@ -1,3 +1,4 @@
+import { MobileNavButton } from "./ui.tsx";
 import { Popover } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
@@ -24,11 +25,14 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   useEffect(() => setTitle(`${channel.name ?? "Call"}${guild ? ` · ${guild.name}` : ""}`), [channel, guild]);
 
   if (!here) return (
+    <div className="stage-idle">
+    <header className="ch-h m-only"><MobileNavButton /><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1></header>
     <div className="stage-empty">
       <h1>{channel.name}</h1>
       <p className="muted">{states.length ? `${states.length} ${states.length === 1 ? "person is" : "people are"} here.` : "No one is here yet."}</p>
       <div className="row">{states.map((s) => <Avatar key={s.user_id} user={users[s.user_id]} size={48} />)}</div>
       <button className="btn primary" onClick={() => joinVoice(channel.id)}>Join voice</button>
+    </div>
     </div>
   );
 
@@ -48,7 +52,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 
   return (
     <div className="stage" data-region="call">
-      <header className="ch-h"><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1>
+      <header className="ch-h"><MobileNavButton /><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         <div className="ch-actions">
           <button className={`icon-btn ${v.layout === "grid" ? "active" : ""}`} onClick={() => useVoice.setState({ layout: v.layout === "grid" ? "focus" : "grid", focus: v.layout === "grid" ? (tiles.find((t) => t.kind === "screen")?.key ?? null) : null })} aria-label="Toggle layout">{v.layout === "grid" ? "Grid" : "Focus"}</button>

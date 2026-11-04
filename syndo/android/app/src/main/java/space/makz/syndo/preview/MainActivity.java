@@ -6,17 +6,26 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.*;
 import android.widget.*;
 import androidx.webkit.WebViewAssetLoader;
 import java.util.ArrayList;
 
-/** Thin Android preview shell. Web updates are hosted; no privileged JavaScript bridge. */
+/**
+ * SEND for Android: a full-screen WebView around the hosted SEND app.
+ * - Edge to edge: the page is padded by the real status bar, navigation bar and keyboard insets (Android 15 safe).
+ * - Back closes the topmost sheet/menu/panel first (handled by the page via window.__sendBack), then returns
+ *   to the channel list, and only then sends the app to the background.
+ * - No privileged JavaScript bridge. App-level actions (reload latest, local preview, open in browser) are
+ *   requested by the page as sendapp:// navigations, which only trigger those three harmless actions.
+ */
 public class MainActivity extends Activity {
     private static final String LOCAL = "https://appassets.androidplatform.net/index.html?preview=1";
+    private static final int BG = Color.rgb(11, 16, 32); // SEND Glass bg0 (#0B1020)
     private WebView web;
     private ProgressBar progress;
     private PermissionRequest pendingPermission;
@@ -32,31 +41,55 @@ public class MainActivity extends Activity {
         if (!"https".equals(uri.getScheme()) && !"http".equals(uri.getScheme())) return;
         try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (android.content.ActivityNotFoundException e) { Toast.makeText(this, "No browser is available.", Toast.LENGTH_SHORT).show(); }
     }
+    private void openLive(boolean fresh) {
+        getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply();
+        if (fresh) web.clearCache(true);
+        web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1" + (fresh ? "&build=" + System.currentTimeMillis() : ""));
+    }
+    /** sendapp://reload | sendapp://preview | sendapp://browser — app actions requested from Settings → About. */
+    private boolean appAction(Uri uri) {
+        if (!"sendapp".equals(uri.getScheme())) return false;
+        String action = uri.getHost() == null ? "" : uri.getHost();
+        switch (action) {
+            case "reload": openLive(true); break;
+            case "preview": getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); break;
+            case "browser": browse(Uri.parse(BuildConfig.HOSTED_URL)); break;
+            default: break;
+        }
+        return true;
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.rgb(14,14,13)); root.setFitsSystemWindows(true);
-        LinearLayout bar = new LinearLayout(this); bar.setGravity(android.view.Gravity.CENTER_VERTICAL); bar.setPadding(dp(12),0,dp(4),0);
-        ImageView title = new ImageView(this); title.setImageResource(space.makz.syndo.preview.R.drawable.send_wordmark); title.setContentDescription("SEND"); title.setScaleType(ImageView.ScaleType.FIT_START);
-        bar.addView(title, new LinearLayout.LayoutParams(0, dp(30), 1));
-        Button update = new Button(this); update.setText("Update"); update.setTextColor(Color.rgb(247,186,0)); update.setContentDescription("Load latest SEND beta");
-        update.setOnClickListener(v -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.clearCache(true); web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1&build=" + System.currentTimeMillis()); });
-        bar.addView(update);
-        Button menu = new Button(this); menu.setText("⋮"); menu.setContentDescription("App menu"); bar.addView(menu, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        menu.setOnClickListener(v -> {
-            PopupMenu popup = new PopupMenu(this, menu);
-            popup.getMenu().add("Local interface preview").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); return true; });
-            popup.getMenu().add("Open live SEND").setOnMenuItemClickListener(item -> { getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1"); return true; });
-            popup.getMenu().add("Open in browser").setOnMenuItemClickListener(item -> { browse(Uri.parse(BuildConfig.HOSTED_URL)); return true; });
-            popup.show();
-        });
-        root.addView(bar);
-        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal); progress.setMax(100); root.addView(progress, new LinearLayout.LayoutParams(-1, dp(2)));
-        web = new WebView(this); root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(BG));
+        if (Build.VERSION.SDK_INT < 35) { getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG); }
+        if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
+
+        FrameLayout root = new FrameLayout(this); root.setBackgroundColor(BG);
+        web = new WebView(this); web.setBackgroundColor(BG);
+        root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal); progress.setMax(100);
+        root.addView(progress, new FrameLayout.LayoutParams(-1, dp(3)));
+        setContentView(root);
+
+        // Pad by the system bars and the keyboard so nothing sits under them; the composer rides on top of the keyboard.
+        if (Build.VERSION.SDK_INT >= 30) {
+            root.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+                v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+                return WindowInsets.CONSUMED;
+            });
+        } else root.setFitsSystemWindows(true);
+
         WebSettings settings = web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setMediaPlaybackRequiresUserGesture(true); settings.setSafeBrowsingEnabled(true); settings.setSupportMultipleWindows(false);
+        settings.setMediaPlaybackRequiresUserGesture(false); settings.setSafeBrowsingEnabled(true); settings.setSupportMultipleWindows(false);
+        settings.setUserAgentString(settings.getUserAgentString() + " SENDAndroid/" + BuildConfig.VERSION_NAME);
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         WebViewAssetLoader assets = new WebViewAssetLoader.Builder().addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
+        web.setDownloadListener((url, ua, disposition, mime, length) -> { Uri u = Uri.parse(url); if ("https".equals(u.getScheme())) browse(u); });
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 if (req.isForMainFrame() && "appassets.androidplatform.net".equals(req.getUrl().getHost())) {
@@ -65,17 +98,18 @@ public class MainActivity extends Activity {
                 return assets.shouldInterceptRequest(req.getUrl());
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                if (appAction(req.getUrl())) return true;
                 if (trusted(req.getUrl())) return false;
                 if (req.isForMainFrame() && req.hasGesture()) browse(req.getUrl()); return true;
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError error) {
                 if (req.isForMainFrame() && !"appassets.androidplatform.net".equals(req.getUrl().getHost())) {
-                    Toast.makeText(MainActivity.this, "Hosted preview is unavailable. Opening the bundled preview.", Toast.LENGTH_LONG).show(); view.loadUrl(LOCAL);
+                    Toast.makeText(MainActivity.this, "SEND is unreachable right now. Opening the offline preview.", Toast.LENGTH_LONG).show(); view.loadUrl(LOCAL);
                 }
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest req, WebResourceResponse response) {
-                if (req.isForMainFrame() && response.getStatusCode() >= 400 && !"appassets.androidplatform.net".equals(req.getUrl().getHost())) {
-                    Toast.makeText(MainActivity.this, "Cloudflare returned " + response.getStatusCode() + ". Opening the bundled preview.", Toast.LENGTH_LONG).show(); view.loadUrl(LOCAL);
+                if (req.isForMainFrame() && response.getStatusCode() >= 500 && !"appassets.androidplatform.net".equals(req.getUrl().getHost())) {
+                    Toast.makeText(MainActivity.this, "SEND returned " + response.getStatusCode() + ". Opening the offline preview.", Toast.LENGTH_LONG).show(); view.loadUrl(LOCAL);
                 }
             }
         });
@@ -97,13 +131,19 @@ public class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (!trusted(Uri.parse(view.getUrl() == null ? "" : view.getUrl()))) return false;
                 if (files != null) files.onReceiveValue(null); files = callback;
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE);
+                // Respect the page's accept list (e.g. images only for avatars) so the picker shows the right files.
+                ArrayList<String> types = new ArrayList<>();
+                for (String t : params.getAcceptTypes()) if (t != null && t.contains("/")) types.add(t.trim());
+                if (types.size() == 1) intent.setType(types.get(0));
+                else { intent.setType(types.isEmpty() ? "*/*" : (types.stream().allMatch(t -> t.startsWith("image/")) ? "image/*" : "*/*")); if (types.size() > 1) intent.putExtra(Intent.EXTRA_MIME_TYPES, types.toArray(new String[0])); }
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                 try { startActivityForResult(intent, PICK_FILE); } catch (android.content.ActivityNotFoundException e) { files.onReceiveValue(null); files = null; }
                 return true;
             }
         });
-        if (state == null) web.loadUrl(getPreferences(MODE_PRIVATE).getBoolean("hosted", true) ? BuildConfig.HOSTED_URL + "/?live=1" : LOCAL); else if (web.restoreState(state) == null) web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1");
+        if (state == null) { if (getPreferences(MODE_PRIVATE).getBoolean("hosted", true)) openLive(false); else web.loadUrl(LOCAL); }
+        else if (web.restoreState(state) == null) openLive(false);
     }
     private void grantMedia() {
         PermissionRequest request = pendingPermission; pendingPermission = null; if (request == null) return;
@@ -131,6 +171,13 @@ public class MainActivity extends Activity {
     }
     @Override protected void onSaveInstanceState(Bundle state) { super.onSaveInstanceState(state); web.saveState(state); }
     @Override protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
-    @Override public void onBackPressed() { if (web.canGoBack()) web.goBack(); else super.onBackPressed(); }
+    @SuppressWarnings("deprecation")
+    @Override public void onBackPressed() {
+        // Let the page close its topmost sheet/panel or go back to the channel list first.
+        web.evaluateJavascript("(function(){try{return !!(window.__sendBack&&window.__sendBack())}catch(e){return false}})()", handled -> {
+            if ("true".equals(handled)) return;
+            if (web.canGoBack()) web.goBack(); else moveTaskToBack(true);
+        });
+    }
     @Override protected void onDestroy() { if (pendingPermission != null) pendingPermission.deny(); if (files != null) files.onReceiveValue(null); web.destroy(); super.onDestroy(); }
 }

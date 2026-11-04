@@ -33,7 +33,7 @@ export function ConversationPanel({ channel, onClose }: { channel: Channel; onCl
   };
   return (
     <aside className="side-panel appearance-panel" data-region="panels" aria-label="Conversation appearance">
-      <header className="panel-h"><h3>Appearance</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
+      <header className="panel-h"><h3>Appearance</h3><button className="icon-btn sm" data-panel-close onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       <p className="muted small">Only you see these settings for {channel.guild_id ? `#${channel.name}` : dmTitle(channel)}. <span className={`save-state ss-${saveState}`}>{saveState === "saving" || saveState === "pending" ? "Saving…" : saveState === "error" ? "Not saved" : "Saved"}</span></p>
       {isDm && channel.type === ChannelType.DM && (
         <label className="field"><span className="field-l">Your label for this conversation</span>

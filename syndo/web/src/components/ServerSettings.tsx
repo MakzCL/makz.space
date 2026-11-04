@@ -14,6 +14,8 @@ const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(
 export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: string; tab?: string; onClose: () => void }) {
   const guild = useStore((s) => s.guilds[guildId]);
   const [tab, setTab] = useState(initial ?? "overview");
+  // Phones show the section list first, then the chosen section full-screen with a back button.
+  const [pane, setPane] = useState<"list" | "detail">(initial ? "detail" : "list");
   if (!guild) return null;
   const p = guildPerms(guild);
   const owner = guild.owner_id === guild.me.user.id;
@@ -25,11 +27,12 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
   ];
   return (
     <Modal title={`${guild.name} — settings`} onClose={onClose} wide>
-      <div className="settings">
+      <div className="settings" data-pane={pane}>
         <nav className="settings-nav" role="tablist" aria-orientation="vertical">
-          {tabs.filter(([, , ok]) => ok).map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
+          {tabs.filter(([, , ok]) => ok).map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setPane("detail"); }}>{label}</button>)}
         </nav>
         <section className="settings-body" role="tabpanel">
+          <button className="settings-back m-only" onClick={() => setPane("list")}>‹ All settings</button>
           {tab === "overview" && <Overview guild={guild} />}
           {tab === "roles" && <Roles guild={guild} />}
           {tab === "permissions" && <ChannelPerms guild={guild} />}

@@ -12,6 +12,7 @@ import { Splash } from "./components/Splash.tsx";
 import { QuickSwitcher } from "./components/QuickSwitcher.tsx";
 import { Toasts } from "./components/ui.tsx";
 import { initShortcuts } from "./shortcuts.ts";
+import { initMobile } from "./mobile.ts";
 import { registerDefaultShortcuts } from "./shortcutActions.ts";
 import { ShortcutHelp } from "./components/Keybinds.tsx";
 import { AskHost, ContextMenuHost, MediaViewerHost, initTooltips } from "./components/overlay.tsx";
@@ -71,6 +72,7 @@ function App() {
 }
 
 initTooltips();
+initMobile();
 initShortcuts();
 registerDefaultShortcuts();
 initNotifications();

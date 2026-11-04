@@ -1,3 +1,4 @@
+import { inAndroidApp } from "../mobile.ts";
 import { KeybindsTab } from "./Keybinds.tsx";
 import { updateSettings as saveSettings } from "../actions.ts";
 import { askConfirm, askText } from "./overlay.tsx";
@@ -25,14 +26,17 @@ const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["accou
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
+  // Phones show the section list first, then the chosen section full-screen with a back button.
+  const [pane, setPane] = useState<"list" | "detail">(initial ? "detail" : "list");
   return (
     <Modal title="User settings" onClose={onClose} wide>
-      <div className="settings">
+      <div className="settings" data-pane={pane}>
         <ScrollArea className="settings-scroll-nav" viewportClassName="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
-          {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
+          {TABS.map(([id, label]) => <button key={id} role="tab" data-tab={id} aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setPane("detail"); }}>{label}</button>)}
           <hr /><button className="danger" onClick={() => { onClose(); logout(); }}>Sign out</button>
         </ScrollArea>
         <ScrollArea key={tab} className="settings-scroll-body" viewportClassName="settings-body" role="tabpanel">
+          <button className="settings-back m-only" onClick={() => setPane("list")}>‹ All settings</button>
           {tab === "account" && <Account />}
           {tab === "profile" && <ProfileEditor />}
           {tab === "effects" && <EffectsGallery />}
@@ -303,6 +307,17 @@ function About() {
     <div className="stack">
       <h2>About {BRAND.name}</h2>
       <p>{BRAND.description}</p>
+      {inAndroidApp && (
+        <section className="stack">
+          <h3>Android app</h3>
+          <p className="muted small">The app loads the latest version of {BRAND.name} automatically. Use these if something looks out of date or the server is unreachable.</p>
+          <div className="row wrap">
+            <a className="btn primary" href="sendapp://reload">Reload latest version</a>
+            <a className="btn" href="sendapp://browser">Open in browser</a>
+            <a className="btn" href="sendapp://preview">Offline preview</a>
+          </div>
+        </section>
+      )}
       <p className="muted">There are no subscriptions, boosts or paid cosmetics. Every account gets the same limits, set by whoever runs this server based on what their hardware can handle:</p>
       {limits && <table className="caps"><tbody>
         <tr><td>Upload size</td><td>{Math.round(limits.max_upload_bytes / 1048576)} MB</td></tr>

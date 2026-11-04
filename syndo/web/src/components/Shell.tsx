@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu } from "./overlay.tsx";
+import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems } from "./menus.tsx";
 import { BRAND, ChannelType, P, has, isVoiceType, type Channel, type Guild } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
@@ -46,7 +47,9 @@ export function Shell() {
   const guilds = useStore((s) => s.guilds);
   const conn = useStore((s) => s.conn);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [navOpen, setNavOpen] = useState(false);
+  // Phones: the channel list and the conversation are two screens. Start on the list when no conversation is open.
+  const [navOpen, setNavOpen] = useState(() => isPhone() && !route.params.channel);
+  const autoRoute = useRef(false);
   const gid = route.params.guild ?? "@me";
   const guild = gid !== "@me" ? guilds[gid] : null;
   const cid = route.params.channel || (guild ? defaultChannel(guild) : "");
@@ -54,9 +57,19 @@ export function Shell() {
 
   useEffect(() => {
     if (gid !== "@me" && !guild && conn === "ready") navigate("/channels/@me", true);
-    else if (guild && !route.params.channel && cid) navigate(`/channels/${guild.id}/${cid}`, true);
+    else if (guild && !route.params.channel && cid) { autoRoute.current = true; navigate(`/channels/${guild.id}/${cid}`, true); }
   }, [gid, guild, cid, route.params.channel, conn]);
-  useEffect(() => setNavOpen(false), [cid, gid]);
+  // Switching server keeps the channel list open (pick a channel next); opening a conversation from anywhere closes it.
+  const prevRoute = useRef({ gid, cid });
+  useEffect(() => {
+    const prev = prevRoute.current; prevRoute.current = { gid, cid };
+    if (autoRoute.current) { autoRoute.current = false; return; }
+    if (prev.gid === gid && prev.cid !== cid) setNavOpen(false);
+  }, [cid, gid]);
+  useEffect(() => {
+    const on = (e: Event) => { const open = (e as CustomEvent).detail?.open; setNavOpen((v) => (open === undefined ? !v : !!open)); };
+    window.addEventListener("syndo:nav", on); return () => window.removeEventListener("syndo:nav", on);
+  }, []);
   useEffect(() => {
     const open = (e: Event) => setDialog((e as CustomEvent).detail);
     window.addEventListener("syndo:dialog", open);
@@ -76,12 +89,13 @@ export function Shell() {
       <a className="skip" href="#main">Skip to content</a>
       {conn === "reconnecting" && <div className="conn-banner" role="status">Reconnecting… messages will catch up automatically.</div>}
       <GuildRail current={gid} onDialog={setDialog} />
-      <nav className="sidebar" data-region={guild ? "sidebar" : "dmSidebar"} aria-label={guild ? `${guild.name} channels` : "Direct messages"}>
+      {navOpen && <div className="nav-scrim" aria-hidden onClick={() => setNavOpen(false)} />}
+      <nav className="sidebar" data-region={guild ? "sidebar" : "dmSidebar"} aria-label={guild ? `${guild.name} channels` : "Direct messages"}
+        onClickCapture={(e) => { if ((e.target as HTMLElement).closest(".side-ch, .side-dm, .side-link")) setNavOpen(false); }}>
         {guild ? <GuildSidebar guild={guild} current={cid} onDialog={setDialog} /> : <DmSidebar current={cid} onDialog={setDialog} />}
         {voiceChannel && <VoiceBar />}
         <UserPanel onDialog={setDialog} />
       </nav>
-      <button className="nav-toggle" aria-label="Open navigation" onClick={() => setNavOpen((v) => !v)}><Hash size={18} /></button>
       {!showSidebar && (
         // Sidebar hidden by layout: navigation and settings must stay reachable.
         <div className="collapsed-tools">

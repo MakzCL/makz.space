@@ -157,9 +157,11 @@ function MenuSurface({ items, at, onClose, focusFirst, parentItem, level = 0 }: 
     }
   };
   const subItem = sub ? items[sub.index] : null;
+  // A menu made only of emoji (e.g. "Add reaction") reads better as a grid of big targets.
+  const emojiOnly = items.length > 3 && items.every((i) => i.kind !== "separator" && i.kind !== "custom" && /^\p{Extended_Pictographic}[\p{Extended_Pictographic}\u200d\ufe0f\p{Emoji_Modifier}]*$/u.test((i as any).label));
   return (
     <>
-      <div ref={ref} className="ctx-menu" role="menu" tabIndex={-1} data-layer onKeyDown={key} onContextMenu={(e) => e.preventDefault()}
+      <div ref={ref} className={`ctx-menu ${emojiOnly ? "ctx-emoji-grid" : ""}`} role="menu" tabIndex={-1} data-layer onKeyDown={key} onContextMenu={(e) => e.preventDefault()}
         style={{ left: pos.left, top: pos.top, visibility: pos.ready ? "visible" : "hidden" }}>
         {items.map((it, idx) => {
           if (it.kind === "separator") return <div key={idx} className="ctx-sep" role="separator" />;

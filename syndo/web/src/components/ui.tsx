@@ -1,4 +1,5 @@
 import { useLayer } from "../layers.ts";
+import { Menu } from "lucide-react";
 import { CollectionArt } from "../appearance/CollectionArt.tsx";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -121,3 +122,8 @@ export function fmtTime(iso: string) {
 }
 export const fmtClock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: timeFormat === "12h" });
 export const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(2)} GB`);
+
+/** Opens the channel list on phones; hidden on wider screens. Sits inside each screen's header (never floats over it). */
+export function MobileNavButton() {
+  return <button className="m-nav-btn" aria-label="Open channels and servers" onClick={() => window.dispatchEvent(new CustomEvent("syndo:nav", { detail: { open: true } }))}><Menu size={22} /></button>;
+}

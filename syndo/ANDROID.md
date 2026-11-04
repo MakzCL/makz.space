@@ -1,12 +1,30 @@
-# Syndo Android preview
+# SEND for Android
 
-The APK is a thin Android WebView shell, Android 8+ (API 26), packaged with the current web interface. It opens a **clearly labelled local preview** without needing an account or an API server. Sample conversations and actions stay on the device; they are never sent to the real API. Use real Syndo from the app menu once its API is deployed.
+The APK (v0.3.0) is a full-screen Android WebView around the hosted SEND app at `https://syndo.makz.space`. Android 8+ (API 26) is supported. Interface updates arrive without reinstalling. An offline preview with sample data is bundled for when the server can't be reached.
 
-## Try it
+## What's native
 
-Install `Syndo-preview.apk` from the **Syndo Android preview** workflow artifact. Open a sample DM or server, send local messages, use mentions, reactions, pins and saved messages, and explore Studio. Calls, uploads, account administration and other unimplemented preview actions explicitly require the live server.
+- **Edge to edge.** The page is padded by the real status bar, navigation bar, display cutout and keyboard insets, so nothing sits under system bars. The message box rides on top of the keyboard. This handles Android 15's forced edge-to-edge too.
+- **Back button / gesture.**
+  1. Closes the topmost sheet, menu, dialog or panel.
+  2. Then returns from a conversation to the channel list.
+  3. Then sends the app to the background (it doesn't close it).
+- **Haptics.** A short vibration confirms a long-press.
+- **File picking.** Pickers respect what the page asks for (images only for avatars and banners). Only document-provider `content://` URIs are passed in.
+- **Camera and microphone.** These are requested only when a call asks for them, and only for the SEND origin.
+- **App actions.** Settings → About → *Android app* has "Reload latest version", "Open in browser" and "Offline preview". The page asks for these with `sendapp://` links, which can only trigger those three actions. There is no JavaScript bridge.
 
-The toolbar's **Update** button clears the WebView cache and opens `https://syndo.makz.space/?preview=1`, loading the latest published interface. When the host is unavailable, the app returns to its bundled preview with an explanation. This button updates hosted web content, not the Android shell itself. It does not silently install APKs. The app menu can return to the bundled preview or open live Syndo (`?live=1`). Preview data is separate from real accounts.
+## Phone interface (same code as the web app)
+
+- **Two screens, like Discord mobile.** The channel list (servers + channels/DMs) and the conversation. Swipe right or tap ☰ for the list; swipe left or pick a channel to return.
+- **Long-press = right-click.** Messages, people, channels and servers open bottom action sheets with 48px rows. Emoji reactions show as a big grid.
+- **Full-screen pages for members, pins, search and conversation appearance.** Settings open on a section list, and each section is full screen with "‹ All settings".
+- **Bottom sheets for menus, the emoji picker, profile cards and dialogs.** Inputs are 16px so the page never zooms on focus.
+- **Verified by `e2e/mobile.cjs`** on Pixel 7 and iPhone SE sizes (52 checks): no horizontal overflow, nothing covering the message box, header buttons ≥40px, sheets anchored to the screen bottom, back-button order, swipe navigation, and settings without clipped fields.
+
+## Not yet native
+
+Push notifications while the app is closed, background calls (a call ends when Android suspends the app), screen sharing from Android, and Play Store distribution. Downloads of encrypted attachments must be saved from the in-app viewer; `blob:` URLs can't be handed to Android's download manager.
 
 ## Cloudflare updates
 
