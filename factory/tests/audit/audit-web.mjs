@@ -34,7 +34,7 @@ function richSeed() {
   D.sessions = [{ id: id(), user: OWNER, created_at: now(), last_active: now(), user_agent: "Mozilla/5.0 (Windows NT 10.0) Chrome/141.0", ip: "10.0.0.5", current: true }];
   return D;
 }
-const nav = async (p, labels) => { for (const l of labels) { const loc = typeof l === "function" ? l(p) : p.getByRole("tab", { name: new RegExp(`^${l}(\s*\d+)?$`) }).or(p.getByRole("button", { name: new RegExp(`^${l}(\s*\d+)?$`) })).filter({ visible: true }).first(); await loc.click({ timeout: 8000 }); await p.waitForTimeout(350); } };
+const nav = async (p, labels) => { for (const l of labels) { const loc = typeof l === "function" ? l(p) : p.getByRole("tab", { name: new RegExp(`^${l}( *[0-9]+)?$`) }).or(p.getByRole("button", { name: new RegExp(`^${l}( *[0-9]+)?$`) })).filter({ visible: true }).first(); await loc.click({ timeout: 8000 }); await p.waitForTimeout(350); } };
 const SCREENS = {
   factory: { url: "/", screens: [["Home", []], ["Jobs", ["Jobs"]], ["Chat", ["Chat"]], ["Team", ["Team"]], ["Insights", ["Insights"]], ["Requests", ["Requests"]],
     ["Profile", [(p) => p.locator(".me-btn")]], ["Profile › Awards", [(p) => p.locator(".me-btn"), (p) => p.locator("[aria-label=Awards]").last()]], ["Profile › Settings", [(p) => p.locator(".me-btn"), (p) => p.locator("[aria-label=Settings]").last()]]] },
@@ -45,12 +45,12 @@ const SCREENS = {
 };
 const b = await chromium.launch(); const all = [];
 const jobs = [];
-for (const [app, def] of Object.entries(SCREENS)) { if (ONLY && ONLY !== app) continue; for (const [screen, steps] of def.screens) for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) jobs.push({ app, screen, steps, url: def.url, viewport }); }
+for (const [app, def] of Object.entries(SCREENS)) { if (ONLY && ONLY !== app) continue; for (const [screen, steps] of def.screens) if (!process.env.SCREEN || screen.includes(process.env.SCREEN)) for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) jobs.push({ app, screen, steps, url: def.url, viewport }); }
 const worker = async () => { for (let j; (j = jobs.shift()); ) {
   const t0 = Date.now();
   const issues = await crawlScreen({ browser: b, app: j.app, screen: j.screen, viewport: j.viewport, maxControls: j.viewport.width < 500 ? 0 : 80,
     newPage: async (vp) => { const { page } = await context(b, richSeed(), { w: vp.width, h: vp.height }); return page; },
-    open: async (p) => { await p.goto(BASE + j.url); await p.waitForLoadState("networkidle").catch(() => {}); await p.waitForTimeout(600); await nav(p, j.steps); } }).catch((e) => [{ app: j.app, screen: j.screen, viewport: j.viewport.width, kind: "screen-failed", detail: String(e.message).split("\n")[0] }]);
+    open: async (p) => { await p.goto(BASE + j.url); await p.waitForLoadState("networkidle").catch(() => {}); await p.waitForTimeout(600); await nav(p, j.steps); } }).catch((e) => [{ app: j.app, screen: j.screen, viewport: j.viewport.width, kind: "screen-failed", detail: String(e.message).split("\n").slice(0, 6).join(" | ").slice(0, 400) }]);
   all.push(...issues); console.log(`${j.app} › ${j.screen} @${j.viewport.width}: ${issues.length} findings (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 } };
 await Promise.all([worker(), worker(), worker(), worker()]);
