@@ -262,7 +262,9 @@ export async function leaveVoice() {
   cleanup();
   const had = get().channelId;
   if (had) playCallSound("leave");
-  set({ channelId: null, status: "idle", error: null });
+  // Push-to-talk never stays "held" across calls, disconnects or session changes.
+  if (pttTimer) { clearTimeout(pttTimer); pttTimer = null; }
+  set({ channelId: null, status: "idle", error: null, pttActive: false });
   if (had) reportState();
 }
 
@@ -316,6 +318,8 @@ window.addEventListener("keydown", (e) => {
   pttPress();
 });
 window.addEventListener("keyup", (e) => { if (e.code === get().settings.pttKey && !globalPtt()) pttRelease(); });
+// Rebinding the key (or leaving PTT mode) while it's held must not leave the mic open.
+useVoice.subscribe((s, prev) => { if (s.pttActive && (s.settings.pttKey !== prev.settings.pttKey || s.settings.mode !== "ptt")) { set({ pttActive: false }); cf?.mute(); micTrack?.mute(); reportState(); } });
 // In a browser, losing focus means we can no longer see the key — release. The desktop shell keeps listening.
 window.addEventListener("blur", () => { if (!globalPtt() && get().pttActive) { set({ pttActive: false }); cf?.mute(); micTrack?.mute(); reportState(); } });
 

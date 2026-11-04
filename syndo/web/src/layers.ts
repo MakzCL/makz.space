@@ -19,6 +19,8 @@ export interface LayerOptions {
   escape?: boolean;
   /** For layers with outside:false — true (default) blocks presses from dismissing layers beneath; false is a docked panel that just ignores them. */
   modal?: boolean;
+  /** Whether app shortcuts pause while this layer is open. Default true; docked panels (pins, search) set false. */
+  blocksShortcuts?: boolean;
   /** Close when the window loses focus (context menus). Default false. */
   blur?: boolean;
   /** Restore focus to the previously focused element on close. Default true. */
@@ -30,6 +32,8 @@ interface Layer { node: HTMLElement; opts: LayerOptions; dismiss: (r: DismissRea
 
 const stack: Layer[] = [];
 export const hasLayers = () => stack.length > 0;
+/** True while a dialog, menu or popover is open — app shortcuts must not act on what is underneath it. */
+export const hasBlockingLayers = () => stack.some((l) => l.opts.blocksShortcuts !== false);
 export const topLayerNode = () => stack[stack.length - 1]?.node ?? null;
 
 function inside(l: Layer, t: Node) { return l.node.contains(t) || !!l.opts.anchor?.()?.contains(t); }
@@ -52,7 +56,7 @@ export function pushLayer(node: HTMLElement, dismiss: (r: DismissReason) => void
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || e.isComposing || !stack.length) return;
+    if (e.key !== "Escape" || e.isComposing || !stack.length || document.body.dataset.recordingKeybind) return;
     const top = stack[stack.length - 1]!;
     // A layer still swallows Escape when it opts out of closing, so nothing underneath reacts.
     e.preventDefault(); e.stopImmediatePropagation();
@@ -80,7 +84,7 @@ export function useLayer(ref: RefObject<HTMLElement | null>, onDismiss: (r: Dism
     const node = ref.current; if (!node) return;
     return pushLayer(node, (r) => cb.current(r), {
       get outside() { return o.current.outside; }, get modal() { return o.current.modal; }, get escape() { return o.current.escape; }, get blur() { return o.current.blur; },
-      get restoreFocus() { return o.current.restoreFocus; }, anchor: () => o.current.anchor?.(),
+      get restoreFocus() { return o.current.restoreFocus; }, get blocksShortcuts() { return o.current.blocksShortcuts; }, anchor: () => o.current.anchor?.(),
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }

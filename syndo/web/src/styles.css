@@ -981,3 +981,25 @@ video.viewer-media { cursor: default; }
 [data-motion="reduced"] .viewer, [data-motion="reduced"] .tooltip { animation: none; }
 .ask-back { z-index: 13500; } .ask { width: min(440px, 100%); } .ask h2 { margin: 0 0 8px; font-weight: 800; } .pre-line { white-space: pre-line; }
 .ask .modal-f { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ============================================================ Keybinds & shortcut help == */
+.keybinds h2 { margin-top: 0; } .kb-group { margin: 18px 0; } .kb-group h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; color: var(--textMuted, var(--text)); opacity: .8; margin: 0 0 6px; }
+.kb-row { display: flex; align-items: center; gap: 16px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 4%, transparent); margin-bottom: 6px; }
+.kb-row:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.kb-label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; } .kb-label strong { font-weight: 700; }
+.kb-binds { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; max-width: 60%; }
+.kb-chip { display: inline-flex; align-items: center; gap: 2px; border-radius: 8px; background: color-mix(in srgb, var(--text) 10%, transparent); padding: 2px 4px 2px 2px; }
+.kb-chip kbd, kbd.kb-chip { font: 700 .8rem/1 inherit; padding: 5px 8px; border-radius: 6px; background: var(--bg0); border: 0; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 30%, transparent); }
+.kb-chip.new { outline: 2px solid var(--accent); }
+.kb-x { border: 0; background: none; color: inherit; opacity: .6; cursor: pointer; display: grid; place-items: center; padding: 2px; border-radius: 4px; } .kb-x:hover { opacity: 1; background: var(--brand-danger); color: #fff; }
+.kb-recording { font-weight: 700; color: var(--accent); animation: kb-pulse 1.2s ease-in-out infinite; } @keyframes kb-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .kb-recording { animation: none; } }
+.kb-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-end; }
+.warn-text { color: var(--brand-warning, #f0b232); font-weight: 600; flex-basis: 100%; text-align: right; }
+.kb-scope { display: inline-flex; align-items: center; gap: 4px; font-size: .75rem; font-weight: 700; opacity: .8; } .kb-scope.global { color: var(--brand-success); opacity: 1; }
+.kb-help { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 28px; }
+.kb-help h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; margin: 10px 0 6px; opacity: .8; }
+.kb-help dl { margin: 0; } .kb-help dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.kb-help dt { font-weight: 600; } .kb-help dd { margin: 0; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; font-size: .85rem; }
+.kb-help kbd { font: 700 .78rem/1 inherit; padding: 4px 7px; border-radius: 6px; background: var(--bg0); box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 30%, transparent); }
+@media (max-width: 700px) { .kb-row { flex-direction: column; align-items: stretch; } .kb-binds { max-width: none; justify-content: flex-start; } .warn-text { text-align: left; } }

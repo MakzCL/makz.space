@@ -29,7 +29,7 @@ import { Palette, PanelLeftOpen } from "lucide-react";
 
 /** Arrow keys move focus between server icons in the rail/bar (works vertically, horizontally and in columns). */
 function railArrows(e: React.KeyboardEvent<HTMLElement>) {
-  if (e.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+  if (e.altKey || e.ctrlKey || e.metaKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
   const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>(".rail-item > button")];
   const i = items.indexOf(document.activeElement as HTMLButtonElement);
   if (i < 0) return;
@@ -132,7 +132,8 @@ function GuildRail({ current, onDialog }: { current: string; onDialog: (d: Dialo
     updateSettings({ guild_order: ids });
   };
   const onKeyMove = (e: React.KeyboardEvent, id: string) => {
-    if (!e.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    // Ctrl/Cmd+Shift+arrows reorder; Alt+arrows stay free for Discord-style channel navigation even with a server icon focused.
+    if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
     e.preventDefault();
     const ids = sorted.map((g) => g.id); const i = ids.indexOf(id); const j = i + (e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1);
     if (j < 0 || j >= ids.length) return;

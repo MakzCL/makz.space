@@ -21,6 +21,8 @@ import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuIt
 import { copy, developerMode, userMenuItems } from "./menus.tsx";
 import { useLayer } from "../layers.ts";
 import { createContext, useContext } from "react";
+import { create } from "zustand";
+import { Smile } from "lucide-react";
 import { ChannelType as CT } from "@syndo/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
@@ -29,6 +31,8 @@ import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
 import { useMentionAutocomplete } from "./MentionAutocomplete.tsx";
 
+/** Which message is being edited (one at a time, like Discord); lets ↑ in the composer start editing. */
+const useEditing = create<{ id: string | null }>(() => ({ id: null }));
 const QUICK = ["👍", "❤️", "😂", "🎉", "😮", "😢", "🙏", "🌻", "✨", "👀", "🔥", "💙"];
 
 export function ChannelView({ channelId, guildId, highlight }: { channelId: string; guildId: string | null; highlight: string | null }) {
@@ -50,6 +54,16 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   useEffect(() => { setTitle(channel ? (guild ? `${channel.name} · ${guild.name}` : dmTitle(channel)) : undefined); }, [channel, guild]);
   useEffect(() => { if (highlight) loadMessages(channelId, { around: highlight }); else if (!data?.loaded) loadMessages(channelId); }, [channelId, highlight]); // eslint-disable-line
   useEffect(() => { if (guildId && !useStore.getState().members[guildId]) loadMembers(guildId); }, [guildId]);
+  // Ctrl/⌘+P, +U, +F from the shortcut registry toggle the same panels as the header buttons.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const want = (e as CustomEvent).detail as "pins" | "members" | "search";
+      if (want === "members" && !(guildId || channel?.type === ChannelType.GROUP_DM)) return;
+      setPanel((p) => (p === want && want !== "search" ? null : want));
+      if (want === "search") requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".side-panel[role=search] input")?.focus());
+    };
+    window.addEventListener("syndo:panel", on); return () => window.removeEventListener("syndo:panel", on);
+  }, [guildId, channel?.type]);
   useEffect(() => {
     if (!channel) return;
     const ack = () => { if (document.visibilityState === "visible" && document.hasFocus()) ackChannel(channel); };
@@ -182,7 +196,8 @@ function Welcome({ channel }: { channel: Channel }) {
 const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCtx }: { m: UIMessage; channel: Channel; grouped: boolean; onReply: (m: Message) => void; mdCtx: any }) {
   const me = useStore((s) => s.me!);
   const guildId = channel.guild_id;
-  const [editing, setEditing] = useState(false);
+  const editing = useEditing((s) => s.id === m.id);
+  const setEditing = (v: boolean) => { useEditing.setState({ id: v ? m.id : null }); if (!v) document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus({ preventScroll: true }); };
   const [picker, setPicker] = useState<HTMLElement | null>(null);
   const media = useRef(new Map<number, MediaItem>());
   const mine = m.author.id === me.id;
@@ -378,7 +393,7 @@ function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {
   return (
     <div className="edit-box">
       <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit message"
-        onKeyDown={(e) => { if (e.key === "Escape") onDone(); if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); } }} />
+        onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === "Escape") { e.preventDefault(); onDone(); } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); } }} />
       <small className="muted">escape to cancel · enter to save</small>
     </div>
   );
@@ -427,6 +442,27 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const limits = useStore((s) => s.limits);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileIn = useRef<HTMLInputElement>(null);
+  const emojiBtn = useRef<HTMLButtonElement>(null);
+  const [emoji, setEmoji] = useState(false);
+  const insert = (s: string) => {
+    const el = ta.current; if (!el) { setText((t) => t + s); return; }
+    const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+    const next = el.value.slice(0, a) + s + el.value.slice(b);
+    setText(next); requestAnimationFrame(() => { el.focus(); el.setSelectionRange(a + s.length, a + s.length); });
+  };
+  useEffect(() => {
+    const on = (e: Event) => { const what = (e as CustomEvent).detail; if (what === "emoji") setEmoji((v) => !v); if (what === "upload") fileIn.current?.click(); };
+    window.addEventListener("syndo:composer", on); return () => window.removeEventListener("syndo:composer", on);
+  }, []);
+  /** ↑ in an empty box edits your most recent message (Discord behaviour). */
+  const editLast = () => {
+    const me = useStore.getState().me?.id, list = useStore.getState().messages[channel.id]?.list ?? [];
+    const last = [...list].reverse().find((x) => x.author.id === me && !x._state && x.type === 0);
+    if (!last) return false;
+    useEditing.setState({ id: last.id });
+    requestAnimationFrame(() => document.querySelector(`[data-mid="${last.id}"]`)?.scrollIntoView({ block: "nearest" }));
+    return true;
+  };
   const mentions = useMentionAutocomplete(channel, text, setText, ta);
   const isDm = !channel.guild_id;
   const canSend = isDm ? can(channel, P.SEND_MESSAGES) || !channel.my_permissions : can(channel, P.SEND_MESSAGES);
@@ -511,7 +547,14 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
           onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
-          onKeyDown={(e) => { if (mentions.onKeyDown(e)) return; if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } if (e.key === "Escape" && reply) onClearReply(); }} />
+          onKeyDown={(e) => {
+            if (mentions.onKeyDown(e) || e.nativeEvent.isComposing) return;
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+            if (e.key === "Escape" && reply) { e.preventDefault(); onClearReply(); } // cancel the reply before Esc marks the channel read
+            if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !text && editLast()) e.preventDefault();
+          }} />
+        <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
+        {emoji && <EmojiPicker anchor={emojiBtn.current} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
           : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
         <button className="icon-btn" aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>
@@ -594,7 +637,7 @@ function Pins({ channel, mdCtx, onClose }: { channel: Channel; mdCtx: any; onClo
   const [list, setList] = useState<Message[] | null>(null);
   useEffect(() => { api.get<Message[]>(`/api/channels/${channel.id}/pins`).then(setList).catch(() => setList([])); }, [channel.id]);
   return (
-    <LayerBox className="side-panel" data-region="panels" role="complementary" aria-label="Pinned messages" onDismiss={onClose} anchor={() => document.querySelector(".ch-actions [aria-label='Pinned messages']")}>
+    <LayerBox className="side-panel" data-region="panels" role="complementary" aria-label="Pinned messages" onDismiss={onClose} anchor={() => document.querySelector(".ch-actions [aria-label='Pinned messages']")} opts={{ blocksShortcuts: false }}>
       <header className="panel-h"><h3>Pinned messages</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       {!list ? <p className="muted pad">Loading…</p> : !list.length ? <p className="muted pad">Nothing pinned yet.</p> : list.map((m) => <ResultCard key={m.id} m={m} mdCtx={mdCtx} />)}
     </LayerBox>
@@ -628,7 +671,7 @@ function SearchPanel({ channel, guildId, mdCtx, onClose }: { channel: Channel; g
     try { setRes(await api.get(`/api/search?${p}`)); } catch (x) { toast(errMsg(x), "error"); } finally { setBusy(false); }
   };
   return (
-    <LayerBox className="side-panel" data-region="panels" role="search" aria-label="Search" onDismiss={onClose} opts={{ outside: false, modal: false }}>
+    <LayerBox className="side-panel" data-region="panels" role="search" aria-label="Search" onDismiss={onClose} opts={{ outside: false, modal: false, blocksShortcuts: false }}>
       <header className="panel-h"><h3>Search</h3><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       <form className="search-form" onSubmit={run}>
         <input autoFocus placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search text" />

@@ -35,7 +35,7 @@ export async function startServer() {
 }
 export const stopServer = () => stop?.();
 
-export interface Resp<T = any> { status: number; body: T }
+export interface Resp<T = any> { status: number; body: T; headers: Headers }
 
 export class Client {
   cookie = "";
@@ -59,7 +59,7 @@ export class Client {
     const text = await r.text();
     let parsed: any = text;
     try { parsed = JSON.parse(text); } catch { /* binary or empty */ }
-    return { status: r.status, body: parsed };
+    return { status: r.status, body: parsed, headers: r.headers };
   }
   get = <T = any>(p: string) => this.req<T>("GET", p);
   post = <T = any>(p: string, b?: unknown) => this.req<T>("POST", p, b ?? {});

@@ -98,7 +98,12 @@ describe("Background library", () => {
     assert.equal((await upload(o, "/api/appearance/assets", Buffer.from("<svg onload=alert(1)>"), "x.svg", "image/svg+xml")).status, 400);
     asset = (await upload(o, "/api/appearance/assets", PNG)).body;
     assert.match(asset.id, /^a\d+$/);
-    assert.equal((await o.req("GET", asset.url)).status, 200);
+    const first = await o.req("GET", asset.url);
+    assert.equal(first.status, 200);
+    assert.match(String(first.headers.get("cache-control")), /no-cache/, "private assets revalidate so deletion takes effect");
+    const etag = first.headers.get("etag")!;
+    assert.equal((await o.req("GET", asset.url, undefined, { "if-none-match": etag })).status, 304, "unchanged asset revalidates cheaply");
+    assert.equal((await p.req("GET", asset.url, undefined, { "if-none-match": etag })).status, 404, "a validator never bypasses the access check");
     assert.equal((await p.req("GET", asset.url)).status, 404, "someone else can't fetch a private wallpaper");
     assert.equal((await p.put("/api/appearance/global", { data: { overrides: { background: { dark: { kind: "image", asset: asset.id } } } } })).status, 400, "can't reference another user's asset");
     await o.put("/api/appearance/global", { data: { overrides: { background: { dark: { kind: "image", asset: asset.id } } } } });
@@ -110,6 +115,7 @@ describe("Background library", () => {
     assert.equal((await o.post("/api/appearance/assets/cleanup")).body.removed, 0, "referenced asset survives cleanup");
     assert.equal((await o.del(`/api/appearance/assets/${asset.id.slice(1)}?force=1`)).status, 200);
     assert.equal((await o.req("GET", asset.url)).status, 404, "deleted asset is gone");
+    assert.equal((await o.req("GET", asset.url, undefined, { "if-none-match": etag })).status, 404, "a cached copy can't be revalidated after deletion");
   });
 });
 

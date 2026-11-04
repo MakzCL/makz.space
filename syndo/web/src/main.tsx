@@ -11,6 +11,9 @@ import { Shell } from "./components/Shell.tsx";
 import { Splash } from "./components/Splash.tsx";
 import { QuickSwitcher } from "./components/QuickSwitcher.tsx";
 import { Toasts } from "./components/ui.tsx";
+import { initShortcuts } from "./shortcuts.ts";
+import { registerDefaultShortcuts } from "./shortcutActions.ts";
+import { ShortcutHelp } from "./components/Keybinds.tsx";
 import { AskHost, ContextMenuHost, MediaViewerHost, initTooltips } from "./components/overlay.tsx";
 import { initNotifications } from "./notify.ts";
 import { initDesktop } from "./desktop.ts";
@@ -34,6 +37,7 @@ function App() {
   const conn = useStore((s) => s.conn);
   const limits = useStore((s) => s.limits);
   const [switcher, setSwitcher] = useState(false);
+  const [help, setHelp] = useState(false);
   const [studio, setStudio] = useState<null | { section?: any; target?: any }>(null);
   useEffect(() => {
     const open = (e: Event) => setStudio((e as CustomEvent).detail ?? {});
@@ -43,8 +47,10 @@ function App() {
   useEffect(() => { (window as any).__syndoLimits = limits; }, [limits]);
   useEffect(() => { if (conn === "ready" && !previewMode) import("./crypto/dm.ts").then(m => m.ensureIdentity()).catch(() => {}); }, [conn]);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && conn === "ready") { e.preventDefault(); setSwitcher((v) => !v); } };
-    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+    // Ctrl/⌘+K and Ctrl/⌘+/ come from the shortcut registry (configurable in Settings → Keybinds).
+    const qs = () => { if (conn === "ready") setSwitcher((v) => !v); }, help = () => { if (conn === "ready") setHelp((v) => !v); };
+    window.addEventListener("syndo:quickswitcher", qs); window.addEventListener("syndo:shortcut-help", help);
+    return () => { window.removeEventListener("syndo:quickswitcher", qs); window.removeEventListener("syndo:shortcut-help", help); };
   }, [conn]);
   useEffect(() => {
     const publicRoute = ["login", "register", "forgot", "reset", "verify", "invite"].includes(route.name);
@@ -61,10 +67,12 @@ function App() {
   else if (conn === "signed_out") page = route.name === "register" ? <Register /> : <Login />;
   else if (conn === "connecting") page = <Splash />;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><Toasts /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><Toasts /><RecoveryBanner /></>;
 }
 
 initTooltips();
+initShortcuts();
+registerDefaultShortcuts();
 initNotifications();
 initCallSounds();
 initDesktop();

@@ -274,10 +274,15 @@ export async function appearanceAssetRoute(app: FastifyInstance) {
           where t.proposer_id = $3 and t.status = 'open' and t.data::text like $1 limit 1`, [`%"a${a.id}"%`, uid(req), a.user_id]);
       if (!shared) throw notFound("File");
     }
-    reply.header("content-type", a.mime);
+    // Assets are immutable per id, so the id is a perfect validator. Revalidating on every use keeps loads cheap (304)
+    // while making deletion and revoked sharing take effect immediately instead of after a day in the browser cache.
+    const etag = `"a${a.id}"`;
+    reply.header("cache-control", "private, no-cache");
+    reply.header("etag", etag);
     reply.header("x-content-type-options", "nosniff");
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    reply.header("content-type", a.mime);
     reply.header("content-security-policy", "default-src 'none'; sandbox");
-    reply.header("cache-control", "private, max-age=86400");
     reply.header("content-length", Number(a.size));
     return reply.send(storage.open(a.storage_key));
   });

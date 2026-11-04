@@ -33,7 +33,7 @@ Last updated: customization extension + desktop/web distribution (2026-11-03).
 | SERVER-02 | Transfer ownership | Complete | S/extra "leave, transfer ownership, delete" | — | Only owner can transfer; new owner gets full rights |
 | SERVER-03 | Invites: expiry, usage limits, revocation | Complete | S/core "enforces max uses atomically and revocation"; E2E invite join | Expiry covered by SQL predicate but no time-travel test | Last use race admits exactly one; revoked link 404 |
 | SERVER-04 | Icons (animated), banners, description, invite background | Partial | Upload endpoints with content sniffing; invite page uses banner | Automated test of icon/banner upload; banner cropping UI | Animated GIF icon shows on rail and invite page |
-| SERVER-05 | Reorder servers, folders | Partial | Drag-and-drop + Alt+↑/↓ ordering synced via account settings | Folders | Reorder on desktop → same order on phone |
+| SERVER-05 | Reorder servers, folders | Partial | Drag-and-drop + Ctrl/⌘+Shift+↑/↓ on a focused icon, synced via account settings (Alt+↑/↓ is channel navigation) | Folders | Reorder on desktop → same order on phone |
 | SERVER-06 | Member list, role groups, search | Partial | Member list with hoisted role groups, online/offline, search; members API with search | Lazy/virtualised member list beyond 1,000 members | 5,000-member server lists and searches smoothly |
 | SERVER-07 | Server templates | Partial | 5 built-in creation templates | Save an existing server as a shareable template | Create server from a user-saved template |
 | SERVER-08 | Onboarding questions → roles/channels | Missing | — | Design + build | New member answers questions, receives roles |

@@ -1,5 +1,45 @@
 # SEND changelog
 
+## 2026-11-04 — Keyboard shortcuts and Keybinds (batch 2)
+
+### Added
+- **Central shortcut registry** (`web/src/shortcuts.ts`) with action IDs, scope rules (never inside
+  text fields for plain keys, never during IME composition, paused while dialogs and menus are open
+  except call controls) and per-account synced overrides (`settings.keybinds`).
+- **Discord-style defaults**:
+  - Ctrl/⌘+/ shows all shortcuts; Ctrl/⌘+K opens the quick switcher.
+  - Ctrl+Alt+↑/↓ switches servers; Alt+↑/↓ switches channels; Alt+Shift+↑/↓ jumps between unread
+    channels; Ctrl+Alt+Shift+↑/↓ jumps between channels with mentions.
+  - Esc and Shift+Esc mark the channel and the server read; Alt+← and Ctrl+B return to the previous
+    text channel.
+  - Ctrl+P, Ctrl+U, Ctrl+F and Ctrl+E toggle pins, the member list, search and the emoji picker;
+    Ctrl+Shift+U uploads a file.
+  - Ctrl+Shift+M and Ctrl+Shift+D toggle mute and deafen; Ctrl+[ starts a call; Ctrl+Enter and Esc
+    answer and decline a ringing call.
+  - ↑ in an empty message box edits your last message, and typing anywhere starts a message.
+- **Settings → Keybinds**:
+  - Record shortcuts by pressing them, including Middle, Back and Forward mouse buttons with
+    modifiers. Add, remove, disable, reset one, or restore all defaults.
+  - Conflicts are explained, and saving moves the binding.
+  - Warnings for browser-reserved and plain-key bindings.
+  - Push-to-talk key and release delay, with a clear Global vs In-SEND label.
+- **Settings → Advanced → Developer mode** adds Copy ID to context menus.
+- **Composer emoji button.**
+
+### Changed
+- Server-icon keyboard reorder moved from Alt+↑/↓ to Ctrl/⌘+Shift+↑/↓. Clicking an icon leaves focus
+  on it, and Alt+↑/↓ would otherwise reorder servers instead of switching channels.
+- Push to talk is released when you leave the call, rebind the key while holding it, or switch out of
+  PTT mode, as well as on window blur.
+- Private Studio assets are served with `no-cache` and an ETag, so revalidation stays a cheap 304. A
+  deleted or no-longer-shared wallpaper stops showing immediately instead of lingering in the browser
+  cache for a day. This also fixes the intermittent "deleted wallpaper falls back" e2e failure.
+
+### Verified
+- `e2e/keyboard.cjs`: 34/34, three consecutive runs.
+- `e2e/interactions.cjs`: 41/41. `e2e/smoke.cjs`: 18/18. `e2e/appearance.cjs`: 26/26 (twice).
+- Web unit tests: 21/21. Server tests: 49/49, now with a revalidation and deletion test.
+
 ## 2026-11-04 — Interaction system (batch 1 of the Discord-parity work)
 
 Restore point taken first: see [RESTORE.md](RESTORE.md).

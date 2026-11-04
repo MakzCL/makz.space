@@ -1,3 +1,5 @@
+import { KeybindsTab } from "./Keybinds.tsx";
+import { updateSettings as saveSettings } from "../actions.ts";
 import { askConfirm, askText } from "./overlay.tsx";
 import { previewMode } from "../preview-mode.ts";
 import { Range } from "./Range.tsx";
@@ -19,7 +21,7 @@ import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
-const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["notifications", "Notifications"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -38,6 +40,8 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
           {tab === "appearance" && <AppearanceTab onClose={onClose} />}
           {tab === "accessibility" && <AccessibilityTab />}
           {tab === "voice" && <VoiceTab />}
+          {tab === "keybinds" && <KeybindsTab />}
+          {tab === "advanced" && <AdvancedTab />}
           {tab === "notifications" && <NotificationsTab />}
           {tab === "about" && <About />}
           {tab === "desktop" && <DesktopTab />}
@@ -140,8 +144,8 @@ function AccessibilityTab() {
       <ul className="small keys">
         <li><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> move between areas; a skip link jumps to messages.</li>
         <li><kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> new line · <kbd>Esc</kbd> cancel or close.</li>
-        <li><kbd>Alt+↑/↓</kbd> (or <kbd>Alt+←/→</kbd> in the horizontal bar) on a server icon reorders servers.</li>
-        <li><kbd>Ctrl+K</kbd> quick switcher · <kbd>Ctrl+Shift+Alt+R</kbd> safe appearance mode.</li>
+        <li><kbd>Ctrl+Shift+↑/↓</kbd> (or <kbd>Ctrl+Shift+←/→</kbd> in the horizontal bar) on a focused server icon reorders servers.</li>
+        <li><kbd>Ctrl+/</kbd> all shortcuts (customise them in Keybinds) · <kbd>Ctrl+Shift+Alt+R</kbd> safe appearance mode.</li>
       </ul>
       <div className="row wrap"><button className="btn" onClick={() => setSafeMode(true)}>Pause my appearance (safe mode)</button><button className="btn danger" onClick={async () => (await askConfirm({ title: "Reset all appearance?", body: "Global, server and conversation appearance return to the default.", confirmLabel: "Reset", danger: true })) && resetAppearance("all")}>Reset appearance</button></div>
     </div>
@@ -311,6 +315,16 @@ function About() {
         <tr><td>Voice & video</td><td>{limits.media_enabled ? "Available" : "Not configured on this server"}</td></tr>
       </tbody></table>}
       <p className="muted small">{BRAND.name} is an independent platform. It doesn't connect to or interoperate with other chat services.</p>
+    </div>
+  );
+}
+
+function AdvancedTab() {
+  const dev = useStore((st) => (st.me?.settings as any)?.developer_mode === true);
+  return (
+    <div>
+      <h2>Advanced</h2>
+      <Toggle label="Developer mode" hint="Adds “Copy ID” to right-click menus for servers, channels, users and messages." checked={dev} onChange={(v) => saveSettings({ developer_mode: v })} />
     </div>
   );
 }
