@@ -181,7 +181,40 @@ let updateStatus: UpdateStatus = { state: "idle" };
 let autoUpdater: any = null;
 /** Set when the user pressed "update": install as soon as the download finishes. */
 let installWhenReady = false;
-function installUpdate() { quitting = true; autoUpdater?.quitAndInstall(false, true); }
+
+/* The SEND updater window: an animated S and a progress bar instead of the Windows installer UI. */
+let updaterWin: BrowserWindow | null = null;
+function pushUpdater(s: object = updateStatus) {
+  if (!updaterWin || updaterWin.isDestroyed()) return;
+  updaterWin.webContents.executeJavaScript(`window.sendUpdate && window.sendUpdate(${JSON.stringify(s)})`).catch(() => {});
+}
+function showUpdater() {
+  if (updaterWin && !updaterWin.isDestroyed()) { updaterWin.show(); updaterWin.focus(); return; }
+  updaterWin = new BrowserWindow({
+    width: 300, height: 340, frame: false, resizable: false, maximizable: false, fullscreenable: false, show: false, center: true,
+    backgroundColor: "#0E1220", title: "Updating SEND", icon: join(STATIC, "icon.png"), roundedCorners: true,
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+  });
+  updaterWin.setMenu(null);
+  updaterWin.webContents.on("will-navigate", (e) => e.preventDefault());
+  updaterWin.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  updaterWin.loadFile(join(STATIC, "updater.html"));
+  updaterWin.once("ready-to-show", () => { updaterWin?.show(); pushUpdater(); });
+  updaterWin.on("closed", () => { updaterWin = null; });
+  // While updating, the updater stands in for the app (like Discord's).
+  win?.hide();
+}
+/** A failed download: say so briefly, then bring the app back (the green icon offers a retry). */
+function closeUpdaterAfterError() {
+  setTimeout(() => { if (updateStatus.state === "error") { updaterWin?.close(); win?.show(); win?.focus(); } }, 4500);
+}
+function installUpdate() {
+  showUpdater();
+  pushUpdater({ ...updateStatus, state: "installing" });
+  // Silent install (no Windows installer window), then SEND starts again by itself.
+  setTimeout(() => { pushUpdater({ ...updateStatus, state: "restarting" }); }, 900);
+  setTimeout(() => { quitting = true; autoUpdater?.quitAndInstall(true, true); }, 1500);
+}
 /** The user asked for the update: download it (if needed), then restart into it. */
 async function downloadAndInstall() {
   if (!autoUpdater) return updateStatus;
@@ -189,10 +222,11 @@ async function downloadAndInstall() {
   if (updateStatus.state !== "available" && updateStatus.state !== "error") return updateStatus;
   installWhenReady = true;
   setUpdate({ state: "downloading", percent: 0, version: updateStatus.version });
-  await autoUpdater.downloadUpdate().catch((e: Error) => { installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); });
+  showUpdater();
+  await autoUpdater.downloadUpdate().catch((e: Error) => { installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); closeUpdaterAfterError(); });
   return updateStatus;
 }
-function setUpdate(s: UpdateStatus) { updateStatus = s; win?.webContents.send("update-status", s); buildTrayMenu(); }
+function setUpdate(s: UpdateStatus) { updateStatus = s; win?.webContents.send("update-status", s); pushUpdater(s); buildTrayMenu(); }
 function setupUpdates() {
   if (!app.isPackaged) { setUpdate({ state: "disabled", message: "Updates are checked in installed builds only." }); return; }
   if (!existsSync(join(process.resourcesPath, "app-update.yml"))) { setUpdate({ state: "disabled", message: "This build has no update feed configured." }); return; }
@@ -206,7 +240,7 @@ function setupUpdates() {
   autoUpdater.on("update-not-available", () => setUpdate({ state: "none" }));
   autoUpdater.on("download-progress", (p: any) => setUpdate({ state: "downloading", percent: Math.round(p.percent), version: updateStatus.version }));
   autoUpdater.on("update-downloaded", (i: any) => { setUpdate({ state: "ready", version: i.version }); if (installWhenReady) installUpdate(); });
-  autoUpdater.on("error", (e: Error) => { installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); });
+  autoUpdater.on("error", (e: Error) => { const wasUpdating = installWhenReady; installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); if (wasUpdating) closeUpdaterAfterError(); });
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
   setTimeout(check, 8_000);
   setInterval(check, 4 * 3600_000).unref();

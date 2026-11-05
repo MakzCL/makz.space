@@ -16,9 +16,11 @@ win:
   artifactName: SEND-Setup-${version}.${ext}
   # Unsigned unless CSC_LINK / CSC_KEY_PASSWORD are provided (Windows SmartScreen will warn until then).
 nsis:
-  oneClick: false
+  # One click, like Discord: no wizard pages, a short progress bar, then SEND opens with its own
+  # startup animation. Updates install silently behind the SEND updater window (see main.ts).
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: SEND
