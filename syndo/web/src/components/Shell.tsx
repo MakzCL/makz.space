@@ -26,6 +26,8 @@ import { Avatar, Mark, statusLabel } from "./ui.tsx";
 import { VoiceStage } from "./VoiceStage.tsx";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { useSoundboardActivity } from "../expressions.ts";
+import { ChannelGlyph } from "./ChannelGlyph.tsx";
+import { EmojiPicker } from "./ChannelView.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { setContext, updateGlobal, useAppearance } from "../appearance/store.ts";
 import { Palette, PanelLeftOpen } from "lucide-react";
@@ -273,7 +275,6 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
   );
 }
 
-const CHANNEL_ICON: Record<number, typeof Hash> = { [ChannelType.TEXT]: Hash, [ChannelType.VOICE]: Volume2, [ChannelType.ANNOUNCEMENT]: Megaphone, [ChannelType.STAGE]: Radio, [ChannelType.FORUM]: MessageSquare, [ChannelType.MEDIA]: Image };
 
 function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: boolean }) {
   const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
@@ -281,7 +282,12 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
     const user = useStore.getState().users[id] ?? (id === useStore.getState().me?.id ? useStore.getState().me : null);
     if (user) openContextMenu({ clientX: e.clientX, clientY: e.clientY, preventDefault: () => e.preventDefault(), currentTarget: el }, userMenuItems(user, { guildId: guild.id, onProfile: () => setProfile({ id, el }) }));
   };
-  const Icon = CHANNEL_ICON[c.type] ?? Hash;
+  const canManage = can(c, P.MANAGE_CHANNELS);
+  const [iconPicker, setIconPicker] = useState<HTMLElement | null>(null);
+  const iconRef = useRef<HTMLSpanElement>(null);
+  // "Change icon" in the channel menu opens the same picker.
+  useEffect(() => { const on = (e: Event) => { if ((e as CustomEvent).detail === c.id && iconRef.current) setIconPicker(iconRef.current); }; window.addEventListener("syndo:channel-icon", on); return () => window.removeEventListener("syndo:channel-icon", on); }, [c.id]);
+  const setIcon = (icon_emoji: string | null) => { setIconPicker(null); api.patch(`/api/channels/${c.id}`, { icon_emoji }).catch((e) => toast(errMsg(e), "error")); };
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
   const voiceUsers = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id)));
@@ -298,11 +304,13 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
     <>
       <button className={`side-ch ${active ? "active" : ""} ${unread ? "unread" : ""}`} onClick={open} onContextMenu={(e) => openContextMenu(e, channelMenuItems(c, guild))} aria-current={active ? "page" : undefined}
         aria-label={`${c.name}, ${isVoiceType(c.type) ? "voice channel" : "channel"}${unread ? ", unread" : ""}${mentions ? `, ${mentions} mentions` : ""}`}>
-        <Icon size={18} aria-hidden />{priv && <Lock size={11} className="lock" aria-hidden />}
+        <span ref={iconRef} className={`ch-icon ${canManage ? "editable" : ""}`} title={canManage ? "Change icon" : undefined}
+          onClick={canManage ? (e) => { e.stopPropagation(); e.preventDefault(); const el = e.currentTarget; setIconPicker((p) => (p ? null : el)); } : undefined}><ChannelGlyph c={c} /></span>{priv && <Lock size={11} className="lock" aria-hidden />}
         <span className="ellipsis">{c.name}</span>
         {c.user_limit > 0 && isVoiceType(c.type) && <small className="muted">{voiceUsers.length}/{c.user_limit}</small>}
         {mentions > 0 && <span className="badge inline">{mentions}</span>}
       </button>
+      {iconPicker && <EmojiPicker anchor={iconPicker} guildId={guild.id} onPick={(e) => setIcon(e)} onClose={() => setIconPicker(null)} onClear={c.icon_emoji ? () => setIcon(null) : undefined} clearLabel={isVoiceType(c.type) ? "Use the speaker icon" : "Use #"} />}
       {profile && <ProfileCard userId={profile.id} guildId={guild.id} anchor={profile.el} onClose={() => setProfile(null)} />}
       {voiceUsers.length > 0 && (
         <ul className="voice-users" aria-label={`In ${c.name}`}>

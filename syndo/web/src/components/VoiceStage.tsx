@@ -16,6 +16,7 @@ import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar } from "./ui.tsx";
+import { ChannelGlyph } from "./ChannelGlyph.tsx";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
@@ -30,7 +31,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 
   if (!here) return (
     <div className="stage-idle">
-    <header className="ch-h m-only"><MobileNavButton /><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1></header>
+    <header className="ch-h m-only"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1></header>
     <div className="stage-empty">
       <h1>{channel.name}</h1>
       <p className="muted">{states.length ? `${states.length} ${states.length === 1 ? "person is" : "people are"} here.` : "No one is here yet."}</p>
@@ -56,7 +57,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 
   return (
     <div className="stage" data-region="call">
-      <header className="ch-h"><MobileNavButton /><Volume2 size={22} aria-hidden /><h1 className="ellipsis">{channel.name}</h1>
+      <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         <div className="ch-actions">
           <button className={`icon-btn ${v.layout === "grid" ? "active" : ""}`} onClick={() => useVoice.setState({ layout: v.layout === "grid" ? "focus" : "grid", focus: v.layout === "grid" ? (tiles.find((t) => t.kind === "screen")?.key ?? null) : null })} aria-label="Toggle layout">{v.layout === "grid" ? "Grid" : "Focus"}</button>

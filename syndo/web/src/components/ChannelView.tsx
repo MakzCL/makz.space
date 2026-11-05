@@ -11,6 +11,7 @@ import { ChannelType, MessageType, P, has, type Channel, type Message, type Stic
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
+import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
 import { joinVoice, useVoice } from "../voice/session.ts";
@@ -91,7 +92,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
     <div className="channel">
       <header className="ch-h" data-region="header">
         <MobileNavButton />
-        {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <Icon size={22} aria-hidden className="muted" />}
+        {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <ChannelGlyph c={channel} size={22} className="muted" />}
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
         <div className="ch-actions">
@@ -232,7 +233,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
 function Welcome({ channel }: { channel: Channel }) {
   return (
     <div className="welcome">
-      <div className="welcome-ico">{channel.guild_id ? <Hash size={36} /> : <Avatar user={channel.recipients?.[0]} size={72} />}</div>
+      <div className="welcome-ico">{channel.guild_id ? <ChannelGlyph c={channel} size={36} /> : <Avatar user={channel.recipients?.[0]} size={72} />}</div>
       <h2>{channel.guild_id ? `Welcome to #${channel.name}!` : dmTitle(channel)}</h2>
       <p className="muted">{channel.guild_id ? "This is the start of the channel." : "This is the beginning of your conversation."}</p>
     </div>
@@ -445,7 +446,7 @@ function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {
   );
 }
 
-export function EmojiPicker({ onPick, onClose, anchor, guildId }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null }) {
+export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLabel }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null; onClear?: () => void; clearLabel?: string }) {
   const custom = useStore(useShallow((s) => Object.values(s.guilds).map((g) => g.emojis?.length ?? 0).join(",")));
   const groups = useMemo(() => myEmojis(guildId), [custom, guildId]); // eslint-disable-line react-hooks/exhaustive-deps
   const ALL = "😀 😃 😄 😁 😆 🥹 😅 😂 🤣 🥲 😊 😇 🙂 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 🤗 🤔 🫡 🤭 🤫 😶 😐 😑 😬 🙄 😯 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 👍 👎 👏 🙌 👐 🤝 🙏 ✌️ 🤞 🫶 🤟 🤘 👌 👋 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🌟 ⭐ 🔥 🎉 🎊 🌻 🌈 ☀️ 🌙 ⚡ 🍀 🌸 🐶 🐱 🦊 🐻 🐼 🐨 🦁 🐸 🐧 🦄 🍕 🍔 🍟 🍩 🍪 🎂 🍰 ☕ 🧋 🎮 🎧 🎵 🎨 📚 ⚽ 🏀 🚀 🧦 👀 ✅ ❌ ❓ ❗".split(" ");
@@ -457,6 +458,8 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId }: { onPick: (e: 
   useLayoutEffect(() => {
     if (!anchor || !ref.current) return;
     const r = anchor.getBoundingClientRect(), w = ref.current.offsetWidth, h = ref.current.offsetHeight, m = 8, vw = window.innerWidth, vh = window.innerHeight;
+    // From the channel list: open beside it (to the right), so the list stays visible.
+    const side = anchor.closest(".sidebar"); if (side) { setPos({ position: "fixed", left: Math.min(vw - w - m, side.getBoundingClientRect().right + 8), top: Math.max(m, Math.min(vh - h - m, r.top - 40)), right: "auto" }); return; }
     // Above the button, else below it, else beside it — never on top of the button that toggles it.
     let left = Math.max(m, Math.min(vw - w - m, r.right - w)), top: number;
     if (r.top - h - 8 >= m) top = r.top - h - 8;
@@ -467,6 +470,7 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId }: { onPick: (e: 
   return (
     createPortal(<div ref={ref} className="picker" role="dialog" aria-label="Pick an emoji" data-layer style={pos}>
       <div className="picker-h"><input autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter emoji" /><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
+      {onClear && <button className="picker-clear" onClick={onClear}>{clearLabel ?? "Remove"}</button>}
       <div className="picker-scroll">
         {groups.map((g) => { const list = g.emojis.filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase())); return list.length ? <section key={g.guildId} aria-label={g.guildName}>
           <h4 className="picker-sec">{g.guildName}</h4>

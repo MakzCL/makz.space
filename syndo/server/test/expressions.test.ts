@@ -123,6 +123,21 @@ describe("Server expressions: emoji, soundboard, category banners", () => {
     g = (await member.get(`/api/guilds/${guild.id}`)).body;
     assert.equal(g.channels.find((c: any) => c.id === cat.id).banner, null);
   });
+  it("sets an emoji instead of a channel's # / speaker icon", async () => {
+    const text = guild.channels.find((c: any) => c.type === 0);
+    assert.equal((await member.patch(`/api/channels/${text.id}`, { icon_emoji: "📷" })).status, 403, "needs Manage channels");
+    let r = await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "📷" });
+    assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.icon_emoji, "📷");
+    assert.equal((await owner.patch(`/api/channels/${voice.id}`, { icon_emoji: "🎮" })).body.icon_emoji, "🎮", "voice channels too");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "<:party:123456>" })).body.icon_emoji, "<:party:123456>", "custom emoji");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "hello" })).status, 400, "text isn't an emoji");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "👨‍👩‍👧" })).status, 200, "joined emoji");
+    r = await owner.patch(`/api/channels/${text.id}`, { icon_emoji: null });
+    assert.equal(r.body.icon_emoji, null, "back to #");
+    const g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.equal(g.channels.find((c: any) => c.id === voice.id).icon_emoji, "🎮");
+  });
+
   it("lets a category with a banner go without a title", async () => {
     const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Art", type: 4 })).body;
     assert.equal((await owner.patch(`/api/channels/${cat.id}`, { name: "" })).status, 400, "needs a name without a banner");

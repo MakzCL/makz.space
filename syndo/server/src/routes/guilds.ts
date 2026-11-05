@@ -583,6 +583,9 @@ export async function guildRoutes(app: FastifyInstance) {
       rate_limit_per_user: z.number().int().min(0).max(21600).optional(),
       bitrate: z.number().int().min(8000).max(config.limits.max_voice_bitrate_kbps * 1000).optional(),
       user_limit: z.number().int().min(0).max(99).optional(),
+      // An emoji instead of the # / speaker icon: one unicode emoji, or a custom one "<:name:id>". null = default icon.
+      icon_emoji: z.string().trim().max(64).nullable().optional().transform((v) => (v ? v : v === undefined ? undefined : null))
+        .refine((v) => v == null || /^<a?:[A-Za-z0-9_]{2,32}:\d{1,20}>$/.test(v) || (/^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3)/u.test(v) && [...v].length <= 10 && !/[\p{L}\p{N}\s]/u.test(v.replace(/[#*0-9]\uFE0F?\u20E3/gu, ""))), "Pick a single emoji."),
       parent_id: ID.nullable().optional(),
       position: z.number().int().min(0).optional(),
     }).strict().parse(req.body);

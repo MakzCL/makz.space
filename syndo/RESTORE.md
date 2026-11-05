@@ -1,5 +1,16 @@
 # SEND restore points
 
+## 2026-11-05 — channel emoji icons
+
+| Layer | Restore point (before) |
+|---|---|
+| Source | branch `backup/pre-channel-emoji-20261105` |
+| Backend (Worker `send-beta-api`) | version `e04307b4-0c5c-41bb-a340-d344874caf80`, `SOURCE_COMMIT` `dcbfdef` |
+| Web (Pages `syndo-app`) | deployment `6f7293a7-be14-40f8-8271-95705dde99c6` |
+| Database | migration `006_channel_emoji.sql` (additive: column `channels.icon_emoji`). To remove: `alter table syndo.channels drop column icon_emoji; delete from syndo.schema_migrations where name = '006_channel_emoji.sql';` |
+
+Roll back: backend → deploy `e04307b4` at 100% (then call any `/api/…` route); web → rollback to `6f7293a7`.
+
 ## 2026-11-05 — category banner sizing (web only)
 
 Web-only (CSS): category banners match the channel-row width, 28 px tall, "+" over the banner. Backend and database unchanged.

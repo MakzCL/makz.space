@@ -1295,3 +1295,12 @@ video.viewer-media { cursor: default; }
 .unread-bar button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 6px 12px; }
 .unread-jump { flex: 1; text-align: left; } .unread-jump:hover, .unread-mark:hover { background: #ffffff1f; }
 .unread-mark { border-left: 1px solid #ffffff40 !important; white-space: nowrap; }
+
+/* Channel icon: an emoji (if chosen) in place of # / speaker. Managers can click it to change it. */
+.ch-icon { display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 6px; }
+.ch-icon.editable { cursor: pointer; }
+.ch-icon.editable:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
+.ch-emoji { display: inline-grid; place-items: center; line-height: 1; flex: none; }
+.ch-emoji .md-emoji { margin: 0; vertical-align: middle; }
+.picker-clear { display: block; width: calc(100% - 12px); margin: 0 6px 6px; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 8px; background: none; color: var(--textMuted); font: inherit; font-size: .85rem; cursor: pointer; text-align: left; }
+.picker-clear:hover { color: var(--text); border-color: var(--accent); }

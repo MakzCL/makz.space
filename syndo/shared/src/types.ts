@@ -97,6 +97,8 @@ export interface Channel {
   icon?: string | null;
   /** Banner art (categories show it instead of their name). */
   banner?: string | null;
+  /** Emoji shown instead of the # / speaker icon (unicode, or "<:name:id>"). */
+  icon_emoji?: string | null;
   recipients?: User[];
   /** Computed for the requesting user (server-side); clients must not trust it for enforcement. */
   my_permissions?: string;
