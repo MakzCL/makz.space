@@ -1,5 +1,10 @@
 # SEND restore points
 
+## 2026-11-05 — desktop 0.4.2 (SEND updater window, one-click installer)
+
+Feed `latest.yml` → `SEND-Setup-0.4.2.exe` (CI run 42069023171, commit `a800c30`, sha512 checked on the public copy). Previous feed saved as `latest-0.4.1.yml`. Worker version `f731760b-d71b-4f79-aecf-4a02a204c016` links `/api/downloads/windows` to 0.4.2.
+Roll back the feed: copy `latest-0.4.1.yml` over `latest.yml` (`text/yaml`, `no-cache`).
+
 ## 2026-11-05 — desktop 0.4.1 (manual updates, green title-bar button)
 
 | What | Where |
