@@ -21,9 +21,11 @@ Note: Git-triggered Pages builds can sit at "queued" indefinitely. Retrying the 
 
 ### 2026-11-05 (later) — faster backend cold start
 
-Backend version `528ea7b3-a2ad-494f-851f-79c0639dc081`: the container extracts only `syndo/server` + `syndo/shared` and installs only their production packages (`npm ci -w @syndo/server -w @syndo/shared`). Restart measured at ~25 s (was ~60–70 s). `SOURCE_COMMIT` `fd1002b` (server code identical to `d42a8cc`).
+1. Backend version `528ea7b3-a2ad-494f-851f-79c0639dc081`: the container extracts only `syndo/server` + `syndo/shared` and installs only their production packages. Restart ~25 s (was ~60–70 s).
+2. Backend version `d98de0c9-d037-4ad3-8b59-6f02ea01847c` (and later, same code): **runtime cache**. After a fresh install the container saves the unpacked server + `node_modules` (~12 MB) to the private uploads bucket as `_runtime/<SOURCE_COMMIT>.tgz`; later cold starts for that commit download and unpack it instead of GitHub + npm. Any cache problem falls back to the normal install. Old `_runtime/*.tgz` objects can be deleted at any time (they are only a speed-up).
+
 The live Worker still links Windows downloads to `SEND-Setup-0.4.0.exe`; the repo's `releases.ts` already says 0.4.1 — deploy it only after the 0.4.1 installer is in R2.
-Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100%.
+Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100% (voice update, original startup), then call any `/api/…` route.
 
 ## 2026-11-04 — before Discord-parity work
 
