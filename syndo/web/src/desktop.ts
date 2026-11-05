@@ -3,6 +3,7 @@
  * Everything here is optional: in a browser `window.syndoDesktop` is absent
  * and nothing changes.
  */
+import { useEffect, useState } from "react";
 import { useVoice, pttPress, pttRelease } from "./voice/session.ts";
 import { onEvent, useStore } from "./store.ts";
 
@@ -25,6 +26,8 @@ export interface SENDDesktop {
   getUpdateStatus(): Promise<DesktopUpdate>;
   checkForUpdates(): Promise<DesktopUpdate>;
   restartToUpdate(): Promise<void>;
+  /** Download the available update and restart into it (desktop 0.4.1+; older shells download on their own). */
+  downloadUpdate?(): Promise<DesktopUpdate>;
   onUpdateStatus(cb: (s: DesktopUpdate) => void): () => void;
   flash(): Promise<void>;
 }
@@ -56,4 +59,24 @@ export async function setDesktopMaterial(m: "none" | "mica" | "acrylic") {
   const r = await desktop.setWindowMaterial(m);
   if (r.ok) { if (m === "none") delete document.documentElement.dataset.desktopMaterial; else document.documentElement.dataset.desktopMaterial = m; }
   return r.ok;
+}
+
+/** Current desktop update status, kept live. Null outside the desktop app. */
+export function useDesktopUpdate(): DesktopUpdate | null {
+  const [u, setU] = useState<DesktopUpdate | null>(null);
+  useEffect(() => {
+    if (!desktop) return;
+    let live = true;
+    desktop.getUpdateStatus().then((s) => { if (live) setU(s); }).catch(() => {});
+    const off = desktop.onUpdateStatus(setU);
+    return () => { live = false; off(); };
+  }, []);
+  return u;
+}
+
+/** What the green update button does: install a downloaded update, or download one and install it. */
+export function applyDesktopUpdate(u: DesktopUpdate | null) {
+  if (!desktop || !u) return;
+  if (u.state === "ready") return desktop.restartToUpdate();
+  if (u.state === "available" || (u.state === "error" && u.version)) return desktop.downloadUpdate?.();
 }

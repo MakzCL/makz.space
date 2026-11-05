@@ -179,19 +179,34 @@ startHook.started = false;
 type UpdateStatus = { state: "idle" | "checking" | "available" | "downloading" | "ready" | "none" | "error" | "disabled"; version?: string; percent?: number; message?: string };
 let updateStatus: UpdateStatus = { state: "idle" };
 let autoUpdater: any = null;
+/** Set when the user pressed "update": install as soon as the download finishes. */
+let installWhenReady = false;
+function installUpdate() { quitting = true; autoUpdater?.quitAndInstall(false, true); }
+/** The user asked for the update: download it (if needed), then restart into it. */
+async function downloadAndInstall() {
+  if (!autoUpdater) return updateStatus;
+  if (updateStatus.state === "ready") { installUpdate(); return updateStatus; }
+  if (updateStatus.state !== "available" && updateStatus.state !== "error") return updateStatus;
+  installWhenReady = true;
+  setUpdate({ state: "downloading", percent: 0, version: updateStatus.version });
+  await autoUpdater.downloadUpdate().catch((e: Error) => { installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); });
+  return updateStatus;
+}
 function setUpdate(s: UpdateStatus) { updateStatus = s; win?.webContents.send("update-status", s); buildTrayMenu(); }
 function setupUpdates() {
   if (!app.isPackaged) { setUpdate({ state: "disabled", message: "Updates are checked in installed builds only." }); return; }
   if (!existsSync(join(process.resourcesPath, "app-update.yml"))) { setUpdate({ state: "disabled", message: "This build has no update feed configured." }); return; }
   try { autoUpdater = require("electron-updater").autoUpdater; } catch { setUpdate({ state: "disabled" }); return; }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Never update on our own: an update is downloaded and installed only when the user presses the
+  // green download button (title bar, settings or tray).
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.on("checking-for-update", () => setUpdate({ state: "checking" }));
   autoUpdater.on("update-available", (i: any) => setUpdate({ state: "available", version: i.version }));
   autoUpdater.on("update-not-available", () => setUpdate({ state: "none" }));
   autoUpdater.on("download-progress", (p: any) => setUpdate({ state: "downloading", percent: Math.round(p.percent), version: updateStatus.version }));
-  autoUpdater.on("update-downloaded", (i: any) => setUpdate({ state: "ready", version: i.version }));
-  autoUpdater.on("error", (e: Error) => setUpdate({ state: "error", message: String(e?.message ?? e).slice(0, 200) }));
+  autoUpdater.on("update-downloaded", (i: any) => { setUpdate({ state: "ready", version: i.version }); if (installWhenReady) installUpdate(); });
+  autoUpdater.on("error", (e: Error) => { installWhenReady = false; setUpdate({ state: "error", version: updateStatus.version, message: String(e?.message ?? e).slice(0, 200) }); });
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
   setTimeout(check, 8_000);
   setInterval(check, 4 * 3600_000).unref();
@@ -204,7 +219,8 @@ function buildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open SEND", click: () => { win?.show(); win?.focus(); } },
     { type: "separator" },
-    u.state === "ready" ? { label: `Restart to update (${u.version})`, click: () => { quitting = true; autoUpdater?.quitAndInstall(); } }
+    u.state === "ready" ? { label: `Restart to update (${u.version})`, click: () => installUpdate() }
+      : u.state === "available" ? { label: `Download and install update (${u.version})`, click: () => { downloadAndInstall(); } }
       : { label: u.state === "downloading" ? `Downloading update… ${u.percent ?? 0}%` : "Check for updates", enabled: !!autoUpdater && u.state !== "downloading", click: () => autoUpdater?.checkForUpdates().catch(() => {}) },
     { label: "Change server…", click: () => changeServer() },
     { label: "Close to tray", type: "checkbox", checked: config.closeToTray, click: (m) => { config.closeToTray = m.checked; saveConfig(); } },
@@ -267,7 +283,8 @@ function registerIpc() {
   ipcMain.handle("desktop:set-close-to-tray", (_e, v: unknown) => { config.closeToTray = v === true; saveConfig(); buildTrayMenu(); return { ok: true }; });
   ipcMain.handle("desktop:update-status", () => updateStatus);
   ipcMain.handle("desktop:check-updates", async () => { if (!autoUpdater) return updateStatus; await autoUpdater.checkForUpdates().catch(() => {}); return updateStatus; });
-  ipcMain.handle("desktop:restart-to-update", () => { if (updateStatus.state === "ready") { quitting = true; autoUpdater?.quitAndInstall(); } });
+  ipcMain.handle("desktop:restart-to-update", () => { if (updateStatus.state === "ready") installUpdate(); });
+  ipcMain.handle("desktop:download-update", () => downloadAndInstall());
   ipcMain.handle("desktop:flash", () => { if (win && !win.isFocused()) win.flashFrame(true); });
   ipcMain.handle("desktop:change-server", () => changeServer());
   // First-run chooser (local page): validate and save the server address.

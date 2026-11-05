@@ -40,6 +40,7 @@ if (location.protocol === "file:") {
     getUpdateStatus: () => ipcRenderer.invoke("desktop:update-status"),
     checkForUpdates: () => ipcRenderer.invoke("desktop:check-updates"),
     restartToUpdate: () => ipcRenderer.invoke("desktop:restart-to-update"),
+    downloadUpdate: () => ipcRenderer.invoke("desktop:download-update"),
     onUpdateStatus: (cb: (s: unknown) => void) => on("update-status", cb),
     flash: () => ipcRenderer.invoke("desktop:flash"),
   });

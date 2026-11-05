@@ -17,7 +17,7 @@ import { applyPreset, captureCapabilities } from "../voice/settings.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { PRESETS, type A11yPrefs } from "@syndo/shared";
-import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate, type DesktopSettings } from "../desktop.ts";
+import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate, type DesktopSettings, applyDesktopUpdate } from "../desktop.ts";
 import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
@@ -253,13 +253,14 @@ function DesktopTab() {
   }, []);
   if (!desktop) return null;
   const d = desktop;
-  const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: `Update ${u.version} found — downloading`, downloading: `Downloading ${u.version ?? ""} — ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
+  const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: d.downloadUpdate ? `Update ${u.version} available` : `Update ${u.version} found — downloading`, downloading: `Downloading ${u.version ?? ""} — ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
   return (
     <div className="stack">
       <h2>Desktop app</h2>
       <p className="muted">SEND for {desktop.platform === "win32" ? "Windows" : desktop.platform} · version {desktop.version}. The interface updates automatically whenever the SEND web app is updated; the app itself updates from the SEND update feed.</p>
       <div className="card row wrap"><span className="grow" role="status">{label}</span>
         {u?.state === "ready" ? <button className="btn primary" onClick={() => d.restartToUpdate()}>Restart to update</button>
+          : u?.state === "available" && d.downloadUpdate ? <button className="btn primary" onClick={() => applyDesktopUpdate(u)}>Download and install</button>
           : <button className="btn" disabled={u?.state === "checking" || u?.state === "downloading" || u?.state === "disabled"} onClick={() => d.checkForUpdates().then(setU)}>Check for updates</button>}</div>
       {cfg && <Toggle label="Keep running in the tray when closed" hint="Calls and notifications keep working." checked={cfg.closeToTray} onChange={(v) => { d.setCloseToTray(v); setCfg({ ...cfg, closeToTray: v }); }} />}
       {cfg && d.setPerformance && <>

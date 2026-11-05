@@ -841,6 +841,12 @@ html[data-desktop]:has(.desktop-titlebar) .modal-back, html[data-desktop]:has(.d
 .desktop-titlebar .desktop-title { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; }
 .desktop-title .send-wordmark { width: 48px; opacity: .65; }
 .desktop-window-controls { margin-left: auto; }
+.desktop-titlebar button.desktop-update { color: #3ba55d; }
+.desktop-titlebar button.desktop-update:hover { color: #46c46e; background: #3ba55d1f; }
+.desktop-titlebar button.desktop-update.busy { cursor: default; }
+.desktop-update .spin { animation: desktop-update-spin 1s linear infinite; }
+@keyframes desktop-update-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .desktop-update .spin { animation: none; } }
 .desktop-window-controls button { width: 46px; }
 .desktop-titlebar .window-close:hover { background: #d63b40; color: white; }
 .profile-media-edit { position: relative; }
