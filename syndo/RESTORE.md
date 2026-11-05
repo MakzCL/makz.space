@@ -1,5 +1,18 @@
 # SEND restore points
 
+## 2026-11-05 — stickers, NEW messages line, category banner sizes
+
+| Layer | Restore point (before) |
+|---|---|
+| Source | branch `backup/pre-stickers-20261105` → `ed64fa5` |
+| Backend (Worker `send-beta-api`) | version `c7b3bca7-9828-4210-8e5a-59a6f8b81c76`, `SOURCE_COMMIT` `ed64fa5` |
+| Web (Pages `syndo-app`) | deployment `e93b6b19-c203-46fb-a3c3-e5502117c63c` |
+| Database (Supabase `syndo-beta`) | migration `005_stickers.sql` applied (additive: table `guild_stickers`, column `messages.sticker_id`). Older code ignores both. To remove: `alter table syndo.messages drop column sticker_id; drop table syndo.guild_stickers; delete from syndo.schema_migrations where name = '005_stickers.sql';` |
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → `c7b3bca7` at 100%, then call any `/api/…` route.
+2. Web: Pages → `syndo-app` → Deployments → `e93b6b19` → *Rollback to this deployment*.
+
 ## 2026-11-05 — expressions live (emoji, soundboard, category banners) + plain DMs
 
 | Layer | Restore point (before) |
