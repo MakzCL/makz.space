@@ -3,7 +3,7 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
-  AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Phone, Pin, PinOff,
+  AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Plus, Phone, Pin, PinOff,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import { ChannelType, MessageType, P, has, type Channel, type Message, type Stic
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
+import { AttachSheet, CameraCapture } from "./AttachSheet.tsx";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
@@ -194,6 +195,13 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
     else if (data?.hasMore && list.length) loadMessages(channel.id, { before: list.find((m) => !m._state)?.id });
   };
 
+  // Keep the newest message visible when the message box grows/shrinks (it overlays the list).
+  useEffect(() => {
+    const el = ref.current, host = el?.closest(".channel");
+    if (!el || !host) return;
+    const on = () => { if (stick.current) el.scrollTop = el.scrollHeight; };
+    host.addEventListener("composer-resize", on); return () => host.removeEventListener("composer-resize", on);
+  }, []);
   const onScroll = () => {
     const el = ref.current!;
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -506,6 +514,15 @@ function StickerPicker({ onPick, onClose, anchor, guildId }: { onPick: (s: Stick
   </div>, document.body);
 }
 
+/** Thumbnail of a picked photo/video (local, before upload); other files get an icon. */
+function UploadThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { if (!/^(image|video)\//.test(file.type)) return; const u = URL.createObjectURL(file); setUrl(u); return () => URL.revokeObjectURL(u); }, [file]);
+  if (url && file.type.startsWith("image/")) return <img className="upload-thumb" src={url} alt="" />;
+  if (url) return <video className="upload-thumb" src={url} muted playsInline preload="metadata" />;
+  return <span className="upload-thumb file" aria-hidden><FileIcon size={22} /></span>;
+}
+
 /* ------------------------------------------------------------ typing -- */
 function Typing({ channelId, guildId }: { channelId: string; guildId: string | null }) {
   const typing = useStore((s) => s.typing[channelId]);
@@ -533,6 +550,17 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const [stickers, setStickers] = useState(false);
   const hasStickers = useStore((s) => Object.values(s.guilds).some((g) => (g.stickers?.length ?? 0) > 0));
   const [emoji, setEmoji] = useState(false);
+  const [attach, setAttach] = useState(false);
+  const [camera, setCamera] = useState(false);
+  const plusBtn = useRef<HTMLButtonElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  // The list scrolls behind the message box: publish its height so the list can pad and fade under it.
+  useLayoutEffect(() => {
+    const el = wrap.current, host = el?.closest(".channel") as HTMLElement | null;
+    if (!el || !host || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { host.style.setProperty("--composer-h", `${Math.ceil(el.getBoundingClientRect().height)}px`); host.dispatchEvent(new Event("composer-resize")); });
+    ro.observe(el); return () => { ro.disconnect(); host.style.removeProperty("--composer-h"); };
+  }, []);
   const insert = (s: string) => {
     const el = ta.current; if (!el) { setText((t) => t + s); return; }
     const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
@@ -615,13 +643,13 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
 
   if (!canSend) return <div className="composer disabled" role="note">{isDm ? "You can't message this person right now." : "You don't have permission to send messages in this channel."}</div>;
   return (
-    <div className="composer-wrap" data-region="composer" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}>
+    <div ref={wrap} className="composer-wrap" data-region="composer" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}>
       {reply && <div className="reply-bar">Replying to <strong>{memberName(channel.guild_id, reply.author)}</strong><button className="icon-btn sm" aria-label="Cancel reply" onClick={onClearReply}><X size={14} /></button></div>}
       {uploads.length > 0 && (
         <ul className="uploads" aria-label="Attachments">
           {uploads.map((u) => (
             <li key={u.key} className={`upload u-${u.status}`}>
-              <FileIcon size={18} aria-hidden /><span className="ellipsis">{u.file.name}</span>
+              <UploadThumb file={u.file} /><span className="ellipsis upload-name">{u.file.name}</span>
               {u.status === "uploading" && <progress max={1} value={u.progress} aria-label={`Uploading ${u.file.name}`} />}
               {u.status === "error" && <><span className="danger-text small">{u.error}</span><button className="link" onClick={() => { setUploads((l) => l.filter((x) => x.key !== u.key)); addFiles([u.file]); }}>Retry</button></>}
               <button className="icon-btn sm" aria-label={u.status === "uploading" ? "Cancel upload" : "Remove"} onClick={() => { u.cancel?.(); if (u.id) api.del(`/api/attachments/${u.id}`).catch(() => {}); setUploads((l) => l.filter((x) => x.key !== u.key)); }}><X size={14} /></button>
@@ -631,8 +659,11 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
       )}
       {mentions.popup}
       <div className="composer">
-        {canAttach && <><button className="icon-btn" aria-label="Attach files" onClick={() => fileIn.current?.click()}><Paperclip size={20} /></button>
+        {canAttach && <><button ref={plusBtn} className={`icon-btn composer-plus ${attach ? "active" : ""}`} aria-label="Add photos, videos or files" aria-expanded={attach} title="Add" onClick={() => setAttach((v) => !v)}><Plus size={22} /></button>
           <input ref={fileIn} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} /></>}
+        {attach && <AttachSheet anchor={plusBtn.current} onFiles={(f) => addFiles(f)} onClose={() => setAttach(false)} onCamera={() => setCamera(true)} onStickers={hasStickers ? () => setStickers(true) : undefined} />}
+        {camera && <CameraCapture onCapture={(f) => { setCamera(false); addFiles([f]); }} onClose={() => setCamera(false)} />}
+        <div className="composer-field">
         <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
           onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
@@ -646,9 +677,10 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         {emoji && <EmojiPicker anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {hasStickers && <button ref={stickerBtn} className={`icon-btn ${stickers ? "active" : ""}`} aria-label="Stickers" aria-expanded={stickers} title="Stickers" onClick={() => setStickers((v) => !v)}><StickerIcon size={20} /></button>}
         {stickers && <StickerPicker anchor={stickerBtn.current} guildId={channel.guild_id} onPick={(st) => { setStickers(false); sendMessage(channel.id, "", { sticker: st, reply_to: reply?.id }); onClearReply(); }} onClose={() => setStickers(false)} />}
+        </div>
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
           : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
-        <button className="icon-btn" aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>
+        <button className={`icon-btn composer-send ${text.trim() || uploads.some((u) => u.status === "done") ? "ready" : ""}`} aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>
       </div>
       <div className="composer-meta muted small">
         {slow > 0 && <span>Slow mode: {slow}s</span>}

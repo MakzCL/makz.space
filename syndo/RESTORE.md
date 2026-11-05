@@ -1,5 +1,10 @@
 # SEND restore points
 
+## 2026-11-06 — attach sheet, in-app camera, message box like Discord (web only)
+
+Website only (no backend or database change). Source backup: branch `backup/pre-attach-sheet-20261106`.
+Roll back: Pages → `syndo-app` → Deployments → `72d4ff17-0d57-4dee-b093-73d3ec4421d1` → *Rollback to this deployment*.
+
 ## 2026-11-05 — "System" settings, white scrollbars, phone banners, iPhone install (web only)
 
 Website only (no backend or database change). Source backup: branch `backup/pre-system-ios-20261105`.
