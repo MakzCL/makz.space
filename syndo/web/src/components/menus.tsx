@@ -66,8 +66,9 @@ export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
         ...(c.banner !== undefined ? [{ label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem] : []),
         ...(c.banner ? [{ label: "Remove banner", onSelect: () => removeChannelBanner(c) } as MenuItem] : [])] : []),
       { label: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", onSelect: async () => {
-        const name = await askText({ title: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", label: "Name", initial: c.name ?? "" });
-        if (name) api.patch(`/api/channels/${c.id}`, { name }).catch((e) => toast(errMsg(e), "error"));
+        const cat = c.type === ChannelType.CATEGORY;
+        const name = await askText({ title: cat ? "Rename category" : "Rename channel", label: cat ? "Name (leave empty to show only the banner)" : "Name", initial: c.name ?? "", optional: cat && !!c.banner });
+        if (name !== null && (name || (cat && c.banner))) api.patch(`/api/channels/${c.id}`, { name }).catch((e) => toast(errMsg(e), "error"));
       } } as MenuItem,
       { label: c.type === ChannelType.CATEGORY ? "Delete category" : "Delete channel", danger: true, onSelect: async () => {
         if (!(await askConfirm({ title: `Delete ${c.type === ChannelType.CATEGORY ? "category" : "channel"} ${c.name}?`, body: c.type === ChannelType.CATEGORY ? "Channels inside it are kept and become uncategorised." : "Its messages are deleted for everyone. This can't be undone.", confirmLabel: "Delete", danger: true }))) return;

@@ -7,7 +7,7 @@ import {
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChannelType, MessageType, P, has, type Channel, type Message } from "@syndo/shared";
+import { ChannelType, MessageType, P, has, type Channel, type Message, type Sticker } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
@@ -24,11 +24,11 @@ import { useLayer } from "../layers.ts";
 import { isPhone } from "../mobile.ts";
 import { createContext, useContext } from "react";
 import { create } from "zustand";
-import { Smile } from "lucide-react";
+import { Smile, Sticker as StickerIcon } from "lucide-react";
 import { ChannelType as CT } from "@syndo/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
-import { customReaction, emojiText, myEmojis, reactionKey } from "../expressions.ts";
+import { customReaction, emojiText, myEmojis, myStickers, reactionKey } from "../expressions.ts";
 import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
 import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
@@ -145,7 +145,23 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   const stick = useRef(true);
   const prevHeight = useRef(0);
   const list = data?.list ?? [];
-  const lastRead = useRef(useStore.getState().readStates[channel.id]?.last_read_id ?? null);
+  // Where I'd read up to when I opened this channel (kept until I switch channel).
+  const [opened, setOpened] = useState(() => ({ channel: channel.id, lastRead: useStore.getState().readStates[channel.id]?.last_read_id ?? null, at: Date.now() }));
+  if (opened.channel !== channel.id) setOpened({ channel: channel.id, lastRead: useStore.getState().readStates[channel.id]?.last_read_id ?? null, at: Date.now() });
+  const myId = useStore((s) => s.me?.id);
+  const big = (id: string) => { try { return BigInt(id.replace(/\D/g, "") || "0"); } catch { return 0n; } };
+  const unread = useMemo(() => {
+    const lr = opened.lastRead ? big(opened.lastRead) : null;
+    if (lr === null || opened.channel !== channel.id) return { firstId: null as string | null, count: 0, since: null as string | null };
+    const real = list.filter((m) => !m._state);
+    // Sending a message myself clears the divider, like Discord.
+    if (real.some((m) => m.author.id === myId && big(m.id) > lr && new Date(m.created_at).getTime() >= opened.at - 1000)) return { firstId: null, count: 0, since: null };
+    const after = real.filter((m) => big(m.id) > lr && m.author.id !== myId);
+    return { firstId: after[0]?.id ?? null, count: after.length, since: after[0]?.created_at ?? null };
+  }, [list, opened, myId, channel.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [barHidden, setBarHidden] = useState<string | null>(null);
+  const [dividerAbove, setDividerAbove] = useState(false);
+  const jumped = useRef<string | null>(null);
   const canHistory = can(channel, P.READ_MESSAGE_HISTORY) || !channel.guild_id;
   const groupingOn = useAppearance((s) => s.resolved.theme.layout.grouping);
 
@@ -158,11 +174,29 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
     if (prevHeight.current && el.scrollTop < 50) el.scrollTop = el.scrollHeight - prevHeight.current; // keep position after loading older
     else if (stick.current) el.scrollTop = el.scrollHeight;
     prevHeight.current = 0;
-  }, [list.length, highlight]);
+    // First open with lots unread: start at the "New" line instead of the bottom.
+    if (unread.firstId && jumped.current !== channel.id) {
+      jumped.current = channel.id;
+      const d = el.querySelector(".new-div") as HTMLElement | null;
+      if (d && el.scrollHeight - d.offsetTop > el.clientHeight) { el.scrollTop = Math.max(0, d.offsetTop - 24); stick.current = false; }
+    }
+    checkDivider();
+  }, [list.length, highlight, unread.firstId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const checkDivider = () => {
+    const el = ref.current, d = el?.querySelector(".new-div") as HTMLElement | null;
+    setDividerAbove(!!unread.firstId && (!d || (!!el && d.offsetTop < el.scrollTop)));
+  };
+  const jumpToUnread = () => {
+    const el = ref.current, d = el?.querySelector(".new-div") as HTMLElement | null;
+    if (el && d) { el.scrollTo({ top: Math.max(0, d.offsetTop - 24), behavior: "smooth" }); stick.current = false; }
+    else if (data?.hasMore && list.length) loadMessages(channel.id, { before: list.find((m) => !m._state)?.id });
+  };
 
   const onScroll = () => {
     const el = ref.current!;
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    checkDivider();
     if (el.scrollTop < 200 && data?.hasMore && !data.loading && list.length) {
       prevHeight.current = el.scrollHeight;
       loadMessages(channel.id, { before: list.find((m) => !m._state)?.id });
@@ -171,6 +205,10 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
 
   return (
     <div className="msgs" ref={ref} onScroll={onScroll} role="log" aria-live="polite" aria-relevant="additions" aria-label={`Messages in ${channel.name ?? "conversation"}`} tabIndex={0}>
+      {unread.count > 0 && dividerAbove && barHidden !== `${channel.id}:${unread.firstId}` && <div className="unread-bar" role="status">
+      <button className="unread-jump" onClick={jumpToUnread}>{unread.count >= 50 ? "50+" : unread.count} new message{unread.count === 1 ? "" : "s"} since {unread.since ? fmtTime(unread.since) : "you were last here"}</button>
+      <button className="unread-mark" onClick={() => { ackChannel(channel); setBarHidden(`${channel.id}:${unread.firstId}`); }}>Mark as read</button>
+    </div>}
       {!canHistory && <p className="muted pad">You can't read the history of this channel.</p>}
       {data && !data.hasMore && <Welcome channel={channel} />}
       {data?.loading && <p className="muted pad center">Loading messages…</p>}
@@ -178,7 +216,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
         const prev = list[i - 1];
         const day = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString();
         const grouped = groupingOn && !!prev && !day && prev.author.id === m.author.id && m.type === 0 && prev.type === 0 && !m.reply_to && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 7 * 60_000;
-        const newLine = lastRead.current && prev && !m._state && BigInt(prev.id.replace(/\D/g, "") || "0") <= BigInt(lastRead.current) && BigInt(m.id) > BigInt(lastRead.current) && m.author.id !== useStore.getState().me?.id;
+        const newLine = m.id === unread.firstId;
         return (
           <div key={m.id}>
             {day && <div className="day-div" role="separator"><span>{new Date(m.created_at).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span></div>}
@@ -285,6 +323,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
+          {(m.stickers?.length ?? 0) > 0 && <div className="msg-stickers">{m.stickers!.map((st) => <img key={st.id} className="msg-sticker" src={st.url} alt={`Sticker: ${st.name}`} title={st.name} draggable={false} loading="lazy" />)}</div>}
           <GalleryCtx.Provider value={media.current}>{m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</GalleryCtx.Provider>
           {m._state === "pending" && <span className="muted small">Sending…</span>}
           {m._state === "failed" && (
@@ -440,6 +479,29 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId }: { onPick: (e: 
   );
 }
 
+/** Stickers from my servers (current one first). Picking one sends it straight away, like Discord. */
+function StickerPicker({ onPick, onClose, anchor, guildId }: { onPick: (s: Sticker) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null }) {
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  useLayer(ref, onClose, { anchor: () => anchor });
+  const [pos, setPos] = useState<React.CSSProperties | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!anchor || !ref.current) return;
+    const r = anchor.getBoundingClientRect(), w = ref.current.offsetWidth, h = ref.current.offsetHeight, m = 8;
+    setPos({ position: "fixed", left: Math.max(m, Math.min(window.innerWidth - w - m, r.right - w)), top: r.top - h - 8 >= m ? r.top - h - 8 : Math.min(window.innerHeight - h - m, r.bottom + 8), right: "auto" });
+  }, [anchor]);
+  const groups = myStickers(guildId);
+  const match = (s: Sticker) => !q || s.name.toLowerCase().includes(q.toLowerCase()) || (s.tags ?? "").includes(q);
+  return createPortal(<div ref={ref} className="picker sticker-picker" role="dialog" aria-label="Pick a sticker" data-layer style={pos}>
+    <div className="picker-h"><input autoFocus placeholder="Search stickers" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter stickers" /><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
+    <div className="picker-scroll">{groups.map((g) => { const list = g.stickers.filter(match); return list.length ? <section key={g.guildId} aria-label={g.guildName}>
+      <h4 className="picker-sec">{g.guildName}</h4>
+      <div className="sticker-grid">{list.map((st) => <button key={st.id} onClick={() => onPick(st)} aria-label={`Send sticker ${st.name}`} title={st.name}><img src={st.url} alt="" loading="lazy" draggable={false} /></button>)}</div>
+    </section> : null; })}
+      {!groups.length && <p className="muted small" style={{ padding: 10 }}>No stickers yet. Server admins can add them in Server settings → Stickers.</p>}</div>
+  </div>, document.body);
+}
+
 /* ------------------------------------------------------------ typing -- */
 function Typing({ channelId, guildId }: { channelId: string; guildId: string | null }) {
   const typing = useStore((s) => s.typing[channelId]);
@@ -463,6 +525,9 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileIn = useRef<HTMLInputElement>(null);
   const emojiBtn = useRef<HTMLButtonElement>(null);
+  const stickerBtn = useRef<HTMLButtonElement>(null);
+  const [stickers, setStickers] = useState(false);
+  const hasStickers = useStore((s) => Object.values(s.guilds).some((g) => (g.stickers?.length ?? 0) > 0));
   const [emoji, setEmoji] = useState(false);
   const insert = (s: string) => {
     const el = ta.current; if (!el) { setText((t) => t + s); return; }
@@ -575,6 +640,8 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
           }} />
         <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
         {emoji && <EmojiPicker anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
+        {hasStickers && <button ref={stickerBtn} className={`icon-btn ${stickers ? "active" : ""}`} aria-label="Stickers" aria-expanded={stickers} title="Stickers" onClick={() => setStickers((v) => !v)}><StickerIcon size={20} /></button>}
+        {stickers && <StickerPicker anchor={stickerBtn.current} guildId={channel.guild_id} onPick={(st) => { setStickers(false); sendMessage(channel.id, "", { sticker: st, reply_to: reply?.id }); onClearReply(); }} onClose={() => setStickers(false)} />}
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
           : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
         <button className="icon-btn" aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>

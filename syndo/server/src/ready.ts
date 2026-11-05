@@ -33,6 +33,7 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
     channels,
     emojis: expressions.emojis,
     sounds: expressions.sounds,
+    stickers: expressions.stickers,
     me: {
       guild_id: g.id, user: userOut(u), nick: member.nick, roles: member.roles, joined_at: member.joined_at,
       communication_disabled_until: member.communication_disabled_until ?? null, mute: member.mute, deaf: member.deaf,

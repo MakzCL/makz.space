@@ -121,8 +121,10 @@ async function createChannelRow(c: any, guildId: string, b: { name: string; type
 }
 
 /** Channel names are kept as typed (spaces, capitals, emoji); only invisible/control characters are removed. */
-function channelName(_type: number, name: string) {
+function channelName(type: number, name: string, allowEmpty = false) {
   const n = name.replace(/[\p{Cc}\p{Cf}]/gu, "").replace(/\s+/g, " ").trim().slice(0, 100);
+  // A category with a banner may go without a title (the art is its label).
+  if (!n && allowEmpty && type === ChannelType.CATEGORY) return "";
   if (!n) throw bad("Give the channel a name.");
   return n;
 }
@@ -218,7 +220,7 @@ export async function guildRoutes(app: FastifyInstance) {
     for (const v of voiceStates().filter((v) => v.guild_id === guild.id)) { await dropVoice(v.user_id); await removeFromRoom(v.channel_id, v.user_id); }
     await q("delete from guilds where id = $1", [guild.id]);
     await storage.removePrefix(`att/g${guild.id}`).catch(() => {});
-    for (const prefix of ["emoji", "sounds", "channel-banners"]) await storage.removePrefix(`${prefix}/${guild.id}/`).catch(() => {});
+    for (const prefix of ["emoji", "sounds", "channel-banners", "stickers"]) await storage.removePrefix(`${prefix}/${guild.id}/`).catch(() => {});
     for (const u of users) toUser(u, "GUILD_DELETE", { id: guild.id });
     return { ok: true };
   });
@@ -585,7 +587,7 @@ export async function guildRoutes(app: FastifyInstance) {
       position: z.number().int().min(0).optional(),
     }).strict().parse(req.body);
     const upd: Record<string, unknown> = { ...b };
-    if (b.name !== undefined) upd.name = channelName(channel.type, b.name);
+    if (b.name !== undefined) upd.name = channelName(channel.type, b.name, !!(channel as any).banner_key);
     if (b.parent_id) {
       const p = await q1<any>("select type from channels where id = $1 and guild_id = $2", [b.parent_id, channel.guild_id]);
       if (!p || p.type !== ChannelType.CATEGORY || channel.type === ChannelType.CATEGORY) throw bad("Invalid parent.");

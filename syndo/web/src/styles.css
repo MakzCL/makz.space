@@ -165,7 +165,8 @@ img.freeze { /* animated images still animate in <img>; this hint is used where 
 .day-div, .new-div { display: flex; align-items: center; margin: 16px 16px 8px; font-size: .75rem; font-weight: 700; color: var(--textFaint); }
 .day-div::before, .day-div::after, .new-div::before { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .day-div span { padding: 0 8px; } .new-div { color: var(--brand-danger); } .new-div::before { border-color: var(--brand-danger); }
-.new-div span { background: var(--brand-danger); color: #fff; padding: 0 6px; border-radius: 4px; }
+.new-div span { background: var(--brand-danger); color: #fff; padding: 0 6px; border-radius: 4px; font-size: .65rem; letter-spacing: .04em; text-transform: uppercase; }
+.new-div { margin: 12px 16px 6px; }
 .msg { position: relative; padding: var(--msg-pad) 16px; margin-top: 12px; }
 .msg.grouped { margin-top: 0; }
 .msg:hover, .msg:focus-within { background: color-mix(in srgb, var(--bg3) 55%, transparent); }
@@ -1208,7 +1209,9 @@ video.viewer-media { cursor: default; }
 }
 
 /* Server banner: a tall header like Discord's, with the name over the top of the art. */
-.guild-h.has-banner { height: 138px; align-items: flex-start; background-position: center; border-bottom-color: transparent; }
+.guild-h.has-banner { height: 138px; align-items: flex-start; background-position: center; background-size: cover; border-bottom-color: transparent; overflow: hidden; }
+.guild-h.has-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.1) 40%, transparent 65%, rgba(0,0,0,.3) 100%); pointer-events: none; }
+.guild-h.has-banner > * { position: relative; }
 .guild-h.has-banner .guild-menu-btn { height: 48px; color: #fff; text-shadow: 0 1px 3px #000c; }
 .guild-h.has-banner .guild-menu-btn .tag { text-shadow: none; }
 @media (max-width: 760px) { .guild-h.has-banner { height: 120px; } }
@@ -1259,12 +1262,33 @@ video.viewer-media { cursor: default; }
 @keyframes sb-pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .sb-activity { animation: none; } }
 
-/* ---- Category banners: the art replaces the category title ---- */
-.cat-btn.cat-banner { position: relative; display: block; width: 100%; height: 64px; margin: 10px 0 4px; padding: 0; border-radius: 10px; background-size: cover; background-position: center; border: 0; cursor: pointer; overflow: hidden; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
-.cat-btn.cat-banner svg { position: absolute; right: 8px; bottom: 6px; color: #fff; filter: drop-shadow(0 1px 2px #000a); transition: transform .15s; }
-.cat-btn.cat-banner.collapsed { filter: saturate(.7) brightness(.8); }
+/* ---- Category banners: a channel-row-sized strip; the category name (if any) sits on the art ---- */
+.cat-btn.cat-banner { position: relative; display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; height: 34px; margin: 0; padding: 0 10px; box-sizing: border-box; border-radius: 8px; background-size: cover; background-position: center; border: 0; cursor: pointer; overflow: hidden; color: #fff; font-size: .75rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; text-shadow: 0 1px 3px #000c; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
+.cat-btn.cat-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.15) 60%, transparent); pointer-events: none; }
+.cat-btn.cat-banner > * { position: relative; }
+.cat-btn.cat-banner svg { flex: none; filter: drop-shadow(0 1px 2px #000a); }
+.cat-btn.cat-banner.collapsed { filter: saturate(.75) brightness(.85); }
 .cat-btn.cat-banner:hover { box-shadow: inset 0 0 0 2px var(--accent); }
+.side-sec:has(.cat-banner) { margin-top: 8px; }
 .picker-scroll .picker-grid { max-height: none; overflow: visible; }
 
 /* Offline / invisible: a solid grey dot (not a dark hollow one). */
 .sdot.s-offline, .sdot.s-invisible { background: #80848e; --st: #80848e; }
+
+/* ---- Stickers ---- */
+.msg-stickers { display: flex; gap: 8px; margin: 4px 0; }
+.msg-sticker { width: 160px; height: 160px; object-fit: contain; user-select: none; }
+.sticker-picker { width: 340px; }
+.sticker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px; }
+.sticker-grid button { aspect-ratio: 1; border: 0; border-radius: 8px; background: none; cursor: pointer; padding: 4px; }
+.sticker-grid button:hover { background: var(--bg3); }
+.sticker-grid img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.sticker-preview { width: 96px; height: 96px; object-fit: contain; flex: none; }
+.sticker-tile { align-items: center; text-align: center; }
+@media (max-width: 760px) { .msg-sticker { width: 128px; height: 128px; } .sticker-picker { width: auto; } }
+
+/* "N new messages since …" bar pinned to the top of the conversation while the NEW line is above the view. */
+.unread-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: stretch; margin: 0 12px; border-radius: 0 0 10px 10px; overflow: hidden; background: var(--accent); color: var(--on-accent, #fff); font-size: .82rem; font-weight: 700; box-shadow: 0 4px 14px #0005; }
+.unread-bar button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 6px 12px; }
+.unread-jump { flex: 1; text-align: left; } .unread-jump:hover, .unread-mark:hover { background: #ffffff1f; }
+.unread-mark { border-left: 1px solid #ffffff40 !important; white-space: nowrap; }

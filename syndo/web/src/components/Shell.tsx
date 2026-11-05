@@ -238,7 +238,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
   const bannerOk = useImageLoads(guild.banner);
   return (
     <>
-      <header className={`side-h guild-h ${bannerOk ? "has-banner" : ""}`} style={bannerOk ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 38%, transparent 62%, var(--r-sidebar-bg, var(--bg1)) 100%), url(${guild.banner})` } : undefined}>
+      <header className={`side-h guild-h ${bannerOk ? "has-banner" : ""}`} style={bannerOk ? { backgroundImage: `url("${guild.banner}")` } : undefined}>
         <button ref={menuBtn} className="guild-menu-btn" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((m) => !m)} onContextMenu={(e) => openContextMenu(e, guildMenuItems(guild))}>
           <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag">{guild.tag}</span>}<ChevronDown size={18} />
         </button>
@@ -261,7 +261,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
           <div key={cat.id} className="cat">
             <div className="side-sec">
               {cat.banner
-                ? <button className={`cat-btn cat-banner ${collapsed[cat.id] ? "collapsed" : ""}`} aria-expanded={!collapsed[cat.id]} aria-label={`${cat.name} category`} title={cat.name ?? undefined} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))} style={{ backgroundImage: `url(${cat.banner})` }}><ChevronDown size={14} className={collapsed[cat.id] ? "rot" : ""} aria-hidden /></button>
+                ? <button className={`cat-btn cat-banner ${collapsed[cat.id] ? "collapsed" : ""}`} aria-expanded={!collapsed[cat.id]} aria-label={`${cat.name || "Untitled"} category`} title={cat.name || undefined} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))} style={{ backgroundImage: `url("${cat.banner}")` }}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} aria-hidden />{cat.name && <span className="ellipsis">{cat.name}</span>}</button>
                 : <button className="cat-btn" aria-expanded={!collapsed[cat.id]} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} /> {cat.name}</button>}
               {can(cat, P.MANAGE_CHANNELS) && <button className="icon-btn sm" aria-label={`Create channel in ${cat.name}`} onClick={() => onDialog({ kind: "createChannel", guildId: guild.id, parentId: cat.id })}><Plus size={14} /></button>}
             </div>

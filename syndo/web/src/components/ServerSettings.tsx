@@ -3,7 +3,7 @@ import { Select } from "./Select.tsx";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChannelType, EXPRESSION_LIMITS, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@syndo/shared";
-import { emojiNameFrom, pickFile, playClip, uploadEmoji, uploadSound } from "../expressions.ts";
+import { emojiNameFrom, pickFile, playClip, uploadEmoji, uploadSound, uploadSticker } from "../expressions.ts";
 import { Range } from "./Range.tsx";
 import { api, errMsg, upload } from "../api.ts";
 import { loadMembers } from "../actions.ts";
@@ -25,7 +25,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
     ["overview", "Overview", has(p, P.MANAGE_GUILD)], ["roles", "Roles", has(p, P.MANAGE_ROLES)], ["permissions", "Channel permissions", has(p, P.MANAGE_ROLES)],
     ["members", "Members", has(p, P.MANAGE_ROLES) || has(p, P.KICK_MEMBERS) || has(p, P.BAN_MEMBERS) || has(p, P.MODERATE_MEMBERS)],
     // Shown once the server supports expressions (it then sends `emojis`, even if empty).
-    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined],
+    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["stickers", "Stickers", has(p, P.MANAGE_EXPRESSIONS) && guild.stickers !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined],
     ["bans", "Bans", has(p, P.BAN_MEMBERS)], ["invites", "Invites", has(p, P.MANAGE_GUILD)], ["audit", "Audit log", has(p, P.VIEW_AUDIT_LOG)],
     ["profile", "My server profile", true], ["danger", owner ? "Transfer / delete" : "", owner],
   ];
@@ -44,6 +44,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
           {tab === "bans" && <Bans guild={guild} />}
           {tab === "invites" && <Invites guild={guild} />}
           {tab === "emoji" && <EmojiTab guild={guild} />}
+          {tab === "stickers" && <StickersTab guild={guild} />}
           {tab === "soundboard" && <SoundboardTab guild={guild} />}
           {tab === "audit" && <Audit guild={guild} />}
           {tab === "profile" && <MyProfile guild={guild} />}
@@ -293,6 +294,34 @@ function EmojiTab({ guild }: { guild: Guild }) {
   );
 }
 
+function StickersTab({ guild }: { guild: Guild }) {
+  const stickers = guild.stickers ?? [];
+  const [draft, setDraft] = useState<{ file: File; preview: string; name: string; tags: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const choose = async () => { const f = await pickFile("image/png,image/gif,image/webp"); if (f) setDraft({ file: f, preview: URL.createObjectURL(f), name: f.name.replace(/\.[^.]+$/, "").slice(0, 30), tags: "" }); };
+  const save = async () => { if (!draft) return; setBusy(true); if (await run(() => uploadSticker(guild.id, draft.file, { name: draft.name.trim(), tags: draft.tags.trim() || null }), "Sticker added")) setDraft(null); setBusy(false); };
+  return (
+    <div className="stack"><h2>Stickers</h2>
+      <p className="muted">Stickers are big images people can send on their own, like a reaction you post. PNG, APNG, GIF or WebP up to {EXPRESSION_LIMITS.stickerBytes / 1024} KB — 320×320 looks best. Up to {EXPRESSION_LIMITS.stickers} per server.</p>
+      {!draft ? <div className="row"><button className="btn primary" disabled={stickers.length >= EXPRESSION_LIMITS.stickers} onClick={choose}>Upload sticker</button><span className="muted small">{stickers.length} / {EXPRESSION_LIMITS.stickers}</span></div>
+        : <div className="card row wrap" style={{ alignItems: "flex-start" }}>
+          <img className="sticker-preview" src={draft.preview} alt="" />
+          <div className="stack grow">
+            <Field label="Name"><input value={draft.name} maxLength={30} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+            <Field label="Related emoji (helps search)"><input value={draft.tags} maxLength={16} placeholder="👋" onChange={(e) => setDraft({ ...draft, tags: e.target.value })} style={{ width: 90 }} /></Field>
+            <div className="row"><span className="grow" /><button className="btn" onClick={() => setDraft(null)}>Cancel</button><button className="btn primary" disabled={busy || draft.name.trim().length < 2} onClick={save}>{busy ? "Uploading…" : "Add sticker"}</button></div>
+          </div>
+        </div>}
+      {stickers.length > 0 && <div className="sb-grid">{stickers.map((s) => <div key={s.id} className="sb-tile card sticker-tile">
+        <img className="sticker-preview" src={s.url} alt="" loading="lazy" />
+        <strong className="ellipsis">{s.name}</strong>{s.tags && <small className="muted">{s.tags}</small>}
+        <div className="row"><button className="btn sm" onClick={async () => { const n = await askText({ title: "Rename sticker", label: "Name", initial: s.name }); if (n && n !== s.name) run(() => api.patch(`/api/guilds/${guild.id}/stickers/${s.id}`, { name: n.trim() })); }}>Rename</button>
+          <button className="btn danger sm" aria-label={`Delete ${s.name}`} onClick={async () => { if (await askConfirm({ title: `Delete “${s.name}”?`, body: "Messages that used it will no longer show it.", confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/guilds/${guild.id}/stickers/${s.id}`)); }}><Trash2 size={14} /></button></div>
+      </div>)}</div>}
+    </div>
+  );
+}
+
 function SoundboardTab({ guild }: { guild: Guild }) {
   const sounds = guild.sounds ?? [];
   const [draft, setDraft] = useState<{ file: File; name: string; emoji: string; volume: number } | null>(null);
@@ -327,7 +356,7 @@ const ACTION_LABEL: Record<string, string> = {
   channel_create: "created a channel", channel_update: "updated a channel", channel_delete: "deleted a channel", channel_reorder: "reordered channels",
   overwrite_update: "changed channel permissions", overwrite_delete: "removed a channel permission", overwrite_sync: "synced channel permissions",
   member_update: "updated a member", member_kick: "kicked a member", member_ban: "banned a member", member_unban: "unbanned a member",
-  emoji_create: "added an emoji", emoji_update: "renamed an emoji", emoji_delete: "deleted an emoji", sound_create: "added a sound", sound_update: "edited a sound", sound_delete: "deleted a sound",
+  emoji_create: "added an emoji", emoji_update: "renamed an emoji", emoji_delete: "deleted an emoji", sticker_create: "added a sticker", sticker_update: "edited a sticker", sticker_delete: "deleted a sticker", sound_create: "added a sound", sound_update: "edited a sound", sound_delete: "deleted a sound",
   channel_banner_update: "set a category banner", channel_banner_remove: "removed a category banner",
   invite_create: "created an invite", invite_delete: "revoked an invite", message_delete: "deleted a message", message_bulk_delete: "bulk-deleted messages", guild_transfer: "transferred ownership",
 };

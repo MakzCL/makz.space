@@ -82,6 +82,35 @@ describe("Server expressions: emoji, soundboard, category banners", () => {
     og.send("voice_state", { channel_id: null }); mg.send("voice_state", { channel_id: null });
   });
 
+  it("uploads stickers and sends one as a message", async () => {
+    const text = guild.channels.find((c: any) => c.type === 0);
+    assert.equal((await member.req("POST", `/api/guilds/${guild.id}/stickers?name=Wave`, file(PNG, "image/png", "s.png"))).status, 403, "members can't upload");
+    const up = await owner.req("POST", `/api/guilds/${guild.id}/stickers?name=Wave&tags=%F0%9F%91%8B&description=Hello`, file(PNG, "image/png", "s.png"));
+    assert.equal(up.status, 200, JSON.stringify(up.body));
+    const st = up.body;
+    assert.equal(st.format, "png");
+    assert.equal(st.url, `/api/stickers/${st.id}`);
+    const r = await member.get(st.url);
+    assert.equal(r.status, 302);
+    assert.match(r.headers.get("location") ?? "", /^\/api\/media\/stickers\/\d+\/\d+\.png$/);
+    const g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.deepEqual(g.stickers.map((x: any) => x.name), ["Wave"]);
+    const msg = await member.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [st.id] });
+    assert.equal(msg.status, 200, JSON.stringify(msg.body));
+    assert.equal(msg.body.stickers[0].id, st.id);
+    const list = (await owner.get(`/api/channels/${text.id}/messages?limit=5`)).body;
+    assert.equal(list.find((m: any) => m.id === msg.body.id).stickers[0].name, "Wave");
+
+    // Another server's sticker: usable by its members (e.g. in a DM), refused for people who aren't in that server.
+    const other = (await member.post("/api/guilds", { name: "Elsewhere" })).body;
+    const theirs = (await member.req("POST", `/api/guilds/${other.id}/stickers?name=Theirs`, file(PNG, "image/png", "t.png"))).body;
+    assert.equal((await owner.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [theirs.id] })).status, 403, "not a member of that server");
+    assert.equal((await member.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [theirs.id] })).status, 200, "members may use their other servers' stickers (default permissions)");
+    assert.equal((await owner.del(`/api/guilds/${guild.id}/stickers/${st.id}`)).status, 200);
+    const after = (await owner.get(`/api/channels/${text.id}/messages?limit=5`)).body;
+    assert.deepEqual(after.find((m: any) => m.id === msg.body.id).stickers, [], "deleted sticker disappears from messages");
+  });
+
   it("sets and removes a category banner", async () => {
     const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Gaming", type: 4 })).body;
     assert.equal((await member.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"))).status, 403);
@@ -93,5 +122,13 @@ describe("Server expressions: emoji, soundboard, category banners", () => {
     assert.equal((await owner.del(`/api/channels/${cat.id}/banner`)).status, 200);
     g = (await member.get(`/api/guilds/${guild.id}`)).body;
     assert.equal(g.channels.find((c: any) => c.id === cat.id).banner, null);
+  });
+  it("lets a category with a banner go without a title", async () => {
+    const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Art", type: 4 })).body;
+    assert.equal((await owner.patch(`/api/channels/${cat.id}`, { name: "" })).status, 400, "needs a name without a banner");
+    await owner.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"));
+    const r = await owner.patch(`/api/channels/${cat.id}`, { name: "" });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.name, "");
   });
 });

@@ -1,3 +1,4 @@
+import { checkSticker, stickerOut } from "./expressions.ts";
 import { PREFIX, validateDmWire } from "./encryption.ts";
 import type { FastifyInstance } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
@@ -26,6 +27,8 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
   const reacts = await q<any>(
     `select message_id::text, emoji, count(*)::int as count, bool_or(user_id = $2) as me, min(created_at) as first
        from reactions where message_id = any($1::bigint[]) group by message_id, emoji order by first`, [ids, viewerId ?? "0"]);
+  const stickerIds = rows.map((r) => r.sticker_id).filter(Boolean);
+  const stickers = stickerIds.length ? await q<any>("select * from guild_stickers where id = any($1::bigint[])", [stickerIds]) : [];
   const replyIds = rows.map((r) => r.reply_to_id).filter(Boolean);
   const replies = replyIds.length ? await q<any>(
     `select m.id::text, m.content, m.deleted_at, ${prefixedCols("u", "a_")} from messages m left join users u on u.id = m.author_id where m.id = any($1::bigint[])`, [replyIds]) : [];
@@ -43,6 +46,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       })),
       reactions: reacts.filter((x) => x.message_id === r.id).map((x) => ({ emoji: x.emoji, count: x.count, me: !!x.me })),
       nonce: r.nonce ?? null,
+      stickers: r.sticker_id && !r.deleted_at ? stickers.filter((s) => String(s.id) === String(r.sticker_id)).map(stickerOut) : [],
     };
   });
 }
@@ -116,10 +120,11 @@ export async function messageRoutes(app: FastifyInstance) {
       nonce: z.string().max(64).optional(),
       reply_to: ID.optional(),
       attachment_ids: z.array(ID).max(10).default([]),
+      sticker_ids: z.array(ID).max(1).default([]),
       silent: z.boolean().optional(),
     }).parse(req.body);
     const content = b.content.replace(/\s+$/, "");
-    if (!content.trim() && !b.attachment_ids.length) throw bad("Messages can't be empty.");
+    if (!content.trim() && !b.attachment_ids.length && !b.sticker_ids.length) throw bad("Messages can't be empty.");
     const ch0 = await getChannel(req.params.cid);
     const isThread = ch0 && (ch0.type === ChannelType.PUBLIC_THREAD || ch0.type === ChannelType.PRIVATE_THREAD);
     const { channel, perms } = await requireChannel(me, req.params.cid, P.VIEW_CHANNEL);
@@ -131,6 +136,7 @@ export async function messageRoutes(app: FastifyInstance) {
     }
     if (config.requireVerifiedEmail && !req.session!.email_verified) throw forbidden("Verify your email to send messages.");
     if (b.attachment_ids.length && !has(perms, P.ATTACH_FILES)) throw forbidden("You can't attach files here.");
+    const sticker = b.sticker_ids[0] ? await checkSticker(me, channel, perms, b.sticker_ids[0]) : null;
 
     // Idempotency: a retried send with the same nonce returns the original.
     if (b.nonce) {
@@ -159,9 +165,9 @@ export async function messageRoutes(app: FastifyInstance) {
     try {
       await tx(async (c) => {
         await c.query(
-          `insert into messages(id, channel_id, guild_id, author_id, content, type, reply_to_id, nonce, mention_everyone, mentions, mention_roles)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-          [id, channel.id, channel.guild_id, me, content, replyTo ? MessageType.REPLY : MessageType.DEFAULT, replyTo, b.nonce ?? null, everyone, mentions.users, roleMentions]);
+          `insert into messages(id, channel_id, guild_id, author_id, content, type, reply_to_id, nonce, mention_everyone, mentions, mention_roles, sticker_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [id, channel.id, channel.guild_id, me, content, replyTo ? MessageType.REPLY : MessageType.DEFAULT, replyTo, b.nonce ?? null, everyone, mentions.users, roleMentions, sticker?.id ?? null]);
         if (b.attachment_ids.length) {
           const r = await c.query("update attachments set message_id = $1 where id = any($2::bigint[]) and uploader_id = $3 and channel_id = $4 and message_id is null returning id", [id, b.attachment_ids, me, channel.id]);
           if (r.rowCount !== b.attachment_ids.length) throw bad("One of the attachments is missing or already used. Try uploading it again.");

@@ -2,7 +2,7 @@ import { ApiError, api, errMsg, upload } from "./api.ts";
 import { connectGateway, disconnectGateway } from "./gateway.ts";
 import { navigate } from "./router.ts";
 import { messagesApi, toast, useStore, type UIMessage } from "./store.ts";
-import type { Channel, Message } from "@syndo/shared";
+import type { Channel, Message , Sticker } from "@syndo/shared";
 import { previewMode } from "./preview-mode.ts";
 
 const set = useStore.setState;
@@ -70,17 +70,18 @@ export async function resyncOpenChannels() {
 
 const nonce = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export async function sendMessage(channelId: string, content: string, opts: { reply_to?: string; attachment_ids?: string[]; retryOf?: UIMessage } = {}) {
+export async function sendMessage(channelId: string, content: string, opts: { reply_to?: string; attachment_ids?: string[]; sticker?: Sticker; retryOf?: UIMessage } = {}) {
+  const sticker = opts.sticker ?? opts.retryOf?.stickers?.[0];
   const me = get().me!;
   const n = opts.retryOf?.nonce ?? nonce();
   const tempId = opts.retryOf?.id ?? `pending-${n}`;
   const temp: UIMessage = {
     id: tempId, channel_id: channelId, guild_id: null, author: me, content, type: 0, created_at: new Date().toISOString(),
-    edited_at: null, pinned: false, reply_to: null, mentions: [], mention_roles: [], mention_everyone: false, attachments: [], reactions: [], nonce: n, _state: "pending",
+    edited_at: null, pinned: false, reply_to: null, mentions: [], mention_roles: [], mention_everyone: false, attachments: [], reactions: [], nonce: n, _state: "pending", stickers: sticker ? [sticker] : [],
   };
   messagesApi.upsertMessages(channelId, [temp]);
   try {
-    const m = await api.post<Message>(`/api/channels/${channelId}/messages`, { content, nonce: n, reply_to: opts.reply_to, attachment_ids: opts.attachment_ids ?? [] });
+    const m = await api.post<Message>(`/api/channels/${channelId}/messages`, { content, nonce: n, reply_to: opts.reply_to, attachment_ids: opts.attachment_ids ?? [], ...(sticker ? { sticker_ids: [sticker.id] } : {}) });
     messagesApi.upsertMessages(channelId, [m]);
   } catch (e) {
     const msg = errMsg(e);

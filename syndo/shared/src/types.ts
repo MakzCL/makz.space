@@ -142,6 +142,8 @@ export interface Guild {
   emojis?: Emoji[];
   /** Soundboard sounds uploaded to this server. */
   sounds?: SoundboardSound[];
+  /** Stickers uploaded to this server. */
+  stickers?: Sticker[];
   member_count: number;
   me: Member;
 }
@@ -183,6 +185,8 @@ export interface Message {
   attachments: Attachment[];
   reactions: Reaction[];
   nonce?: string | null;
+  /** A sticker sent as (or with) this message. */
+  stickers?: Sticker[];
 }
 
 export const MessageType = { DEFAULT: 0, REPLY: 19, MEMBER_JOIN: 7, CALL: 3, PINNED: 6, GROUP_RENAME: 4, RECIPIENT_ADD: 1, RECIPIENT_REMOVE: 2 } as const;
@@ -242,4 +246,6 @@ export interface SoundboardSound { id: string; guild_id: string; name: string; e
 /** `<:name:id>` / `<a:name:id>` in message text; reactions use "name:id". */
 export const CUSTOM_EMOJI_RE = /<(a?):([A-Za-z0-9_]{2,32}):(\d{1,20})>/g;
 export const emojiUrl = (id: string) => `/api/emojis/${id}`;
-export const EXPRESSION_LIMITS = { emojis: 100, sounds: 48, emojiBytes: 512 * 1024, soundBytes: 512 * 1024, soundMs: 5200 } as const;
+export interface Sticker { id: string; guild_id: string; name: string; description: string | null; tags: string | null; format: "png" | "apng" | "gif" | "webp"; url: string; creator_id: string | null }
+export const stickerUrl = (id: string) => `/api/stickers/${id}`;
+export const EXPRESSION_LIMITS = { emojis: 100, sounds: 48, stickers: 30, emojiBytes: 512 * 1024, soundBytes: 512 * 1024, stickerBytes: 512 * 1024, soundMs: 5200 } as const;

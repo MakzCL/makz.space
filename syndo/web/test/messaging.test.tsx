@@ -211,3 +211,16 @@ test("private messages have no encryption badges or key prompts", async () => {
  assert.equal(rendered.container.querySelectorAll("article .encryption-mark").length, 0, "plain DMs are not labelled");
  assert.equal(screen.queryByText(/recovery key/i), null, "never asks for a recovery key");
 });
+
+test("a NEW line marks the first unread message and clears when I reply", async () => {
+  seed();
+  const msg = (id: string, author: any, content: string, mins: number) => ({ id, channel_id: "200", guild_id: "300", author, content, type: 0, created_at: new Date(Date.now() - mins * 60_000).toISOString(), edited_at: null, attachments: [], mentions: [], mention_roles: [], reactions: [] }) as any;
+  useStore.setState({ readStates: { "200": { channel_id: "200", last_read_id: "1001", mention_count: 0 } },
+    messages: { "200": { list: [msg("1000", bob, "old one", 30), msg("1001", bob, "last I read", 20), msg("1002", bob, "first new", 10), msg("1003", bob, "second new", 5)], loaded: true, loading: false, hasMore: false } } });
+  const rendered = render(<ChannelView channelId="200" guildId="300" highlight={null} />);
+  const divs = rendered.container.querySelectorAll(".new-div");
+  assert.equal(divs.length, 1, "exactly one NEW line");
+  assert.equal(divs[0]!.nextElementSibling?.getAttribute("data-mid"), "1002", "it sits above the first unread message");
+  act(() => useStore.setState((s) => ({ messages: { "200": { ...s.messages["200"]!, list: [...s.messages["200"]!.list, msg("1004", alice, "my reply", 0)] } } })));
+  assert.equal(rendered.container.querySelectorAll(".new-div").length, 0, "sending a message clears it");
+});

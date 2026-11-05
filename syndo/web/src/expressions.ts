@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EXPRESSION_LIMITS, type Channel, type Emoji, type SoundboardSound } from "@syndo/shared";
+import { EXPRESSION_LIMITS, type Channel, type Emoji, type SoundboardSound, type Sticker } from "@syndo/shared";
 import { api, errMsg } from "./api.ts";
 import { onEvent, toast, useStore } from "./store.ts";
 import { useVoice } from "./voice/session.ts";
@@ -98,4 +98,17 @@ export function initSoundboard() {
     if (v.deafened || v.settings.soundboardMuted) return;
     playClip(d.sound.url, d.sound.volume);
   });
+}
+
+/* -------------------------------------------------------------- stickers -- */
+/** Stickers I can pick: this server's first, then my other servers' (servers may refuse external ones). */
+export function myStickers(currentGuildId?: string | null): { guildId: string; guildName: string; stickers: Sticker[] }[] {
+  const s = useStore.getState();
+  return Object.values(s.guilds).filter((g) => g.stickers?.length).map((g) => ({ guildId: g.id, guildName: g.name, stickers: g.stickers! }))
+    .sort((a, b) => (a.guildId === currentGuildId ? -1 : b.guildId === currentGuildId ? 1 : a.guildName.localeCompare(b.guildName)));
+}
+export async function uploadSticker(guildId: string, file: File, meta: { name: string; tags?: string | null; description?: string | null }) {
+  if (file.size > EXPRESSION_LIMITS.stickerBytes) throw new Error(`Stickers can be up to ${EXPRESSION_LIMITS.stickerBytes / 1024} KB.`);
+  const qs = new URLSearchParams({ name: meta.name, ...(meta.tags ? { tags: meta.tags } : {}), ...(meta.description ? { description: meta.description } : {}) });
+  return api.post<Sticker>(`/api/guilds/${guildId}/stickers?${qs}`, form(file));
 }
