@@ -14,7 +14,7 @@ function wav() {
   b.write("data", 36); b.writeUInt32LE(data, 40);
   return b;
 }
-const file = (buf: Buffer, type: string, name: string) => { const fd = new FormData(); fd.append("file", new Blob([buf], { type }), name); return fd; };
+const file = (buf: Buffer, type: string, name: string) => { const fd = new FormData(); fd.append("file", new Blob([new Uint8Array(buf)], { type }), name); return fd; };
 
 before(async () => { await startServer(); });
 after(async () => { all.forEach((c) => c.close()); await stopServer(); });
