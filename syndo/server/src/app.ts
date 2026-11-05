@@ -19,6 +19,7 @@ import { guildRoutes, inviteRoutes } from "./routes/guilds.ts";
 import { attachmentDownloadRoute, messageRoutes } from "./routes/messages.ts";
 import { userRoutes } from "./routes/users.ts";
 import { voiceRoutes } from "./routes/voice.ts";
+import { expressionRoutes } from "./routes/expressions.ts";
 import { appearanceAssetRoute, appearanceRoutes } from "./routes/appearance.ts";
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
@@ -82,10 +83,11 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   /** Public profile media (avatars, banners, server icons). Unguessable keys; attachments never use this route. */
   app.get<{ Params: { "*": string } }>("/api/media/*", async (req, reply) => {
     const key = req.params["*"];
-    if (!/^(avatars|banners|member-avatars|member-banners|guild-icons|guild-banners|role-icons|emoji|stickers)\/\d+\/\d+\.(png|jpg|gif|webp|avif)$/.test(key)) throw notFound("File");
+    if (!/^(avatars|banners|member-avatars|member-banners|guild-icons|guild-banners|role-icons|emoji|stickers|channel-banners)\/\d+\/\d+\.(png|jpg|gif|webp|avif)$/.test(key)
+      && !/^sounds\/\d+\/\d+\.(mp3|ogg|wav|webm|m4a)$/.test(key)) throw notFound("File");
     try { reply.header("content-length", await storage.size(key)); } catch { throw notFound("File"); }
     const ext = key.split(".").pop()!;
-    reply.header("content-type", ({ png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif" } as Record<string, string>)[ext]);
+    reply.header("content-type", ({ png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", webm: "audio/webm", m4a: "audio/mp4" } as Record<string, string>)[ext]);
     reply.header("cache-control", "public, max-age=31536000, immutable");
     reply.header("content-security-policy", "default-src 'none'; sandbox");
     return reply.send(storage.open(key));
@@ -100,6 +102,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(messageRoutes);
   await app.register(attachmentDownloadRoute);
   await app.register(voiceRoutes);
+  await app.register(expressionRoutes);
   await app.register(sfuRoutes);
   await app.register(appearanceRoutes);
   await app.register(appearanceAssetRoute);

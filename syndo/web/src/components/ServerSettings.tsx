@@ -2,7 +2,9 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ChannelType, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@syndo/shared";
+import { ChannelType, EXPRESSION_LIMITS, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@syndo/shared";
+import { emojiNameFrom, pickFile, playClip, uploadEmoji, uploadSound } from "../expressions.ts";
+import { Range } from "./Range.tsx";
 import { api, errMsg, upload } from "../api.ts";
 import { loadMembers } from "../actions.ts";
 import { navigate } from "../router.ts";
@@ -22,6 +24,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
   const tabs: [string, string, boolean][] = [
     ["overview", "Overview", has(p, P.MANAGE_GUILD)], ["roles", "Roles", has(p, P.MANAGE_ROLES)], ["permissions", "Channel permissions", has(p, P.MANAGE_ROLES)],
     ["members", "Members", has(p, P.MANAGE_ROLES) || has(p, P.KICK_MEMBERS) || has(p, P.BAN_MEMBERS) || has(p, P.MODERATE_MEMBERS)],
+    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS)], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS)],
     ["bans", "Bans", has(p, P.BAN_MEMBERS)], ["invites", "Invites", has(p, P.MANAGE_GUILD)], ["audit", "Audit log", has(p, P.VIEW_AUDIT_LOG)],
     ["profile", "My server profile", true], ["danger", owner ? "Transfer / delete" : "", owner],
   ];
@@ -39,6 +42,8 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
           {tab === "members" && <Members guild={guild} />}
           {tab === "bans" && <Bans guild={guild} />}
           {tab === "invites" && <Invites guild={guild} />}
+          {tab === "emoji" && <EmojiTab guild={guild} />}
+          {tab === "soundboard" && <SoundboardTab guild={guild} />}
           {tab === "audit" && <Audit guild={guild} />}
           {tab === "profile" && <MyProfile guild={guild} />}
           {tab === "danger" && <Danger guild={guild} onClose={onClose} />}
@@ -260,11 +265,69 @@ function Invites({ guild }: { guild: Guild }) {
   );
 }
 
+function EmojiTab({ guild }: { guild: Guild }) {
+  const emojis = guild.emojis ?? [];
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    const files = await new Promise<File[]>((res) => { const i = document.createElement("input"); i.type = "file"; i.multiple = true; i.accept = "image/png,image/gif,image/webp,image/jpeg,image/avif"; i.onchange = () => res([...(i.files ?? [])]); i.addEventListener("cancel", () => res([])); i.click(); });
+    if (!files.length) return;
+    setBusy(true);
+    for (const f of files) {
+      const name = files.length === 1 ? await askText({ title: "Name this emoji", label: "Name (letters, numbers, _)", initial: emojiNameFrom(f.name), confirmLabel: "Upload" }) : emojiNameFrom(f.name);
+      if (!name) continue;
+      await run(() => uploadEmoji(guild.id, f, name.trim()), files.length === 1 ? `:${name.trim()}: added` : undefined);
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="stack"><h2>Emoji</h2>
+      <p className="muted">Add up to {EXPRESSION_LIMITS.emojis} custom emoji that everyone here can use (animated GIF/WebP too). Up to {EXPRESSION_LIMITS.emojiBytes / 1024} KB each; 128×128 looks best. Type <code>:name</code> in a message, or pick them from the emoji menu.</p>
+      <div className="row"><button className="btn primary" disabled={busy || emojis.length >= EXPRESSION_LIMITS.emojis} onClick={add}>{busy ? "Uploading…" : "Upload emoji"}</button><span className="muted small">{emojis.length} / {EXPRESSION_LIMITS.emojis}</span></div>
+      {emojis.length > 0 && <table className="caps expr-table"><thead><tr><th>Image</th><th>Name</th><th>Uploaded by</th><th /></tr></thead><tbody>
+        {emojis.map((e) => <tr key={e.id}><td><img className="expr-emoji" src={e.url} alt="" /></td><td><code>:{e.name}:</code>{e.animated && <span className="tag">GIF</span>}</td><td>{e.creator_id ? displayName(useStore.getState().users[e.creator_id]) || "—" : "—"}</td>
+          <td className="row"><button className="btn sm" onClick={async () => { const n = await askText({ title: "Rename emoji", label: "Name", initial: e.name }); if (n && n !== e.name) run(() => api.patch(`/api/guilds/${guild.id}/emojis/${e.id}`, { name: n.trim() })); }}>Rename</button>
+            <button className="btn danger sm" aria-label={`Delete :${e.name}:`} onClick={async () => { if (await askConfirm({ title: `Delete :${e.name}:?`, body: "It disappears from messages and reactions that use it.", confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/guilds/${guild.id}/emojis/${e.id}`)); }}><Trash2 size={14} /></button></td></tr>)}
+      </tbody></table>}
+    </div>
+  );
+}
+
+function SoundboardTab({ guild }: { guild: Guild }) {
+  const sounds = guild.sounds ?? [];
+  const [draft, setDraft] = useState<{ file: File; name: string; emoji: string; volume: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const choose = async () => { const f = await pickFile("audio/mpeg,audio/ogg,audio/wav,audio/webm,audio/mp4,.mp3,.ogg,.wav,.m4a,.webm"); if (f) setDraft({ file: f, name: f.name.replace(/\.[^.]+$/, "").slice(0, 32), emoji: "", volume: 1 }); };
+  const save = async () => { if (!draft) return; setBusy(true); if (await run(() => uploadSound(guild.id, draft.file, { name: draft.name.trim(), emoji: draft.emoji.trim() || null, volume: draft.volume }), "Sound added")) setDraft(null); setBusy(false); };
+  return (
+    <div className="stack"><h2>Soundboard</h2>
+      <p className="muted">Short sounds people can play in this server's voice channels (needs the “Use soundboard” permission). MP3, OGG, WAV, WebM or M4A, up to {EXPRESSION_LIMITS.soundMs / 1000} seconds and {EXPRESSION_LIMITS.soundBytes / 1024} KB. Up to {EXPRESSION_LIMITS.sounds} sounds.</p>
+      {!draft ? <div className="row"><button className="btn primary" disabled={sounds.length >= EXPRESSION_LIMITS.sounds} onClick={choose}>Upload sound</button><span className="muted small">{sounds.length} / {EXPRESSION_LIMITS.sounds}</span></div>
+        : <div className="card stack">
+          <strong>{draft.file.name}</strong>
+          <div className="row wrap">
+            <Field label="Name"><input value={draft.name} maxLength={32} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+            <Field label="Emoji (optional)"><input value={draft.emoji} maxLength={8} placeholder="📯" onChange={(e) => setDraft({ ...draft, emoji: e.target.value })} style={{ width: 80 }} /></Field>
+            <Field label={`Volume — ${Math.round(draft.volume * 100)}%`}><Range min={0} max={1} step={0.05} value={draft.volume} onChange={(e) => setDraft({ ...draft, volume: +e.target.value })} /></Field>
+          </div>
+          <div className="row"><button className="btn" onClick={() => playClip(URL.createObjectURL(draft.file), draft.volume)}>Preview</button><span className="grow" /><button className="btn" onClick={() => setDraft(null)}>Cancel</button><button className="btn primary" disabled={busy || !draft.name.trim()} onClick={save}>{busy ? "Uploading…" : "Add sound"}</button></div>
+        </div>}
+      {sounds.length > 0 && <div className="sb-grid">{sounds.map((s) => <div key={s.id} className="sb-tile card">
+        <button className="sb-play" onClick={() => playClip(s.url, s.volume)} aria-label={`Preview ${s.name}`}><span className="sb-emoji" aria-hidden>{s.emoji || "🔊"}</span><span className="ellipsis">{s.name}</span></button>
+        <small className="muted">{(s.duration_ms / 1000).toFixed(1)} s · {Math.round(s.volume * 100)}%</small>
+        <div className="row"><button className="btn sm" onClick={async () => { const n = await askText({ title: "Rename sound", label: "Name", initial: s.name }); if (n && n !== s.name) run(() => api.patch(`/api/guilds/${guild.id}/soundboard/${s.id}`, { name: n.trim() })); }}>Rename</button>
+          <button className="btn danger sm" aria-label={`Delete ${s.name}`} onClick={async () => { if (await askConfirm({ title: `Delete “${s.name}”?`, confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/guilds/${guild.id}/soundboard/${s.id}`)); }}><Trash2 size={14} /></button></div>
+      </div>)}</div>}
+    </div>
+  );
+}
+
 const ACTION_LABEL: Record<string, string> = {
   guild_create: "created the server", guild_update: "updated the server", role_create: "created a role", role_update: "updated a role", role_delete: "deleted a role", role_reorder: "reordered roles",
   channel_create: "created a channel", channel_update: "updated a channel", channel_delete: "deleted a channel", channel_reorder: "reordered channels",
   overwrite_update: "changed channel permissions", overwrite_delete: "removed a channel permission", overwrite_sync: "synced channel permissions",
   member_update: "updated a member", member_kick: "kicked a member", member_ban: "banned a member", member_unban: "unbanned a member",
+  emoji_create: "added an emoji", emoji_update: "renamed an emoji", emoji_delete: "deleted an emoji", sound_create: "added a sound", sound_update: "edited a sound", sound_delete: "deleted a sound",
+  channel_banner_update: "set a category banner", channel_banner_remove: "removed a category banner",
   invite_create: "created an invite", invite_delete: "revoked an invite", message_delete: "deleted a message", message_bulk_delete: "bulk-deleted messages", guild_transfer: "transferred ownership",
 };
 function Audit({ guild }: { guild: Guild }) {

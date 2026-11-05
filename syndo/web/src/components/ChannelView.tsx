@@ -11,7 +11,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { ChannelType, MessageType, P, has, type Channel, type Message } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
-import { Markdown, plainText } from "../markdown.tsx";
+import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
 import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
 import { joinVoice, useVoice } from "../voice/session.ts";
@@ -29,6 +29,7 @@ import { Smile } from "lucide-react";
 import { ChannelType as CT } from "@syndo/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
+import { customReaction, emojiText, myEmojis, reactionKey } from "../expressions.ts";
 import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
 import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
@@ -299,8 +300,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {m.reactions.length > 0 && (
             <div className="reactions">
               {m.reactions.map((r) => (
-                <button key={r.emoji} className={`reaction ${r.me ? "me" : ""}`} aria-pressed={r.me} aria-label={`${r.emoji} ${r.count} reaction${r.count === 1 ? "" : "s"}`} onClick={() => toggleReaction(m, r.emoji)}>
-                  <span className="r-emoji">{r.emoji}</span> {r.count}
+                <button key={r.emoji} className={`reaction ${r.me ? "me" : ""}`} aria-pressed={r.me} aria-label={`${customReaction(r.emoji) ? `:${customReaction(r.emoji)!.name}:` : r.emoji} ${r.count} reaction${r.count === 1 ? "" : "s"}`} onClick={() => toggleReaction(m, r.emoji)}>
+                  <span className="r-emoji">{customReaction(r.emoji) ? <CustomEmoji id={customReaction(r.emoji)!.id} name={customReaction(r.emoji)!.name} /> : r.emoji}</span> {r.count}
                 </button>
               ))}
               {can(channel, P.ADD_REACTIONS) || !guildId ? <button className="reaction add" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={14} /></button> : null}
@@ -321,7 +322,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {(mine || canManage) && <button className="icon-btn sm danger" aria-label="Delete" title="Delete (hold Shift to skip confirmation)" onClick={(e) => del(e.shiftKey)}><Trash2 size={16} /></button>}
         </div>
       )}
-      {picker && <EmojiPicker anchor={picker} onPick={(e) => { toggleReaction(m, e); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {picker && <EmojiPicker anchor={picker} guildId={guildId} onPick={(e) => { toggleReaction(m, reactionKey(e)); setPicker(null); }} onClose={() => setPicker(null)} />}
     </article>
   );
 });
@@ -408,7 +409,9 @@ function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {
   );
 }
 
-export function EmojiPicker({ onPick, onClose, anchor }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null }) {
+export function EmojiPicker({ onPick, onClose, anchor, guildId }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null }) {
+  const custom = useStore(useShallow((s) => Object.values(s.guilds).map((g) => g.emojis?.length ?? 0).join(",")));
+  const groups = useMemo(() => myEmojis(guildId), [custom, guildId]); // eslint-disable-line react-hooks/exhaustive-deps
   const ALL = "😀 😃 😄 😁 😆 🥹 😅 😂 🤣 🥲 😊 😇 🙂 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 🤗 🤔 🫡 🤭 🤫 😶 😐 😑 😬 🙄 😯 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 👍 👎 👏 🙌 👐 🤝 🙏 ✌️ 🤞 🫶 🤟 🤘 👌 👋 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🌟 ⭐ 🔥 🎉 🎊 🌻 🌈 ☀️ 🌙 ⚡ 🍀 🌸 🐶 🐱 🦊 🐻 🐼 🐨 🦁 🐸 🐧 🦄 🍕 🍔 🍟 🍩 🍪 🎂 🍰 ☕ 🧋 🎮 🎧 🎵 🎨 📚 ⚽ 🏀 🚀 🧦 👀 ✅ ❌ ❓ ❗".split(" ");
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -428,7 +431,14 @@ export function EmojiPicker({ onPick, onClose, anchor }: { onPick: (e: string) =
   return (
     createPortal(<div ref={ref} className="picker" role="dialog" aria-label="Pick an emoji" data-layer style={pos}>
       <div className="picker-h"><input autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter emoji" /><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
-      <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => onPick(e)} aria-label={e}>{e}</button>)}</div>
+      <div className="picker-scroll">
+        {groups.map((g) => { const list = g.emojis.filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase())); return list.length ? <section key={g.guildId} aria-label={g.guildName}>
+          <h4 className="picker-sec">{g.guildName}</h4>
+          <div className="picker-grid">{list.map((e) => <button key={e.id} onClick={() => onPick(emojiText(e))} aria-label={`:${e.name}:`} title={`:${e.name}:`}><img src={e.url} alt="" loading="lazy" draggable={false} /></button>)}</div>
+        </section> : null; })}
+        {groups.length > 0 && <h4 className="picker-sec">Emoji</h4>}
+        <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => onPick(e)} aria-label={e}>{e}</button>)}</div>
+      </div>
     </div>, document.body)
   );
 }
@@ -567,7 +577,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
             if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !text && editLast()) e.preventDefault();
           }} />
         <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
-        {emoji && <EmojiPicker anchor={emojiBtn.current} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
+        {emoji && <EmojiPicker anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
           : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
         <button className="icon-btn" aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>

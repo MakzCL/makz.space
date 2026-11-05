@@ -95,6 +95,8 @@ export interface Channel {
   last_message_id: string | null;
   owner_id?: string | null;
   icon?: string | null;
+  /** Banner art (categories show it instead of their name). */
+  banner?: string | null;
   recipients?: User[];
   /** Computed for the requesting user (server-side); clients must not trust it for enforcement. */
   my_permissions?: string;
@@ -136,6 +138,10 @@ export interface Guild {
   created_at: string;
   roles: Role[];
   channels: Channel[];
+  /** Custom emoji uploaded to this server. */
+  emojis?: Emoji[];
+  /** Soundboard sounds uploaded to this server. */
+  sounds?: SoundboardSound[];
   member_count: number;
   me: Member;
 }
@@ -230,3 +236,10 @@ export interface GatewayFrame<T = unknown> { op: "dispatch" | "hello" | "heartbe
 export const MENTION_USER = /<@!?(\d{1,20})>/g;
 export const MENTION_ROLE = /<@&(\d{1,20})>/g;
 export const MENTION_CHANNEL = /<#(\d{1,20})>/g;
+
+export interface Emoji { id: string; guild_id: string; name: string; animated: boolean; url: string; creator_id: string | null }
+export interface SoundboardSound { id: string; guild_id: string; name: string; emoji: string | null; volume: number; url: string; duration_ms: number; creator_id: string | null }
+/** `<:name:id>` / `<a:name:id>` in message text; reactions use "name:id". */
+export const CUSTOM_EMOJI_RE = /<(a?):([A-Za-z0-9_]{2,32}):(\d{1,20})>/g;
+export const emojiUrl = (id: string) => `/api/emojis/${id}`;
+export const EXPRESSION_LIMITS = { emojis: 100, sounds: 48, emojiBytes: 512 * 1024, soundBytes: 512 * 1024, soundMs: 5200 } as const;

@@ -1,3 +1,4 @@
+import { guildExpressions } from "./routes/expressions.ts";
 import { P, basePermissions, channelPermissions, has, type Guild } from "@syndo/shared";
 import { config } from "./config.ts";
 import { q, q1 } from "./db.ts";
@@ -22,7 +23,7 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
     })
     .filter(({ p }) => has(p, P.VIEW_CHANNEL))
     .map(({ c, p }) => channelOut(c, has(base, P.MANAGE_ROLES) || has(p, P.MANAGE_ROLES) ? ows.get(c.id) : [], { my_permissions: p.toString() }));
-  const u = await q1<any>(`select ${USER_COLS} from users u where id = $1`, [userId]);
+  const [u, expressions] = await Promise.all([q1<any>(`select ${USER_COLS} from users u where id = $1`, [userId]), guildExpressions(guildId)]);
   return {
     id: g.id, name: g.name, icon: mediaUrl(g.icon_key), banner: mediaUrl(g.banner_key), description: g.description,
     owner_id: g.owner_id, system_channel_id: g.system_channel_id, afk_channel_id: g.afk_channel_id, afk_timeout: g.afk_timeout,
@@ -30,6 +31,8 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
     discoverable: g.discoverable, created_at: g.created_at, member_count: g.member_count,
     roles: roles.map(roleOut),
     channels,
+    emojis: expressions.emojis,
+    sounds: expressions.sounds,
     me: {
       guild_id: g.id, user: userOut(u), nick: member.nick, roles: member.roles, joined_at: member.joined_at,
       communication_disabled_until: member.communication_disabled_until ?? null, mute: member.mute, deaf: member.deaf,

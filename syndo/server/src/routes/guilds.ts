@@ -218,6 +218,7 @@ export async function guildRoutes(app: FastifyInstance) {
     for (const v of voiceStates().filter((v) => v.guild_id === guild.id)) { await dropVoice(v.user_id); await removeFromRoom(v.channel_id, v.user_id); }
     await q("delete from guilds where id = $1", [guild.id]);
     await storage.removePrefix(`att/g${guild.id}`).catch(() => {});
+    for (const prefix of ["emoji", "sounds", "channel-banners"]) await storage.removePrefix(`${prefix}/${guild.id}/`).catch(() => {});
     for (const u of users) toUser(u, "GUILD_DELETE", { id: guild.id });
     return { ok: true };
   });

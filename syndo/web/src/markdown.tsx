@@ -1,6 +1,7 @@
 import { askConfirm, askText } from "./components/overlay.tsx";
 import { Fragment, useState, type ReactNode } from "react";
 import { channelById, memberName, useStore } from "./store.ts";
+import { emojiUrl } from "@syndo/shared";
 
 /**
  * Message markdown → React elements. Never produces HTML strings, so message
@@ -11,8 +12,18 @@ import { channelById, memberName, useStore } from "./store.ts";
  */
 export interface MdCtx { guildId: string | null; onMention?: (userId: string, el: HTMLElement) => void; onChannel?: (id: string) => void; mentionMe?: (id: string) => boolean }
 
+/** Only emoji (custom or unicode, up to 30) → shown large, like Discord's "jumbo" emoji. */
+const ONLY_EMOJI = /^(?:\s*(?:<a?:[A-Za-z0-9_]{2,32}:\d{1,20}>|\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*|\p{Regional_Indicator}{2}))+\s*$/u;
 export function Markdown({ text, ctx }: { text: string; ctx: MdCtx }) {
-  return <>{blocks(text, ctx)}</>;
+  const jumbo = text.length < 900 && ONLY_EMOJI.test(text) && (text.match(/<a?:|\p{Extended_Pictographic}|\p{Regional_Indicator}{2}/gu)?.length ?? 0) <= 30;
+  return jumbo ? <span className="md-jumbo">{blocks(text, ctx)}</span> : <>{blocks(text, ctx)}</>;
+}
+
+/** A server's custom emoji, from any server (served by id). Falls back to :name: if it was deleted. */
+export function CustomEmoji({ id, name, size }: { id: string; name: string; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <span className="md-emoji-missing" title={`:${name}:`}>:{name}:</span>;
+  return <img className="md-emoji" src={emojiUrl(id)} alt={`:${name}:`} title={`:${name}:`} draggable={false} loading="lazy" style={size ? { width: size, height: size } : undefined} onError={() => setBroken(true)} />;
 }
 
 function blocks(text: string, ctx: MdCtx): ReactNode[] {
@@ -82,7 +93,7 @@ const RULES: { re: RegExp; render: (m: RegExpExecArray, ctx: MdCtx, key: number)
   { re: /^<@!?(\d{1,20})>/, render: (m, c, k) => <UserMention key={k} id={m[1]!} ctx={c} /> },
   { re: /^<@&(\d{1,20})>/, render: (m, c, k) => <RoleMention key={k} id={m[1]!} ctx={c} /> },
   { re: /^<#(\d{1,20})>/, render: (m, c, k) => <ChannelMention key={k} id={m[1]!} ctx={c} /> },
-  { re: /^<a?:([a-zA-Z0-9_]{2,32}):(\d{1,20})>/, render: (m, _c, k) => <span key={k} className="md-emoji-missing" title={`:${m[1]}:`}>:{m[1]}:</span> },
+  { re: /^<a?:([a-zA-Z0-9_]{2,32}):(\d{1,20})>/, render: (m, _c, k) => <CustomEmoji key={k} id={m[2]!} name={m[1]!} /> },
   { re: /^@(everyone|here)\b/, render: (m, _c, k) => <span key={k} className="mention">@{m[1]}</span> },
   { re: /^<(https?:\/\/[^\s>]+)>/, render: (m, _c, k) => <SafeLink key={k} href={m[1]!} /> },
   { re: /^\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)/, render: (m, _c, k) => <SafeLink key={k} href={m[2]!} label={m[1]!} /> },
@@ -217,6 +228,7 @@ export function plainText(s: string) {
   return s
     .replace(/<@!?(\d+)>/g, (_, id) => `@${st.users[id]?.display_name ?? st.users[id]?.username ?? "user"}`)
     .replace(/<#(\d+)>/g, (_, id) => `#${channelById(id)?.name ?? "channel"}`)
+    .replace(/<a?:([A-Za-z0-9_]{2,32}):\d{1,20}>/g, ":$1:")
     .replace(/\|\|[\s\S]*?\|\|/g, "▒▒▒▒")
     .replace(/[*_~`]/g, "");
 }

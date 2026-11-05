@@ -1,3 +1,4 @@
+import { removeChannelBanner, setChannelBanner } from "../expressions.ts";
 import { ChannelType, P, has, isVoiceType, type Channel, type Guild, type User } from "@syndo/shared";
 import { audioMenuItems, selfCallMenuItems } from "./callMenus.tsx";
 import { useVoice } from "../voice/session.ts";
@@ -61,7 +62,9 @@ export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
     sep,
     ...(textLike ? [{ label: "Mute channel", checked: muted, onSelect: () => setConversationMuted(c.id, !muted).catch((e) => toast(errMsg(e), "error")) } as MenuItem] : []),
     ...(can(c, P.MANAGE_CHANNELS) ? [sep,
-      ...(c.type === ChannelType.CATEGORY ? [{ label: "Create channel", onSelect: () => openDialog({ kind: "createChannel", guildId: g.id, parentId: c.id }) } as MenuItem] : []),
+      ...(c.type === ChannelType.CATEGORY ? [{ label: "Create channel", onSelect: () => openDialog({ kind: "createChannel", guildId: g.id, parentId: c.id }) } as MenuItem,
+        { label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem,
+        ...(c.banner ? [{ label: "Remove banner", onSelect: () => removeChannelBanner(c) } as MenuItem] : [])] : []),
       { label: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", onSelect: async () => {
         const name = await askText({ title: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", label: "Name", initial: c.name ?? "" });
         if (name) api.patch(`/api/channels/${c.id}`, { name }).catch((e) => toast(errMsg(e), "error"));

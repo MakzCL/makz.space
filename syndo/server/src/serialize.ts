@@ -60,6 +60,7 @@ export function channelOut(r: any, overwrites: any[] = [], extra: Partial<Channe
     nsfw: r.nsfw, rate_limit_per_user: r.rate_limit_per_user, bitrate: r.bitrate, user_limit: r.user_limit,
     permission_synced: r.permission_synced, last_message_id: r.last_message_id, owner_id: r.owner_id ?? null,
     icon: mediaUrl(r.icon_key),
+    banner: mediaUrl(r.banner_key),
     permission_overwrites: overwrites.map((o) => ({ target_id: String(o.target_id), target_type: o.target_type, allow: String(o.allow), deny: String(o.deny) })),
     ...extra,
   };

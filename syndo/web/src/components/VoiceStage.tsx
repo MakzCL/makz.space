@@ -6,11 +6,12 @@ import { Popover, openContextMenu } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { Activity, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
+import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { STREAM_FPS, STREAM_HEIGHTS, type Channel, type Guild } from "@syndo/shared";
+import { P, STREAM_FPS, STREAM_HEIGHTS, has, type Channel, type Guild, type SoundboardSound } from "@syndo/shared";
+import { playSoundboard, soundsFor } from "../expressions.ts";
 import { setTitle } from "../router.ts";
-import { displayName, useStore } from "../store.ts";
+import { can, displayName, guildPerms, useStore } from "../store.ts";
 import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
@@ -91,6 +92,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
             </div>
           )}
         </div>
+        {guild && <SoundboardButton channel={channel} guild={guild} />}
         <button className="ctl danger" onClick={() => leaveVoice()} aria-label="Leave call"><PhoneOff /></button>
       </div>
     </div>
@@ -176,4 +178,25 @@ function DiagPanel() {
       )}
     </aside>
   );
+}
+
+/** Soundboard: this server's sounds first, then sounds from my other servers. Played to everyone in the channel. */
+function SoundboardButton({ channel, guild }: { channel: Channel; guild: Guild }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const v = useVoice(useShallow((s) => ({ volume: s.settings.soundboardVolume ?? .7, muted: !!s.settings.soundboardMuted })));
+  useStore((s) => Object.values(s.guilds).map((g) => g.sounds?.length ?? 0).join(",")); // re-render when sounds change
+  const allowed = can(channel, P.USE_SOUNDBOARD) && can(channel, P.SPEAK);
+  const { here, others } = soundsFor(guild.id);
+  const external = can(channel, P.USE_EXTERNAL_EMOJIS);
+  const tile = (s: SoundboardSound) => <button key={s.id} className="sb-play" onClick={() => playSoundboard(channel.id, s)} title={`${s.name} · ${(s.duration_ms / 1000).toFixed(1)} s`}><span className="sb-emoji" aria-hidden>{s.emoji || "🔊"}</span><span className="ellipsis">{s.name}</span></button>;
+  return <div className="ctl-wrap">
+    <button ref={btn} className={`ctl ${open ? "on" : ""}`} aria-expanded={open} aria-haspopup="dialog" aria-label="Soundboard" title={allowed ? "Soundboard" : "You can't use the soundboard here"} disabled={!allowed} onClick={() => setOpen((o) => !o)}><Music2 /></button>
+    {open && <Popover className="sb-panel" role="dialog" label="Soundboard" anchor={() => btn.current} onClose={() => setOpen(false)}>
+      <div className="sb-head"><strong>Soundboard</strong><label className="row small muted"><Volume2 size={14} aria-hidden /><Range aria-label="Soundboard volume for me" min={0} max={1} step={0.05} value={v.muted ? 0 : v.volume} onChange={(e) => updateVoiceSettings({ soundboardVolume: +e.target.value, soundboardMuted: +e.target.value === 0 })} /></label></div>
+      {here.length ? <><h4 className="picker-sec">{guild.name}</h4><div className="sb-grid compact">{here.map(tile)}</div></> : <p className="muted small">This server has no sounds yet.{has(guildPerms(guild), P.MANAGE_EXPRESSIONS) ? " Add some in Server settings → Soundboard." : ""}</p>}
+      {external && others.map((g) => <div key={g.guildId}><h4 className="picker-sec">{g.guildName}</h4><div className="sb-grid compact">{g.sounds.map(tile)}</div></div>)}
+      <p className="muted small">Everyone in the call hears it (unless they've deafened or turned the soundboard down).</p>
+    </Popover>}
+  </div>;
 }

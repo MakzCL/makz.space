@@ -1,5 +1,6 @@
 import { DesktopPrompt } from "./components/DesktopPrompt.tsx";
 import { initCallSounds } from "./voice/sounds.ts";
+import { initSoundboard } from "./expressions.ts";
 import { DesktopTitlebar } from "./components/DesktopTitlebar.tsx";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -77,6 +78,7 @@ initShortcuts();
 registerDefaultShortcuts();
 initNotifications();
 initCallSounds();
+initSoundboard();
 initDesktop();
 boot();
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

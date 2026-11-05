@@ -28,6 +28,9 @@ export interface VoiceSettings {
   pttSounds: boolean;
   /** Ring shown around speaking people (sidebar voice list and the call stage). */
   speakingColor: string;
+  /** Soundboard: how loud other people's sounds play for me (0..1), or off entirely. */
+  soundboardVolume: number;
+  soundboardMuted: boolean;
 }
 export interface StreamSettings {
   height: number | "source";
@@ -45,7 +48,7 @@ export const DEFAULT_VOICE: VoiceSettings = {
   inputDeviceId: "default", outputDeviceId: "default", videoDeviceId: "", inputGain: 1, mode: "vad", pttKey: "KeyV", pttReleaseDelay: 200,
   userVolumes: {}, cameraHeight: 720,
   stream: { height: 1080, fps: 30, bitrate: 0, contentHint: "detail", audio: true, codec: "auto" },
-  suppressSoundEffects: false, soundVolume: .8, pttSounds: true, speakingColor: "#23a55a",
+  suppressSoundEffects: false, soundVolume: .8, pttSounds: true, speakingColor: "#23a55a", soundboardVolume: .7, soundboardMuted: false,
 };
 
 const KEY = "syndo.voice.v1";

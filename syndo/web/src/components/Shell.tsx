@@ -25,6 +25,7 @@ import { UserSettings } from "./UserSettings.tsx";
 import { Avatar, Mark, statusLabel } from "./ui.tsx";
 import { VoiceStage } from "./VoiceStage.tsx";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
+import { useSoundboardActivity } from "../expressions.ts";
 import { openStudio } from "../appearance/Studio.tsx";
 import { setContext, updateGlobal, useAppearance } from "../appearance/store.ts";
 import { Palette, PanelLeftOpen } from "lucide-react";
@@ -257,7 +258,9 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
         {cats.map(({ cat, children }) => (
           <div key={cat.id} className="cat">
             <div className="side-sec">
-              <button className="cat-btn" aria-expanded={!collapsed[cat.id]} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} /> {cat.name}</button>
+              {cat.banner
+                ? <button className={`cat-btn cat-banner ${collapsed[cat.id] ? "collapsed" : ""}`} aria-expanded={!collapsed[cat.id]} aria-label={`${cat.name} category`} title={cat.name ?? undefined} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))} style={{ backgroundImage: `url(${cat.banner})` }}><ChevronDown size={14} className={collapsed[cat.id] ? "rot" : ""} aria-hidden /></button>
+                : <button className="cat-btn" aria-expanded={!collapsed[cat.id]} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} /> {cat.name}</button>}
               {can(cat, P.MANAGE_CHANNELS) && <button className="icon-btn sm" aria-label={`Create channel in ${cat.name}`} onClick={() => onDialog({ kind: "createChannel", guildId: guild.id, parentId: cat.id })}><Plus size={14} /></button>}
             </div>
             {children.filter((c) => !collapsed[cat.id] || c.id === current || isUnread(c)).map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} />)}
@@ -309,6 +312,7 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
                 onKeyDown={e => contextMenuKey(e, () => participantMenu(v.user_id, e.currentTarget, e))}>
               <span className={`voice-avatar ${speaking.includes(v.user_id === myId ? "@me" : v.user_id) ? "speaking" : ""}`}><Avatar user={users[v.user_id] ?? null} size={22} /></span>
               <span className="ellipsis">{displayName(users[v.user_id])}</span>
+              <SoundActivity userId={v.user_id} />
               {v.self_stream && <span className="live">LIVE</span>}
               {v.self_video && <Video size={13} aria-label="camera on" />}
               {(v.self_mute || v.server_mute) && <MicOff size={13} aria-label="muted" />}
@@ -320,6 +324,12 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
       )}
     </>
   );
+}
+
+/** The emoji of a soundboard sound someone just played, next to their name. */
+function SoundActivity({ userId }: { userId: string }) {
+  const a = useSoundboardActivity((s) => s[userId]);
+  return a ? <span className="sb-activity" title={`Played “${a.name}”`} aria-label={`played ${a.name}`}>{a.emoji || "🔊"}</span> : null;
 }
 
 /* -------------------------------------------------------- voice bar -- */
