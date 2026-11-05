@@ -22,7 +22,7 @@ import { openStudio } from "../appearance/Studio.tsx";
 import { playSound } from "../voice/sounds.ts";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
-const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -265,7 +265,7 @@ function DesktopTab() {
   const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: d.downloadUpdate ? `Update ${u.version} available` : `Update ${u.version} found — downloading`, downloading: `Downloading ${u.version ?? ""} — ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
   return (
     <div className="stack">
-      <h2>Desktop app</h2>
+      <h2>System</h2>
       <p className="muted">SEND for {desktop.platform === "win32" ? "Windows" : desktop.platform} · version {desktop.version}. The interface updates automatically whenever the SEND web app is updated; the app itself updates from the SEND update feed.</p>
       <div className="card row wrap"><span className="grow" role="status">{label}</span>
         {u?.state === "ready" ? <button className="btn primary" onClick={() => d.restartToUpdate()}>Restart to update</button>
@@ -296,7 +296,7 @@ function DesktopTab() {
 }
 
 function NotificationsTab() {
-  const n = (useStore((s) => (s.me?.settings as any)?.notifications) ?? {}) as { desktop?: boolean; sounds?: boolean; quietStart?: string; quietEnd?: string };
+  const n = (useStore((s) => (s.me?.settings as any)?.notifications) ?? {}) as { desktop?: boolean; sounds?: boolean; inApp?: boolean; quietStart?: string; quietEnd?: string };
   const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const set = (p: Partial<typeof n>) => updateSettings({ notifications: { ...n, ...p } });
   return (
@@ -305,6 +305,7 @@ function NotificationsTab() {
       <Toggle label="Desktop notifications" hint={perm === "denied" ? "Blocked by the browser — allow notifications for this site in its settings." : "Mentions, DMs and calls while this tab is in the background."} checked={!!n.desktop && perm === "granted"} disabled={perm === "denied"}
         onChange={async (v) => { if (v && perm !== "granted") { const r = await Notification.requestPermission(); setPerm(r); if (r !== "granted") return; } set({ desktop: v }); }} />
       <Toggle label="Notification sounds" checked={n.sounds !== false} onChange={(v) => set({ sounds: v })} />
+      <Toggle label="In-app banners on phones" hint="A card slides down from the top for DMs and mentions in other conversations." checked={n.inApp !== false} onChange={(v) => set({ inApp: v })} />
       <div className="row wrap"><Field label="Quiet hours from"><input type="time" value={n.quietStart ?? ""} onChange={(e) => set({ quietStart: e.target.value })} /></Field><Field label="until"><input type="time" value={n.quietEnd ?? ""} onChange={(e) => set({ quietEnd: e.target.value })} /></Field></div>
       <p className="muted small">Do Not Disturb status also silences desktop notifications. Settings follow your account across devices.</p>
     </div>

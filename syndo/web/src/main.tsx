@@ -2,6 +2,7 @@ import { DesktopPrompt } from "./components/DesktopPrompt.tsx";
 import { initCallSounds } from "./voice/sounds.ts";
 import { initSoundboard } from "./expressions.ts";
 import { DesktopTitlebar } from "./components/DesktopTitlebar.tsx";
+import { InAppNotices } from "./components/InAppNotices.tsx";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BRAND } from "@syndo/shared";
@@ -68,7 +69,7 @@ function App() {
   else if (conn === "signed_out") page = route.name === "register" ? <Register /> : <Login />;
   else if (conn === "connecting") page = <Splash />;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><Toasts /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();

@@ -1,5 +1,10 @@
 # SEND restore points
 
+## 2026-11-05 — "System" settings, white scrollbars, phone banners, iPhone install (web only)
+
+Website only (no backend or database change). Source backup: branch `backup/pre-system-ios-20261105`.
+Roll back: Pages → `syndo-app` → Deployments → `d2fb1a90-bd25-44cf-81ea-6eaba6fdf052` → *Rollback to this deployment*.
+
 ## 2026-11-05 — channel emoji icons
 
 | Layer | Restore point (before) |

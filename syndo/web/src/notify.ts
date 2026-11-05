@@ -3,6 +3,8 @@ import { plainText } from "./markdown.tsx";
 import { navigate } from "./router.ts";
 import { channelById, displayName, dmTitle, onEvent, useStore } from "./store.ts";
 import { playSound } from "./voice/sounds.ts";
+import { isPhone } from "./mobile.ts";
+import { pushNotice } from "./components/InAppNotices.tsx";
 
 /**
  * Desktop notifications for mentions and DMs while the tab isn't focused,
@@ -31,11 +33,18 @@ export function initNotifications() {
     const isDm = !m.guild_id;
     const mentioned = isDm || m.mentions.includes(s.me.id) || m.mention_everyone || (m.guild_id && m.mention_roles.some((r: string) => s.guilds[m.guild_id]?.me.roles.includes(r)));
     if (!mentioned) return;
-    const prefs = ((s.me.settings as any)?.notifications ?? {}) as { desktop?: boolean; sounds?: boolean; quietStart?: string; quietEnd?: string };
+    const prefs = ((s.me.settings as any)?.notifications ?? {}) as { desktop?: boolean; sounds?: boolean; inApp?: boolean; quietStart?: string; quietEnd?: string };
     const muted = ((s.me.settings as any)?.muted_channels ?? []).includes(m.channel_id) || ((s.me.settings as any)?.muted_guilds ?? []).includes(m.guild_id);
     if (muted || s.me.status === "dnd" || quiet(prefs)) return;
     const visible = document.visibilityState === "visible" && document.hasFocus();
-    if (prefs.sounds !== false && !visible) ping(!isDm);
+    const here = location.pathname.split("/")[3] === m.channel_id;
+    if (prefs.sounds !== false && (!visible || (isPhone() && !here))) ping(!isDm);
+    // Phones: an in-app banner for DMs and mentions elsewhere (browsers/WebViews can't show system ones here).
+    if (isPhone() && document.visibilityState === "visible" && !here && prefs.inApp !== false) {
+      const where = isDm ? (ch && ch.type === 3 ? dmTitle(ch) : "Direct message") : `#${ch?.name ?? "channel"} · ${useStore.getState().guilds[m.guild_id]?.name ?? "Server"}`;
+      const text = (m.stickers?.length ? "Sent a sticker" : plainText(m.content).slice(0, 140)) || (m.attachments?.length ? "Sent an attachment" : "New message");
+      pushNotice({ id: m.id, user: m.author, title: displayName(m.author), where, text, href: `/channels/${m.guild_id ?? "@me"}/${m.channel_id}/${m.id}`, mention: !isDm });
+    }
     if (visible || !prefs.desktop || typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const title = isDm ? (ch && ch.type === 3 ? `${displayName(m.author)} in ${dmTitle(ch)}` : displayName(m.author)) : `${displayName(m.author)} (#${ch?.name ?? "channel"})`;
     const n = new Notification(title, { body: isDm ? "New private message" : plainText(m.content).slice(0, 200) || "Sent an attachment", icon: BRAND.assets.appIcon192, tag: m.channel_id });
