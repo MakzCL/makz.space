@@ -111,7 +111,7 @@ describe("Scenario 2/17 — roles, private channels, and no leaks via messages, 
   it("hides a private channel from members without access everywhere", async () => {
     await member.connect(); await owner.connect();
     secret = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Staff Room", type: 0, private: true })).body;
-    assert.equal(secret.name, "staff-room");
+    assert.equal(secret.name, "Staff Room"); // names keep spaces and capitals
     const msg = (await owner.post(`/api/channels/${secret.id}/messages`, { content: "the secret password is pineapple" })).body;
     // Attachment in the private channel.
     const fd = new FormData();

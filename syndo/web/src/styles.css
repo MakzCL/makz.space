@@ -116,7 +116,7 @@ img.freeze { /* animated images still animate in <img>; this hint is used where 
 .rail-item > button { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--bg2); display: grid; place-items: center; cursor: pointer; overflow: hidden; transition: border-radius .15s, background .15s; padding: 0; }
 .rail-item > button img { width: 100%; height: 100%; object-fit: cover; }
 .rail-item:hover > button, .rail-item.active > button { border-radius: 16px; background: var(--accent); color: var(--on-accent); }
-.rail-item.accent > button { color: var(--brand-success); } .rail-item.accent:hover > button { background: var(--brand-success); color: #fff; }
+.rail-item.accent > button { color: var(--accent); } .rail-item.accent:hover > button { background: var(--accent); color: var(--on-accent); }
 .rail-initials { font-weight: 700; font-size: .9rem; }
 .pill { position: absolute; left: 0; width: 4px; height: 0; border-radius: 0 4px 4px 0; background: var(--text); transition: height .15s; }
 .rail-item.unread .pill { height: 8px; } .rail-item:hover .pill { height: 20px; } .rail-item.active .pill { height: 40px; }
@@ -362,7 +362,7 @@ label.role-chip:focus-within { outline: 2px solid var(--accent); }
 .tile-strip { display: flex; gap: 8px; overflow-x: auto; flex: none; } .tile-strip .tile { width: 200px; flex: none; }
 .tile { position: relative; margin: 0; background: #1A2136; border-radius: var(--r); aspect-ratio: 16/9; overflow: hidden; display: grid; place-items: center; border: 2px solid transparent; }
 .tile.big { flex: 1; aspect-ratio: auto; min-height: 0; }
-.tile.speaking { border-color: var(--brand-online); }
+.tile.speaking { border-color: var(--speaking, var(--brand-online)); box-shadow: 0 0 0 1px var(--speaking, var(--brand-online)), 0 0 18px color-mix(in srgb, var(--speaking, #23a55a) 35%, transparent); }
 .tile video { width: 100%; height: 100%; object-fit: contain; background: #000; } .tile video.mirror { transform: scaleX(-1); }
 .tile.k-camera video { object-fit: cover; }
 .tile figcaption { position: absolute; left: 8px; bottom: 8px; background: #000a; padding: 2px 8px; border-radius: 6px; font-size: .8rem; display: flex; gap: 6px; align-items: center; max-width: 80%; }
@@ -1178,3 +1178,54 @@ video.viewer-media { cursor: default; }
 .call-menu-volume > span { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 7px; }
 .call-menu-volume output { font-variant-numeric: tabular-nums; color: var(--textMuted); }
 .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+/* Speaking ring around a voice participant's picture (sidebar). Colour: Voice settings → Speaking ring colour. */
+.voice-avatar { position: relative; display: inline-grid; place-items: center; border-radius: 50%; flex: none; }
+.voice-avatar::after { content: ""; position: absolute; inset: -2px; border-radius: 50%; box-shadow: 0 0 0 2px var(--speaking, #23a55a); opacity: 0; transform: scale(.9); transition: opacity .12s ease, transform .12s ease; pointer-events: none; }
+.voice-avatar.speaking::after { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) { .voice-avatar::after { transition: none; } }
+.speaking-swatches { align-items: center; gap: 8px; }
+.speaking-swatches .swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px #0004; }
+.speaking-swatches .swatch.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg1) inset; }
+.speaking-swatches input[type=color] { width: 32px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+
+/* Desktop: a "behind the chat only" wallpaper stays in the chat. Phones show it everywhere (below). */
+.app-bd.phone-only { display: none; }
+@media (max-width: 760px) {
+  .app-bd.phone-only { display: block; }
+  html[data-wallpaper] .chat-bd { display: none; }
+  html[data-wallpaper] .backdrop.app-bd { position: fixed; z-index: 0; }
+  /* Every phone screen lets the wallpaper through; text sits on a calm, mostly opaque layer. */
+  html[data-wallpaper] .main { background: color-mix(in srgb, var(--r-app-bg, var(--bg1)) 74%, transparent) !important; }
+  html[data-wallpaper] .sidebar, html[data-wallpaper] .guild-rail, html[data-wallpaper] .rail { background: color-mix(in srgb, var(--bg1) 70%, transparent) !important; }
+  html[data-wallpaper] .side-panel, html[data-wallpaper] .modal, html[data-wallpaper] .settings, html[data-wallpaper] .ctx-menu, html[data-wallpaper] .picker,
+  html[data-wallpaper] .profile-card .pcv, html[data-wallpaper] .send-select-menu, html[data-wallpaper] .menu { background: color-mix(in srgb, var(--bg1) 84%, transparent) !important; }
+  html[data-wallpaper] .side-panel .panel-h, html[data-wallpaper] .settings-nav, html[data-wallpaper] .chat-header, html[data-wallpaper] .composer-wrap { background: color-mix(in srgb, var(--bg1) 80%, transparent) !important; }
+  html[data-wallpaper] .modal-back { background: color-mix(in srgb, #000 35%, transparent); }
+}
+
+/* Server banner: a tall header like Discord's, with the name over the top of the art. */
+.guild-h.has-banner { height: 138px; align-items: flex-start; background-position: center; border-bottom-color: transparent; }
+.guild-h.has-banner .guild-menu-btn { height: 48px; color: #fff; text-shadow: 0 1px 3px #000c; }
+.guild-h.has-banner .guild-menu-btn .tag { text-shadow: none; }
+@media (max-width: 760px) { .guild-h.has-banner { height: 120px; } }
+
+/* Voice connection: Wi-Fi arcs. Connecting/reconnecting = arcs light in turn; connected = steady green. */
+.wifi-signal { display: inline-grid; place-items: center; width: 26px; height: 26px; flex: none; color: var(--textMuted); }
+.wifi-signal path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.wifi-signal circle { fill: currentColor; }
+.wifi-signal path, .wifi-signal circle { opacity: .28; transition: opacity .2s, color .2s; }
+.ws-connecting, .ws-reconnecting { color: var(--brand-idle, #f0b232); }
+.ws-connecting .w0, .ws-reconnecting .w0 { opacity: 1; }
+.ws-connecting .w1, .ws-reconnecting .w1 { animation: wifi-arc 1.2s ease-in-out infinite; }
+.ws-connecting .w2, .ws-reconnecting .w2 { animation: wifi-arc 1.2s ease-in-out .2s infinite; }
+.ws-connecting .w3, .ws-reconnecting .w3 { animation: wifi-arc 1.2s ease-in-out .4s infinite; }
+.ws-connected { color: var(--brand-online, #23a55a); }
+.ws-connected path, .ws-connected circle { opacity: 1; }
+.ws-connected svg { animation: wifi-ok .45s ease-out; }
+.ws-error { color: var(--brand-danger, #f23f43); } .ws-error .w0, .ws-error .w1 { opacity: 1; }
+@keyframes wifi-arc { 0%, 100% { opacity: .28; } 40% { opacity: 1; } }
+@keyframes wifi-ok { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .wifi-signal path, .wifi-signal svg { animation: none !important; } .ws-connecting path, .ws-reconnecting path { opacity: .7; } }
+.vb-where { min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 0; color: var(--text); }
+.vb-where strong { max-width: 100%; }

@@ -22,6 +22,12 @@ export interface VoiceSettings {
   cameraHeight: number;
   stream: StreamSettings;
   suppressSoundEffects: boolean;
+  /** Interface sound volume 0..1. */
+  soundVolume: number;
+  /** Ticks when push-to-talk opens/closes. */
+  pttSounds: boolean;
+  /** Ring shown around speaking people (sidebar voice list and the call stage). */
+  speakingColor: string;
 }
 export interface StreamSettings {
   height: number | "source";
@@ -39,7 +45,7 @@ export const DEFAULT_VOICE: VoiceSettings = {
   inputDeviceId: "default", outputDeviceId: "default", videoDeviceId: "", inputGain: 1, mode: "vad", pttKey: "KeyV", pttReleaseDelay: 200,
   userVolumes: {}, cameraHeight: 720,
   stream: { height: 1080, fps: 30, bitrate: 0, contentHint: "detail", audio: true, codec: "auto" },
-  suppressSoundEffects: false,
+  suppressSoundEffects: false, soundVolume: .8, pttSounds: true, speakingColor: "#23a55a",
 };
 
 const KEY = "syndo.voice.v1";

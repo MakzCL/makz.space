@@ -20,6 +20,7 @@ import { PRESETS, type A11yPrefs } from "@syndo/shared";
 import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate, type DesktopSettings, applyDesktopUpdate } from "../desktop.ts";
 import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
+import { playSound } from "../voice/sounds.ts";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 
 const TABS = [...(desktop ? [["desktop", "Desktop app"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
@@ -171,6 +172,7 @@ function Privacy() {
   );
 }
 
+const SPEAKING_COLORS: [string, string][] = [["#23a55a", "Green"], ["#3d6bff", "Blue"], ["#a66bff", "Purple"], ["#ff6bb5", "Pink"], ["#ffb02e", "Gold"], ["#f2f3f5", "White"]];
 function VoiceTab() {
   const s = useVoice((v) => v.settings);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -204,6 +206,14 @@ function VoiceTab() {
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
       <Field label="Input mode"><Select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></Select></Field>
       {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when SEND is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
+      <h3>Sounds and speaking</h3>
+      <Field label={`Sound effects volume — ${Math.round((s.soundVolume ?? .8) * 100)}%`}><div className="row"><Range min={0} max={1} step={0.05} value={s.soundVolume ?? .8} onChange={(e) => updateVoiceSettings({ soundVolume: +e.target.value })} /><button className="btn sm" onClick={() => playSound("join")}>Preview</button></div></Field>
+      <Toggle label="Mute all sound effects" hint="Join, leave, mute and message sounds. Ringtones still play." checked={s.suppressSoundEffects} onChange={(v) => updateVoiceSettings({ suppressSoundEffects: v })} />
+      {s.mode === "ptt" && <Toggle label="Push-to-talk sounds" hint="A soft tick when your mic opens and closes." checked={s.pttSounds !== false} onChange={(v) => updateVoiceSettings({ pttSounds: v })} />}
+      <Field label="Speaking ring colour" hint="The ring around people's pictures while they talk, in the channel list and the call.">
+        <div className="row wrap speaking-swatches">{SPEAKING_COLORS.map(([c, name]) => <button key={c} type="button" className={`swatch ${s.speakingColor === c ? "on" : ""}`} style={{ background: c }} aria-label={name} aria-pressed={s.speakingColor === c} onClick={() => updateVoiceSettings({ speakingColor: c })} />)}
+          <input type="color" aria-label="Custom speaking colour" value={s.speakingColor || "#23a55a"} onChange={(e) => updateVoiceSettings({ speakingColor: e.target.value })} /></div>
+      </Field>
       <h3>Audio quality — free for everyone</h3>
       <Field label="Preset"><Select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></Select></Field>
       <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">

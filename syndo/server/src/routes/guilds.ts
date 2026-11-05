@@ -120,15 +120,11 @@ async function createChannelRow(c: any, guildId: string, b: { name: string; type
   return id;
 }
 
-function channelName(type: number, name: string) {
-  const n = name.trim();
-  if (type === ChannelType.TEXT || type === ChannelType.ANNOUNCEMENT || type === ChannelType.FORUM || type === ChannelType.MEDIA) {
-    const slug = n.toLowerCase().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}_-]/gu, "").slice(0, 100);
-    if (!slug) throw bad("Give the channel a name.");
-    return slug;
-  }
+/** Channel names are kept as typed (spaces, capitals, emoji); only invisible/control characters are removed. */
+function channelName(_type: number, name: string) {
+  const n = name.replace(/[\p{Cc}\p{Cf}]/gu, "").replace(/\s+/g, " ").trim().slice(0, 100);
   if (!n) throw bad("Give the channel a name.");
-  return n.slice(0, 100);
+  return n;
 }
 
 export async function guildRoutes(app: FastifyInstance) {

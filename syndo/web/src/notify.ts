@@ -2,6 +2,7 @@ import { BRAND } from "@syndo/shared";
 import { plainText } from "./markdown.tsx";
 import { navigate } from "./router.ts";
 import { channelById, displayName, dmTitle, onEvent, useStore } from "./store.ts";
+import { playSound } from "./voice/sounds.ts";
 
 /**
  * Desktop notifications for mentions and DMs while the tab isn't focused,
@@ -14,15 +15,7 @@ function quiet(n: { quietStart?: string; quietEnd?: string }) {
   return a! <= b! ? cur >= a! && cur < b! : cur >= a! || cur < b!;
 }
 
-let chime: AudioContext | null = null;
-function ping() {
-  try {
-    chime ??= new AudioContext();
-    const o = chime.createOscillator(); const g = chime.createGain();
-    o.frequency.value = 880; g.gain.setValueAtTime(0.08, chime.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, chime.currentTime + 0.25);
-    o.connect(g).connect(chime.destination); o.start(); o.stop(chime.currentTime + 0.26);
-  } catch { /* */ }
-}
+const ping = (mention = false) => playSound(mention ? "mention" : "message");
 
 export function initNotifications() {
   const unread = () => {
@@ -42,7 +35,7 @@ export function initNotifications() {
     const muted = ((s.me.settings as any)?.muted_channels ?? []).includes(m.channel_id) || ((s.me.settings as any)?.muted_guilds ?? []).includes(m.guild_id);
     if (muted || s.me.status === "dnd" || quiet(prefs)) return;
     const visible = document.visibilityState === "visible" && document.hasFocus();
-    if (prefs.sounds !== false && !visible) ping();
+    if (prefs.sounds !== false && !visible) ping(!isDm);
     if (visible || !prefs.desktop || typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const title = isDm ? (ch && ch.type === 3 ? `${displayName(m.author)} in ${dmTitle(ch)}` : displayName(m.author)) : `${displayName(m.author)} (#${ch?.name ?? "channel"})`;
     const n = new Notification(title, { body: isDm ? "New private message" : plainText(m.content).slice(0, 200) || "Sent an attachment", icon: BRAND.assets.appIcon192, tag: m.channel_id });
@@ -54,6 +47,6 @@ export function initNotifications() {
     if (document.visibilityState !== "visible" && typeof Notification !== "undefined" && Notification.permission === "granted") {
       const n = new Notification(`Incoming call · ${BRAND.name}`, { body: dmTitle(channelById(c.channel_id)!), icon: BRAND.assets.appIcon192, tag: `call-${c.channel_id}`, requireInteraction: true });
       n.onclick = () => { window.focus(); navigate(`/channels/@me/${c.channel_id}`); n.close(); };
-    } else ping();
+    } // (the ringtone itself is played by voice/sounds.ts)
   });
 }

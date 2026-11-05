@@ -519,3 +519,8 @@ navigator.mediaDevices?.addEventListener?.("devicechange", async () => {
   }
 });
 export { DEFAULT_VOICE };
+
+// The speaking-ring colour is a CSS variable, so every speaking indicator follows the setting.
+function applySpeakingColor() { try { document.documentElement.style.setProperty("--speaking", get().settings.speakingColor || "#23a55a"); } catch { /* no DOM */ } }
+applySpeakingColor();
+useVoice.subscribe((s, p) => { if (s.settings.speakingColor !== p.settings.speakingColor) applySpeakingColor(); });

@@ -83,10 +83,12 @@ export function Shell() {
   useEffect(() => { setContext(guild?.id ?? null, viewingSaved ? null : cid || null); }, [guild?.id, cid, viewingSaved]);
   const { bg, target } = useActiveBackground();
   const showSidebar = useAppearance((s) => s.resolved.theme.layout.showSidebar);
+  // Phones: the wallpaper runs behind every screen (lists, chat, settings, sheets), not just the chat.
+  useEffect(() => { const h = document.documentElement; if (bg) h.dataset.wallpaper = "1"; else delete h.dataset.wallpaper; return () => { delete h.dataset.wallpaper; }; }, [!!bg]);
 
   return (
     <div className={`shell syndo-css ${navOpen ? "nav-open" : ""} ${showSidebar ? "" : "no-sidebar"}`} data-region="app">
-      {bg && target === "app" && <Backdrop bg={bg} className="app-bd" />}
+      {bg && <Backdrop bg={bg} className={`app-bd ${target === "app" ? "" : "phone-only"}`} />}
       <a className="skip" href="#main">Skip to content</a>
       {conn === "reconnecting" && <div className="conn-banner" role="status">Reconnecting… messages will catch up automatically.</div>}
       <GuildRail current={gid} onDialog={setDialog} />
@@ -233,7 +235,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
   };
   return (
     <>
-      <header className="side-h guild-h" style={guild.banner ? { backgroundImage: `linear-gradient(transparent, var(--bg1)), url(${guild.banner})` } : undefined}>
+      <header className={`side-h guild-h ${guild.banner ? "has-banner" : ""}`} style={guild.banner ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 38%, transparent 62%, var(--r-sidebar-bg, var(--bg1)) 100%), url(${guild.banner})` } : undefined}>
         <button ref={menuBtn} className="guild-menu-btn" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((m) => !m)} onContextMenu={(e) => openContextMenu(e, guildMenuItems(guild))}>
           <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag">{guild.tag}</span>}<ChevronDown size={18} />
         </button>
@@ -278,6 +280,9 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
   const voiceUsers = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id)));
+  // Who is talking right now — known for the channel I'm connected to.
+  const speaking = useVoice(useShallow((v) => v.channelId !== c.id ? [] : [...Object.values(v.peers).filter((p) => p.speaking).map((p) => p.id), ...(v.localSpeaking ? ["@me"] : [])]));
+  const myId = useStore((s) => s.me?.id);
   const users = useStore((s) => s.users);
   const priv = c.permission_overwrites.some((o) => o.target_id === guild.id && (BigInt(o.deny) & P.VIEW_CHANNEL));
   const open = () => {
@@ -302,7 +307,7 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
                 onClick={e => setProfile({ id: v.user_id, el: e.currentTarget })}
                 onContextMenu={e => participantMenu(v.user_id, e.currentTarget, e)}
                 onKeyDown={e => contextMenuKey(e, () => participantMenu(v.user_id, e.currentTarget, e))}>
-              <Avatar user={users[v.user_id] ?? null} size={22} />
+              <span className={`voice-avatar ${speaking.includes(v.user_id === myId ? "@me" : v.user_id) ? "speaking" : ""}`}><Avatar user={users[v.user_id] ?? null} size={22} /></span>
               <span className="ellipsis">{displayName(users[v.user_id])}</span>
               {v.self_stream && <span className="live">LIVE</span>}
               {v.self_video && <Video size={13} aria-label="camera on" />}
@@ -318,16 +323,25 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
 }
 
 /* -------------------------------------------------------- voice bar -- */
+/** Wi-Fi style signal: the arcs light up in turn while connecting, then hold steady green once connected. */
+function WifiSignal({ status, label }: { status: string; label: string }) {
+  return <span className={`wifi-signal ws-${status}`} role="img" aria-label={label} title={label}>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path className="w3" d="M2.5 9.2a13.5 13.5 0 0 1 19 0" /><path className="w2" d="M5.8 12.6a8.8 8.8 0 0 1 12.4 0" /><path className="w1" d="M9.1 16a4.1 4.1 0 0 1 5.8 0" /><circle className="w0" cx="12" cy="19.2" r="1.6" />
+    </svg>
+  </span>;
+}
 function VoiceBar() {
   const v = useVoice();
   const ch = useStore(useShallow((s) => { for (const g of Object.values(s.guilds)) { const c = g.channels.find((x) => x.id === v.channelId); if (c) return { name: c.name, guild: g.name, gid: g.id }; } const d = v.channelId ? s.dms[v.channelId] : null; return d ? { name: dmTitle(d), guild: "Call", gid: "@me" } : null; }));
   const label = { idle: "Disconnected", connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…", error: "Connection failed" }[v.status];
+  const title = v.status === "error" ? (v.error ?? label) : label;
   return (
     <section className={`voice-bar vs-${v.status}`} data-region="userPanel" aria-label="Voice connection">
       <div className="vb-top">
-        <Signal size={16} aria-hidden />
-        <button className="link" onClick={() => v.channelId && navigate(`/channels/${ch?.gid ?? "@me"}/${v.channelId}`)}>
-          <strong>{label}</strong><small className="block muted ellipsis">{ch ? `${ch.name} / ${ch.guild}` : ""}</small>
+        <WifiSignal status={v.status} label={title} />
+        <button className="link vb-where" onClick={() => v.channelId && navigate(`/channels/${ch?.gid ?? "@me"}/${v.channelId}`)} title={title}>
+          <span className="sr-only">{label}: </span><strong className="ellipsis">{ch ? ch.name : ""}</strong><small className="block muted ellipsis">{ch ? ch.guild : ""}</small>
         </button>
         <button className="icon-btn danger" onClick={() => leaveVoice()} aria-label="Disconnect"><PhoneOff size={18} /></button>
       </div>
