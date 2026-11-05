@@ -24,7 +24,8 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
   const tabs: [string, string, boolean][] = [
     ["overview", "Overview", has(p, P.MANAGE_GUILD)], ["roles", "Roles", has(p, P.MANAGE_ROLES)], ["permissions", "Channel permissions", has(p, P.MANAGE_ROLES)],
     ["members", "Members", has(p, P.MANAGE_ROLES) || has(p, P.KICK_MEMBERS) || has(p, P.BAN_MEMBERS) || has(p, P.MODERATE_MEMBERS)],
-    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS)], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS)],
+    // Shown once the server supports expressions (it then sends `emojis`, even if empty).
+    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined],
     ["bans", "Bans", has(p, P.BAN_MEMBERS)], ["invites", "Invites", has(p, P.MANAGE_GUILD)], ["audit", "Audit log", has(p, P.VIEW_AUDIT_LOG)],
     ["profile", "My server profile", true], ["danger", owner ? "Transfer / delete" : "", owner],
   ];

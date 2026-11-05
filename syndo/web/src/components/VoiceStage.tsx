@@ -92,7 +92,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
             </div>
           )}
         </div>
-        {guild && <SoundboardButton channel={channel} guild={guild} />}
+        {guild && guild.sounds !== undefined && <SoundboardButton channel={channel} guild={guild} />}
         <button className="ctl danger" onClick={() => leaveVoice()} aria-label="Leave call"><PhoneOff /></button>
       </div>
     </div>

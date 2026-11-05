@@ -63,7 +63,7 @@ export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
     ...(textLike ? [{ label: "Mute channel", checked: muted, onSelect: () => setConversationMuted(c.id, !muted).catch((e) => toast(errMsg(e), "error")) } as MenuItem] : []),
     ...(can(c, P.MANAGE_CHANNELS) ? [sep,
       ...(c.type === ChannelType.CATEGORY ? [{ label: "Create channel", onSelect: () => openDialog({ kind: "createChannel", guildId: g.id, parentId: c.id }) } as MenuItem,
-        { label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem,
+        ...(c.banner !== undefined ? [{ label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem] : []),
         ...(c.banner ? [{ label: "Remove banner", onSelect: () => removeChannelBanner(c) } as MenuItem] : [])] : []),
       { label: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", onSelect: async () => {
         const name = await askText({ title: c.type === ChannelType.CATEGORY ? "Rename category" : "Rename channel", label: "Name", initial: c.name ?? "" });

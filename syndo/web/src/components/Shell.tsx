@@ -234,9 +234,11 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
     if (!(await askConfirm({ title: `Leave ${guild.name}?`, body: "You won't be able to rejoin unless you are re-invited.", confirmLabel: "Leave server", danger: true }))) return;
     try { await api.del(`/api/guilds/${guild.id}/members/@me`); navigate("/channels/@me"); } catch (e) { toast(errMsg(e), "error"); }
   };
+  // The tall banner header only when the image really loads — no empty gap for a missing/broken banner.
+  const bannerOk = useImageLoads(guild.banner);
   return (
     <>
-      <header className={`side-h guild-h ${guild.banner ? "has-banner" : ""}`} style={guild.banner ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 38%, transparent 62%, var(--r-sidebar-bg, var(--bg1)) 100%), url(${guild.banner})` } : undefined}>
+      <header className={`side-h guild-h ${bannerOk ? "has-banner" : ""}`} style={bannerOk ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 38%, transparent 62%, var(--r-sidebar-bg, var(--bg1)) 100%), url(${guild.banner})` } : undefined}>
         <button ref={menuBtn} className="guild-menu-btn" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((m) => !m)} onContextMenu={(e) => openContextMenu(e, guildMenuItems(guild))}>
           <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag">{guild.tag}</span>}<ChevronDown size={18} />
         </button>
@@ -324,6 +326,20 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
       )}
     </>
   );
+}
+
+function useImageLoads(url: string | null | undefined) {
+  const [ok, setOk] = useState<string | null>(null);
+  useEffect(() => {
+    if (!url) { setOk(null); return; }
+    let alive = true;
+    const img = new window.Image();
+    img.onload = () => { if (alive && img.naturalWidth > 1) setOk(url); };
+    img.onerror = () => { if (alive) setOk(null); };
+    img.src = url;
+    return () => { alive = false; };
+  }, [url]);
+  return !!url && ok === url;
 }
 
 /** The emoji of a soundboard sound someone just played, next to their name. */

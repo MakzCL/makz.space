@@ -58,7 +58,7 @@ let pendingDeepLink: string | null = null;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280, height: 820, minWidth: 420, minHeight: 520,
+    width: 1280, height: 820, minWidth: 940, minHeight: 560,
     frame: false,
     title: "SEND", icon: join(STATIC, "icon.png"), show: !config.startHidden,
     backgroundColor: config.material !== "none" && MATERIAL_OK ? "#00000000" : "#0E1220",
