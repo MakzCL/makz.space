@@ -65,8 +65,10 @@ export async function voiceRoutes(app: FastifyInstance) {
       const inside = voiceStates().filter((v) => v.channel_id === channel.id && v.user_id !== me).length;
       if (inside >= channel.user_limit) throw forbidden("This voice channel is full.");
     }
-    const member = channel.guild_id ? await q1<any>("select mute, deaf from members where guild_id = $1 and user_id = $2", [channel.guild_id, me]) : null;
-    const u = await q1<any>("select username, display_name from users where id = $1", [me]);
+    const [member, u] = await Promise.all([
+      channel.guild_id ? q1<any>("select mute, deaf from members where guild_id = $1 and user_id = $2", [channel.guild_id, me]) : null,
+      q1<any>("select username, display_name from users where id = $1", [me]),
+    ]);
     const speak = has(perms, P.SPEAK) && !member?.mute;
     const video = has(perms, P.VIDEO);
     if (sfuConfigured()) { const [p, ice] = await Promise.all([openSfu(me, req.session!.id, channel.id, u.display_name || u.username), iceServers()]); return { provider: "cloudflare", session: p.id, ice_servers: ice, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }

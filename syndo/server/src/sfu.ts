@@ -41,7 +41,16 @@ const sweep=setInterval(()=>{for(const p of sfuPeers.values())if(Date.now()-p.to
  */
 const STUN = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
 export const turnStatus = { configured: false, last: "never requested" };
+// Credentials are minted for 24 h; reuse them for 12 h so joining doesn't wait on a TURN round trip every time.
+let iceCache: { at: number; list: RTCIceServerLike[] } | null = null;
+const ICE_REUSE_MS = 12 * 3600_000;
 export async function iceServers(): Promise<RTCIceServerLike[]> {
+ if (iceCache && Date.now() - iceCache.at < ICE_REUSE_MS) return iceCache.list;
+ const list = await mintIceServers();
+ if (list !== STUN) iceCache = { at: Date.now(), list };
+ return list;
+}
+async function mintIceServers(): Promise<RTCIceServerLike[]> {
  turnStatus.configured = !!(config.sfu.turnKeyId && config.sfu.turnKeyToken);
  if (!config.sfu.turnKeyId || !config.sfu.turnKeyToken) { turnStatus.last = "not configured"; return STUN; }
  try {

@@ -13,7 +13,7 @@ export const livekit = () => LK;
 async function loadLiveKit() { LK ??= await import("livekit-client"); return LK; }
 import { api, errMsg } from "../api.ts";
 import { gwSend } from "../gateway.ts";
-import { toast } from "../store.ts";
+import { toast, useStore } from "../store.ts";
 import { DEFAULT_VOICE, loadVoiceSettings, saveVoiceSettings, streamBitrate, type VoiceSettings } from "./settings.ts";
 
 /**
@@ -69,6 +69,41 @@ export const currentCloudflare = () => cf;
 function reportState() {
   const s = get();
   gwSend("voice_state", s.channelId ? { channel_id: s.channelId, self_mute: s.muted || (s.settings.mode === "ptt" && !s.pttActive), self_deaf: s.deafened, self_video: s.camera, self_stream: s.sharing } : { channel_id: null });
+}
+
+/**
+ * Show (or clear) my own name under the voice channel immediately, instead of
+ * waiting for the server to echo VOICE_STATE_UPDATE back. The echo then simply
+ * overwrites this with the authoritative state.
+ */
+function showSelf(channelId: string | null) {
+  const st = useStore.getState();
+  const me = st.me;
+  if (!me) return;
+  const voice = { ...st.voice };
+  if (!channelId) {
+    if (!voice[me.id]) return;
+    delete voice[me.id];
+  } else {
+    const s = get();
+    const guildId = Object.values(st.guilds).find((g) => g.channels.some((c) => c.id === channelId))?.id ?? null;
+    const prev = voice[me.id];
+    voice[me.id] = {
+      ...(prev?.channel_id === channelId ? prev : {}),
+      user_id: me.id, channel_id: channelId, guild_id: guildId,
+      self_mute: s.muted || (s.settings.mode === "ptt" && !s.pttActive), self_deaf: s.deafened,
+      self_video: false, self_stream: false,
+      server_mute: prev?.channel_id === channelId ? prev.server_mute : false,
+      server_deaf: prev?.channel_id === channelId ? prev.server_deaf : false,
+    } as typeof voice[string];
+  }
+  useStore.setState({ voice });
+}
+
+/** Leave voice: clear my name tag locally and tell the server first, then tear media down. */
+function announceLeave() {
+  showSelf(null);
+  gwSend("voice_state", { channel_id: null });
 }
 
 function peerFrom(p: RemoteParticipant): Peer {
@@ -188,15 +223,21 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
 export async function joinVoice(channelId: string) {
   if (get().channelId === channelId && get().status !== "error") return;
   playCallSound("join");
-  await leaveVoice();
+  await leaveVoice({ switching: true });
   const my = ++joinToken;
   set({ channelId, status: "connecting", error: null, peers: {}, camera: false, sharing: false });
+  // Show me under the channel now and tell everyone else now — media connects in the background.
+  showSelf(channelId);
+  reportState();
+  // Ask for the microphone while the token request is in flight instead of after it.
+  const mic = prewarmMic();
   try {
     const t = await api.post<{ provider?: string; session?: string; ice_servers?: IceServer[]; url: string; token: string; grants: { speak: boolean; video: boolean; vad: boolean } }>("/api/voice/token", { channel_id: channelId });
-    if (my !== joinToken) return;
+    if (my !== joinToken) { mic.discard(); return; }
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
-    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session, t.ice_servers ?? []); cf=call; await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
+    if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session, t.ice_servers ?? []); cf=call; call.preMic = t.grants.speak ? mic.stream : (mic.discard(), null); await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
+    mic.discard(); // LiveKit opens its own track below
     await loadLiveKit();
     if (my !== joinToken) return;
     const r = new LK.Room({
@@ -219,7 +260,7 @@ export async function joinVoice(channelId: string) {
         if (room !== r) return;
         cleanup();
         set({ status: "idle", channelId: null });
-        reportState();
+        announceLeave();
         if (reason !== undefined && reason !== 1 /* CLIENT_INITIATED */) toast("You were disconnected from voice.", "info");
       });
     r.localParticipant.on(LK.ParticipantEvent.IsSpeakingChanged, (sp) => set({ localSpeaking: sp }));
@@ -232,12 +273,37 @@ export async function joinVoice(channelId: string) {
     applyOutput();
     reportState();
   } catch (e) {
+    mic.discard();
     if (my !== joinToken) return;
+    if (cf) { cf.close(); cf = null; }
     cleanup();
     set({ status: "error", error: errMsg(e) });
     toast(errMsg(e), "error");
-    reportState();
+    // We announced the join up front; take it back so nobody sees me in a channel I never reached.
+    announceLeave();
   }
+}
+
+/** Start getUserMedia early (same constraints the call uses). The call takes the stream if it wants it. */
+function prewarmMic() {
+  const s = get().settings;
+  let used = false;
+  const stream = navigator.mediaDevices?.getUserMedia
+    ? navigator.mediaDevices.getUserMedia({ audio: micConstraints(s), video: false })
+    : Promise.reject(new Error("Microphone not available"));
+  stream.catch(() => {}); // a refusal is reported when the call actually uses it
+  return {
+    get stream() { used = true; return stream; },
+    discard() { if (used) return; used = true; stream.then((m) => m.getTracks().forEach((tr) => tr.stop()), () => {}); },
+  };
+}
+
+export function micConstraints(s: VoiceSettings): MediaTrackConstraints {
+  return {
+    deviceId: s.inputDeviceId && s.inputDeviceId !== "default" ? { exact: s.inputDeviceId } : undefined,
+    echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl,
+    channelCount: s.stereo ? 2 : 1, sampleRate: 48000,
+  };
 }
 
 function cleanup() {
@@ -250,8 +316,12 @@ function cleanup() {
   set({ peers: {}, localCamera: null, localScreen: null, camera: false, sharing: false, focus: null });
 }
 
-export async function leaveVoice() {
+export async function leaveVoice(opts: { switching?: boolean } = {}) {
   joinToken++;
+  const had = get().channelId;
+  // The name tag disappears and the server hears about it before any media teardown.
+  // (When switching channels, the join that follows announces the new channel itself.)
+  if (had && !opts.switching) announceLeave();
   if (cf) { cf.close(); cf = null; }
   const r = room;
   if (r) {
@@ -260,13 +330,14 @@ export async function leaveVoice() {
     await r.disconnect(true).catch(() => {});
   }
   cleanup();
-  const had = get().channelId;
-  if (had) playCallSound("leave");
+  if (had && !opts.switching) playCallSound("leave");
   // Push-to-talk never stays "held" across calls, disconnects or session changes.
   if (pttTimer) { clearTimeout(pttTimer); pttTimer = null; }
   set({ channelId: null, status: "idle", error: null, pttActive: false });
-  if (had) reportState();
 }
+
+// Closing the tab / app: say goodbye right away so others don't see me linger until the socket times out.
+window.addEventListener("pagehide", () => { if (get().channelId) { gwSend("voice_state", { channel_id: null }); cf?.close(); } });
 
 /* -------------------------------------------------------- local toggles -- */
 export async function setMuted(muted: boolean) {

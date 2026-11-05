@@ -131,19 +131,26 @@ const voiceListeners: VoiceListener[] = [];
 export const onVoiceChange = (fn: VoiceListener) => { voiceListeners.push(fn); };
 
 export async function publishVoice(uid: string, prev: VoiceState | null, next: VoiceState | null) {
-  for (const fn of voiceListeners) await Promise.resolve(fn(uid, prev, next)).catch((e) => console.error("[voice listener]", e));
+  // Tell people first (this is what moves the name tag under the channel), then run the
+  // slower bookkeeping (call records, ringing) — it must never hold the update back.
   const chIds = new Set([prev?.channel_id, next?.channel_id].filter(Boolean) as string[]);
   const payload = next ?? { user_id: uid, channel_id: null, guild_id: prev?.guild_id ?? null };
-  for (const id of chIds) {
+  await Promise.all([...chIds].map(async (id) => {
     const { ch } = await voiceAudience(id);
     if (ch) await toChannel(ch, "VOICE_STATE_UPDATE", payload);
-  }
+  })).catch((e) => console.error("[voice publish]", e));
+  for (const fn of voiceListeners) await Promise.resolve(fn(uid, prev, next)).catch((e) => console.error("[voice listener]", e));
 }
 
 export async function setVoice(uid: string, sessionId: string, d: any): Promise<string | null> {
   const prev = voice.get(uid) ?? null;
   if (!d?.channel_id) {
-    if (prev) { voice.delete(uid); await removeFromRoom(prev.channel_id,uid); await publishVoice(uid, prev, null); }
+    if (prev) {
+      voice.delete(uid);
+      // Announce the leave immediately; closing the media session talks to the SFU and can take seconds.
+      await publishVoice(uid, prev, null);
+      removeFromRoom(prev.channel_id, uid).catch((e) => console.error("[voice leave]", e));
+    }
     return null;
   }
   const ch = await getChannel(String(d.channel_id));
