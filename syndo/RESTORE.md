@@ -19,6 +19,12 @@ Note: Git-triggered Pages builds can sit at "queued" indefinitely. Retrying the 
 1. **Backend**: Workers → `send-beta-api` → Deployments → deploy version `9d3cea92` at 100%, then call any `/api/…` route once (the container restarts on the old source within ~60 s).
 2. **Web**: Pages → `syndo-app` → Deployments → `de04c4d4` → *Rollback to this deployment*.
 
+### 2026-11-05 (later) — faster backend cold start
+
+Backend version `528ea7b3-a2ad-494f-851f-79c0639dc081`: the container extracts only `syndo/server` + `syndo/shared` and installs only their production packages (`npm ci -w @syndo/server -w @syndo/shared`). Restart measured at ~25 s (was ~60–70 s). `SOURCE_COMMIT` `fd1002b` (server code identical to `d42a8cc`).
+The live Worker still links Windows downloads to `SEND-Setup-0.4.0.exe`; the repo's `releases.ts` already says 0.4.1 — deploy it only after the 0.4.1 installer is in R2.
+Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100%.
+
 ## 2026-11-04 — before Discord-parity work
 
 | Layer | Restore point |

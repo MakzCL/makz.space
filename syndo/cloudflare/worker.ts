@@ -11,8 +11,10 @@ const fs = require('node:fs'), cp = require('node:child_process');
   if (!r.ok) throw new Error('Source download failed: ' + r.status);
   fs.writeFileSync('/tmp/source.tgz', Buffer.from(await r.arrayBuffer()));
   fs.mkdirSync('/app', {recursive:true});
-  cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app']);
-  cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund'], {cwd:'/app/syndo',stdio:'inherit'});
+  // Only what the API server needs: skips the web app, desktop, Android and the rest of the repo.
+  cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app','--wildcards','*/syndo/package.json','*/syndo/package-lock.json','*/syndo/tsconfig.base.json','*/syndo/server/*','*/syndo/shared/*']);
+  fs.rmSync('/tmp/source.tgz', {force:true});
+  cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','--prefer-offline','-w','@syndo/server','-w','@syndo/shared'], {cwd:'/app/syndo',stdio:'inherit'});
   const child = cp.spawn(process.execPath, ['--import','tsx','server/src/index.ts'], {cwd:'/app/syndo',stdio:'inherit'});
   process.on('SIGTERM', () => child.kill('SIGTERM'));
   child.on('exit', code => process.exit(code ?? 1));
