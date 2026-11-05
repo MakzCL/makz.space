@@ -1,3 +1,9 @@
+/**
+ * Direct messages are no longer end-to-end encrypted (no device keys, no recovery keys): they are
+ * sent over HTTPS and stored like server messages, so they work on every device. Messages from the
+ * earlier encrypted beta are decrypted here when this device still has its old key; otherwise they
+ * show as "Older encrypted message".
+ */
 import { api } from "../api.ts";
 import { channelById, useStore } from "../store.ts";
 import { PREFIX, newIdentity, identityFromSecret, seal, unseal, fingerprint, encryptFile, decryptFile, type Identity, type Envelope } from "./core.ts";
@@ -31,14 +37,16 @@ export async function encodeBody(channel:string, body:any, messageId?:string) {
   const files=(body.attachment_ids??existing?.attachments.map(a=>a.id)??[]).map((id:string)=>{const a=existing?.attachments.find(a=>a.id===id);const f=pendingFiles.get(id)??(a?.encryption?{name:a.filename,type:a.content_type,size:a.size,...a.encryption}:undefined);if(!f)throw Error("Encrypted attachment key is missing. Upload the file again.");return {...f,id};});
   const content=await seal(key,me,channel,keys.map(k=>({user:k.user_id,publicKey:k.public_key!})),{content:body.content??"",files});return {...body,content};
 }
-async function decodeContent(wire:string,channel:string,author:string) {const me=useStore.getState().me!.id,key=await ensureIdentity(),env:Envelope=JSON.parse(wire.slice(PREFIX.length));pin(author,env.senderKey);const payload=await unseal(key,me,channel,author,wire,env.senderKey);if(typeof payload?.content!=="string"||payload.content.length>4000||!Array.isArray(payload.files)||payload.files.length>10)throw Error("Invalid encrypted message payload.");return payload;}
+/** The key this device already has (from the old encrypted-DM beta), if any. Never creates one, never asks. */
+async function localIdentity():Promise<Identity|null>{const user=useStore.getState().me?.id;if(!user)return null;try{return (await vault(user))??null;}catch{return null;}}
+async function decodeContent(wire:string,channel:string,author:string) {const me=useStore.getState().me!.id,key=await localIdentity();if(!key)throw Error("no key");const env:Envelope=JSON.parse(wire.slice(PREFIX.length));pin(author,env.senderKey);const payload=await unseal(key,me,channel,author,wire,env.senderKey);if(typeof payload?.content!=="string"||payload.content.length>4000||!Array.isArray(payload.files)||payload.files.length>10)throw Error("Invalid encrypted message payload.");return payload;}
 export async function decodeWire<T>(data:T):Promise<T> {
   if(Array.isArray(data))return await Promise.all(data.map(x=>decodeWire(x))) as T;
   if(!data||typeof data!=="object")return data;
   const m=data as any;
   if(m.channel_id&&typeof m.content==="string"&&m.author){let out={...m};
-    if(m.content.startsWith(PREFIX)){try{const p=await decodeContent(m.content,m.channel_id,m.author.id);out.content=p.content;out._encrypted=true;out.attachments=(m.attachments??[]).filter((a:any)=>p.files.some((f:FileMeta)=>f.id===a.id)&&/^\/api\/attachments\/\d+\//.test(a.url)).map((a:any)=>{const f=p.files?.find((f:FileMeta)=>f.id===a.id);return f?{...a,filename:f.name,content_type:f.type,size:f.size,encryption:{key:f.key,nonce:f.nonce}}:a;});}catch(e){out.content="Encrypted message unavailable — "+(e instanceof Error?e.message:"check your recovery key");out._encryptionError=true;out.attachments=[];}}
-    if(m.reply_to?.content?.startsWith(PREFIX)){try{const p=await decodeContent(m.reply_to.content,m.channel_id,m.reply_to.author.id);out.reply_to={...m.reply_to,content:p.content};}catch{out.reply_to={...m.reply_to,content:"Encrypted message"};}}
+    if(m.content.startsWith(PREFIX)){try{const p=await decodeContent(m.content,m.channel_id,m.author.id);out.content=p.content;out._encrypted=true;out.attachments=(m.attachments??[]).filter((a:any)=>p.files.some((f:FileMeta)=>f.id===a.id)&&/^\/api\/attachments\/\d+\//.test(a.url)).map((a:any)=>{const f=p.files?.find((f:FileMeta)=>f.id===a.id);return f?{...a,filename:f.name,content_type:f.type,size:f.size,encryption:{key:f.key,nonce:f.nonce}}:a;});}catch{out.content="🔒 Older encrypted message";out._encryptionError=true;out.attachments=[];}}
+    if(m.reply_to?.content?.startsWith(PREFIX)){try{const p=await decodeContent(m.reply_to.content,m.channel_id,m.reply_to.author.id);out.reply_to={...m.reply_to,content:p.content};}catch{out.reply_to={...m.reply_to,content:"🔒 Older encrypted message"};}}
     return out;
   }
   const out:any={...m};for(const k of Object.keys(out))if(out[k]&&typeof out[k]==="object")out[k]=await decodeWire(out[k]);return out;

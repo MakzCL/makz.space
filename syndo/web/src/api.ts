@@ -6,8 +6,6 @@ export class ApiError extends Error {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   if (previewMode) return (await import("./preview.ts")).previewRequest<T>(method, path, body);
-  const encryptedMessage = path.match(/^\/api\/channels\/(\d+)\/messages(?:\/\d+)?$/);
-  if ((method === "POST" || method === "PATCH") && encryptedMessage && body && typeof body === "object" && "content" in body) body = await (await import("./crypto/dm.ts")).encodeBody(encryptedMessage[1]!, body, method === "PATCH" ? path.split("/").at(-1) : undefined);
   const headers: Record<string, string> = { "x-syndo-client": "1" };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
@@ -41,7 +39,6 @@ export function upload<T = any>(path: string, form: FormData, onProgress: (f: nu
   let cancelled = false;
   const promise = new Promise<T>(async (res, rej) => {
     let meta: any;
-    try { const match = path.match(/^\/api\/channels\/(\d+)\/attachments$/); if (match) { const prepared = await (await import("./crypto/dm.ts")).encryptedUpload(match[1]!, form); form = prepared.form; meta = prepared.meta; } } catch (e) { rej(e); return; }
     if (cancelled) { rej(new ApiError(0,"aborted","Upload cancelled.")); return; }
     xhr.open("POST", path);
     xhr.setRequestHeader("x-syndo-client", "1");

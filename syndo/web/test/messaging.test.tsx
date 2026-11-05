@@ -201,12 +201,13 @@ test("message notifications respect the synced conversation mute preference", as
 });
 
 
-test("private messages omit routine encryption badges and retain exceptional history warnings", async () => {
+test("private messages have no encryption badges or key prompts", async () => {
  seed(); const message = { id: "800", channel_id: "201", guild_id: null, author: bob, content: "Private audit message", type: 0, created_at: new Date().toISOString(), edited_at: null, attachments: [], mentions: [], mention_roles: [], reactions: [], _encrypted: true } as any;
  useStore.setState({ messages: { "201": { list: [message], loaded: true, loading: false, hasMore: false } } });
  const rendered = render(<ChannelView channelId="201" guildId={null} highlight={null} />);
  assert.equal(rendered.container.querySelectorAll("article .encryption-mark").length, 0);
  assert.equal(screen.queryByText("End-to-end encrypted messages"), null);
  act(() => useStore.setState({ messages: { "201": { list: [{ ...message, _encrypted: false }], loaded: true, loading: false, hasMore: false } } }));
- assert.equal(rendered.container.querySelector("article .encryption-mark")?.textContent, " · Older unencrypted message");
+ assert.equal(rendered.container.querySelectorAll("article .encryption-mark").length, 0, "plain DMs are not labelled");
+ assert.equal(screen.queryByText(/recovery key/i), null, "never asks for a recovery key");
 });

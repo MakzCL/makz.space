@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-05 — expressions live (emoji, soundboard, category banners) + plain DMs
+
+| Layer | Restore point (before) |
+|---|---|
+| Source | branch `backup/pre-expressions-plain-dms-20261105` |
+| Backend (Worker `send-beta-api`) | version `52515a3a-4d09-4040-8da1-22f202aff1b8`, `SOURCE_COMMIT` `e4c68d7` |
+| Web (Pages `syndo-app`) | deployment `157f2b15-eb4a-483b-b58d-c6bfcd31e48c` |
+| Database (Supabase `syndo-beta`) | migration `004_expressions.sql` applied (additive: tables `guild_emojis`, `guild_sounds`, column `channels.banner_key`). Older code ignores them, so a backend rollback needs no database change. To remove them: `drop table syndo.guild_emojis, syndo.guild_sounds; alter table syndo.channels drop column banner_key; delete from syndo.schema_migrations where name = '004_expressions.sql';` |
+
+DMs: the server no longer requires end-to-end encryption (`SYNDO_REQUIRE_DM_E2EE` = "0"); clients send DMs as normal messages. Older encrypted messages decrypt where a device still has its key, otherwise show "Older encrypted message". Re-enable the old mode by setting it back to "1" (and rolling back the web app).
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → `52515a3a` at 100%, then call any `/api/…` route.
+2. Web: Pages → `syndo-app` → Deployments → `157f2b15` → *Rollback to this deployment*.
+
 ## 2026-11-05 — desktop 0.4.3 (minimum window 940×560)
 
 | Layer | Restore point (before this release) |

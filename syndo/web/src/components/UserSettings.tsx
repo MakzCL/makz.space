@@ -5,7 +5,6 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { previewMode } from "../preview-mode.ts";
 import { Range } from "./Range.tsx";
 import { Select } from "./Select.tsx";
-import { DmKeySettings } from "./DmPrivacy.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -162,7 +161,7 @@ function Privacy() {
   const save = (p: Partial<typeof me.privacy>) => run(() => api.patch("/api/users/@me", { privacy: p }));
   return (
     <div className="stack">
-      <h2>Privacy & safety</h2><DmKeySettings />
+      <h2>Privacy & safety</h2>
       <Field label="Who can send you friend requests"><Select value={me.privacy.friend_requests} onChange={(e) => save({ friend_requests: e.target.value as any })}>
         <option value="everyone">Everyone</option><option value="server_members">People in my servers and friends of friends</option><option value="friends_of_friends">Friends of friends</option><option value="nobody">Nobody</option></Select></Field>
       <Toggle label="Allow direct messages from server members" hint="Friends can always message you. Blocked people never can." checked={me.privacy.dms_from_server_members} onChange={(v) => save({ dms_from_server_members: v })} />

@@ -23,7 +23,8 @@ export const config = {
   sessionDays: int(env.SYNDO_SESSION_DAYS, 30),
   /** Require a verified email before sending messages / joining servers. */
   requireVerifiedEmail: false,
-  requireDmE2ee: env.SYNDO_REQUIRE_DM_E2EE === "1" || env.NODE_ENV === "production",
+  /** Off by default: DMs are stored like server messages (no device keys). "1" re-enables the old encrypted-only mode. */
+  requireDmE2ee: env.SYNDO_REQUIRE_DM_E2EE === "1",
   /** Expose GET /api/dev/mail (the outbox) — only for local development and tests. */
   devMail: env.SYNDO_DEV_MAIL === "1",
   smtp: env.SMTP_URL ?? null,

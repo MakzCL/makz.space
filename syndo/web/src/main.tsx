@@ -47,7 +47,6 @@ function App() {
     return () => window.removeEventListener("syndo:studio", open);
   }, []);
   useEffect(() => { (window as any).__syndoLimits = limits; }, [limits]);
-  useEffect(() => { if (conn === "ready" && !previewMode) import("./crypto/dm.ts").then(m => m.ensureIdentity()).catch(() => {}); }, [conn]);
   useEffect(() => {
     // Ctrl/⌘+K and Ctrl/⌘+/ come from the shortcut registry (configurable in Settings → Keybinds).
     const qs = () => { if (conn === "ready") setSwitcher((v) => !v); }, help = () => { if (conn === "ready") setHelp((v) => !v); };

@@ -1,7 +1,6 @@
 import { createPortal } from "react-dom";
 import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
-import { DmPrivacyBar } from "./DmPrivacy.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
   AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Phone, Pin, PinOff,
@@ -126,7 +125,6 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       <div className="ch-body">
         <div className="ch-main" data-region="chat">
           {bg && target === "chat" && <Backdrop bg={bg} className="chat-bd" />}
-          {!channel.guild_id && <DmPrivacyBar channel={channel.id}/>}
         <MessageList channel={channel} data={data} highlight={highlight} onReply={setReply} mdCtx={mdCtx} />
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
@@ -284,7 +282,6 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
-              {!m.guild_id && m.type === 0 && !m._encrypted && !m._state && <small className="muted encryption-mark">{m._encryptionError ? " · Locked" : " · Older unencrypted message"}</small>}
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
