@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-05 — desktop 0.4.3 (minimum window 940×560)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.4.2.yml` (backup of the feed that pointed at `SEND-Setup-0.4.2.exe`; the 0.4.2 installer is still in the bucket) |
+| Backend (Worker `send-beta-api`) | version `b672b19c-6a0d-4c35-9d70-eafdc2fd3f07`, `SOURCE_COMMIT` `e4c68d7` (unchanged by this release) |
+| Web (Pages `syndo-app`) | deployment `157f2b15-eb4a-483b-b58d-c6bfcd31e48c` (unchanged by this release) |
+| Source | branch `claude/charming-meitner-a8exoe` at `645e42c`; database unchanged |
+
+Released: feed `latest.yml` → `SEND-Setup-0.4.3.exe` (CI run 42105536340, sha512 checked on the public copy); Worker version `52515a3a-4d09-4040-8da1-22f202aff1b8` sends `/api/downloads/windows` to 0.4.3 (same code otherwise, no container restart). Uploaded with a one-hour R2 token limited to this bucket, deleted right after.
+
+### Roll back
+1. Feed: copy `latest-0.4.2.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.4.3 stay on it.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `b672b19c` at 100%.
+
 ## 2026-11-05 — desktop 0.4.2 (SEND updater window, one-click installer)
 
 Feed `latest.yml` → `SEND-Setup-0.4.2.exe` (CI run 42069023171, commit `a800c30`, sha512 checked on the public copy). Previous feed saved as `latest-0.4.1.yml`. Worker version `f731760b-d71b-4f79-aecf-4a02a204c016` links `/api/downloads/windows` to 0.4.2.
