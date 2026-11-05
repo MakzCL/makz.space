@@ -3,21 +3,55 @@ import { timingSafeEqual } from "node:crypto";
 import { androidDownload, releaseDownload, releaseUpload } from "./releases";
 const TIMEOUT = 3600000;
 const bootstrap = `
-const fs = require('node:fs'), cp = require('node:child_process');
+const fs = require('node:fs'), cp = require('node:child_process'), { promisify } = require('node:util');
+const run = promisify(cp.execFile);
 (async () => {
   const sha = process.env.SYNDO_SOURCE_COMMIT;
   if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid source commit');
-  const r = await fetch('https://codeload.github.com/MakzCL/makz.space/tar.gz/' + sha);
-  if (!r.ok) throw new Error('Source download failed: ' + r.status);
-  fs.writeFileSync('/tmp/source.tgz', Buffer.from(await r.arrayBuffer()));
   fs.mkdirSync('/app', {recursive:true});
-  // Only what the API server needs: skips the web app, desktop, Android and the rest of the repo.
-  cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app','--wildcards','*/syndo/package.json','*/syndo/package-lock.json','*/syndo/tsconfig.base.json','*/syndo/server/*','*/syndo/shared/*']);
-  fs.rmSync('/tmp/source.tgz', {force:true});
-  cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','--prefer-offline','-w','@syndo/server','-w','@syndo/shared'], {cwd:'/app/syndo',stdio:'inherit'});
+  // Runtime cache: the unpacked server + its installed packages for this commit, kept in the
+  // private uploads bucket. A cold start then skips the GitHub download and npm install.
+  const origin = (process.env.SYNDO_STORAGE_ORIGIN || '').replace(/\\/$/, '');
+  const auth = { authorization: 'Bearer ' + (process.env.SYNDO_STORAGE_TOKEN || '') };
+  const cacheUrl = origin && process.env.SYNDO_STORAGE_TOKEN ? origin + '/__storage/_runtime/' + sha + '.tgz' : null;
+  const t0 = Date.now();
+  let cached = false;
+  if (cacheUrl) {
+    try {
+      const c = await fetch(cacheUrl, { headers: auth, signal: AbortSignal.timeout(30000) });
+      if (c.ok) {
+        fs.writeFileSync('/tmp/runtime.tgz', Buffer.from(await c.arrayBuffer()));
+        cp.execFileSync('tar', ['xzf','/tmp/runtime.tgz','-C','/app']);
+        fs.rmSync('/tmp/runtime.tgz', {force:true});
+        cached = fs.existsSync('/app/syndo/node_modules/tsx/package.json') && fs.existsSync('/app/syndo/server/src/index.ts');
+        if (!cached) fs.rmSync('/app/syndo', {recursive:true, force:true});
+      } else await c.body?.cancel();
+    } catch (e) { console.error('[boot] runtime cache unavailable:', e.message); }
+  }
+  if (!cached) {
+    const r = await fetch('https://codeload.github.com/MakzCL/makz.space/tar.gz/' + sha);
+    if (!r.ok) throw new Error('Source download failed: ' + r.status);
+    fs.writeFileSync('/tmp/source.tgz', Buffer.from(await r.arrayBuffer()));
+    // Only what the API server needs: skips the web app, desktop, Android and the rest of the repo.
+    cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app','--wildcards','*/syndo/package.json','*/syndo/package-lock.json','*/syndo/tsconfig.base.json','*/syndo/server/*','*/syndo/shared/*']);
+    fs.rmSync('/tmp/source.tgz', {force:true});
+    cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','-w','@syndo/server','-w','@syndo/shared'], {cwd:'/app/syndo',stdio:'inherit'});
+  }
+  console.log('[boot] ' + (cached ? 'runtime cache hit' : 'fresh install') + ' in ' + (Date.now() - t0) + ' ms');
   const child = cp.spawn(process.execPath, ['--import','tsx','server/src/index.ts'], {cwd:'/app/syndo',stdio:'inherit'});
   process.on('SIGTERM', () => child.kill('SIGTERM'));
   child.on('exit', code => process.exit(code ?? 1));
+  // After a fresh install, save the result for the next cold start (once the server is up and idle-ish).
+  if (!cached && cacheUrl) setTimeout(async () => {
+    try {
+      await run('tar', ['czf','/tmp/runtime.tgz','-C','/app','--exclude=syndo/server/uploads','syndo']);
+      const buf = fs.readFileSync('/tmp/runtime.tgz');
+      fs.rmSync('/tmp/runtime.tgz', {force:true});
+      if (buf.length > 24 * 1024 * 1024) return console.error('[boot] runtime too large to cache:', buf.length);
+      const u = await fetch(cacheUrl, { method: 'PUT', headers: auth, body: buf });
+      console.log('[boot] runtime cached:', u.status, buf.length);
+    } catch (e) { console.error('[boot] runtime cache upload failed:', e.message); }
+  }, Number(process.env.SYNDO_RUNTIME_CACHE_DELAY_MS || 60000));
 })().catch(e => {console.error(e.message);process.exit(1)});
 `;
 export class SENDBackend extends DurableObject<Env> {
