@@ -5,7 +5,7 @@
 | Part | Hosted on | How users get updates |
 |---|---|---|
 | Web app (the interface) | Cloudflare Pages, project `syndo-app` | Every deploy is live immediately — in browsers **and** in the desktop app, because the desktop window loads the hosted web app |
-| Desktop shell (`Syndo-Setup-x.y.z.exe`) | Cloudflare R2 bucket (public) | The app checks the feed at start-up and every 4 hours, downloads in the background, then offers **Restart to update** (Settings → Desktop app, or the tray menu). Updates also install on quit |
+| Desktop shell (`Syndo-Setup-x.y.z.exe`) | Cloudflare R2 bucket (public) | The app checks the feed at start-up and every 4 hours. Nothing downloads or installs on its own (0.4.1+): a green download icon appears in the title bar, and pressing it (or *Download and install* in Settings → Desktop app / the tray menu) downloads the update and restarts into it |
 | API server + LiveKit | Your VM (see DEPLOYMENT.md) | `docker compose up -d --build` |
 
 ## Current setup (done)
