@@ -1263,13 +1263,16 @@ video.viewer-media { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .sb-activity { animation: none; } }
 
 /* ---- Category banners: a channel-row-sized strip; the category name (if any) sits on the art ---- */
-.cat-btn.cat-banner { position: relative; display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; height: 34px; margin: 0; padding: 0 10px; box-sizing: border-box; border-radius: 8px; background-size: cover; background-position: center; border: 0; cursor: pointer; overflow: hidden; color: #fff; font-size: .75rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; text-shadow: 0 1px 3px #000c; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
+.cat-btn.cat-banner { position: relative; display: flex; align-items: center; gap: 4px; flex: 1; width: 100%; min-width: 0; height: 28px; margin: 0; padding: 0 32px 0 8px; box-sizing: border-box; border-radius: var(--r-sm); background-size: cover; background-position: center; border: 0; cursor: pointer; overflow: hidden; color: #fff; font-size: .75rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; text-shadow: 0 1px 3px #000c; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
 .cat-btn.cat-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.15) 60%, transparent); pointer-events: none; }
 .cat-btn.cat-banner > * { position: relative; }
 .cat-btn.cat-banner svg { flex: none; filter: drop-shadow(0 1px 2px #000a); }
 .cat-btn.cat-banner.collapsed { filter: saturate(.75) brightness(.85); }
 .cat-btn.cat-banner:hover { box-shadow: inset 0 0 0 2px var(--accent); }
-.side-sec:has(.cat-banner) { margin-top: 8px; }
+/* Same width as a channel row; the "+" sits on the right end of the banner. */
+.side-sec:has(.cat-banner) { position: relative; padding: 12px 0 2px; }
+.side-sec:has(.cat-banner) > .icon-btn { position: absolute; right: 4px; top: calc(12px + 14px); transform: translateY(-50%); z-index: 1; color: #fff; filter: drop-shadow(0 1px 2px #000c); width: 24px; height: 24px; }
+.side-sec:has(.cat-banner) > .icon-btn:hover { background: #0006; color: #fff; }
 .picker-scroll .picker-grid { max-height: none; overflow: visible; }
 
 /* Offline / invisible: a solid grey dot (not a dark hollow one). */

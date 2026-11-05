@@ -1,5 +1,10 @@
 # SEND restore points
 
+## 2026-11-05 — category banner sizing (web only)
+
+Web-only (CSS): category banners match the channel-row width, 28 px tall, "+" over the banner. Backend and database unchanged.
+Roll back: Pages → `syndo-app` → Deployments → `47490bc7-8001-4bdb-bb96-bc9df518bc69` → *Rollback to this deployment*.
+
 ## 2026-11-05 — stickers, NEW messages line, category banner sizes
 
 | Layer | Restore point (before) |
