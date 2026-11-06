@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-06 — desktop 0.5.0 (lightweight Tauri shell replaces Electron)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.4.4.yml` (backup of the feed that pointed at the Electron `SEND-Setup-0.4.4.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `88f5c036-89e2-4c32-b701-21ebe85c7282`, `SOURCE_COMMIT` `77745ff` |
+| Web (Pages `syndo-app`) | deployment `11a8467b-a7e6-4892-8ba0-293960b631e0` (unchanged by this release) |
+| Source | branch `backup/pre-desktop-050-20261106` (at `a4c6acb`); database unchanged |
+
+0.5.0 is the Tauri build from `syndo/desktop-tauri` (CI run 42292101169, 1.7 MB). Electron 0.4.x apps update to it from the same feed; its installer removes the Electron copy (user data kept) and starts SEND again. Users sign in once more.
+
+### Roll back
+1. Feed: copy `latest-0.4.4.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.5.0 stay on it; to move them back, they reinstall from `SEND-Setup-0.4.4.exe` (a future Electron build would need a version above 0.5.0 to be offered).
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `88f5c036` at 100%.
+
 ## 2026-11-06 — desktop 0.4.4 (call names, screen-share audio, direct calls)
 
 | Layer | Restore point (before this release) |
