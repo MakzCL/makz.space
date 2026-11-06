@@ -11,6 +11,7 @@ process.env.SYNDO_AUTH_RATE_LIMIT = "10000";
 process.env.SYNDO_RATE_LIMIT = "100000";
 process.env.SYNDO_STORAGE_DIR = new URL("../../data/test-storage", import.meta.url).pathname;
 process.env.SYNDO_JOBS = "0";
+process.env.SYNDO_VOICE_MODE = "sfu"; // most tests exercise the token/SFU path; the mesh test switches it
 process.env.LIVEKIT_URL = "ws://127.0.0.1:1"; // unreachable on purpose: tokens are minted, enforcement calls fail softly
 process.env.LIVEKIT_API_KEY = "testkey";
 process.env.LIVEKIT_API_SECRET = "testsecret-testsecret-testsecret-0123";

@@ -111,6 +111,28 @@ describe("Server expressions: emoji, soundboard, category banners", () => {
     assert.deepEqual(after.find((m: any) => m.id === msg.body.id).stickers, [], "deleted sticker disappears from messages");
   });
 
+  it("direct (mesh) calls: token gives ICE servers; signals reach only people in the same voice channel", async () => {
+    const { config } = await import("../src/config.ts");
+    const prev = config.voiceMode; config.voiceMode = "mesh";
+    try {
+      const t = await owner.post("/api/voice/token", { channel_id: voice.id });
+      assert.equal(t.status, 200, JSON.stringify(t.body)); assert.equal(t.body.provider, "mesh"); assert.ok(Array.isArray(t.body.ice_servers));
+      const og = await owner.connect(), mg = await member.connect();
+      og.send("voice_state", { channel_id: voice.id }); mg.send("voice_state", { channel_id: voice.id });
+      await og.next("VOICE_STATE_UPDATE", (d) => d.user_id === member.user.id && d.channel_id === voice.id);
+      const got = mg.next("CALL_SIGNAL", (d) => d.type === "offer");
+      og.send("call_signal", { to: member.user.id, type: "offer", data: { type: "offer", sdp: "v=0" } });
+      const sig = await got;
+      assert.equal(sig.from, owner.user.id); assert.equal(sig.channel_id, voice.id); assert.equal(sig.data.sdp, "v=0");
+      mg.send("voice_state", { channel_id: null });
+      await og.next("VOICE_STATE_UPDATE", (d) => d.user_id === member.user.id && d.channel_id === null);
+      og.send("call_signal", { to: member.user.id, type: "offer", data: { sdp: "nope" } });
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(mg.has("CALL_SIGNAL", (d) => d.data?.sdp === "nope"), false, "not relayed once they left the channel");
+      og.send("voice_state", { channel_id: null });
+    } finally { config.voiceMode = prev; }
+  });
+
   it("sets and removes a category banner", async () => {
     const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Gaming", type: 4 })).body;
     assert.equal((await member.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"))).status, 403);

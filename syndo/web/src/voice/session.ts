@@ -1,5 +1,6 @@
 import { playCallSound } from "./sounds.ts";
 import { CloudflareCall, primeCallAudio, type IceServer } from "./cloudflare.ts";
+import { MeshCall } from "./mesh.ts";
 import { create } from "zustand";
 import type {
   LocalAudioTrack, LocalVideoTrack, Room, LocalTrackPublication, RemoteParticipant, RemoteTrack,
@@ -57,7 +58,7 @@ export const useVoice = create<VS>(() => ({
 const set = useVoice.setState;
 const get = useVoice.getState;
 
-let cf: CloudflareCall | null = null;
+let cf: CloudflareCall | MeshCall | null = null;
 let room: Room | null = null;
 let micTrack: LocalAudioTrack | null = null;
 let gainCtx: { ctx: AudioContext; gain: GainNode; dest: MediaStreamAudioDestinationNode; raw: MediaStreamTrack } | null = null;
@@ -238,6 +239,7 @@ export async function joinVoice(channelId: string) {
     if (my !== joinToken) { mic.discard(); return; }
     set({ grants: t.grants });
     if (!t.grants.vad && get().settings.mode === "vad") set({ settings: { ...get().settings, mode: "ptt" } });
+    if (t.provider === "mesh") { const call = new MeshCall(channelId, t.ice_servers ?? []); cf = call; call.preMic = t.grants.speak ? mic.stream : (mic.discard(), null); await call.start(); if (my !== joinToken) { call.close(); return; } reportState(); return; }
     if (t.provider === "cloudflare" && t.session) { const call = new CloudflareCall(t.session, t.ice_servers ?? []); cf=call; call.preMic = t.grants.speak ? mic.stream : (mic.discard(), null); await call.start(); if(my!==joinToken){call.close();return;} reportState(); return; }
     mic.discard(); // LiveKit opens its own track below
     await loadLiveKit();

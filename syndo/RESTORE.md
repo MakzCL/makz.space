@@ -1,5 +1,17 @@
 # SEND restore points
 
+## 2026-11-06 — direct (peer-to-peer) calls, like SK Factory
+
+| Layer | Restore point (before) |
+|---|---|
+| Source | branch `backup/pre-direct-calls-20261106` |
+| Backend (Worker `send-beta-api`) | version `e16f5e16-d581-4de0-a473-1e9d79b50c22`, `SOURCE_COMMIT` `5b5fad5` |
+| Web (Pages `syndo-app`) | deployment `ee3160bb-a035-4c40-8263-5ee30587b3ce` |
+| Database | unchanged |
+
+Calls now connect people directly (WebRTC mesh, signalled over the gateway `call_signal` op, Cloudflare TURN relay when needed). The Cloudflare SFU path is still there: setting `SYNDO_VOICE_MODE=sfu` on the backend switches back without a web change.
+Roll back: backend → deploy `e16f5e16` at 100% (then call any `/api/…` route); web → rollback to `ee3160bb`.
+
 ## 2026-11-06 — call audio fix, DM call view, phone call cards, themed message box (web only)
 
 Website only (no backend or database change). Source backup: branch `backup/pre-call-audio-20261106`.

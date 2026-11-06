@@ -60,7 +60,7 @@ export async function voiceRoutes(app: FastifyInstance) {
     const me = uid(req);
     const { channel, perms } = await requireChannel(me, channel_id, P.CONNECT);
     if (!isVoiceType(channel.type) && !isDmType(channel.type)) throw bad("That isn't a voice channel.");
-    if (!sfuConfigured() && !mediaConfigured() && !config.livekit.apiKey) throw new ApiError(503, "media_unavailable", "Voice and video aren't set up on this server yet. The operator needs to configure LiveKit (see DEPLOYMENT.md).");
+    if (config.voiceMode !== "mesh" && !sfuConfigured() && !mediaConfigured() && !config.livekit.apiKey) throw new ApiError(503, "media_unavailable", "Voice and video aren't set up on this server yet. The operator needs to configure LiveKit (see DEPLOYMENT.md).");
     if (channel.user_limit > 0 && !has(perms, P.MOVE_MEMBERS)) {
       const inside = voiceStates().filter((v) => v.channel_id === channel.id && v.user_id !== me).length;
       if (inside >= channel.user_limit) throw forbidden("This voice channel is full.");
@@ -71,6 +71,7 @@ export async function voiceRoutes(app: FastifyInstance) {
     ]);
     const speak = has(perms, P.SPEAK) && !member?.mute;
     const video = has(perms, P.VIDEO);
+    if (config.voiceMode === "mesh") return { provider: "mesh", ice_servers: await iceServers(), grants: { speak, video, vad: has(perms, P.USE_VAD) } };
     if (sfuConfigured()) { const [p, ice] = await Promise.all([openSfu(me, req.session!.id, channel.id, u.display_name || u.username), iceServers()]); return { provider: "cloudflare", session: p.id, ice_servers: ice, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }
     const token = await mintToken({ userId: me, name: u.display_name || u.username, channelId: channel.id, speak, video });
     return {

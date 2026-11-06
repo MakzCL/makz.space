@@ -235,6 +235,17 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
         await q("update users set status = $2 where id = $1", [conn.userId, msg.d.status]);
         return await setStatus(conn.userId, msg.d.status);
       }
+      if (msg.op === "call_signal") {
+        // Peer-to-peer call setup (offer/answer/ICE/state). Only between two people in the same voice channel.
+        const d = msg.d ?? {};
+        if (typeof d.to !== "string" || typeof d.type !== "string" || !/^(offer|answer|ice|state|knock|bye)$/.test(d.type)) return;
+        const mine = voice.get(conn.userId), theirs = voice.get(d.to);
+        if (!mine || !theirs || mine.channel_id !== theirs.channel_id || mine.session_id !== conn.sessionId) return;
+        const payload = JSON.stringify(d.data ?? null);
+        if (payload.length > 60_000) return;
+        toUser(d.to, "CALL_SIGNAL", { from: conn.userId, channel_id: mine.channel_id, type: d.type, data: d.data ?? null });
+        return;
+      }
       if (msg.op === "voice_state") {
         const err = await setVoice(conn.userId, conn.sessionId, msg.d);
         if (err) ws.send(JSON.stringify({ op: "error", d: { op: "voice_state", message: err } }));

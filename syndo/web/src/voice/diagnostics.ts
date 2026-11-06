@@ -1,3 +1,4 @@
+import type { CloudflareCall } from "./cloudflare.ts";
 import { currentCloudflare, currentRoom, livekit, useVoice } from "./session.ts";
 
 /**
@@ -26,7 +27,8 @@ function codecOf(report: RTCStatsReport, codecId: string | undefined) {
 }
 
 export async function collect(): Promise<Diagnostics | null> {
-  const call = currentCloudflare();
+  const any = currentCloudflare();
+  const call = any && "producer" in any ? (any as CloudflareCall) : null; // direct (mesh) calls have no SFU stats
   if (call) return collectCloudflare(call);
   const room = currentRoom();
   if (!room) return null;
@@ -98,7 +100,7 @@ export function opusFmtp(fmtp: string) {
 }
 
 /** Cloudflare calls expose the same measured stats as the LiveKit transport. */
-async function collectCloudflare(call:NonNullable<ReturnType<typeof currentCloudflare>>):Promise<Diagnostics>{
+async function collectCloudflare(call:CloudflareCall):Promise<Diagnostics>{
  const now=performance.now(),settings=useVoice.getState().settings;
  const out:Diagnostics={at:Date.now(),audio:null,screen:null,camera:null,inbound:[],candidate:null};
  for(const [kind,sender]of call.senders){

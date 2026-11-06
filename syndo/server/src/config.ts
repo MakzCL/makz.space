@@ -29,6 +29,9 @@ export const config = {
   devMail: env.SYNDO_DEV_MAIL === "1",
   smtp: env.SMTP_URL ?? null,
   mailFrom: env.SYNDO_MAIL_FROM ?? "SEND <no-reply@syndo.local>",
+  /** "mesh" (default): calls connect people directly (peer-to-peer WebRTC, signalled over the gateway, TURN relay
+   *  when needed) — good for small calls. "sfu": route media through Cloudflare Realtime / LiveKit. */
+  voiceMode: (env.SYNDO_VOICE_MODE === "sfu" ? "sfu" : "mesh") as "mesh" | "sfu",
   sfu: { appId: env.SYNDO_SFU_APP_ID ?? null, secret: env.SYNDO_SFU_SECRET ?? null, turnKeyId: env.SYNDO_TURN_KEY_ID ?? null, turnKeyToken: env.SYNDO_TURN_KEY_TOKEN ?? null },
   livekit: {
     url: env.LIVEKIT_URL ?? null, // wss://media.example.com
@@ -52,7 +55,7 @@ export const config = {
   } satisfies InstanceLimits as InstanceLimits,
   maxAvatarBytes: int(env.SYNDO_MAX_AVATAR_MB, 10) * 1024 * 1024,
 };
-config.limits.media_enabled = !!(config.sfu.appId && config.sfu.secret) || !!(config.livekit.url && config.livekit.apiKey && config.livekit.apiSecret);
+config.limits.media_enabled = config.voiceMode === "mesh" || !!(config.sfu.appId && config.sfu.secret) || !!(config.livekit.url && config.livekit.apiKey && config.livekit.apiSecret);
 config.limits.gif_provider = config.gifProvider;
 
 export const allowedOrigins = () => new Set([config.publicUrl, ...config.extraOrigins]);
