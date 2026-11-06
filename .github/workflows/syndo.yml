@@ -1,11 +1,10 @@
-name: Syndo — test, web app, Windows desktop app
+name: Syndo — test, web app, Windows desktop app (Tauri)
 
 on:
   push:
     # Branch pushes need an explicit branches filter: with only `tags`, GitHub ignores branch pushes.
     branches: ["**"]
     paths: ["syndo/**", ".github/workflows/syndo.yml"]
-    tags: ["syndo-desktop-v*"]
   workflow_dispatch:
 
 concurrency:
@@ -63,56 +62,6 @@ jobs:
       - name: Explain missing secrets
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::Web build OK. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to deploy to Cloudflare Pages."
-
-  desktop:
-    # Builds Syndo-Setup-<version>.exe on Windows. On a tag (syndo-desktop-vX.Y.Z) it also
-    # publishes the installer + latest.yml to the Cloudflare R2 update bucket.
-    runs-on: windows-latest
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # Public values; repository variables override them.
-      SYNDO_UPDATE_URL: ${{ vars.SYNDO_UPDATE_URL || 'https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev' }}
-      SYNDO_APP_URL: ${{ vars.SYNDO_APP_URL || 'https://syndo.makz.space' }}
-      SYNDO_R2_BUCKET: ${{ vars.SYNDO_R2_BUCKET || 'syndo-desktop' }}
-      CSC_LINK: ${{ secrets.SYNDO_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.SYNDO_CSC_KEY_PASSWORD }}
-    defaults: { run: { working-directory: syndo/desktop, shell: bash } }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/desktop/package-lock.json }
-      - run: npm ci
-      - name: Version from tag
-        if: startsWith(github.ref, 'refs/tags/syndo-desktop-v')
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#syndo-desktop-v}"
-      - name: Bake the default server address
-        if: env.SYNDO_APP_URL != ''
-        run: npm pkg set syndo.appUrl="$SYNDO_APP_URL"
-      - run: npm run build
-      - name: Package Windows installer
-        run: |
-          EXTRA=""
-          if [ -n "$SYNDO_UPDATE_URL" ]; then EXTRA="--config.publish.provider=generic --config.publish.url=$SYNDO_UPDATE_URL"; fi
-          if [ -z "$CSC_LINK" ]; then unset CSC_LINK CSC_KEY_PASSWORD; fi
-          npx electron-builder --win nsis --publish never $EXTRA
-      - name: List output
-        run: ls -la release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: syndo-windows
-          path: |
-            syndo/desktop/release/*.exe
-            syndo/desktop/release/*.blockmap
-            syndo/desktop/release/latest.yml
-          if-no-files-found: error
-      - name: Publish update to Cloudflare R2
-        if: startsWith(github.ref, 'refs/tags/syndo-desktop-v') && env.CLOUDFLARE_API_TOKEN != '' && env.SYNDO_R2_BUCKET != '' && env.SYNDO_UPDATE_URL != ''
-        run: |
-          cd release
-          # Installer and blockmap first, latest.yml last, so clients never see a feed pointing at a missing file.
-          for f in *.exe *.blockmap; do npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/$f" --file "$f" --remote; done
-          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/latest.yml" --file latest.yml --content-type "text/yaml" --cache-control "no-cache" --remote
 
   desktop-lite:
     # SEND for Windows, lightweight edition: a small Rust shell (Tauri) on the system WebView2

@@ -1,8 +1,8 @@
 # SEND for Windows — lightweight shell (Tauri)
 
-Replaces the Electron shell in `../desktop`. Same features, much smaller:
+Replaced the Electron shell (removed in 0.5.0; source on branch `backup/pre-desktop-050-20261106`). Same features, much smaller:
 
-| | Electron (`desktop/`) | Tauri (`desktop-tauri/`) |
+| | Electron (0.4.x) | Tauri (0.5.0+) |
 |---|---|---|
 | Browser engine | bundled Chromium (~120 MB installer) | Windows' own WebView2 (shared with Edge, kept up to date by Windows) |
 | Background process | Node.js main process + Chromium helpers | one small Rust process + WebView2's processes |

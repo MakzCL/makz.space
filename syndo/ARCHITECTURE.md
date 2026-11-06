@@ -104,7 +104,7 @@ Origin check + SameSite=Lax httpOnly cookies against CSRF; per-route and global 
 ## Distribution
 
 - Web app: static build on Cloudflare Pages with Pages Functions proxying `/api/*` and `/gateway` to the API origin (`web/functions`, `web/edge/proxy.ts`).
-- Desktop: `desktop/` Electron shell loading the hosted web app, electron-updater feed on Cloudflare R2. CI: `.github/workflows/syndo.yml`. Details: DESKTOP.md.
+- Desktop: `desktop-tauri/` lightweight Tauri (Rust + system WebView2) shell loading the hosted web app, manual updates from the `latest.yml` feed on Cloudflare R2. CI: `.github/workflows/syndo.yml` (`desktop-lite` job). Details: DESKTOP.md.
 
 ## Code map
 
@@ -119,7 +119,7 @@ syndo/
                 components/ Shell, ChannelView, Friends, Dialogs, UserSettings, ServerSettings, VoiceStage, …
                 voice/ session.ts, settings.ts, diagnostics.ts
   web/src/appearance/  engine, store, Studio, backgrounds, effects, profile editor, recovery
-  desktop/      Electron shell (main, preload, local picker/connect pages)
+  desktop-tauri/ Tauri shell (Rust: window, tray, push-to-talk, updater; init.js bridge; local connect/updater pages)
   e2e/          browser tests (smoke.cjs, appearance.cjs)
   deploy/       docker-compose, Caddyfile, livekit.yaml
 ```

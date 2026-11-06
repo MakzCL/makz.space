@@ -90,7 +90,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 |---|---|---|---|---|---|
 | VOICE-01 | 1:1, group DM, server voice | Unverified | `voice/session.ts`; S/core "mints tokens whose grants match SPEAK/VIDEO…" | Two-device call test on deployed stack | Two users on different networks hear each other |
 | VOICE-02 | Ring, accept, decline, cancel, missed, history | Unverified | `routes/voice.ts` call records (ongoing/ended/missed) | Automated ring/decline test; incoming-call sound | Unanswered ring → "Missed call" in DM |
-| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT in the browser while focused; global PTT in the desktop app (keyboard keys, mouse 4/5, uiohook); `USE_VAD` forces PTT | Media test on deployed LiveKit; desktop PTT test on Windows | Hold PTT key while Syndo is in the background → others hear you |
+| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT in the browser while focused; global PTT in the desktop app (keyboard keys, mouse 4/5, Windows low-level hooks); `USE_VAD` forces PTT | Media test on deployed LiveKit; desktop PTT test on Windows | Hold PTT key while Syndo is in the background → others hear you |
 | VOICE-04 | Device selection, gain, per-user volume | Unverified | WebAudio gain, `setSinkId`, per-user volume 0–200 % | — | — |
 | VOICE-05 | Speaking indicators, states, participants | Unverified | ActiveSpeakers, connection pill, sidebar participants (voice state tested) | — | — |
 | VOICE-06 | AEC / NS / AGC individually configurable | Unverified | Three independent toggles, re-publish on change | — | — |
@@ -128,7 +128,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
 | STREAM-01 | Screen / window / tab | Unverified | `getDisplayMedia` via LiveKit with surface switching | — | — |
-| STREAM-02 | System/app/tab audio where permitted | Unverified | Browser: tab audio (Chromium), system audio (Windows Chromium). Desktop app: own picker with whole-system audio via WASAPI loopback on Windows. Per-app audio: not supported (shown honestly) | Real capture test on Windows | Share screen with audio in the desktop app → viewers hear system sound |
+| STREAM-02 | System/app/tab audio where permitted | Unverified | Browser: tab audio (Chromium), system audio (Windows Chromium). Desktop app: WebView2 picker with "share system audio" on Windows. Per-app audio: not supported (shown honestly) | Real capture test on Windows | Share screen with audio in the desktop app → viewers hear system sound |
 | STREAM-03 | In DMs, groups, servers | Unverified | Same session code for all | — | — |
 | STREAM-04 | Multiple simultaneous publishers | Unverified | Per-participant screen tiles | — | — |
 | STREAM-05 | Viewer select/focus/fullscreen/mute/volume | Unverified | Tile tools + stream volume | — | — |
@@ -195,7 +195,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 | CLIENT-05 | Keyboard, shortcuts, labels, focus | Partial | Skip link (E2E), focus-trapped modals, labelled controls, Ctrl+K switcher | Full keyboard audit; roving focus in message list | — |
 | CLIENT-06 | Reduced motion, contrast, typography | Partial | Reduced motion (system/on/off), high-contrast theme, font scaling | Contrast audit of every theme | — |
 | CLIENT-07 | Responsive / mobile screens | Partial | E2E mobile width without horizontal scroll; off-canvas navigation | Touch gestures, mobile call layout testing | — |
-| CLIENT-08 | Desktop app | Partial | `syndo/desktop` (Electron): loads the hosted web app; global PTT; screen picker with Windows system audio; tray/close-to-tray; `syndo://` invites; Windows 11 Mica/Acrylic; native toasts; electron-updater from Cloudflare R2. Compiles; CI builds the NSIS .exe on windows-latest | Run the .exe on real Windows (not possible in the build sandbox); code-signing certificate; macOS/Linux packaging | Install .exe → sign in → global PTT works in a game → update installs from R2 |
+| CLIENT-08 | Desktop app | Partial | `syndo/desktop-tauri` (Tauri + WebView2, 0.5.0, 1.7 MB installer): loads the hosted web app; global PTT; screen share with system audio; tray/close-to-tray; `syndo://` invites; Mica/Acrylic; native toasts; manual updates from Cloudflare R2. Installed and updated from 0.4.4 on real Windows | Code-signing certificate; macOS/Linux packaging | Install .exe → sign in → global PTT works in a game → update installs from R2 |
 | CLIENT-09 | Native mobile apps | Missing | Responsive web only (not parity) | React Native/LiveKit SDKs, push (APNs/FCM), CallKit/ConnectionService | — |
 | CLIENT-10 | Game/activity presence, connected accounts | Missing | — | — | — |
 | CLIENT-11 | Game overlay | Missing | — | Separate native assessment | — |
@@ -234,8 +234,8 @@ Evidence: `A/e2e` = `e2e/appearance.cjs` (real Chromium contexts against a runni
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
 | DIST-01 | Hosted web app on Cloudflare Pages with same-origin API/gateway proxy | Complete (locally verified) | `web/functions` + `web/edge/proxy.ts`; messaging E2E 18/18 through `wrangler pages dev` (Cloudflare runtime) incl. WebSocket | Set `SYNDO_API_ORIGIN` in the Pages project; first production deploy | Open the Pages URL → sign in → chat works |
-| DIST-02 | Windows installer (.exe) built in CI | Partial | `.github/workflows/syndo.yml` desktop job (electron-builder NSIS on windows-latest) | Confirm a green CI run; code signing | Download artifact → install → app opens |
-| DIST-03 | Desktop auto-updates from Cloudflare | Partial | electron-updater generic provider; CI uploads installer + latest.yml to R2 on `syndo-desktop-v*` tags | Create the R2 bucket + public URL; test an update between two tagged versions | Install v0.2.0, tag v0.2.1 → app downloads and offers “Restart to update” |
+| DIST-02 | Windows installer (.exe) built in CI | Complete | `.github/workflows/syndo.yml` `desktop-lite` job (Tauri NSIS on windows-latest), artifact `send-windows-lite` | Code signing | Download artifact → install → app opens |
+| DIST-03 | Desktop updates from Cloudflare | Complete | Shell reads `latest.yml` on the public R2 bucket, verifies sha512, runs the silent installer when the user presses the green button; published by hand (see DESKTOP.md) | — | 0.4.4 → 0.5.0 updated on real Windows |
 | DIST-04 | Web interface updates reach desktop users instantly | Complete (by design) | The desktop window loads the hosted web app | — | — |
 
 ## Bots, apps, activities
