@@ -9,6 +9,8 @@
 | Web (Pages `syndo-app`) | deployment `11a8467b-a7e6-4892-8ba0-293960b631e0` (unchanged by this release) |
 | Source | branch `backup/pre-desktop-044-20261106` (at `77745ff`); database unchanged |
 
+Released: feed `latest.yml` → `SEND-Setup-0.4.4.exe` (CI run 42176696005, commit `7f7d630`, sha512 checked on the public copy); Worker version `88f5c036-89e2-4c32-b701-21ebe85c7282` sends `/api/downloads/windows` to 0.4.4 (same code otherwise). Uploaded with a one-hour R2 token limited to this bucket, deleted right after.
+
 ### Roll back
 1. Feed: copy `latest-0.4.3.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.4.4 stay on it.
 2. Download link: Workers → `send-beta-api` → Deployments → deploy `675d3e7c` at 100%.
