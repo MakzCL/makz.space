@@ -1,5 +1,18 @@
 # SEND restore points
 
+## 2026-11-06 — desktop 0.4.4 (call names, screen-share audio, direct calls)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.4.3.yml` (backup of the feed that pointed at `SEND-Setup-0.4.3.exe`; the 0.4.3 installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `675d3e7c-6698-4f71-b408-b90725a2087d`, `SOURCE_COMMIT` `77745ff` |
+| Web (Pages `syndo-app`) | deployment `11a8467b-a7e6-4892-8ba0-293960b631e0` (unchanged by this release) |
+| Source | branch `backup/pre-desktop-044-20261106` (at `77745ff`); database unchanged |
+
+### Roll back
+1. Feed: copy `latest-0.4.3.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.4.4 stay on it.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `675d3e7c` at 100%.
+
 ## 2026-11-06 — names/pictures in calls, screen-share audio
 
 | Layer | Restore point (before) |
