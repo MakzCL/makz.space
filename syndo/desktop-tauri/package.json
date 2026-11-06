@@ -1,0 +1,14 @@
+{
+  "name": "send-desktop-lite",
+  "productName": "SEND",
+  "version": "0.5.0",
+  "private": true,
+  "description": "SEND for Windows — lightweight shell (Tauri + the system WebView2).",
+  "scripts": {
+    "tauri": "tauri",
+    "build:win": "tauri build --bundles nsis"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}

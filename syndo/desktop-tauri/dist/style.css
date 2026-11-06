@@ -1,0 +1,18 @@
+:root { color-scheme: dark; font-family: "Segoe UI", system-ui, sans-serif; }
+body { margin: 0; background: #0E1220; color: #EEF1F8; min-height: 100vh; display: grid; place-items: center; }
+.card { width: min(440px, 92vw); background: #141A2B; border: 1px solid #2E3858; border-radius: 14px; padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+h1 { margin: 0; font-size: 1.4rem; } p { margin: 0; color: #A9B2C7; line-height: 1.45; }
+input { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid #2E3858; background: #232C45; color: inherit; }
+button { font: inherit; font-weight: 700; padding: 10px 16px; border: 0; border-radius: 8px; background: #3D6BFF; color: #fff; cursor: pointer; }
+button.ghost { background: #232C45; } button:disabled { opacity: .5; }
+.err { color: #FF8A8A; min-height: 1.2em; } .row { display: flex; gap: 8px; align-items: center; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1rem; } .brand img { width: 36px; height: 36px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 360px; overflow: auto; padding: 2px; }
+.src { background: #232C45; border: 2px solid transparent; border-radius: 10px; padding: 6px; cursor: pointer; text-align: left; color: inherit; font-weight: 500; }
+.src[aria-checked="true"] { border-color: #3D6BFF; } .src img.t { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #000; border-radius: 6px; display: block; }
+.src span { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: .85rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .src span img { width: 16px; height: 16px; }
+.tabs { display: flex; gap: 6px; } .tabs button { background: #232C45; } .tabs button[aria-selected="true"] { background: #3D6BFF; }
+.picker body, body.picker { place-items: stretch; } body.picker .card { width: auto; margin: 0; border: 0; border-radius: 0; min-height: 100vh; box-sizing: border-box; }
+:focus-visible { outline: 2px solid #FFC93C; outline-offset: 2px; }
+
+.local-titlebar { position: fixed; inset: 0 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding-left: 12px; -webkit-app-region: drag; } .local-titlebar span { flex: 1; } .local-titlebar button { -webkit-app-region: no-drag; height: 32px; width: 40px; padding: 0; border: 0; background: transparent; color: inherit; } .local-titlebar button:hover { background: #ffffff20; }

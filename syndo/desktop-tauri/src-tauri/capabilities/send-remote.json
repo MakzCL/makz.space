@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "send-remote",
+  "description": "The hosted SEND web app may call the shell's own commands (window, push-to-talk, updates). A server chosen at runtime is added the same way in code.",
+  "windows": ["main"],
+  "remote": { "urls": ["https://syndo.makz.space/*", "http://localhost:*/*"] },
+  "permissions": ["core:app:default"]
+}

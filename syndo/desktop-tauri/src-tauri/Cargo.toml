@@ -1,0 +1,38 @@
+[package]
+name = "send-desktop"
+version = "0.5.0"
+edition = "2021"
+description = "SEND for Windows — lightweight shell (Tauri + WebView2)"
+publish = false
+
+[lib]
+name = "send_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["native-tls", "json", "gzip"] }
+native-tls = "0.2"
+sha2 = "0.10"
+base64 = "0.22"
+url = "2"
+
+[target.'cfg(windows)'.dependencies]
+window-vibrancy = "0.8"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_System_Registry"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

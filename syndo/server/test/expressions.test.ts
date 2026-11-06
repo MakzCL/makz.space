@@ -1,0 +1,171 @@
+import { after, before, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { Client, startServer, stopServer } from "./helpers.ts";
+
+const all: Client[] = [];
+const client = (n: string) => { const c = new Client(n); all.push(c); return c; };
+// 1x1 PNG
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+/** A 50 ms, 8 kHz mono 16-bit WAV of silence. */
+function wav() {
+  const samples = 400, data = samples * 2, b = Buffer.alloc(44 + data);
+  b.write("RIFF", 0); b.writeUInt32LE(36 + data, 4); b.write("WAVE", 8); b.write("fmt ", 12); b.writeUInt32LE(16, 16);
+  b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
+  b.write("data", 36); b.writeUInt32LE(data, 40);
+  return b;
+}
+const file = (buf: Buffer, type: string, name: string) => { const fd = new FormData(); fd.append("file", new Blob([new Uint8Array(buf)], { type }), name); return fd; };
+
+before(async () => { await startServer(); });
+after(async () => { all.forEach((c) => c.close()); await stopServer(); });
+
+describe("Server expressions: emoji, soundboard, category banners", () => {
+  const owner = client("emma"), member = client("milo");
+  let guild: any, voice: any, emoji: any, sound: any;
+
+  it("uploads custom emoji (MANAGE_EXPRESSIONS only) and serves them by id", async () => {
+    await owner.register(); await member.register();
+    guild = (await owner.post("/api/guilds", { name: "Emoji Club" })).body;
+    const text = guild.channels.find((c: any) => c.type === 0);
+    const inv = (await owner.post(`/api/channels/${text.id}/invites`, {})).body;
+    assert.equal((await member.post(`/api/invites/${inv.code}`)).status, 200);
+
+    assert.equal((await member.req("POST", `/api/guilds/${guild.id}/emojis?name=nope`, file(PNG, "image/png", "e.png"))).status, 403, "members can't upload by default");
+    assert.equal((await owner.req("POST", `/api/guilds/${guild.id}/emojis?name=x`, file(PNG, "image/png", "e.png"))).status, 400, "name too short");
+    const up = await owner.req("POST", `/api/guilds/${guild.id}/emojis?name=party_parrot`, file(PNG, "image/png", "e.png"));
+    assert.equal(up.status, 200, JSON.stringify(up.body));
+    emoji = up.body;
+    assert.equal(emoji.name, "party_parrot");
+    assert.equal(emoji.url, `/api/emojis/${emoji.id}`);
+    assert.equal((await owner.req("POST", `/api/guilds/${guild.id}/emojis?name=party_parrot`, file(PNG, "image/png", "e.png"))).status, 400, "names are unique per server");
+
+    const g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.deepEqual(g.emojis.map((e: any) => e.name), ["party_parrot"], "members see the server's emoji");
+    const r = await member.get(`/api/emojis/${emoji.id}`);
+    assert.equal(r.status, 302);
+    assert.match(r.headers.get("location") ?? "", /^\/api\/media\/emoji\/\d+\/\d+\.png$/);
+    const img = await member.get(r.headers.get("location")!);
+    assert.equal(img.status, 200);
+    assert.equal(img.headers.get("content-type"), "image/png");
+  });
+
+  it("reacts with a custom emoji, renames and deletes it", async () => {
+    const text = guild.channels.find((c: any) => c.type === 0);
+    const msg = (await member.post(`/api/channels/${text.id}/messages`, { content: `hello <:party_parrot:${emoji.id}>` })).body;
+    assert.equal((await member.put(`/api/channels/${text.id}/messages/${msg.id}/reactions/${encodeURIComponent(`party_parrot:${emoji.id}`)}/@me`)).status, 200);
+    assert.equal((await owner.patch(`/api/guilds/${guild.id}/emojis/${emoji.id}`, { name: "parrot" })).body.name, "parrot");
+    assert.equal((await owner.del(`/api/guilds/${guild.id}/emojis/${emoji.id}`)).status, 200);
+    assert.equal((await member.get(`/api/emojis/${emoji.id}`)).status, 404);
+  });
+
+  it("uploads a sound and plays it only to people in the voice channel", async () => {
+    voice = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Hangout", type: 2 })).body;
+    assert.equal((await owner.req("POST", `/api/guilds/${guild.id}/soundboard?name=Airhorn&emoji=📯&duration_ms=50&volume=0.7`, file(PNG, "audio/wav", "s.wav"))).status, 400, "content sniffing rejects non-audio");
+    const up = await owner.req("POST", `/api/guilds/${guild.id}/soundboard?name=Airhorn&emoji=📯&duration_ms=50&volume=0.7`, file(wav(), "audio/wav", "s.wav"));
+    assert.equal(up.status, 200, JSON.stringify(up.body));
+    sound = up.body;
+    assert.equal(sound.emoji, "📯");
+    assert.match(sound.url, /^\/api\/media\/sounds\/\d+\/\d+\.wav$/);
+    assert.equal((await member.get(sound.url)).headers.get("content-type"), "audio/wav");
+
+    assert.equal((await member.post(`/api/channels/${voice.id}/soundboard`, { sound_id: sound.id })).status, 400, "must be in the channel");
+    const og = await owner.connect(), mg = await member.connect();
+    og.send("voice_state", { channel_id: voice.id }); mg.send("voice_state", { channel_id: voice.id });
+    await og.next("VOICE_STATE_UPDATE", (d) => d.user_id === member.user.id && d.channel_id === voice.id);
+    const heard = og.next("SOUNDBOARD_PLAY", (d) => d.sound.id === sound.id);
+    const r = await member.post(`/api/channels/${voice.id}/soundboard`, { sound_id: sound.id });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const ev = await heard;
+    assert.equal(ev.user_id, member.user.id);
+    assert.equal(ev.channel_id, voice.id);
+    assert.equal((await member.post(`/api/channels/${voice.id}/soundboard`, { sound_id: sound.id })).status, 400, "rate limited");
+    og.send("voice_state", { channel_id: null }); mg.send("voice_state", { channel_id: null });
+  });
+
+  it("uploads stickers and sends one as a message", async () => {
+    const text = guild.channels.find((c: any) => c.type === 0);
+    assert.equal((await member.req("POST", `/api/guilds/${guild.id}/stickers?name=Wave`, file(PNG, "image/png", "s.png"))).status, 403, "members can't upload");
+    const up = await owner.req("POST", `/api/guilds/${guild.id}/stickers?name=Wave&tags=%F0%9F%91%8B&description=Hello`, file(PNG, "image/png", "s.png"));
+    assert.equal(up.status, 200, JSON.stringify(up.body));
+    const st = up.body;
+    assert.equal(st.format, "png");
+    assert.equal(st.url, `/api/stickers/${st.id}`);
+    const r = await member.get(st.url);
+    assert.equal(r.status, 302);
+    assert.match(r.headers.get("location") ?? "", /^\/api\/media\/stickers\/\d+\/\d+\.png$/);
+    const g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.deepEqual(g.stickers.map((x: any) => x.name), ["Wave"]);
+    const msg = await member.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [st.id] });
+    assert.equal(msg.status, 200, JSON.stringify(msg.body));
+    assert.equal(msg.body.stickers[0].id, st.id);
+    const list = (await owner.get(`/api/channels/${text.id}/messages?limit=5`)).body;
+    assert.equal(list.find((m: any) => m.id === msg.body.id).stickers[0].name, "Wave");
+
+    // Another server's sticker: usable by its members (e.g. in a DM), refused for people who aren't in that server.
+    const other = (await member.post("/api/guilds", { name: "Elsewhere" })).body;
+    const theirs = (await member.req("POST", `/api/guilds/${other.id}/stickers?name=Theirs`, file(PNG, "image/png", "t.png"))).body;
+    assert.equal((await owner.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [theirs.id] })).status, 403, "not a member of that server");
+    assert.equal((await member.post(`/api/channels/${text.id}/messages`, { content: "", sticker_ids: [theirs.id] })).status, 200, "members may use their other servers' stickers (default permissions)");
+    assert.equal((await owner.del(`/api/guilds/${guild.id}/stickers/${st.id}`)).status, 200);
+    const after = (await owner.get(`/api/channels/${text.id}/messages?limit=5`)).body;
+    assert.deepEqual(after.find((m: any) => m.id === msg.body.id).stickers, [], "deleted sticker disappears from messages");
+  });
+
+  it("direct (mesh) calls: token gives ICE servers; signals reach only people in the same voice channel", async () => {
+    const { config } = await import("../src/config.ts");
+    const prev = config.voiceMode; config.voiceMode = "mesh";
+    try {
+      const t = await owner.post("/api/voice/token", { channel_id: voice.id });
+      assert.equal(t.status, 200, JSON.stringify(t.body)); assert.equal(t.body.provider, "mesh"); assert.ok(Array.isArray(t.body.ice_servers));
+      const og = await owner.connect(), mg = await member.connect();
+      og.send("voice_state", { channel_id: voice.id }); mg.send("voice_state", { channel_id: voice.id });
+      await og.next("VOICE_STATE_UPDATE", (d) => d.user_id === member.user.id && d.channel_id === voice.id);
+      const got = mg.next("CALL_SIGNAL", (d) => d.type === "offer");
+      og.send("call_signal", { to: member.user.id, type: "offer", data: { type: "offer", sdp: "v=0" } });
+      const sig = await got;
+      assert.equal(sig.from, owner.user.id); assert.equal(sig.channel_id, voice.id); assert.equal(sig.data.sdp, "v=0");
+      mg.send("voice_state", { channel_id: null });
+      await og.next("VOICE_STATE_UPDATE", (d) => d.user_id === member.user.id && d.channel_id === null);
+      og.send("call_signal", { to: member.user.id, type: "offer", data: { sdp: "nope" } });
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(mg.has("CALL_SIGNAL", (d) => d.data?.sdp === "nope"), false, "not relayed once they left the channel");
+      og.send("voice_state", { channel_id: null });
+    } finally { config.voiceMode = prev; }
+  });
+
+  it("sets and removes a category banner", async () => {
+    const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Gaming", type: 4 })).body;
+    assert.equal((await member.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"))).status, 403);
+    const up = await owner.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"));
+    assert.equal(up.status, 200, JSON.stringify(up.body));
+    let g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.match(g.channels.find((c: any) => c.id === cat.id).banner, /^\/api\/media\/channel-banners\//);
+    assert.equal((await member.get(up.body.url)).status, 200);
+    assert.equal((await owner.del(`/api/channels/${cat.id}/banner`)).status, 200);
+    g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.equal(g.channels.find((c: any) => c.id === cat.id).banner, null);
+  });
+  it("sets an emoji instead of a channel's # / speaker icon", async () => {
+    const text = guild.channels.find((c: any) => c.type === 0);
+    assert.equal((await member.patch(`/api/channels/${text.id}`, { icon_emoji: "📷" })).status, 403, "needs Manage channels");
+    let r = await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "📷" });
+    assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.icon_emoji, "📷");
+    assert.equal((await owner.patch(`/api/channels/${voice.id}`, { icon_emoji: "🎮" })).body.icon_emoji, "🎮", "voice channels too");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "<:party:123456>" })).body.icon_emoji, "<:party:123456>", "custom emoji");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "hello" })).status, 400, "text isn't an emoji");
+    assert.equal((await owner.patch(`/api/channels/${text.id}`, { icon_emoji: "👨‍👩‍👧" })).status, 200, "joined emoji");
+    r = await owner.patch(`/api/channels/${text.id}`, { icon_emoji: null });
+    assert.equal(r.body.icon_emoji, null, "back to #");
+    const g = (await member.get(`/api/guilds/${guild.id}`)).body;
+    assert.equal(g.channels.find((c: any) => c.id === voice.id).icon_emoji, "🎮");
+  });
+
+  it("lets a category with a banner go without a title", async () => {
+    const cat = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Art", type: 4 })).body;
+    assert.equal((await owner.patch(`/api/channels/${cat.id}`, { name: "" })).status, 400, "needs a name without a banner");
+    await owner.req("POST", `/api/channels/${cat.id}/banner`, file(PNG, "image/png", "b.png"));
+    const r = await owner.patch(`/api/channels/${cat.id}`, { name: "" });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.name, "");
+  });
+});

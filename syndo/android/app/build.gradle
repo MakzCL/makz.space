@@ -1,0 +1,20 @@
+plugins { id 'com.android.application' }
+
+def hosted = providers.gradleProperty('syndoAppUrl').getOrElse('https://syndo.makz.space')
+if (!(hosted ==~ /https:\/\/[A-Za-z0-9.-]+(:443)?\/?/)) throw new GradleException('syndoAppUrl must be an HTTPS origin')
+
+android {
+    namespace 'space.makz.syndo.preview'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'space.makz.syndo.preview'
+        minSdk 26
+        targetSdk 35
+        versionCode 3
+        versionName '0.3.0'
+        buildConfigField 'String', 'HOSTED_URL', '"' + hosted.replaceAll('/$', '') + '"'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.webkit:webkit:1.12.1' }
