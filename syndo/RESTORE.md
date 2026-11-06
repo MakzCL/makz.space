@@ -11,6 +11,8 @@
 
 0.5.0 is the Tauri build from `syndo/desktop-tauri` (CI run 42292101169, 1.7 MB). Electron 0.4.x apps update to it from the same feed; its installer removes the Electron copy (user data kept) and starts SEND again. Users sign in once more.
 
+Released: feed `latest.yml` → `SEND-Setup-0.5.0.exe` (sha512 checked on the public copy); Worker version `57def25c-567a-4d33-aa65-3275f2a93d11` sends `/api/downloads/windows` to 0.5.0 (same code otherwise). Uploaded with a one-hour R2 token limited to this bucket, deleted right after.
+
 ### Roll back
 1. Feed: copy `latest-0.4.4.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.5.0 stay on it; to move them back, they reinstall from `SEND-Setup-0.4.4.exe` (a future Electron build would need a version above 0.5.0 to be offered).
 2. Download link: Workers → `send-beta-api` → Deployments → deploy `88f5c036` at 100%.
