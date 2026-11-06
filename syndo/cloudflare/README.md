@@ -42,7 +42,7 @@ Western Europe a query costs 10–25 ms. Check with `GET /api/health/latency`
 a `Server-Timing` header with DB time and query count.
 
 A hint only applies when a Durable Object is first created, so moving region
-means changing the object name in `worker.ts` (currently `syndo-beta-weur-v4`).
+means changing the object name in `worker.ts` (currently `syndo-beta-weur-v5`).
 The only state the object stores is the active source commit.
 
 ## Deploying backend changes safely

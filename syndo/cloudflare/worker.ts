@@ -94,6 +94,10 @@ export class SENDBackend extends DurableObject<Env> {
     throw new Error("Backend did not become ready");
   }
   async fetch(request: Request) {
+    // A newer deploy is live (the Worker says which commit): reset this object so it restarts on the new code,
+    // settings and secrets. Open connections drop and the apps reconnect within seconds.
+    const want = request.headers.get("x-send-commit");
+    if (want && want !== this.env.SOURCE_COMMIT) this.ctx.abort("SEND backend updated");
     if (new URL(request.url).pathname === "/api/health" && this.ctx.container?.running && this.readyCommit === this.env.SOURCE_COMMIT) {
       try {
         return await this.ctx.container.getTcpPort(3900).fetch("http://container/api/health", { signal: AbortSignal.timeout(2500) });
@@ -166,7 +170,8 @@ export default {
     try {
       // One Node process is the backend's realtime coordination unit. The beta
       // caps at one container until a shared event fanout is implemented.
-      return await env.BACKEND.getByName("syndo-beta-weur-v4", { locationHint: "weur" }).fetch(request);
+      const forward = new Request(request); forward.headers.set("x-send-commit", env.SOURCE_COMMIT);
+      return await env.BACKEND.getByName("syndo-beta-weur-v5", { locationHint: "weur" }).fetch(forward);
     } catch (error) {
       console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
       return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});
