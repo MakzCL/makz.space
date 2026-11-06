@@ -12,10 +12,13 @@ import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
 import { AttachSheet, CameraCapture } from "./AttachSheet.tsx";
+import { VoiceStage } from "./VoiceStage.tsx";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { messageLink, navigate, setTitle } from "../router.ts";
 import { can, channelById, displayName, dmTitle, memberName, toast, useStore, type UIMessage } from "../store.ts";
 import { joinVoice, useVoice } from "../voice/session.ts";
+import { primeCallAudio } from "../voice/cloudflare.ts";
 import { openDialog } from "./Shell.tsx";
 import { Avatar, fmtBytes, fmtTime, MobileNavButton } from "./ui.tsx";
 import { MoreVertical } from "lucide-react";
@@ -81,6 +84,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   const isDm = !channel.guild_id;
   const Icon = channel.type === ChannelType.ANNOUNCEMENT ? Megaphone : channel.type === ChannelType.VOICE ? Volume2 : Hash;
   const startCall = async (video: boolean) => {
+    primeCallAudio(); // inside the tap, before any network wait
     try {
       await api.post(`/api/channels/${channel.id}/call`);
       await joinVoice(channel.id);
@@ -124,6 +128,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           <button className="btn danger sm" onClick={() => api.post(`/api/channels/${channel.id}/call/decline`)}>Decline</button>
         </div>
       )}
+      {isDm && <DmCall channel={channel} />}
       <div className="ch-body">
         <div className="ch-main" data-region="chat">
           {bg && target === "chat" && <Backdrop bg={bg} className="chat-bd" />}
@@ -139,6 +144,17 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       {profile && <ProfileCard userId={profile.id} guildId={guildId} anchor={profile.el} onClose={() => setProfile(null)} />}
     </div>
   );
+}
+
+/** DM / group-DM call: the call view at the top of the conversation while I'm in it (expandable). */
+function DmCall({ channel }: { channel: Channel }) {
+  const inCall = useVoice((v) => v.channelId === channel.id);
+  const [full, setFull] = useState(false);
+  if (!inCall) return null;
+  return <div className={`dm-call ${full ? "full" : ""}`}>
+    <VoiceStage channel={channel} guild={null} />
+    <button className="dm-call-size icon-btn" onClick={() => setFull((f) => !f)} aria-label={full ? "Show the conversation" : "Expand the call"} title={full ? "Show chat" : "Expand"}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
+  </div>;
 }
 
 /* ------------------------------------------------------------- list -- */

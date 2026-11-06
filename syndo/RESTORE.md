@@ -1,5 +1,10 @@
 # SEND restore points
 
+## 2026-11-06 — call audio fix, DM call view, phone call cards, themed message box (web only)
+
+Website only (no backend or database change). Source backup: branch `backup/pre-call-audio-20261106`.
+Roll back: Pages → `syndo-app` → Deployments → `40dfdde7-88a7-47d0-844d-11fa413a9c4f` → *Rollback to this deployment*.
+
 ## 2026-11-06 — attach sheet, in-app camera, message box like Discord (web only)
 
 Website only (no backend or database change). Source backup: branch `backup/pre-attach-sheet-20261106`.

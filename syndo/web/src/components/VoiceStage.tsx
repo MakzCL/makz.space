@@ -16,6 +16,7 @@ import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar } from "./ui.tsx";
+import { isPhone } from "../mobile.ts";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
@@ -109,6 +110,7 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
   const [menu, setMenu] = useState(false);
   const volBtn = useRef<HTMLButtonElement>(null);
+  const tint = useImageTint((t.local ? me : users[t.uid])?.avatar ?? null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
     el.srcObject = t.track ? new MediaStream([t.track]) : null;
@@ -127,9 +129,9 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
     }));
   };
   return (
-    <figure ref={tileRef} tabIndex={0} aria-label={t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`}
+    <figure ref={tileRef} tabIndex={0} aria-label={t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} k-${t.kind}`} style={tint ? ({ "--tile-bg": tint } as React.CSSProperties) : undefined}
       onContextMenu={context} onKeyDown={e => { if (e.target === e.currentTarget) contextMenuKey(e, () => context(e)); }} onDoubleClick={() => { void fullscreen()?.catch(() => {}); }}>
-      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : 72} /></div>}
+      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis">{t.name}</span></figcaption>
       <div className="tile-tools">
         <button className="icon-btn sm" onClick={onFocus} aria-label={big ? "Unfocus" : `Focus ${t.name}`}><Pin size={14} /></button>
@@ -200,4 +202,27 @@ function SoundboardButton({ channel, guild }: { channel: Channel; guild: Guild }
       <p className="muted small">Everyone in the call hears it (unless they've deafened or turned the soundboard down).</p>
     </Popover>}
   </div>;
+}
+
+/** The average colour of a picture (for call cards, like Discord's tinted tiles). Null until known. */
+function useImageTint(url: string | null) {
+  const [tint, setTint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!url) { setTint(null); return; }
+    let alive = true;
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas"); c.width = c.height = 16;
+        const g = c.getContext("2d", { willReadFrequently: true })!; g.drawImage(img, 0, 0, 16, 16);
+        const d = g.getImageData(0, 0, 16, 16).data; let r = 0, gr = 0, b = 0, n = 0;
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3]! < 128) continue; r += d[i]!; gr += d[i + 1]!; b += d[i + 2]!; n++; }
+        if (alive && n) setTint(`rgb(${Math.round(r / n)} ${Math.round(gr / n)} ${Math.round(b / n)})`);
+      } catch { /* cross-origin or unsupported: keep the default card */ }
+    };
+    img.src = url;
+    return () => { alive = false; };
+  }, [url]);
+  return tint;
 }

@@ -1,5 +1,5 @@
 import { playCallSound } from "./sounds.ts";
-import { CloudflareCall, type IceServer } from "./cloudflare.ts";
+import { CloudflareCall, primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { create } from "zustand";
 import type {
   LocalAudioTrack, LocalVideoTrack, Room, LocalTrackPublication, RemoteParticipant, RemoteTrack,
@@ -222,6 +222,8 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
 /* ------------------------------------------------------------- join ------ */
 export async function joinVoice(channelId: string) {
   if (get().channelId === channelId && get().status !== "error") return;
+  // Must happen inside the click/tap that joined: phones only start audio from a user gesture.
+  primeCallAudio();
   playCallSound("join");
   await leaveVoice({ switching: true });
   const my = ++joinToken;
