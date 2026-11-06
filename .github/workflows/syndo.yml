@@ -113,3 +113,27 @@ jobs:
           # Installer and blockmap first, latest.yml last, so clients never see a feed pointing at a missing file.
           for f in *.exe *.blockmap; do npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/$f" --file "$f" --remote; done
           npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/latest.yml" --file latest.yml --content-type "text/yaml" --cache-control "no-cache" --remote
+
+  desktop-lite:
+    # SEND for Windows, lightweight edition: a small Rust shell (Tauri) on the system WebView2
+    # instead of a bundled Chromium. Builds SEND-Setup-<version>.exe + latest.yml as an artifact;
+    # publishing to the R2 feed is done by hand when a release is asked for.
+    runs-on: windows-latest
+    defaults: { run: { working-directory: syndo/desktop-tauri, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/desktop-tauri/package-lock.json }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "syndo/desktop-tauri/src-tauri -> target" }
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      - run: npx tauri build --bundles nsis
+      - run: node scripts/feed.mjs release && ls -la release src-tauri/target/release/SEND.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: send-windows-lite
+          path: |
+            syndo/desktop-tauri/release/*.exe
+            syndo/desktop-tauri/release/latest.yml
+          if-no-files-found: error
