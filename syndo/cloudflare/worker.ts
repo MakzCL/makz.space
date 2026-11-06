@@ -57,6 +57,8 @@ const run = promisify(cp.execFile);
 export class SENDBackend extends DurableObject<Env> {
   private starting?: Promise<void>;
   private ready = false;
+  /** Commit the running container was started on — a different pinned commit restarts it on the next request. */
+  private readyCommit?: string;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     if (ctx.container?.running) ctx.waitUntil(ctx.container.setInactivityTimeout(TIMEOUT));
@@ -84,19 +86,20 @@ export class SENDBackend extends DurableObject<Env> {
       try {
         const r = await c.getTcpPort(3900).fetch("http://container/api/health", {signal:AbortSignal.timeout(2000)});
         await r.body?.cancel();
-        if (r.ok) { this.ready = true; return; }
+        if (r.ok) { this.ready = true;
+          this.readyCommit = this.env.SOURCE_COMMIT; return; }
       } catch { /* Wait for the process and database to become ready. */ }
       await scheduler.wait(1000);
     }
     throw new Error("Backend did not become ready");
   }
   async fetch(request: Request) {
-    if (new URL(request.url).pathname === "/api/health" && this.ctx.container?.running) {
+    if (new URL(request.url).pathname === "/api/health" && this.ctx.container?.running && this.readyCommit === this.env.SOURCE_COMMIT) {
       try {
         return await this.ctx.container.getTcpPort(3900).fetch("http://container/api/health", { signal: AbortSignal.timeout(2500) });
       } catch { /* Cold process: start or retry readiness below. */ }
     }
-    if (!this.ready || !this.ctx.container?.running) this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
+    if (!this.ready || !this.ctx.container?.running || this.readyCommit !== this.env.SOURCE_COMMIT) this.starting ??= this.ensureReady().finally(() => {this.starting = undefined;});
     if (new URL(request.url).pathname === "/api/health" && !this.ready) {
       this.ctx.waitUntil(this.starting!.catch(error => console.error("startup_failed",error.message)));
       return Response.json({ok:false,status:"starting"},{status:503,headers:{"retry-after":"10"}});
@@ -163,7 +166,7 @@ export default {
     try {
       // One Node process is the backend's realtime coordination unit. The beta
       // caps at one container until a shared event fanout is implemented.
-      return await env.BACKEND.getByName("syndo-beta-weur-v3", { locationHint: "weur" }).fetch(request);
+      return await env.BACKEND.getByName("syndo-beta-weur-v4", { locationHint: "weur" }).fetch(request);
     } catch (error) {
       console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
       return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});

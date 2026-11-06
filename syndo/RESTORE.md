@@ -11,6 +11,8 @@
 
 Calls now connect people directly (WebRTC mesh, signalled over the gateway `call_signal` op, Cloudflare TURN relay when needed). The Cloudflare SFU path is still there: setting `SYNDO_VOICE_MODE=sfu` on the backend switches back without a web change.
 Roll back: backend → deploy `e16f5e16` at 100% (then call any `/api/…` route); web → rollback to `ee3160bb`.
+Backend object renamed `syndo-beta-weur-v3` → `syndo-beta-weur-v4`: a Durable Object with a live container kept running the old code after deploys (so new commits never took effect). The Worker now also restarts the container whenever the pinned commit differs. Rolling back to `e16f5e16` uses the v3 object again.
+TURN: a dedicated Cloudflare TURN key `send-beta-calls` (uid `46fb7785…`) was created and saved as the `TURN_KEY_ID` / `TURN_KEY_TOKEN` Worker secrets (the previous ones didn't work).
 
 ## 2026-11-06 — call audio fix, DM call view, phone call cards, themed message box (web only)
 
