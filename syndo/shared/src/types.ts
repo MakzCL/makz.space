@@ -218,6 +218,8 @@ export interface VoiceState {
   server_deaf: boolean;
   self_video: boolean;
   self_stream: boolean;
+  /** Who it is (so clients can show the name/picture without loading the member list). */
+  user?: User | null;
 }
 
 /** Operator-configurable limits, published to clients so nothing is hidden. Same for every user — there are no tiers. */

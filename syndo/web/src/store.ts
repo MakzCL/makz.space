@@ -133,7 +133,7 @@ export function dispatch(t: string, d: any) {
       const voice: Record<string, VoiceState> = {};
       for (const v of d.voice_states) voice[v.user_id] = v;
       set({ conn: "ready", me: d.user, guilds, dms, relationships, readStates, voice, presences: d.presences, limits: d.limits, sessionId: d.session_id });
-      remember([...d.relationships.map((r: Relationship) => r.user), ...d.private_channels.flatMap((c: Channel) => c.recipients ?? [])]);
+      remember([d.user, ...d.relationships.map((r: Relationship) => r.user), ...d.private_channels.flatMap((c: Channel) => c.recipients ?? []), ...d.voice_states.map((v: VoiceState) => v.user).filter(Boolean)]);
       break;
     }
     case "USER_UPDATE": set({ me: d }); remember([d]); break;
@@ -212,7 +212,7 @@ export function dispatch(t: string, d: any) {
       const cur = st.readStates[d.channel_id] ?? { channel_id: d.channel_id, last_read_id: null, mention_count: 0 };
       return { readStates: { ...st.readStates, [d.channel_id]: { ...cur, mention_count: cur.mention_count + 1 } } };
     }); break;
-    case "VOICE_STATE_UPDATE": set((st) => {
+    case "VOICE_STATE_UPDATE": if (d.user) remember([d.user]); set((st) => {
       const v = { ...st.voice };
       if (d.channel_id) v[d.user_id] = d; else delete v[d.user_id];
       return { voice: v };

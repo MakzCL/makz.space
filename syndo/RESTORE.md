@@ -1,5 +1,16 @@
 # SEND restore points
 
+## 2026-11-06 — names/pictures in calls, screen-share audio
+
+| Layer | Restore point (before) |
+|---|---|
+| Source | branch `backup/pre-call-names-20261106` |
+| Backend (Worker `send-beta-api`) | version `d9d4573d-8d6d-42aa-bb5a-eb1ff412c9cc`, `SOURCE_COMMIT` `f00c5a8` |
+| Web (Pages `syndo-app`) | deployment `64c591fc-dbc6-4437-99ce-9744568a245e` |
+| Database | unchanged |
+
+Roll back: backend → deploy `d9d4573d` at 100% (the backend object resets itself onto it); web → rollback to `64c591fc`.
+
 ## 2026-11-06 — direct (peer-to-peer) calls, like SK Factory
 
 | Layer | Restore point (before) |

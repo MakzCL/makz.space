@@ -8,6 +8,7 @@ import { q } from "./db.ts";
 import { sessionFromToken, tokenFromCookieHeader } from "./auth.ts";
 import { getChannel, permsFor, viewers, type ChanRow } from "./perms.ts";
 import { buildReady } from "./ready.ts";
+import { USER_COLS, userOut } from "./serialize.ts";
 
 /**
  * Real-time gateway (WebSocket at /gateway).
@@ -130,11 +131,17 @@ type VoiceListener = (uid: string, prev: VoiceState | null, next: VoiceState | n
 const voiceListeners: VoiceListener[] = [];
 export const onVoiceChange = (fn: VoiceListener) => { voiceListeners.push(fn); };
 
+async function voiceUser(uid: string) {
+  const r = await q<any>(`select ${USER_COLS} from users u where id = $1`, [uid]);
+  return r[0] ? userOut(r[0]) : null;
+}
+
 export async function publishVoice(uid: string, prev: VoiceState | null, next: VoiceState | null) {
   // Tell people first (this is what moves the name tag under the channel), then run the
   // slower bookkeeping (call records, ringing) — it must never hold the update back.
   const chIds = new Set([prev?.channel_id, next?.channel_id].filter(Boolean) as string[]);
-  const payload = next ?? { user_id: uid, channel_id: null, guild_id: prev?.guild_id ?? null };
+  // Include who it is, so every client can show the name and picture (even people it hasn't loaded yet).
+  const payload = next ? { ...next, user: await voiceUser(uid) } : { user_id: uid, channel_id: null, guild_id: prev?.guild_id ?? null };
   await Promise.all([...chIds].map(async (id) => {
     const { ch } = await voiceAudience(id);
     if (ch) await toChannel(ch, "VOICE_STATE_UPDATE", payload);
@@ -216,7 +223,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
     const visible: VoiceState[] = [];
     for (const v of vs) {
       const ch = await getChannel(v.channel_id);
-      if (ch && has(await permsFor(conn.userId, ch), P.VIEW_CHANNEL)) visible.push(v);
+      if (ch && has(await permsFor(conn.userId, ch), P.VIEW_CHANNEL)) visible.push({ ...v, user: await voiceUser(v.user_id) } as VoiceState);
     }
     sendRaw(conn, "READY", await buildReady(conn.userId, conn.sessionId, presences, visible));
     if (first) await broadcastPresence(conn.userId);

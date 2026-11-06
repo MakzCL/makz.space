@@ -18,8 +18,8 @@ import { streamBitrate, type VoiceSettings } from "./settings.ts";
  * - Remote audio plays straight through <audio> elements; WebAudio (if running) only measures levels.
  */
 const CAM = { maxBitrate: 1_500_000, maxFramerate: 30 };
-interface PState { cam: boolean; mic: boolean; share: boolean }
-interface MPeer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[]; offerer: boolean; audio: HTMLAudioElement; state: PState; analyser?: AnalyserNode }
+interface PState { cam: boolean; mic: boolean; share: boolean; shareAudio?: boolean }
+interface MPeer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[]; offerer: boolean; audio: HTMLAudioElement; screenAudio: HTMLAudioElement; state: PState; analyser?: AnalyserNode }
 
 export class MeshCall {
   peers = new Map<string, MPeer>();
@@ -29,6 +29,8 @@ export class MeshCall {
   local: MediaStream | null = null;
   cam: MediaStreamTrack | null = null;
   screenTrack: MediaStreamTrack | null = null;
+  /** Sound of the shared screen/tab/window (third slot: mic, video, screen audio). */
+  screenSound: MediaStreamTrack | null = null;
   preMic: Promise<MediaStream> | null = null;
   stopped = false;
   localLevel: AnalyserNode | null = null;
@@ -84,7 +86,7 @@ export class MeshCall {
 
   /* -------------------------------------------------------- signalling -- */
   private signal(to: string, type: string, data?: unknown) { gwSend("call_signal", { to, type, data }); }
-  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack }; }
+  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack, shareAudio: !!this.screenSound }; }
   sendState(to?: string) { const st = this.myState(); if (to) this.signal(to, "state", st); else for (const uid of this.peers.keys()) this.signal(uid, "state", st); }
   private outgoingVideo() { return this.screenTrack ?? this.cam ?? null; }
 
@@ -93,7 +95,10 @@ export class MeshCall {
     const audio = document.createElement("audio");
     audio.autoplay = true; (audio as any).playsInline = true; audio.dataset.call = "1"; audio.dataset.user = uid;
     document.body.appendChild(audio);
-    const p: MPeer = { pc, stream: new MediaStream(), queued: this.pendingIce.get(uid) ?? [], offerer, audio, state: { cam: false, mic: true, share: false } };
+    const screenAudio = document.createElement("audio");
+    screenAudio.autoplay = true; (screenAudio as any).playsInline = true; screenAudio.dataset.call = "1"; screenAudio.dataset.user = uid; screenAudio.dataset.source = "screen";
+    document.body.appendChild(screenAudio);
+    const p: MPeer = { pc, stream: new MediaStream(), queued: this.pendingIce.get(uid) ?? [], offerer, audio, screenAudio, state: { cam: false, mic: true, share: false } };
     this.pendingIce.delete(uid);
     this.peers.set(uid, p);
     if (offerer) {
@@ -101,14 +106,18 @@ export class MeshCall {
       pc.addTransceiver(this.mic ?? "audio", { direction: "sendrecv", streams });
       const v = pc.addTransceiver(this.outgoingVideo() ?? "video", { direction: "sendrecv", streams });
       this.tuneVideo(v.sender);
+      pc.addTransceiver(this.screenSound ?? "audio", { direction: "sendrecv", streams });
     }
     pc.onicecandidate = (e) => { if (e.candidate) this.signal(uid, "ice", e.candidate.toJSON()); };
     pc.ontrack = (e) => {
       if (!p.stream.getTracks().includes(e.track)) p.stream.addTrack(e.track);
       if (e.track.kind === "audio") {
-        audio.srcObject = new MediaStream([e.track]);
-        audio.play().catch(() => {});
-        this.measurePeer(p, e.track);
+        // First audio slot = their microphone, second = their screen's sound.
+        const isScreen = pc.getTransceivers().filter((t) => t.receiver.track.kind === "audio").indexOf(e.transceiver) === 1;
+        const el = isScreen ? screenAudio : audio;
+        el.srcObject = new MediaStream([e.track]);
+        el.play().catch(() => {});
+        if (!isScreen) this.measurePeer(p, e.track);
         this.output();
       }
       e.track.onmute = () => this.sync(); e.track.onunmute = () => this.sync();
@@ -116,7 +125,7 @@ export class MeshCall {
     };
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
-      if (st === "connected") { this.sendState(uid); audio.play().catch(() => {}); }
+      if (st === "connected") { this.sendState(uid); audio.play().catch(() => {}); screenAudio.play().catch(() => {}); }
       if (st === "failed") { if (p.offerer) this.restart(uid); else this.signal(uid, "knock"); }
       this.sync();
     };
@@ -142,7 +151,7 @@ export class MeshCall {
     clearTimeout(this.knocks.get(uid)); this.knocks.delete(uid);
     if (!p) return;
     p.pc.onconnectionstatechange = null; p.pc.ontrack = null; p.pc.onicecandidate = null;
-    p.pc.close(); p.audio.srcObject = null; p.audio.remove();
+    p.pc.close(); p.audio.srcObject = null; p.audio.remove(); p.screenAudio.srcObject = null; p.screenAudio.remove();
     this.peers.delete(uid);
     this.sync();
   }
@@ -156,10 +165,11 @@ export class MeshCall {
         if (!p) p = this.makePeer(from, false);
         await p.pc.setRemoteDescription(data);
         // Attach my mic / camera to the slots the offer created.
+        let audioSlot = 0;
         for (const tr of p.pc.getTransceivers()) {
           const kind = tr.receiver.track.kind;
           tr.direction = "sendrecv";
-          const track = kind === "audio" ? this.mic : this.outgoingVideo();
+          const track = kind === "audio" ? (audioSlot++ === 0 ? this.mic : this.screenSound) : this.outgoingVideo();
           if (tr.sender.track !== track) await tr.sender.replaceTrack(track).catch(() => {});
           if (this.local) tr.sender.setStreams?.(this.local);
           if (kind === "video") this.tuneVideo(tr.sender);
@@ -181,7 +191,7 @@ export class MeshCall {
         else if (p) p.queued.push(data);
         else this.pendingIce.set(from, [...(this.pendingIce.get(from) ?? []), data]);
       } else if (type === "state") {
-        const p = this.peers.get(from); if (p) { p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share }; this.sync(); }
+        const p = this.peers.get(from); if (p) { p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share, shareAudio: !!data?.shareAudio }; this.sync(); }
       } else if (type === "knock") {
         if (this.me < from) this.call(from);
       } else if (type === "bye") {
@@ -200,7 +210,7 @@ export class MeshCall {
       const showVideo = video && (p.state.cam || p.state.share) ? video : null;
       out[uid] = {
         id: uid, name: users[uid]?.display_name ?? users[uid]?.username ?? uid, speaking: prev[uid]?.speaking ?? false, micMuted: !p.state.mic,
-        camera: p.state.share ? null : showVideo, screen: p.state.share ? showVideo : null, screenAudio: false,
+        camera: p.state.share ? null : showVideo, screen: p.state.share ? showVideo : null, screenAudio: !!p.state.share && !!p.state.shareAudio,
         quality: p.pc.connectionState === "connected" ? "good" : p.pc.connectionState,
       };
     }
@@ -217,6 +227,10 @@ export class MeshCall {
       el.volume = Math.max(0, Math.min(1, s.settings.userVolumes[uid] ?? 1));
       const sink = s.settings.outputDeviceId === "default" ? "" : s.settings.outputDeviceId;
       if (el.setSinkId && el.sinkId !== sink) el.setSinkId(sink).catch(() => {});
+      const sa = p.screenAudio as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void>; sinkId?: string };
+      sa.muted = s.deafened;
+      sa.volume = Math.max(0, Math.min(1, s.settings.userVolumes[`${uid}:stream`] ?? 1));
+      if (sa.setSinkId && sa.sinkId !== sink) sa.setSinkId(sink).catch(() => {});
     }
   }
   private measureLocal() {
@@ -282,9 +296,9 @@ export class MeshCall {
     const track = this.outgoingVideo();
     for (const p of this.peers.values()) {
       const tr = p.pc.getTransceivers().find((x) => x.receiver.track.kind === "video");
-      if (!tr) continue;
-      await tr.sender.replaceTrack(track).catch(() => {});
-      this.tuneVideo(tr.sender);
+      if (tr) { await tr.sender.replaceTrack(track).catch(() => {}); this.tuneVideo(tr.sender); }
+      const sound = p.pc.getTransceivers().filter((x) => x.receiver.track.kind === "audio")[1];
+      if (sound && sound.sender.track !== this.screenSound) await sound.sender.replaceTrack(this.screenSound).catch(() => {});
     }
     this.sendState();
   }
@@ -304,8 +318,11 @@ export class MeshCall {
   async screen() {
     const st = useVoice.getState().settings.stream;
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { height: st.height === "source" ? undefined : { ideal: st.height }, frameRate: { ideal: st.fps } }, audio: false });
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { height: st.height === "source" ? undefined : { ideal: st.height }, frameRate: { ideal: st.fps } },
+        audio: st.audio ? ({ echoCancellation: false, noiseSuppression: false, autoGainControl: false } as MediaTrackConstraints) : false, ...(st.audio ? { systemAudio: "include" } : {}) } as DisplayMediaStreamOptions);
       this.screenTrack = stream.getVideoTracks()[0]!;
+      this.screenSound = stream.getAudioTracks()[0] ?? null;
+      if (st.audio && !this.screenSound) toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
       this.screenTrack.contentHint = st.contentHint;
       this.screenTrack.onended = () => { this.stopScreen().catch(() => {}); };
       useVoice.setState({ sharing: true, localScreen: this.screenTrack });
@@ -314,6 +331,7 @@ export class MeshCall {
   }
   async stopScreen() {
     this.screenTrack?.stop(); this.screenTrack = null;
+    this.screenSound?.stop(); this.screenSound = null;
     useVoice.setState({ sharing: false, localScreen: null });
     await this.replaceVideo();
   }
@@ -328,7 +346,7 @@ export class MeshCall {
     this.off.forEach((f) => f()); this.off = [];
     if (this.speakTimer) clearInterval(this.speakTimer);
     this.preMic?.then((m) => m.getTracks().forEach((t) => t.stop()), () => {}); this.preMic = null;
-    this.mic?.stop(); this.cam?.stop(); this.screenTrack?.stop();
+    this.mic?.stop(); this.cam?.stop(); this.screenTrack?.stop(); this.screenSound?.stop(); this.screenSound = null;
     this.mic = this.cam = this.screenTrack = null;
   }
 }
