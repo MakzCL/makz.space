@@ -10,7 +10,7 @@
 | Workers | The engine runs in a Web Worker | Keeps the UI responsive; a stuck run is ended by terminating the worker |
 | Storage | `.nucleus` JSON files plus a recovery copy in browser storage | Human-diffable and portable; SHA-256 detects damage |
 | Desktop | **To decide in the packaging milestone**: Tauri (small, Rust) vs Electron (bundled Chromium, consistent WASM/canvas behaviour) | Windows packaging has to be tested on the actual target before choosing |
-| 3D (later) | Three.js, built from the PCB model | — |
+| 3D | Three.js, built from the PCB model (`pcb/model3d.ts` → `ui/pcb/Board3D.tsx`, loaded on demand) | — |
 
 ## Modules (`src/`)
 

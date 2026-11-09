@@ -51,7 +51,7 @@ The reference behaviour is unverified for Proteus 9.2 (see `proteus-reference-au
 | Excellon drill | Yes | Plated holes, metric, tools sorted by size | Verified | gerbonara: hit count and sizes equal the board | No NPTH/slots (no footprint uses them yet) |
 | Pick-and-place | Yes | CSV: ref, value, package, X/Y (mm, same origin as Gerber), rotation, side | Verified | `pcb.test.ts` | — |
 | Manufacturing zip | — | One download with every file | Verified | e2e PCB step 8 (unzip + gerbonara) | — |
-| 3D visualiser | Yes | — | Planned | — | — |
+| 3D visualiser | Yes | PCB → 3D view: solder-masked FR-4 (1.6 mm) with plated holes, copper under mask, exposed pads and vias, silkscreen, nominal package bodies for every library footprint; isometric/top/bottom/front cameras, orbit/pan/zoom, component and silkscreen toggles | Partial | `model3d.test.ts` (bodies, holes, tracks, bottom-side mirroring); e2e `board3d.mjs` samples the WebGL picture for each camera and toggle | No STEP/IGES export or vendor 3D models; bodies are generic shapes |
 | Symbol / footprint editors, library versioning | Yes | Library has a version field per device | Planned | — | — |
 | Firmware / MCU co-simulation | VSM | — | Planned | — | No MCU is claimed as supported |
 | Visual Designer, IoT Builder, AI assistant | Yes | — | Planned | — | Later phases |
