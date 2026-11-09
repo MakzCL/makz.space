@@ -33,6 +33,9 @@ const bySession = new Map<string, Set<Conn>>();
 const status = new Map<string, string>();
 /** Voice state per user (one voice connection per user). */
 const voice = new Map<string, VoiceState & { session_id: string }>();
+/** "Playing …" / listening / watching, per user (in memory, cleared on disconnect). */
+const activities = new Map<string, { type: number; name: string; details: string | null; state: string | null; started_at: number; url: string | null }>();
+export const activityOf = (uid: string) => activities.get(uid) ?? null;
 
 export const onlineUserIds = () => [...byUser.keys()];
 export const isOnline = (uid: string) => byUser.has(uid);
@@ -95,7 +98,8 @@ async function presenceAudience(uid: string): Promise<string[]> {
 }
 
 export async function broadcastPresence(uid: string) {
-  const d = { user_id: uid, status: presenceOf(uid) };
+  const st = presenceOf(uid);
+  const d = { user_id: uid, status: st, activity: st === "offline" ? null : activities.get(uid) ?? null };
   toUsers(await presenceAudience(uid), "PRESENCE_UPDATE", d);
   toUser(uid, "PRESENCE_UPDATE", { ...d, self_status: status.get(uid) ?? "offline" });
 }
@@ -170,9 +174,26 @@ export async function setVoice(uid: string, sessionId: string, d: any): Promise<
     self_mute: !!d.self_mute, self_deaf: !!d.self_deaf, self_video: !!d.self_video && has(perms, P.VIDEO), self_stream: !!d.self_stream && has(perms, P.VIDEO),
     server_mute: !!member?.mute || !has(perms, P.SPEAK), server_deaf: !!member?.deaf,
   };
+  if (ch.type === ChannelType.STAGE) {
+    // Stage: everyone joins the audience; speakers stay speakers while they remain in the channel.
+    const same = prev && prev.channel_id === ch.id;
+    next.suppress = same ? prev!.suppress ?? true : true;
+    next.request_to_speak_at = same ? prev!.request_to_speak_at ?? null : null;
+  }
+  if (prev && prev.channel_id === ch.id && prev.activity_id) next.activity_id = prev.activity_id;
   voice.set(uid, next);
   await publishVoice(uid, prev && prev.channel_id !== next.channel_id ? prev : null, next);
   return null;
+}
+
+/** Change stage/activity fields of a live voice state (stage moderation, activities). */
+export async function patchVoice(uid: string, patch: Partial<VoiceState>) {
+  const cur = voice.get(uid);
+  if (!cur) return null;
+  const next = { ...cur, ...patch };
+  voice.set(uid, next);
+  await publishVoice(uid, null, next);
+  return next;
 }
 
 /** Drop a user from voice (kick, ban, lost CONNECT). Media is cut by media.ts. */
@@ -217,7 +238,8 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
     bySession.get(conn.sessionId)!.add(conn);
     if (first) status.set(conn.userId, sess.status);
     const presences: Record<string, string> = {};
-    for (const uid of await presenceAudience(conn.userId)) presences[uid] = presenceOf(uid);
+    const acts: Record<string, unknown> = {};
+    for (const uid of await presenceAudience(conn.userId)) { presences[uid] = presenceOf(uid); const a = activities.get(uid); if (a && presences[uid] !== "offline") acts[uid] = a; }
     const vs = voiceStates().filter(Boolean);
     // Only voice states in channels this user can see.
     const visible: VoiceState[] = [];
@@ -225,7 +247,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
       const ch = await getChannel(v.channel_id);
       if (ch && has(await permsFor(conn.userId, ch), P.VIEW_CHANNEL)) visible.push({ ...v, user: await voiceUser(v.user_id) } as VoiceState);
     }
-    sendRaw(conn, "READY", await buildReady(conn.userId, conn.sessionId, presences, visible));
+    sendRaw(conn, "READY", { ...(await buildReady(conn.userId, conn.sessionId, presences, visible)), activities: acts });
     if (first) await broadcastPresence(conn.userId);
   };
 
@@ -253,6 +275,44 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
         toUser(d.to, "CALL_SIGNAL", { from: conn.userId, channel_id: mine.channel_id, type: d.type, data: d.data ?? null });
         return;
       }
+      if (msg.op === "activity") {
+        // Start/join/leave an activity in my voice channel.
+        const id = msg.d?.activity_id;
+        if (id !== null && (typeof id !== "string" || !/^[a-z0-9_-]{2,40}$/i.test(id))) return;
+        const mine = voice.get(conn.userId);
+        if (!mine || mine.session_id !== conn.sessionId) return;
+        await patchVoice(conn.userId, { activity_id: id });
+        return;
+      }
+      if (msg.op === "activity_event") {
+        // Shared state of an activity (video position, strokes, moves), relayed to everyone in it.
+        const mine = voice.get(conn.userId);
+        if (!mine?.activity_id || mine.session_id !== conn.sessionId) return;
+        const payload = JSON.stringify(msg.d ?? null);
+        if (payload.length > 16_000) return;
+        const now = Date.now();
+        const bucket = (conn as any).actRate ?? { at: now, n: 0 };
+        if (now - bucket.at > 1000) { bucket.at = now; bucket.n = 0; }
+        if (++bucket.n > 30) return;
+        (conn as any).actRate = bucket;
+        for (const v of voice.values()) if (v.channel_id === mine.channel_id && v.activity_id === mine.activity_id && v.user_id !== conn.userId)
+          toUser(v.user_id, "ACTIVITY_EVENT", { from: conn.userId, channel_id: mine.channel_id, activity_id: mine.activity_id, data: msg.d ?? null });
+        return;
+      }
+      if (msg.op === "presence_activity") {
+        // "Playing …" from the desktop app or a bot. Validated and kept in memory only.
+        const a = msg.d;
+        const clean = a && typeof a.name === "string" && a.name.trim() ? {
+          type: [0, 1, 2, 3, 5].includes(a.type) ? a.type : 0, name: String(a.name).slice(0, 128), details: typeof a.details === "string" ? a.details.slice(0, 128) : null,
+          state: typeof a.state === "string" ? a.state.slice(0, 128) : null, started_at: Number.isFinite(a.started_at) ? Number(a.started_at) : Date.now(),
+          url: typeof a.url === "string" && /^https:\/\//.test(a.url) ? a.url.slice(0, 300) : null,
+        } : null;
+        const prefs = await q<any>("select settings->>'share_activity' as share from users where id = $1", [conn.userId]);
+        if (prefs[0]?.share === "false" && clean) return;
+        if (clean) activities.set(conn.userId, clean); else activities.delete(conn.userId);
+        await broadcastPresence(conn.userId);
+        return;
+      }
       if (msg.op === "voice_state") {
         const err = await setVoice(conn.userId, conn.sessionId, msg.d);
         if (err) ws.send(JSON.stringify({ op: "error", d: { op: "voice_state", message: err } }));
@@ -274,6 +334,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
     if (!byUser.get(c.userId)?.size) {
       byUser.delete(c.userId);
       status.delete(c.userId);
+      activities.delete(c.userId);
       await broadcastPresence(c.userId).catch(() => {});
     }
   });

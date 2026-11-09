@@ -13,6 +13,10 @@ import { isOnline, toChannel, toUser } from "../gateway.ts";
 import { getChannel, guildPermData, permsFor, requireChannel, viewers, type ChanRow } from "../perms.ts";
 import { mediaUrl, prefixedCols, prefixedUser } from "../serialize.ts";
 import * as storage from "../storage.ts";
+import { embedOut, linksIn, previewFor } from "../unfurl.ts";
+import { checkAutomod } from "./automod.ts";
+import { notifyMessage } from "../notify.ts";
+import { trackStat } from "./insights.ts";
 import { safeName } from "../uploads.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);
@@ -29,9 +33,26 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
        from reactions where message_id = any($1::bigint[]) group by message_id, emoji order by first`, [ids, viewerId ?? "0"]);
   const stickerIds = rows.map((r) => r.sticker_id).filter(Boolean);
   const stickers = stickerIds.length ? await q<any>("select * from guild_stickers where id = any($1::bigint[])", [stickerIds]) : [];
+  const pollRows = await q<any>("select * from polls where message_id = any($1::bigint[])", [ids]);
+  const votes = pollRows.length ? await q<any>(
+    `select message_id::text, answer_id, count(*)::int as n, bool_or(user_id = $2) as me from poll_votes where message_id = any($1::bigint[]) group by message_id, answer_id`,
+    [pollRows.map((p) => p.message_id), viewerId ?? "0"]) : [];
+  const threadIds = rows.map((r) => r.thread_id).filter(Boolean);
+  const threads = threadIds.length ? await q<any>("select id::text, name, message_count, last_activity_at, archived from channels where id = any($1::bigint[])", [threadIds]) : [];
+  const ixUsers = rows.map((r) => r.interaction?.user_id).filter(Boolean);
+  const ixRows = ixUsers.length ? await q<any>(`select ${prefixedCols("u", "a_")} from users u where u.id = any($1::bigint[])`, [ixUsers]) : [];
   const replyIds = rows.map((r) => r.reply_to_id).filter(Boolean);
   const replies = replyIds.length ? await q<any>(
     `select m.id::text, m.content, m.deleted_at, ${prefixedCols("u", "a_")} from messages m left join users u on u.id = m.author_id where m.id = any($1::bigint[])`, [replyIds]) : [];
+  const pollOut = (r: any) => {
+    const p = pollRows.find((x) => String(x.message_id) === String(r.id));
+    if (!p) return null;
+    const answers = (p.answers as any[]).map((a) => {
+      const v = votes.find((x) => x.message_id === String(r.id) && x.answer_id === a.id);
+      return { id: a.id, text: a.text, emoji: a.emoji ?? null, votes: v?.n ?? 0, me: !!v?.me };
+    });
+    return { question: p.question, answers, allow_multiselect: p.allow_multiselect, expires_at: p.expires_at, finalized: p.finalized || new Date(p.expires_at).getTime() <= Date.now(), total_votes: answers.reduce((n, a) => n + a.votes, 0) };
+  };
   return rows.map((r) => {
     const rep = r.reply_to_id ? replies.find((x) => x.id === String(r.reply_to_id)) : null;
     return {
@@ -47,6 +68,18 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       reactions: reacts.filter((x) => x.message_id === r.id).map((x) => ({ emoji: x.emoji, count: x.count, me: !!x.me })),
       nonce: r.nonce ?? null,
       stickers: r.sticker_id && !r.deleted_at ? stickers.filter((s) => String(s.id) === String(r.sticker_id)).map(stickerOut) : [],
+      flags: r.flags ?? 0,
+      embeds: r.deleted_at || ((r.flags ?? 0) & 4) ? [] : ((r.embeds ?? []) as any[]).map(embedOut),
+      poll: r.deleted_at ? null : pollOut(r),
+      snapshot: r.snapshot && !r.deleted_at ? { ...r.snapshot, embeds: (r.snapshot.embeds ?? []).map(embedOut) } : null,
+      source: r.source ?? null,
+      thread: r.thread_id ? (threads.find((t) => t.id === String(r.thread_id)) ?? null) : null,
+      webhook_id: r.webhook_id ? String(r.webhook_id) : null,
+      application_id: r.application_id ? String(r.application_id) : null,
+      interaction: r.interaction ? { name: r.interaction.name, user: prefixedUser(ixRows.find((x) => x.a_id === String(r.interaction.user_id)) ?? {}, "a_") ?? null } as any : null,
+      components: r.components ?? [],
+      mention_author: r.mention_author !== false,
+      ...(r.webhook_id ? { author: { ...(prefixedUser(r, "a_") ?? { id: String(r.webhook_id), username: "webhook", bio: "", pronouns: "", accent_color: null, profile_theme: null, banner: null }), id: String(r.webhook_id), username: r.webhook_name ?? "Webhook", display_name: r.webhook_name ?? "Webhook", avatar: r.webhook_avatar ?? null, bot: true } } : {}),
     };
   });
 }
@@ -68,6 +101,23 @@ export async function createSystemMessage(channelId: string, guildId: string | n
   const msg = await messageById(id, null);
   if (ch) await toChannel(ch, "MESSAGE_CREATE", msg);
   return msg;
+}
+
+/** End a poll: freeze it, post the result, update it everywhere. */
+export async function finalizePoll(messageId: string) {
+  const p = await q1<any>("update polls set finalized = true where message_id = $1 and not finalized returning *", [messageId]);
+  if (!p) return;
+  const m = await q1<any>("select channel_id::text, guild_id::text, author_id::text from messages where id = $1", [messageId]);
+  const ch = m && await getChannel(m.channel_id);
+  if (!ch) return;
+  const msg = await messageById(messageId, null);
+  if (msg) { const { reactions: _r, ...rest } = msg; await toChannel(ch, "MESSAGE_UPDATE", rest); }
+  const counts = await q<any>("select answer_id, count(*)::int as n from poll_votes where message_id = $1 group by answer_id order by n desc", [messageId]);
+  const total = counts.reduce((n, c) => n + c.n, 0);
+  const top = counts[0] ? (p.answers as any[]).find((a) => a.id === counts[0].answer_id) : null;
+  const sys = await createSystemMessage(ch.id, ch.guild_id, m.author_id, MessageType.POLL_RESULT,
+    JSON.stringify({ poll_message_id: String(messageId), question: p.question, winner: top?.text ?? null, winner_votes: counts[0]?.n ?? 0, total_votes: total }));
+  void sys;
 }
 
 function parseMentions(content: string) {
@@ -122,9 +172,18 @@ export async function messageRoutes(app: FastifyInstance) {
       attachment_ids: z.array(ID).max(10).default([]),
       sticker_ids: z.array(ID).max(1).default([]),
       silent: z.boolean().optional(),
+      mention_author: z.boolean().default(true),
+      flags: z.number().int().min(0).max(4096).default(0),
+      poll: z.object({
+        question: z.string().trim().min(1).max(300),
+        answers: z.array(z.object({ text: z.string().trim().min(1).max(55), emoji: z.string().max(64).nullish() })).min(2).max(10),
+        duration_hours: z.number().int().min(1).max(768).default(24),
+        allow_multiselect: z.boolean().default(false),
+      }).optional(),
+      forward: z.object({ message_id: ID, channel_id: ID }).optional(),
     }).parse(req.body);
     const content = b.content.replace(/\s+$/, "");
-    if (!content.trim() && !b.attachment_ids.length && !b.sticker_ids.length) throw bad("Messages can't be empty.");
+    if (!content.trim() && !b.attachment_ids.length && !b.sticker_ids.length && !b.poll && !b.forward) throw bad("Messages can't be empty.");
     const ch0 = await getChannel(req.params.cid);
     const isThread = ch0 && (ch0.type === ChannelType.PUBLIC_THREAD || ch0.type === ChannelType.PRIVATE_THREAD);
     const { channel, perms } = await requireChannel(me, req.params.cid, P.VIEW_CHANNEL);
@@ -136,6 +195,23 @@ export async function messageRoutes(app: FastifyInstance) {
     }
     if (config.requireVerifiedEmail && !req.session!.email_verified) throw forbidden("Verify your email to send messages.");
     if (b.attachment_ids.length && !has(perms, P.ATTACH_FILES)) throw forbidden("You can't attach files here.");
+    if (b.poll && channel.guild_id && !has(perms, P.SEND_POLLS)) throw forbidden("You can't create polls here.");
+    if (isThread && (channel as any).locked && !has(perms, P.MANAGE_THREADS)) throw forbidden("This thread is locked.");
+    if (channel.guild_id) {
+      const m = await q1<any>("select communication_disabled_until from members where guild_id = $1 and user_id = $2", [channel.guild_id, me]);
+      if (m?.communication_disabled_until && new Date(m.communication_disabled_until).getTime() > Date.now() && !has(perms, P.ADMINISTRATOR)) throw forbidden("You're timed out in this server.");
+    }
+    let snapshot: any = null;
+    if (b.forward) {
+      const { channel: src } = await requireChannel(me, b.forward.channel_id, P.READ_MESSAGE_HISTORY);
+      const orig = await messageById(b.forward.message_id, me);
+      if (!orig || orig.channel_id !== src.id) throw notFound("Message");
+      if (String(orig.content).startsWith(PREFIX)) throw bad("Encrypted messages can't be forwarded.");
+      const base = orig.snapshot ?? orig;
+      const rawEmbeds = (await q1<any>("select embeds from messages where id = $1", [orig.id]))?.embeds ?? [];
+      snapshot = { content: base.content, attachments: base.attachments, embeds: orig.snapshot ? (orig.snapshot.embeds ?? []) : rawEmbeds, stickers: base.stickers ?? [], created_at: base.created_at, edited_at: base.edited_at,
+        origin: orig.snapshot?.origin ?? { guild_id: src.guild_id, channel_id: src.id, message_id: orig.id, channel_name: src.name } };
+    }
     const sticker = b.sticker_ids[0] ? await checkSticker(me, channel, perms, b.sticker_ids[0]) : null;
 
     // Idempotency: a retried send with the same nonce returns the original.
@@ -148,13 +224,17 @@ export async function messageRoutes(app: FastifyInstance) {
       const wait = last ? channel.rate_limit_per_user * 1000 - (Date.now() - new Date(last.created_at).getTime()) : 0;
       if (wait > 0) throw tooMany(`Slow mode is on. You can send another message in ${Math.ceil(wait / 1000)}s.`, Math.ceil(wait / 1000));
     }
-    let replyTo: string | null = null;
+    let replyTo: string | null = null, replyAuthor: string | null = null;
     if (b.reply_to) {
       const r = await q1<any>("select id::text, channel_id::text, author_id::text from messages where id = $1 and deleted_at is null", [b.reply_to]);
       if (!r || r.channel_id !== channel.id) throw bad("You can only reply to messages in this channel.");
-      replyTo = r.id;
+      replyTo = r.id; replyAuthor = r.author_id;
     }
     const mentions = parseMentions(content);
+    // Replies ping the person replied to unless "@ off" was chosen.
+    if (replyAuthor && replyAuthor !== me && b.mention_author && !mentions.users.includes(replyAuthor)) mentions.users.push(replyAuthor);
+    const automod = channel.guild_id ? await checkAutomod(channel, me, perms, content, mentions.users.length + mentions.roles.length) : null;
+    if (automod?.blocked) throw new ApiError(400, "automod_blocked", automod.message ?? "Your message was blocked by this server's AutoMod.");
     const everyone = mentions.everyone && has(perms, P.MENTION_EVERYONE);
     let roleMentions: string[] = [];
     if (channel.guild_id && mentions.roles.length) {
@@ -165,9 +245,16 @@ export async function messageRoutes(app: FastifyInstance) {
     try {
       await tx(async (c) => {
         await c.query(
-          `insert into messages(id, channel_id, guild_id, author_id, content, type, reply_to_id, nonce, mention_everyone, mentions, mention_roles, sticker_id)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-          [id, channel.id, channel.guild_id, me, content, replyTo ? MessageType.REPLY : MessageType.DEFAULT, replyTo, b.nonce ?? null, everyone, mentions.users, roleMentions, sticker?.id ?? null]);
+          `insert into messages(id, channel_id, guild_id, author_id, content, type, reply_to_id, nonce, mention_everyone, mentions, mention_roles, sticker_id, flags, snapshot, mention_author)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          [id, channel.id, channel.guild_id, me, content, replyTo ? MessageType.REPLY : MessageType.DEFAULT, replyTo, b.nonce ?? null, everyone, mentions.users, roleMentions, sticker?.id ?? null,
+           (b.flags & 4) | (b.silent ? 4096 : 0), snapshot ? JSON.stringify(snapshot) : null, b.mention_author]);
+        if (b.poll) {
+          await c.query("insert into polls(message_id, question, answers, allow_multiselect, expires_at) values ($1,$2,$3,$4, now() + make_interval(hours => $5))",
+            [id, b.poll.question, JSON.stringify(b.poll.answers.map((a, i) => ({ id: i + 1, text: a.text, emoji: a.emoji ?? null }))), b.poll.allow_multiselect, b.poll.duration_hours]);
+        }
+        if (isThread) await c.query("update channels set message_count = message_count + 1, last_activity_at = now(), archived = false, archived_at = null where id = $1", [channel.id]);
+        if (isThread) await c.query("insert into thread_members(channel_id, user_id) values ($1,$2) on conflict do nothing", [channel.id, me]);
         if (b.attachment_ids.length) {
           const r = await c.query("update attachments set message_id = $1 where id = any($2::bigint[]) and uploader_id = $3 and channel_id = $4 and message_id is null returning id", [id, b.attachment_ids, me, channel.id]);
           if (r.rowCount !== b.attachment_ids.length) throw bad("One of the attachments is missing or already used. Try uploading it again.");
@@ -187,7 +274,103 @@ export async function messageRoutes(app: FastifyInstance) {
     await bumpMentions(channel, msg, me, everyone, mentions.users, roleMentions, !!b.silent);
     // Reopen a closed 1:1 DM for the recipient.
     await toChannel(channel, "MESSAGE_CREATE", msg);
+    if (isThread && ch0?.parent_id) {
+      const parent = await getChannel(ch0.parent_id);
+      if (parent) await toChannel(parent, "THREAD_UPDATE", { id: channel.id, parent_id: parent.id, guild_id: channel.guild_id, message_count: ((channel as any).message_count ?? 0) + 1, last_activity_at: new Date().toISOString(), archived: false });
+    }
+    if (channel.guild_id) trackStat(channel.guild_id, "message", me).catch(() => {});
+    if (automod?.alerts.length) automod.report(msg).catch((e) => console.error("[automod]", e));
+    notifyMessage(channel, msg, { author: me, everyone, users: mentions.users, roles: roleMentions, silent: !!b.silent }).catch((e) => console.error("[push]", e));
+    if (!(b.flags & 4) && has(perms, P.EMBED_LINKS)) unfurlLater(channel, id, content);
     return msg;
+  });
+
+  /** Fetch link previews after the message is out, then update it everywhere. */
+  function unfurlLater(channel: ChanRow, id: string, content: string) {
+    if (!content || content.startsWith(PREFIX)) return;
+    const links = linksIn(content);
+    if (!links.length) { void q("update messages set embeds = null where id = $1 and embeds is not null", [id]); return; }
+    (async () => {
+      const embeds = (await Promise.all(links.map((l) => previewFor(l).catch(() => null)))).filter(Boolean);
+      await q("update messages set embeds = $2 where id = $1", [id, embeds.length ? JSON.stringify(embeds) : null]);
+      const msg = await messageById(id, null);
+      if (msg) { const { reactions: _r, ...rest } = msg; await toChannel(channel, "MESSAGE_UPDATE", rest); }
+    })().catch((e) => console.error("[unfurl]", e));
+  }
+
+  /* --------------------------------------------------------- polls -- */
+  app.put<{ Params: { cid: string; mid: string } }>("/api/channels/:cid/polls/:mid/votes", async (req) => {
+    const me = uid(req);
+    const { channel } = await requireChannel(me, req.params.cid, P.READ_MESSAGE_HISTORY);
+    const { answer_ids } = z.object({ answer_ids: z.array(z.number().int().min(1).max(10)).max(10) }).parse(req.body);
+    const p = await q1<any>("select p.* from polls p join messages m on m.id = p.message_id where p.message_id = $1 and m.channel_id = $2 and m.deleted_at is null", [req.params.mid, channel.id]);
+    if (!p) throw notFound("Poll");
+    if (p.finalized || new Date(p.expires_at).getTime() <= Date.now()) throw bad("This poll has ended.");
+    const valid = new Set((p.answers as any[]).map((a) => a.id));
+    const chosen = [...new Set(answer_ids)].filter((a) => valid.has(a));
+    if (!p.allow_multiselect && chosen.length > 1) throw bad("Pick one answer.");
+    await tx(async (c) => {
+      await c.query("delete from poll_votes where message_id = $1 and user_id = $2", [p.message_id, me]);
+      for (const a of chosen) await c.query("insert into poll_votes(message_id, answer_id, user_id) values ($1,$2,$3)", [p.message_id, a, me]);
+    });
+    const counts = await q<any>("select answer_id, count(*)::int as n from poll_votes where message_id = $1 group by answer_id", [p.message_id]);
+    await toChannel(channel, "POLL_VOTES", { channel_id: channel.id, message_id: String(p.message_id), counts, user_id: me, answer_ids: chosen });
+    return messageById(req.params.mid, me);
+  });
+  app.post<{ Params: { cid: string; mid: string } }>("/api/channels/:cid/polls/:mid/expire", async (req) => {
+    const me = uid(req);
+    const { channel, perms } = await requireChannel(me, req.params.cid, P.READ_MESSAGE_HISTORY);
+    const m = await q1<any>("select author_id::text from messages where id = $1 and channel_id = $2", [req.params.mid, channel.id]);
+    if (!m) throw notFound("Poll");
+    if (m.author_id !== me && !(channel.guild_id && has(perms, P.MANAGE_MESSAGES))) throw forbidden("Only the person who made the poll can end it.");
+    await finalizePoll(req.params.mid);
+    return messageById(req.params.mid, me);
+  });
+  app.get<{ Params: { cid: string; mid: string; aid: string } }>("/api/channels/:cid/polls/:mid/answers/:aid", async (req) => {
+    const { channel } = await requireChannel(uid(req), req.params.cid, P.READ_MESSAGE_HISTORY);
+    const rows = await q<any>(`select ${prefixedCols("u", "a_")} from poll_votes v join users u on u.id = v.user_id join messages m on m.id = v.message_id
+      where v.message_id = $1 and m.channel_id = $2 and v.answer_id = $3 order by v.created_at limit 100`, [req.params.mid, channel.id, Number(req.params.aid) || 0]);
+    return rows.map((r) => prefixedUser(r, "a_"));
+  });
+
+  /* -------------------------------------------- embeds & suppression -- */
+  app.patch<{ Params: { cid: string; mid: string } }>("/api/channels/:cid/messages/:mid/flags", async (req) => {
+    const me = uid(req);
+    const { channel, perms } = await requireChannel(me, req.params.cid);
+    const m = await q1<any>("select author_id::text, flags from messages where id = $1 and channel_id = $2 and deleted_at is null", [req.params.mid, channel.id]);
+    if (!m) throw notFound("Message");
+    if (m.author_id !== me && !(channel.guild_id && has(perms, P.MANAGE_MESSAGES))) throw forbidden();
+    const { suppress_embeds } = z.object({ suppress_embeds: z.boolean() }).parse(req.body);
+    await q("update messages set flags = case when $2 then flags | 4 else flags & ~4 end where id = $1", [req.params.mid, suppress_embeds]);
+    const msg = (await messageById(req.params.mid, me))!;
+    const { reactions: _r, ...rest } = msg;
+    await toChannel(channel, "MESSAGE_UPDATE", rest);
+    return msg;
+  });
+
+  /* ---------------------------------------------------------- inbox -- */
+  /** Recent messages that mention me (directly, by role, or @everyone/@here) in servers I can read. */
+  app.get<{ Querystring: { before?: string; guild_id?: string; everyone?: string; roles?: string } }>("/api/users/@me/mentions", async (req) => {
+    const me = uid(req);
+    const before = req.query.before && /^\d{1,20}$/.test(req.query.before) ? req.query.before : null;
+    const guild = req.query.guild_id && /^\d{1,20}$/.test(req.query.guild_id) ? req.query.guild_id : null;
+    const withEveryone = req.query.everyone !== "0", withRoles = req.query.roles !== "0";
+    const rows = await q<any>(`${SELECT}
+      where m.deleted_at is null and m.author_id <> $1 and ($2::bigint is null or m.id < $2) and ($3::bigint is null or m.guild_id = $3)
+        and m.created_at > now() - interval '30 days'
+        and ($1 = any(m.mentions)
+          or ($4 and m.mention_everyone and m.guild_id in (select guild_id from members where user_id = $1))
+          or ($5 and m.mention_roles && (select coalesce(array_agg(role_id), '{}') from member_roles where user_id = $1)))
+      order by m.id desc limit 60`, [me, before, guild, withEveryone, withRoles]);
+    const out: any[] = [];
+    const cache = new Map<string, boolean>();
+    for (const r of rows) {
+      const cid = String(r.channel_id);
+      if (!cache.has(cid)) { const ch = await getChannel(cid); cache.set(cid, !!ch && has(await permsFor(me, ch), P.VIEW_CHANNEL | P.READ_MESSAGE_HISTORY)); }
+      if (cache.get(cid)) out.push(r);
+      if (out.length >= 25) break;
+    }
+    return hydrate(out, me);
   });
 
   async function bumpMentions(channel: ChanRow, msg: Message, author: string, everyone: boolean, users: string[], roles: string[], silent: boolean) {
@@ -228,6 +411,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const msg = (await messageById(m.id, me))!;
     const { reactions: _r, ...withoutReactions } = msg;
     await toChannel(channel, "MESSAGE_UPDATE", withoutReactions);
+    if (!((m.flags ?? 0) & 4)) unfurlLater(channel, m.id, content);
     return msg;
   });
 
@@ -467,6 +651,46 @@ export async function messageRoutes(app: FastifyInstance) {
     const a = await q1<any>("delete from attachments where id = $1 and uploader_id = $2 and message_id is null returning storage_key", [req.params.aid, uid(req)]);
     if (a) await storage.remove(a.storage_key).catch(() => {});
     return { ok: true };
+  });
+}
+
+/** Images/videos in link previews, fetched through the server (signed URLs only). */
+export async function embedMediaRoute(app: FastifyInstance) {
+  const { checkProxySig, safeFetch } = await import("../unfurl.ts");
+  app.get<{ Querystring: { u?: string; s?: string } }>("/api/embed-media", async (req, reply) => {
+    const u = String(req.query.u ?? ""), sig = String(req.query.s ?? "");
+    if (!u || !checkProxySig(u, sig)) throw notFound("File");
+    let r;
+    try { r = await safeFetch(u, { maxBytes: 15 * 1024 * 1024, accept: "image/*,video/*" }); } catch { throw notFound("File"); }
+    const type = r.type.split(";")[0]!.trim().toLowerCase();
+    if (r.status !== 200 || !/^(image\/(png|jpeg|gif|webp|avif)|video\/(mp4|webm))$/.test(type)) throw notFound("File");
+    reply.header("content-type", type);
+    reply.header("cache-control", "public, max-age=86400");
+    reply.header("content-security-policy", "default-src 'none'; sandbox");
+    reply.header("x-content-type-options", "nosniff");
+    return reply.send(r.body);
+  });
+
+  /** GIF search through the configured provider (Klipy or Tenor). The key stays on the server. */
+  app.get<{ Querystring: { q?: string; pos?: string } }>("/api/gifs", { preHandler: requireUser, config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
+    const key = process.env.SYNDO_GIF_KEY, provider = config.gifProvider;
+    if (!key || !provider) throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up on this server yet.");
+    const text = String(req.query.q ?? "").trim().slice(0, 100);
+    const pos = String(req.query.pos ?? "").slice(0, 100);
+    const { safeFetch: get } = await import("../unfurl.ts");
+    if (provider === "tenor") {
+      const url = text ? `https://tenor.googleapis.com/v2/search?key=${encodeURIComponent(key)}&client_key=send&q=${encodeURIComponent(text)}&limit=30&media_filter=tinygif,gif,mp4&contentfilter=medium${pos ? `&pos=${encodeURIComponent(pos)}` : ""}`
+        : `https://tenor.googleapis.com/v2/featured?key=${encodeURIComponent(key)}&client_key=send&limit=30&media_filter=tinygif,gif,mp4&contentfilter=medium${pos ? `&pos=${encodeURIComponent(pos)}` : ""}`;
+      const j = JSON.parse((await get(url, { accept: "application/json", maxBytes: 2_000_000 })).body.toString("utf8"));
+      return { next: j.next ?? null, results: (j.results ?? []).map((g: any) => ({ id: g.id, title: g.content_description ?? "", url: g.itemurl ?? g.url, preview: g.media_formats?.tinygif?.url, gif: g.media_formats?.gif?.url, mp4: g.media_formats?.mp4?.url, width: g.media_formats?.gif?.dims?.[0] ?? null, height: g.media_formats?.gif?.dims?.[1] ?? null })) };
+    }
+    // Klipy
+    const page = Math.max(1, Number(pos) || 1);
+    const url = text ? `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/gifs/search?q=${encodeURIComponent(text)}&per_page=30&page=${page}&customer_id=${uid(req)}`
+      : `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/gifs/trending?per_page=30&page=${page}&customer_id=${uid(req)}`;
+    const j = JSON.parse((await get(url, { accept: "application/json", maxBytes: 2_000_000 })).body.toString("utf8"));
+    const list = j.data?.data ?? [];
+    return { next: j.data?.has_next ? String(page + 1) : null, results: list.map((g: any) => ({ id: String(g.id), title: g.title ?? "", url: g.file?.hd?.gif?.url, preview: g.file?.sm?.gif?.url ?? g.file?.xs?.gif?.url, gif: g.file?.hd?.gif?.url ?? g.file?.md?.gif?.url, mp4: g.file?.hd?.mp4?.url ?? null, width: g.file?.hd?.gif?.width ?? null, height: g.file?.hd?.gif?.height ?? null })) };
   });
 }
 

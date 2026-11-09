@@ -10,12 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@syndo/shared": "0.1.0",
     "gifenc": "^1.0.3",
     "gifuct-js": "^2.1.2",
     "libsodium-wrappers": "0.8.4",
     "livekit-client": "^2.23.0",
     "lucide-react": "^1.66.0",
+    "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zustand": "^5.0.16"
@@ -24,6 +26,7 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
     "@types/jsdom": "^30.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",

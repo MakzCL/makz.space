@@ -34,11 +34,15 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
     emojis: expressions.emojis,
     sounds: expressions.sounds,
     stickers: expressions.stickers,
+    premium_tier: g.premium_tier ?? 0, premium_count: g.premium_count ?? 0,
+    discovery_category: g.discovery_category ?? null, discovery_keywords: g.discovery_keywords ?? [],
+    stage_instances: (await q<any>("select channel_id::text, guild_id::text, topic, started_by::text, created_at from stage_instances where guild_id = $1", [guildId])),
     me: {
       guild_id: g.id, user: userOut(u), nick: member.nick, roles: member.roles, joined_at: member.joined_at,
       communication_disabled_until: member.communication_disabled_until ?? null, mute: member.mute, deaf: member.deaf,
       guild_avatar: mediaUrl(member.avatar_key), guild_bio: member.bio ?? null,
       guild_banner: mediaUrl(member.banner_key), guild_pronouns: member.pronouns ?? null, guild_profile_theme: member.profile_theme ?? null, guild_status: member.custom_status ?? null,
+      pending: !!member.pending, premium_since: member.premium_since ?? null,
     },
   };
 }
@@ -75,5 +79,8 @@ export async function buildReady(userId: string, sessionId: string, presences: R
     presences,
     voice_states: voiceStates,
     limits: config.limits,
+    notification_settings: (await q<any>("select scope_id::text, scope_kind, level, muted, muted_until, suppress_everyone, suppress_roles, hide_muted, mobile_push from notification_settings where user_id = $1", [userId])),
+    joined_threads: (await q<any>("select channel_id::text from thread_members where user_id = $1", [userId])).map((r) => r.channel_id),
+    has_passkey: !!(await q1<any>("select 1 from passkeys where user_id = $1 limit 1", [userId])),
   };
 }

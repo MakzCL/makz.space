@@ -15,6 +15,7 @@
     "@fastify/multipart": "^10.1.7",
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/static": "^10.1.8",
+    "@simplewebauthn/server": "^13.3.3",
     "@syndo/shared": "0.1.0",
     "fastify": "^5.12.8",
     "file-type": "^22.3.0",
@@ -23,6 +24,7 @@
     "otpauth": "^9.6.0",
     "pg": "^8.23.1",
     "tsx": "^4.23.15",
+    "web-push": "^3.6.7",
     "ws": "^8.22.1",
     "zod": "^4.6.7"
   },
@@ -30,6 +32,7 @@
     "@types/node": "^26.6.6",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.2",
     "typescript": "^7.0.2"
   }

@@ -38,7 +38,7 @@ export async function loadMember(guildId: string, userId: string): Promise<(Memb
 export async function loadMembers(guildId: string, userIds: string[]): Promise<Map<string, MemberLike>> {
   if (!userIds.length) return new Map();
   const rows = await q<any>(
-    `select m.user_id::text, m.communication_disabled_until, coalesce(array_agg(mr.role_id::text) filter (where mr.role_id is not null), '{}') as roles
+    `select m.user_id::text, m.communication_disabled_until, m.pending, coalesce(array_agg(mr.role_id::text) filter (where mr.role_id is not null), '{}') as roles
        from members m left join member_roles mr on mr.guild_id = m.guild_id and mr.user_id = m.user_id
       where m.guild_id = $1 and m.user_id = any($2::bigint[]) group by m.guild_id, m.user_id`, [guildId, userIds]);
   return new Map(rows.map((r) => [r.user_id, r]));
@@ -51,6 +51,9 @@ export async function overwritesFor(channelIds: string[]): Promise<Map<string, O
   for (const r of rows) out.get(r.channel_id)!.push(r);
   return out;
 }
+
+/** Members who haven't accepted the rules yet can read, but not take part. */
+export const PENDING_DENY = P.SEND_MESSAGES | P.SEND_MESSAGES_IN_THREADS | P.ADD_REACTIONS | P.CONNECT | P.SPEAK | P.CREATE_PUBLIC_THREADS | P.CREATE_PRIVATE_THREADS | P.SEND_POLLS | P.SEND_VOICE_MESSAGES | P.ATTACH_FILES;
 
 /** The channel whose overwrites govern `ch` (threads inherit their parent's). */
 const governing = async (ch: ChanRow): Promise<ChanRow> =>
@@ -85,9 +88,10 @@ export async function permsFor(userId: string, ch: ChanRow): Promise<bigint> {
   const ows = (await overwritesFor([gov.id])).get(gov.id)!;
   let perms = channelPermissions(data.guild, member, data.roles, ows);
   if (ch.type === ChannelType.PRIVATE_THREAD && !has(perms, P.MANAGE_THREADS)) {
-    const inThread = await q1("select 1 from channel_recipients where channel_id = $1 and user_id = $2", [ch.id, userId]);
+    const inThread = await q1("select 1 from thread_members where channel_id = $1 and user_id = $2", [ch.id, userId]);
     if (!inThread) perms = 0n;
   }
+  if ((member as any).pending) perms &= ~PENDING_DENY;
   return perms;
 }
 
@@ -131,11 +135,12 @@ export async function viewers(ch: ChanRow, userIds: string[]): Promise<Map<strin
   const members = await loadMembers(ch.guild_id, userIds);
   let threadMembers: Set<string> | null = null;
   if (ch.type === ChannelType.PRIVATE_THREAD) {
-    threadMembers = new Set((await q<{ user_id: string }>("select user_id::text from channel_recipients where channel_id = $1", [ch.id])).map((r) => r.user_id));
+    threadMembers = new Set((await q<{ user_id: string }>("select user_id::text from thread_members where channel_id = $1", [ch.id])).map((r) => r.user_id));
   }
   for (const [uid, m] of members) {
     let p = channelPermissions(data.guild, m, data.roles, ows);
     if (threadMembers && !threadMembers.has(uid) && !has(p, P.MANAGE_THREADS)) p = 0n;
+    if ((m as any).pending) p &= ~PENDING_DENY;
     if (has(p, P.VIEW_CHANNEL)) out.set(uid, p);
   }
   return out;

@@ -10,6 +10,7 @@ import { requireUser, uid } from "../auth.ts";
 import { randomCode } from "../crypto.ts";
 import { ApiError, bad, conflict, forbidden, notFound } from "../errors.ts";
 import { newId } from "../ids.ts";
+import { trackStat } from "./insights.ts";
 import { dropVoice, onlineMembers, presenceOf, toGuild, toUser, voiceStates } from "../gateway.ts";
 import { removeFromRoom, restrictPublishing } from "../media.ts";
 import { getChannel, guildPermData, loadMember, overwritesFor, permsFor, requireChannel, requireGuild } from "../perms.ts";
@@ -53,14 +54,15 @@ export async function resyncGuild(guildId: string, only?: string[]) {
   }
 }
 
-async function memberOut(guildId: string, userId: string) {
+export async function memberOut(guildId: string, userId: string) {
   const r = await q1<any>(
-    `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
+    `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.pending, m.premium_since, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
        from members m join users u on u.id = m.user_id where m.guild_id = $1 and m.user_id = $2`, [guildId, userId]);
   return r && {
     guild_id: guildId, user: userOut(r), nick: r.nick, roles: r.roles, joined_at: r.joined_at,
     communication_disabled_until: r.communication_disabled_until, mute: r.mute, deaf: r.deaf,
     guild_avatar: mediaUrl(r.m_avatar_key), guild_bio: r.m_bio, presence: presenceOf(userId), ...serverProfile(r),
+    pending: !!r.pending, premium_since: r.premium_since ?? null,
   };
 }
 
@@ -77,7 +79,11 @@ export async function addMember(guildId: string, userId: string) {
   if (count.n >= config.limits.max_guilds_per_user) throw bad(`You can be in up to ${config.limits.max_guilds_per_user} servers on this instance.`, "guild_limit");
   const size = await q1<any>("select count(*)::int as n from members where guild_id = $1", [guildId]);
   if (size.n >= config.limits.max_members_per_guild) throw bad("This server is full.", "guild_full");
-  await q("insert into members(guild_id, user_id) values ($1,$2)", [guildId, userId]);
+  // Rules screening: new members can read but not take part until they accept.
+  const ob = await q1<any>("select screening from guild_onboarding where guild_id = $1", [guildId]);
+  const pending = !!ob?.screening?.enabled;
+  await q("insert into members(guild_id, user_id, pending) values ($1,$2,$3)", [guildId, userId, pending]);
+  trackStat(guildId, "join").catch(() => {});
   const g = await q1<any>("select system_channel_id from guilds where id = $1", [guildId]);
   const m = await memberOut(guildId, userId);
   await toGuild(guildId, "GUILD_MEMBER_ADD", m);
@@ -89,6 +95,9 @@ export async function addMember(guildId: string, userId: string) {
 
 async function removeMember(guildId: string, userId: string) {
   await q("delete from members where guild_id = $1 and user_id = $2", [guildId, userId]);
+  trackStat(guildId, "leave").catch(() => {});
+  // Boosts on a server you leave go back to your pool.
+  await q("update guild_boosts set guild_id = null, applied_at = null where guild_id = $1 and user_id = $2", [guildId, userId]).catch(() => {});
   toUser(userId, "GUILD_DELETE", { id: guildId });
   await toGuild(guildId, "GUILD_MEMBER_REMOVE", { guild_id: guildId, user_id: userId });
   const v = voiceStates().find((x) => x.user_id === userId && x.guild_id === guildId);
@@ -249,7 +258,7 @@ export async function guildRoutes(app: FastifyInstance) {
     const limit = Math.min(Math.max(Number(req.query.limit ?? 1000) || 1000, 1), 1000);
     const search = req.query.q?.trim().toLowerCase().slice(0, 32) || null;
     const rows = await q<any>(
-      `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
+      `select m.nick, m.joined_at, m.communication_disabled_until, m.mute, m.deaf, m.pending, m.premium_since, m.avatar_key as m_avatar_key, m.bio as m_bio, m.banner_key as m_banner_key, m.pronouns as m_pronouns, m.profile_theme as m_profile_theme, m.custom_status as m_custom_status, ${USER_COLS}, coalesce((select array_agg(role_id::text) from member_roles mr where mr.guild_id = m.guild_id and mr.user_id = m.user_id), '{}') as roles
          from members m join users u on u.id = m.user_id
         where m.guild_id = $1 and ($2::text is null or u.username ilike $2 || '%' or lower(coalesce(m.nick, u.display_name, '')) like '%' || $2 || '%')
           and ($3::bigint is null or m.user_id > $3)
