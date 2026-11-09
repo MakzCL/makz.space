@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eraser, Gamepad2, Pause, Play, Rocket, X } from "lucide-react";
 import type { Application, Channel } from "@syndo/shared";
@@ -29,7 +30,7 @@ export function ActivityButton({ channel }: { channel: Channel }) {
   const btn = useRef<HTMLButtonElement>(null);
   const here = useVoice((v) => v.channelId === channel.id);
   const myAct = useStore((s) => s.voice[s.me?.id ?? ""]?.activity_id ?? null);
-  const others = useStore((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id && x.activity_id).map((x) => x.activity_id!));
+  const others = useStore(useShallow((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id && x.activity_id).map((x) => x.activity_id!)));
   useEffect(() => { if (open && !list) api.get<typeof catalog>("/api/activities").then((c) => { catalog = c; setList(c); }).catch(() => {}); }, [open, list]);
   if (!here) return null;
   const start = (id: string) => { gwSend("activity", { activity_id: id }); setOpen(false); };

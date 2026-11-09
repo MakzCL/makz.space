@@ -10,6 +10,7 @@ import { openModal } from "./modals.tsx";
 
 /** Scheduled events: the "N Events" row at the top of the channel list, the events list, and the create form. */
 
+const NONE: GuildEvent[] = [];
 async function loadEvents(guildId: string) {
   try { const list = await api.get<GuildEvent[]>(`/api/guilds/${guildId}/events`); useStore.setState((s) => ({ events: { ...s.events, [guildId]: list } })); } catch { /* */ }
 }
@@ -37,7 +38,7 @@ export function openEvents(guild: Guild) {
 }
 
 function EventsList({ guild, onClose }: { guild: Guild; onClose: () => void }) {
-  const list = useStore((s) => s.events[guild.id] ?? []);
+  const list = useStore((s) => s.events[guild.id] ?? NONE);
   const canCreate = guildPerms(guild) & P.MANAGE_EVENTS || guild.channels.some((c) => (c.type === ChannelType.VOICE || c.type === ChannelType.STAGE) && can(c, P.MANAGE_EVENTS));
   return (
     <Modal title={<><CalendarDays size={20} /> {list.length} Event{list.length === 1 ? "" : "s"}</>} label="Events" wide onClose={onClose}

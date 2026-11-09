@@ -10,6 +10,7 @@
 //! is locked to that origin and everything else opens in the system browser; camera, mic and
 //! notification permission is granted only to that origin.
 
+mod games;
 mod ptt;
 mod updater;
 
@@ -162,7 +163,7 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
     "version": app.package_info().version.to_string(),
     "platform": if cfg!(windows) { "win32" } else { std::env::consts::OS },
     "osBuild": windows_build(),
-    "capabilities": { "customTitlebar": true, "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true },
+    "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true },
   });
   let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required");
   if !c.hardware_acceleration { args.push_str(" --disable-gpu"); }
@@ -570,6 +571,17 @@ pub fn run() {
           _ => {}
         })
         .build(app)?;
+
+      // "Playing …": look for a known game every 20 s and tell the page when it changes.
+      let gh = handle.clone();
+      std::thread::spawn(move || {
+        let mut last: Option<&'static str> = None;
+        loop {
+          std::thread::sleep(std::time::Duration::from_secs(20));
+          let now = games::running();
+          if now != last { last = now; emit(&gh, "activity", &json!(now.map(|n| json!({ "type": 0, "name": n })))); }
+        }
+      });
 
       // Check for updates a little after start, then every 4 hours (never downloads on its own).
       let up = handle.clone();

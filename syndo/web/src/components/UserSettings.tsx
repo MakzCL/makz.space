@@ -21,8 +21,11 @@ import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { playSound } from "../voice/sounds.ts";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
+import { AppsTab, ConnectionsTab, PasskeysCard, PushCard, StreamerCard } from "../features/AccountExtras.tsx";
+import { BoostSettings } from "../features/Boosts.tsx";
+import { LanguageTab } from "../features/i18n.tsx";
 
-const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["connections", "Connections"], ["boosts", "Server Boosts"], ["apps", "Apps"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["language", "Language"], ["streamer", "Streamer mode"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -37,7 +40,12 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
         </ScrollArea>
         <ScrollArea key={tab} className="settings-scroll-body" viewportClassName="settings-body" role="tabpanel">
           <button className="settings-back m-only" onClick={() => setPane("list")}>‹ All settings</button>
-          {tab === "account" && <Account />}
+          {tab === "account" && <><Account /><PasskeysCard /></>}
+          {tab === "connections" && <ConnectionsTab />}
+          {tab === "boosts" && <BoostSettings />}
+          {tab === "apps" && <AppsTab />}
+          {tab === "language" && <LanguageTab />}
+          {tab === "streamer" && <StreamerCard />}
           {tab === "profile" && <ProfileEditor />}
           {tab === "effects" && <EffectsGallery />}
           {tab === "privacy" && <Privacy />}
@@ -46,7 +54,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
           {tab === "voice" && <VoiceTab />}
           {tab === "keybinds" && <KeybindsTab />}
           {tab === "advanced" && <AdvancedTab />}
-          {tab === "notifications" && <NotificationsTab />}
+          {tab === "notifications" && <><PushCard /><NotificationsTab /></>}
           {tab === "about" && <About />}
           {tab === "desktop" && <DesktopTab />}
         </ScrollArea>

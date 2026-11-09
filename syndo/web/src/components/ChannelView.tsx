@@ -48,6 +48,7 @@ import { MessageSquare, CornerUpRight, Send as SendIcon, ArrowDown } from "lucid
 
 /** Which message is being edited (one at a time, like Discord); lets ↑ in the composer start editing. */
 const useEditing = create<{ id: string | null }>(() => ({ id: null }));
+const NO_SETTINGS = {};
 const QUICK = ["👍", "❤️", "😂", "🎉", "😮", "😢", "🙏", "🌻", "✨", "👀", "🔥", "💙"];
 
 export function ChannelView({ channelId, guildId, highlight }: { channelId: string; guildId: string | null; highlight: string | null }) {
@@ -250,7 +251,17 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   };
 
   return (
-    <div className="msgs" ref={ref} onScroll={onScroll} role="log" aria-live="polite" aria-relevant="additions" aria-label={`Messages in ${channel.name ?? "conversation"}`} tabIndex={0}>
+    <div className="msgs" ref={ref} onScroll={onScroll} onKeyDown={(e) => {
+      // Keyboard: ↑/↓ move between messages, Home/End jump, Esc goes back to the message box.
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const items = [...(ref.current?.querySelectorAll<HTMLElement>("article.msg") ?? [])];
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      if (e.key === "Escape") { document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); return; }
+      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key) || (i < 0 && e.target !== ref.current)) return;
+      e.preventDefault();
+      const n = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : i < 0 ? items.length - 1 : i + (e.key === "ArrowUp" ? -1 : 1);
+      const el = items[Math.max(0, Math.min(items.length - 1, n))]; el?.focus(); el?.scrollIntoView({ block: "nearest" });
+    }} role="log" aria-live="polite" aria-relevant="additions" aria-label={`Messages in ${channel.name ?? "conversation"}`} tabIndex={0}>
       {unread.count > 0 && dividerAbove && barHidden !== `${channel.id}:${unread.firstId}` && <div className="unread-bar" role="status">
       <button className="unread-jump" onClick={jumpToUnread}>{unread.count >= 50 ? "50+" : unread.count} new message{unread.count === 1 ? "" : "s"} since {unread.since ? fmtTime(unread.since) : "you were last here"}</button>
       <button className="unread-mark" onClick={() => { ackChannel(channel); setBarHidden(`${channel.id}:${unread.firstId}`); }}>Mark as read</button>
@@ -372,7 +383,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           <InteractionLine m={m} guildId={guildId} />
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
-              {m.content && <Markdown text={m.content} ctx={mdCtx} />}
+              {m.content && !(m.embeds?.length === 1 && (m.embeds[0]!.type === "gifv" || m.embeds[0]!.type === "image") && m.embeds[0]!.url === m.content.trim()) && <Markdown text={m.content} ctx={mdCtx} />}
+              {!m.content && (m.interaction as any)?.deferred && !m.embeds?.length && <em className="muted">{m.author.display_name || m.author.username} is thinking…</em>}
               {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
@@ -512,6 +524,19 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLa
   const groups = useMemo(() => myEmojis(guildId), [custom, guildId]); // eslint-disable-line react-hooks/exhaustive-deps
   const ALL = "😀 😃 😄 😁 😆 🥹 😅 😂 🤣 🥲 😊 😇 🙂 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 🤗 🤔 🫡 🤭 🤫 😶 😐 😑 😬 🙄 😯 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 👍 👎 👏 🙌 👐 🤝 🙏 ✌️ 🤞 🫶 🤟 🤘 👌 👋 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🌟 ⭐ 🔥 🎉 🎊 🌻 🌈 ☀️ 🌙 ⚡ 🍀 🌸 🐶 🐱 🦊 🐻 🐼 🐨 🦁 🐸 🐧 🦄 🍕 🍔 🍟 🍩 🍪 🎂 🍰 ☕ 🧋 🎮 🎧 🎵 🎨 📚 ⚽ 🏀 🚀 🧦 👀 ✅ ❌ ❓ ❗".split(" ");
   const [q, setQ] = useState("");
+  const settings = useStore((s) => (s.me?.settings ?? NO_SETTINGS) as any);
+  const tone: string = settings.emoji_tone ?? "";
+  const favs: string[] = settings.emoji_favorites ?? [];
+  const recent: string[] = settings.emoji_recent ?? [];
+  const TONES = ["", "🏻", "🏼", "🏽", "🏾", "🏿"];
+  const toneable = (e: string) => /^[\u{1F44A}-\u{1F450}\u{1F44D}\u{1F44E}\u{1F64C}\u{1F64F}\u{1F91D}\u{1F91E}\u{1F91F}\u{1F918}\u{1F44B}\u{1F4AA}\u{1F44F}\u{1FAF6}\u{270C}]/u.test(e);
+  const withTone = (e: string) => (tone && toneable(e) ? e.replace(/\uFE0F/g, "") + tone : e);
+  const pickEmoji = (e: string) => {
+    const v = withTone(e);
+    import("../actions.ts").then((a) => a.updateSettings({ emoji_recent: [v, ...recent.filter((x) => x !== v)].slice(0, 24) }));
+    onPick(v);
+  };
+  const toggleFav = (e: string) => import("../actions.ts").then((a) => a.updateSettings({ emoji_favorites: favs.includes(e) ? favs.filter((x) => x !== e) : [e, ...favs].slice(0, 48) }));
   const ref = useRef<HTMLDivElement>(null);
   // Outside press and Escape close it; pressing the button that opened it again toggles it closed.
   useLayer(ref, onClose, { anchor: () => anchor });
@@ -532,13 +557,16 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLa
     createPortal(<div ref={ref} className="picker" role="dialog" aria-label="Pick an emoji" data-layer style={pos}>
       <div className="picker-h"><input autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter emoji" /><button className="icon-btn sm" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
       {onClear && <button className="picker-clear" onClick={onClear}>{clearLabel ?? "Remove"}</button>}
+      <div className="tone-row" role="radiogroup" aria-label="Skin tone">{TONES.map((t) => <button key={t || "default"} role="radio" aria-checked={tone === t} className={tone === t ? "on" : ""} onClick={() => import("../actions.ts").then((a) => a.updateSettings({ emoji_tone: t }))} aria-label={t ? `Skin tone ${TONES.indexOf(t)}` : "Default skin tone"}>{"👋" + t}</button>)}</div>
       <div className="picker-scroll">
+        {!q && favs.length > 0 && <section aria-label="Favorites"><h4 className="picker-sec">Favorites</h4><div className="picker-grid">{favs.map((e) => <button key={e} onClick={() => onPick(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e} title="Right-click to unfavorite">{/^<a?:/.test(e) ? <CustomEmoji id={e.match(/:(\d+)>$/)?.[1] ?? ""} name={e.match(/:(\w+):/)?.[1] ?? ""} /> : e}</button>)}</div></section>}
+        {!q && recent.length > 0 && <section aria-label="Frequently used"><h4 className="picker-sec">Frequently used</h4><div className="picker-grid">{recent.map((e) => <button key={e} onClick={() => pickEmoji(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e}>{/^<a?:/.test(e) ? <CustomEmoji id={e.match(/:(\d+)>$/)?.[1] ?? ""} name={e.match(/:(\w+):/)?.[1] ?? ""} /> : e}</button>)}</div></section>}
         {groups.map((g) => { const list = g.emojis.filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase())); return list.length ? <section key={g.guildId} aria-label={g.guildName}>
           <h4 className="picker-sec">{g.guildName}</h4>
-          <div className="picker-grid">{list.map((e) => <button key={e.id} onClick={() => onPick(emojiText(e))} aria-label={`:${e.name}:`} title={`:${e.name}:`}><img src={e.url} alt="" loading="lazy" draggable={false} /></button>)}</div>
+          <div className="picker-grid">{list.map((e) => <button key={e.id} onClick={() => pickEmoji(emojiText(e))} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(emojiText(e)); }} aria-label={`:${e.name}:`} title={`:${e.name}:`}><img src={e.url} alt="" loading="lazy" draggable={false} /></button>)}</div>
         </section> : null; })}
         {groups.length > 0 && <h4 className="picker-sec">Emoji</h4>}
-        <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => onPick(e)} aria-label={e}>{e}</button>)}</div>
+        <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => pickEmoji(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e} title="Right-click to favorite">{withTone(e)}</button>)}</div>
       </div>
     </div>, document.body)
   );
@@ -794,7 +822,8 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
             return (
               <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)} onContextMenu={(e) => { const el = e.currentTarget; openContextMenu(e, userMenuItems(m.user, { guildId, onProfile: () => onProfile(m.user.id, el) })); }}>
                 <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} serverTheme={m.guild_profile_theme ?? undefined} />
-                <span className="ellipsis" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}</span>
+                <span className="member-txt"><span className="ellipsis block" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}{m.premium_since && <span title="Server Booster" aria-label="Server Booster"> ✨</span>}{m.user.bot && <span className="tag">APP</span>}</span>
+                  <MemberActivity id={m.user.id} /></span>
               </button>
             );
           })}
@@ -802,6 +831,12 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
       ))}
     </aside>
   );
+}
+
+function MemberActivity({ id }: { id: string }) {
+  const a = useStore((s) => s.activities[id]);
+  if (!a) return null;
+  return <small className="muted ellipsis block member-act">{["Playing", "Streaming", "Listening to", "Watching", "", "Competing in"][a.type] ?? "Playing"} <strong>{a.name}</strong></small>;
 }
 
 function Recipients({ channel, onClose }: { channel: Channel; onClose: () => void }) {

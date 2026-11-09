@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState } from "react";
 import { Archive, BarChart3, ChevronLeft, Hash, LayoutGrid, List, Lock, MessageSquare, Plus, Search, Tag, Trash2, Unlock, Users, X } from "lucide-react";
 import { ChannelType, P, type Channel, type ForumTag, type Message } from "@syndo/shared";
@@ -200,7 +201,7 @@ export function ForumView({ channel }: { channel: Channel }) {
   const [sort, setSort] = useState<0 | 1>(channel.default_sort ?? 0);
   const [layout, setLayout] = useState<"list" | "gallery">(channel.type === ChannelType.MEDIA || channel.default_layout === 2 ? "gallery" : "list");
   const [composing, setComposing] = useState(false);
-  const live = useStore((s) => Object.values(s.threads).filter((t) => t.parent_id === channel.id));
+  const live = useStore(useShallow((s) => Object.values(s.threads).filter((t) => t.parent_id === channel.id)));
   const load = () => api.get<{ threads: (Channel & { thread: any })[] }>(`/api/channels/${channel.id}/threads${archived ? "?archived=1" : ""}`).then((r) => { putThreads(r.threads); setList(r.threads); }).catch(() => setList([]));
   useEffect(() => { setList(null); load(); }, [channel.id, archived]); // eslint-disable-line react-hooks/exhaustive-deps
   const tags = channel.available_tags ?? [];
@@ -300,7 +301,7 @@ export function useActiveThreads(guildId: string | null) {
 }
 export function SidebarThreads({ parentId, current }: { parentId: string; current: string }) {
   const joined = useStore((s) => s.joinedThreads);
-  const list = useStore((s) => Object.values(s.threads).filter((t) => t.parent_id === parentId && !t.thread?.archived && (joined.includes(t.id) || t.id === current)));
+  const list = useStore(useShallow((s) => Object.values(s.threads).filter((t) => t.parent_id === parentId && !t.thread?.archived && (joined.includes(t.id) || t.id === current))));
   if (!list.length) return null;
   return <ul className="side-threads">{list.slice(0, 8).map((t) => <li key={t.id}><button className={`side-thread ${current === t.id ? "active" : ""}`} onClick={() => navigate(`/channels/${t.guild_id}/${t.id}`)}><span className="ellipsis">{t.name}</span></button></li>)}</ul>;
 }

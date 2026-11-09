@@ -14,7 +14,7 @@ import { openCreateThread, openPollComposer } from "./Threads.tsx";
 
 interface BuiltIn { name: string; description: string; usage?: string; run: (rest: string, ch: Channel) => Promise<string | boolean> | string | boolean; available?: (ch: Channel) => boolean }
 const BUILTIN: BuiltIn[] = [
-  { name: "shrug", description: "Appends ¯\\_(ツ)_/¯ to your message.", usage: "[message]", run: (r) => `${r} ¯\\_(ツ)_/¯`.trim() },
+  { name: "shrug", description: "Appends ¯\\_(ツ)_/¯ to your message.", usage: "[message]", run: (r) => `${r} ¯\\\\\\_(ツ)_/¯`.trim() },
   { name: "tableflip", description: "Appends (╯°□°)╯︵ ┻━┻ to your message.", usage: "[message]", run: (r) => `${r} (╯°□°)╯︵ ┻━┻`.trim() },
   { name: "unflip", description: "Appends ┬─┬ノ( º _ ºノ) to your message.", usage: "[message]", run: (r) => `${r} ┬─┬ノ( º _ ºノ)`.trim() },
   { name: "lenny", description: "Appends ( ͡° ͜ʖ ͡°) to your message.", usage: "[message]", run: (r) => `${r} ( ͡° ͜ʖ ͡°)`.trim() },
@@ -34,6 +34,7 @@ const BUILTIN: BuiltIn[] = [
   }, available: (ch) => !!ch.guild_id },
 ];
 
+const NONE: string[] = [];
 const cache = new Map<string, { at: number; list: ApplicationCommand[] }>();
 async function appCommands(guildId: string) {
   const c = cache.get(guildId);
@@ -134,7 +135,7 @@ function GifPicker({ anchor, initial, onPick, onClose }: { anchor: HTMLElement |
   const [q, setQ] = useState(initial);
   const [res, setRes] = useState<{ results: Gif[]; next: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fav = useStore((s) => ((s.me?.settings as any)?.favorite_gifs ?? []) as string[]);
+  const fav = useStore((s) => ((s.me?.settings as any)?.favorite_gifs ?? NONE) as string[]);
   const [tab, setTab] = useState<"search" | "favorites">("search");
   const [pos, setPos] = useState<React.CSSProperties>();
   useLayoutEffect(() => {

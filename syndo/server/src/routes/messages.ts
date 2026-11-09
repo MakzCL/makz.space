@@ -76,7 +76,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       thread: r.thread_id ? (threads.find((t) => t.id === String(r.thread_id)) ?? null) : null,
       webhook_id: r.webhook_id ? String(r.webhook_id) : null,
       application_id: r.application_id ? String(r.application_id) : null,
-      interaction: r.interaction ? { name: r.interaction.name, user: prefixedUser(ixRows.find((x) => x.a_id === String(r.interaction.user_id)) ?? {}, "a_") ?? null } as any : null,
+      interaction: r.interaction ? { name: r.interaction.name, deferred: !!r.interaction.deferred, user: prefixedUser(ixRows.find((x) => x.a_id === String(r.interaction.user_id)) ?? {}, "a_") ?? null } as any : null,
       components: r.components ?? [],
       mention_author: r.mention_author !== false,
       ...(r.webhook_id ? { author: { ...(prefixedUser(r, "a_") ?? { id: String(r.webhook_id), username: "webhook", bio: "", pronouns: "", accent_color: null, profile_theme: null, banner: null }), id: String(r.webhook_id), username: r.webhook_name ?? "Webhook", display_name: r.webhook_name ?? "Webhook", avatar: r.webhook_avatar ?? null, bot: true } } : {}),
