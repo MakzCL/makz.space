@@ -1,17 +1,17 @@
 // SK Suite: one desktop home for the apps. The hub window lists the apps; each app opens in its own window
 // (one per app, remembered size and position). Web apps load their live sites in a shared, persistent session,
-// so a sign-in survives restarts. NUCLEUS is bundled and runs offline from a private app:// scheme.
+// so a sign-in survives restarts. NUCLEUS and CADRA are bundled and run offline from a private app:// scheme.
 const { app, BrowserWindow, protocol, net, shell, ipcMain, session, desktopCapturer, Menu, dialog, nativeTheme } = require("electron");
 const path = require("node:path"); const fs = require("node:fs"); const crypto = require("node:crypto"); const { pathToFileURL } = require("node:url");
 const BOOT = global.__suite ?? { root: __dirname, version: JSON.parse(fs.readFileSync(path.join(__dirname, "version.json"), "utf8")).version, updated: false, stateFile: null };
 const VERSION = BOOT.version;
-// One-click updates: the suite's own code and NUCLEUS come from this fixed HTTPS address; every file is checked
+// One-click updates: the suite's own code and the bundled apps come from this fixed HTTPS address; every file is checked
 // against the SHA-256 in the manifest before it is used. The Electron runtime itself is not updated this way.
 const UPDATE_BASE = process.env.SK_SUITE_UPDATE_BASE || "https://sk-suite.pages.dev/update/";
 
 const APPS = JSON.parse(fs.readFileSync(path.join(__dirname, "apps.json"), "utf8"));
 const PARTITION = "persist:sk-suite";
-const NUCLEUS_ROOT = path.join(__dirname, "bundled", "nucleus");
+const BUNDLED_ROOT = path.join(__dirname, "bundled"); // bundled/<app id>/ for each offline app
 const HUB_ROOT = path.join(__dirname, "hub");
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 
@@ -141,8 +141,8 @@ function serve(root) {
 
 app.whenReady().then(() => {
   loadState(); nativeTheme.themeSource = state.palette === "light" ? "light" : "dark";
-  const hubFiles = serve(HUB_ROOT), nucFiles = serve(NUCLEUS_ROOT);
-  const handler = (req) => (new URL(req.url).host === "nucleus" ? nucFiles(req) : hubFiles(req));
+  const hubFiles = serve(HUB_ROOT); const bundled = new Map(APPS.filter((a) => a.offline).map((a) => [a.id, serve(path.join(BUNDLED_ROOT, a.id))]));
+  const handler = (req) => { const h = new URL(req.url).host; return (bundled.get(h) ?? hubFiles)(req); };
   protocol.handle("app", handler);
   const ses = session.fromPartition(PARTITION);
   ses.protocol.handle("app", handler);

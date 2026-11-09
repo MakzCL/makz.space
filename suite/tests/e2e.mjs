@@ -17,11 +17,20 @@ try {
   const hub = await app.firstWindow(); const errors = []; hub.on("pageerror", (e) => errors.push(e.message));
   await hub.locator(".tile").first().waitFor();
   assert.equal(hub.url(), "app://hub/index.html");
-  const names = await hub.locator(".tile b").allInnerTexts(); assert.deepEqual(names, ["SK Factory", "Kortana", "TROTAN", "NUCLEUS"]);
+  const names = await hub.locator(".tile b").allInnerTexts(); assert.deepEqual(names, ["SK Factory", "Kortana", "TROTAN", "NUCLEUS", "CADRA"]);
   step(`hub opened with ${names.join(", ")}`);
   if (SHOTS) await hub.screenshot({ path: `${SHOTS}/suite-granat.png` });
   for (const p of ["light", "dark"]) { await hub.locator(`.rail .themes button[data-p=${p}]`).click(); assert.equal(await hub.evaluate(() => document.documentElement.dataset.theme), p); if (SHOTS) await hub.screenshot({ path: `${SHOTS}/suite-${p}.png` }); }
   step("palette switch Light / Granat / Dark");
+
+  // CADRA: bundled, offline, own window; draw by typing and check the result
+  const [cad] = await Promise.all([app.waitForEvent("window"), hub.locator('.tile[data-app="cadra"]').click()]);
+  await cad.getByTestId("cmdline").waitFor(); assert.match(cad.url(), /^app:\/\/cadra\//);
+  await cad.evaluate(() => localStorage.clear()); await cad.reload(); await cad.getByTestId("cmdline").waitFor();
+  for (const c of ["rec", "0,0", "@100,50", "c", "50,25", "20"]) { await cad.getByTestId("cmdline").fill(c); await cad.keyboard.press("Enter"); }
+  assert.match(await cad.locator(".c-status").innerText(), /2 objects/); if (SHOTS) await cad.screenshot({ path: `${SHOTS}/suite-cadra.png` });
+  step("CADRA opened in its own window from the bundled copy and drew a rectangle and a circle");
+  await cad.close();
 
   // NUCLEUS: bundled, offline, own window
   const [nuc] = await Promise.all([app.waitForEvent("window"), hub.locator('.tile[data-app="nucleus"]').click()]);

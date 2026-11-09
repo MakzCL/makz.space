@@ -4,7 +4,7 @@ import { electronWin, unzip, zipDir, stampExe } from "./winexe.mjs";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const ev = JSON.parse(fs.readFileSync(path.join(root, "node_modules/electron/package.json"), "utf8")).version;
-if (!fs.existsSync(path.join(root, "bundled/nucleus/index.html"))) throw new Error("Run `npm run bundle` first");
+if (!fs.existsSync(path.join(root, "bundled/nucleus/index.html")) || !fs.existsSync(path.join(root, "bundled/cadra/index.html"))) throw new Error("Run `npm run bundle` first");
 const zip = await electronWin(ev, path.join(root, ".cache"));
 const folder = `SK-Suite-${pkg.version}-win-x64`, rel = path.join(root, "release"), dir = path.join(rel, folder);
 fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true }); unzip(zip, dir);
@@ -19,7 +19,7 @@ fs.writeFileSync(path.join(dir, "README.txt"), [`SK Suite ${pkg.version} - porta
   "Run \"SK Suite.exe\". No installation needed. Right-click it > Send to > Desktop (create shortcut) to pin it.",
   "Not code-signed: Windows SmartScreen may warn the first time (More info > Run anyway).",
   "SK Factory, Kortana and TROTAN load their live sites (internet needed) and stay signed in.",
-  "NUCLEUS is included and works offline.", "Updates: Settings > Updates > Update now (one click; the suite restarts itself).", "",
+  "NUCLEUS and CADRA are included and work offline.", "Updates: Settings > Updates > Update now (one click; the suite restarts itself).", "",
   `Runtime: Electron ${ev} (MIT; LICENSE and LICENSES.chromium.html in this folder).`, ""].join("\r\n"));
 const s = zipDir(rel, folder, path.join(rel, `${folder}.zip`));
 console.log(`release/${folder}.zip  ${(fs.statSync(path.join(rel, `${folder}.zip`)).size / 1048576).toFixed(1)} MB  sha256 ${s}`);

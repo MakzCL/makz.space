@@ -1,7 +1,9 @@
 // PCB layout editor: board view, part placement (move / rotate / flip), interactive routing with vias,
 // autorouter, DRC list, layer visibility, board setup and manufacturing exports. All edits go through the
 // project store, so undo/redo and saving cover the board too.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { model3d } from "../../pcb/model3d";
+const Board3D = lazy(() => import("./Board3D"));
 import { useStore } from "../store";
 import { baseItems, boardOf, courtyardOf, items, newBoard, outlineBox, padsOf, pid, place, ratsnest, rectOutline, sync, dist, type Board, type Layer, type P, type PcbPart } from "../../pcb/board";
 import { drc, type DrcFinding } from "../../pcb/drc";
@@ -26,7 +28,7 @@ export function PcbView({ dark }: { dark: string }) {
   const [grid, setGrid] = useState(GRIDS[1]); const [sel, setSel] = useState<string | null>(null);
   const [findings, setFindings] = useState<DrcFinding[] | null>(null); const [busy, setBusy] = useState<string | null>(null);
   const [route, setRoute] = useState<{ pts: P[]; layer: Layer; net: string; width: number; vias: P[] } | null>(null);
-  const [cursor, setCursor] = useState<P | null>(null); const [setup, setSetup] = useState(false); const [zoneDlg, setZoneDlg] = useState(false);
+  const [cursor, setCursor] = useState<P | null>(null); const [view3d, setView3d] = useState(false); const [setup, setSetup] = useState(false); const [zoneDlg, setZoneDlg] = useState(false);
   const drag = useRef<{ k: "pan"; s: P; v: View } | { k: "move"; id: string; off: P; base: Project; moved: boolean } | null>(null);
 
   useLayoutEffect(() => { const el = wrap.current; if (!el) return; /* no canvas until the board exists */ const ro = new ResizeObserver(() => setSize({ W: el.clientWidth, H: el.clientHeight })); ro.observe(el); setSize({ W: el.clientWidth, H: el.clientHeight }); return () => ro.disconnect(); }, [!!board]);
@@ -80,7 +82,7 @@ export function PcbView({ dark }: { dark: string }) {
   }, [board, S, setBoard]);
   useEffect(() => {
     const h = (e: Event) => { const c = (e as CustomEvent).detail as string;
-      if (c === "update") update(); else if (c === "drc") runDrc(); else if (c === "autoroute") doRoute(); else if (c === "export") exportFab(); else if (c === "setup") setSetup(true); else if (c === "zone") setZoneDlg(true); else if (c === "fit") fit();
+      if (c === "update") update(); else if (c === "drc") runDrc(); else if (c === "autoroute") doRoute(); else if (c === "export") exportFab(); else if (c === "setup") setSetup(true); else if (c === "zone") setZoneDlg(true); else if (c === "fit") fit(); else if (c === "3d") setView3d(true);
       else if (c === "unroute") { setBoard((b) => ({ ...b, tracks: [], vias: [] }), "Remove all tracks"); } };
     window.addEventListener("nucleus:pcb", h); return () => window.removeEventListener("nucleus:pcb", h);
   }, [update, runDrc, doRoute, exportFab, fit, setBoard]);
@@ -200,8 +202,10 @@ export function PcbView({ dark }: { dark: string }) {
         <button type="button" className="n-btn" onClick={update} data-testid="pcb-update">Update from schematic</button>
         <button type="button" className="n-btn" onClick={doRoute} disabled={!!busy} data-testid="pcb-autoroute">{busy ?? "Autoroute"}</button>
         <button type="button" className="n-btn" onClick={runDrc} data-testid="pcb-drc">DRC</button>
+        <button type="button" className="n-btn" onClick={() => setView3d(true)} data-testid="pcb-3d" title="3D view of the board">3D view</button>
         <button type="button" className="n-btn primary" onClick={exportFab} data-testid="pcb-export">Gerber / drill…</button>
       </div>
+      {view3d && <Suspense fallback={<div className="n-3d"><div className="n-3derr">Loading 3D view…</div></div>}><Board3D model={model3d(board, pr)} onClose={() => setView3d(false)} /></Suspense>}
       <div className="n-pcb-main">
         <div className="n-pcb-canvas" ref={wrap}>
           <canvas ref={cv} style={{ width: size.W, height: size.H, cursor: tool === "select" ? "default" : "crosshair" }} data-testid="pcb-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onWheel={onWheel} onContextMenu={(e) => e.preventDefault()}

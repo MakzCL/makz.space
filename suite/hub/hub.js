@@ -28,7 +28,7 @@ function render() {
     el("div", {}, el("b", {}, a.name), el("p", {}, a.description)),
     el("div", { class: "acts" }, a.offline ? null : el("button", { type: "button", class: "btn", onclick: () => window.suite.openInBrowser(a.id) }, "Open in browser"), el("button", { type: "button", class: "btn primary", onclick: () => open(a.id) }, running.has(a.id) ? "Switch to" : "Open")))));
   $("#running").replaceChildren(...APPS.filter((a) => running.has(a.id)).map((a) => el("button", { type: "button", class: "run", onclick: () => open(a.id) }, icon(a), el("span", {}, a.name))));
-  const net = $("#net"); net.className = `net ${online ? "on" : "off"}`; net.lastElementChild.textContent = online ? "Online" : "Offline: NUCLEUS still works";
+  const net = $("#net"); net.className = `net ${online ? "on" : "off"}`; net.lastElementChild.textContent = online ? "Online" : "Offline: NUCLEUS and CADRA still work";
 }
 function paintUpdate() {
   const u = STATE.update ?? { status: "idle" }; const v = VERSION;
@@ -57,12 +57,12 @@ async function main() {
   window.addEventListener("online", () => { online = true; render(); }); window.addEventListener("offline", () => { online = false; render(); });
   [APPS, STATE] = await Promise.all([window.suite.apps(), window.suite.state()]);
   window.suite.onState((s) => { STATE = s; render(); paintUpdate(); });
-  const v = await window.suite.version(); VERSION = v.suite; $("#about").textContent = `SK Suite ${v.suite}${v.updated ? ` (updated from ${v.shipped})` : ""} · Electron ${v.electron} · Chromium ${v.chrome}. NUCLEUS is a separate product bundled for offline use.`;
+  const v = await window.suite.version(); VERSION = v.suite; $("#about").textContent = `SK Suite ${v.suite}${v.updated ? ` (updated from ${v.shipped})` : ""} · Electron ${v.electron} · Chromium ${v.chrome}. NUCLEUS and CADRA are separate products bundled for offline use.`;
   render(); paintUpdate();
   $("#upd-check").addEventListener("click", () => window.suite.checkUpdate());
   $("#upd-go").addEventListener("click", updateNow); $("#upd-banner-go").addEventListener("click", updateNow);
   $("#signout-here").addEventListener("click", async () => {
-    if (!confirm("Sign SK Factory, Kortana and TROTAN out on this computer? Their windows will close. NUCLEUS is not affected.")) return;
+    if (!confirm("Sign SK Factory, Kortana and TROTAN out on this computer? Their windows will close. NUCLEUS and CADRA are not affected.")) return;
     await window.suite.signOutHere(); $("#signout-done").hidden = false;
   });
   window.suite.healthy();

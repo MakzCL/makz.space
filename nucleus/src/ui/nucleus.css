@@ -126,7 +126,7 @@ select.n-in { padding: 0 2px; }
 .n-start-card:hover { border-color: var(--accent); } .n-start-card span { color: var(--dim); } .n-start-card em { font-style: normal; color: var(--ok); font-size: 11px; }
 
 /* ---- PCB layout ---- */
-.n-pcb { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.n-pcb { display: flex; flex-direction: column; height: 100%; min-height: 0; position: relative; }
 .n-pcb-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
 .n-pcb-bar .n-in { width: auto; } .n-grow { flex: 1; }
 .n-sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
@@ -145,3 +145,10 @@ select.n-in { padding: 0 2px; }
 .n-modal h3 { margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; } .n-row.end { justify-content: flex-end; padding: 8px 12px; }
 .n-pcb-empty { padding: 30px; max-width: 560px; }
 .n-zone { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+
+/* 3D board view: covers the PCB editor */
+.n-3d { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg); }
+.n-3dbar { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; min-width: 0; }
+.n-3dbar .n-dim { font-size: 11.5px; } .n-3dsp { flex: 1; }
+.n-3dhost { flex: 1; min-height: 0; position: relative; } .n-3dhost canvas { display: block; position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.n-3derr { margin: auto; color: var(--dim); padding: 24px; text-align: center; }
