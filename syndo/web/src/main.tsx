@@ -18,6 +18,7 @@ import { initMobile } from "./mobile.ts";
 import { registerDefaultShortcuts } from "./shortcutActions.ts";
 import { ShortcutHelp } from "./components/Keybinds.tsx";
 import { AskHost, ContextMenuHost, MediaViewerHost, initTooltips } from "./components/overlay.tsx";
+import { ModalHost } from "./features/modals.tsx";
 import { initNotifications } from "./notify.ts";
 import { initDesktop } from "./desktop.ts";
 import { navigate, useRoute } from "./router.ts";
@@ -69,7 +70,7 @@ function App() {
   else if (conn === "signed_out") page = route.name === "register" ? <Register /> : <Login />;
   else if (conn === "connecting") page = <Splash />;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><Toasts /><InAppNotices /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost /><Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();

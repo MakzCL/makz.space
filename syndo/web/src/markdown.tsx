@@ -1,5 +1,5 @@
 import { askConfirm, askText } from "./components/overlay.tsx";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { channelById, memberName, useStore } from "./store.ts";
 import { emojiUrl } from "@syndo/shared";
 
@@ -93,6 +93,7 @@ const RULES: { re: RegExp; render: (m: RegExpExecArray, ctx: MdCtx, key: number)
   { re: /^<@!?(\d{1,20})>/, render: (m, c, k) => <UserMention key={k} id={m[1]!} ctx={c} /> },
   { re: /^<@&(\d{1,20})>/, render: (m, c, k) => <RoleMention key={k} id={m[1]!} ctx={c} /> },
   { re: /^<#(\d{1,20})>/, render: (m, c, k) => <ChannelMention key={k} id={m[1]!} ctx={c} /> },
+  { re: /^<t:(-?\d{1,13})(?::([tTdDfFR]))?>/, render: (m, _c, k) => <Timestamp key={k} unix={Number(m[1])} style={(m[2] ?? "f") as any} /> },
   { re: /^<a?:([a-zA-Z0-9_]{2,32}):(\d{1,20})>/, render: (m, _c, k) => <CustomEmoji key={k} id={m[2]!} name={m[1]!} /> },
   { re: /^@(everyone|here)\b/, render: (m, _c, k) => <span key={k} className="mention">@{m[1]}</span> },
   { re: /^<(https?:\/\/[^\s>]+)>/, render: (m, _c, k) => <SafeLink key={k} href={m[1]!} /> },
@@ -124,6 +125,29 @@ function inline(text: string, ctx: MdCtx): ReactNode[] {
   }
   if (buf) out.push(buf);
   return out;
+}
+
+/** <t:unix:style> — shown in each reader's own time zone and language (Discord's timestamp format). */
+export function fmtStamp(unix: number, style: "t" | "T" | "d" | "D" | "f" | "F" | "R") {
+  const d = new Date(unix * 1000);
+  if (Number.isNaN(d.getTime())) return "Invalid date";
+  if (style === "R") {
+    const diff = (d.getTime() - Date.now()) / 1000, a = Math.abs(diff);
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const [v, u] = a < 60 ? [diff, "second"] : a < 3600 ? [diff / 60, "minute"] : a < 86400 ? [diff / 3600, "hour"] : a < 2592000 ? [diff / 86400, "day"] : a < 31536000 ? [diff / 2592000, "month"] : [diff / 31536000, "year"];
+    return rtf.format(Math.round(v), u as Intl.RelativeTimeFormatUnit);
+  }
+  const o: Record<string, Intl.DateTimeFormatOptions> = {
+    t: { hour: "numeric", minute: "2-digit" }, T: { hour: "numeric", minute: "2-digit", second: "2-digit" }, d: { day: "2-digit", month: "2-digit", year: "numeric" },
+    D: { day: "numeric", month: "long", year: "numeric" }, f: { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit" },
+    F: { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit" },
+  };
+  return d.toLocaleString(undefined, o[style]);
+}
+function Timestamp({ unix, style }: { unix: number; style: "t" | "T" | "d" | "D" | "f" | "F" | "R" }) {
+  const [, tick] = useState(0);
+  useEffect(() => { if (style !== "R") return; const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, [style]);
+  return <time className="md-time" dateTime={new Date(unix * 1000).toISOString()} title={fmtStamp(unix, "F")}>{fmtStamp(unix, style)}</time>;
 }
 
 function SafeLink({ href, label }: { href: string; label?: string }) {
@@ -227,6 +251,7 @@ export function plainText(s: string) {
   const st = useStore.getState();
   return s
     .replace(/<@!?(\d+)>/g, (_, id) => `@${st.users[id]?.display_name ?? st.users[id]?.username ?? "user"}`)
+    .replace(/<t:(-?\d{1,13})(?::([tTdDfFR]))?>/g, (_, u, st) => fmtStamp(Number(u), (st ?? "f") as any))
     .replace(/<#(\d+)>/g, (_, id) => `#${channelById(id)?.name ?? "channel"}`)
     .replace(/<a?:([A-Za-z0-9_]{2,32}):\d{1,20}>/g, ":$1:")
     .replace(/\|\|[\s\S]*?\|\|/g, "▒▒▒▒")

@@ -36,6 +36,9 @@ export function guildMenuItems(g: Guild): MenuItem[] {
     ...(has(perms, P.CREATE_INVITE) ? [{ label: "Invite people", onSelect: () => openDialog({ kind: "invite", guildId: g.id }) } as MenuItem] : []),
     sep,
     { label: "Mute server", checked: muted, onSelect: () => updateSettings({ muted_guilds: muted ? listOf("muted_guilds").filter((x) => x !== g.id) : [...listOf("muted_guilds"), g.id] }) },
+    { label: "Notification settings", onSelect: () => import("../features/Notifications.tsx").then((m) => m.openServerNotifications(g)) },
+    { label: "Events", onSelect: () => import("../features/Events.tsx").then((m) => m.openEvents(g)) },
+    { label: "Server Boost", onSelect: () => import("../features/Boosts.tsx").then((m) => m.openBoostServer(g)) },
     sep,
     ...(manage ? [{ label: "Server settings", onSelect: () => openDialog({ kind: "serverSettings", guildId: g.id }) } as MenuItem] : []),
     ...(has(perms, P.MANAGE_CHANNELS) ? [

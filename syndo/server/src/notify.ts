@@ -81,7 +81,7 @@ export async function notifyMessage(channel: ChanRow, msg: Message, info: { auth
   const body = encrypted ? "New message" : (msg.content.replace(/<a?:(\w+):\d+>/g, ":$1:").replace(/<@!?\d+>/g, "@someone").slice(0, 180) || (msg.attachments.length ? "Sent an attachment" : msg.poll ? `Poll: ${msg.poll.question}` : "New message"));
   const payload = JSON.stringify({
     title: guild ? `${who} (#${channel.name}, ${guild.name})` : who,
-    body, tag: `ch-${channel.id}`, icon: msg.author.avatar ?? "/brand/app-icon-192.png",
+    body, tag: `ch-${channel.id}`, icon: msg.author.avatar ?? "/brand/send-icon-192.png",
     url: `/channels/${channel.guild_id ?? "@me"}/${channel.id}/${msg.id}`,
   });
   await sendPush(targets, payload);

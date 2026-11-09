@@ -38,6 +38,13 @@ import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
 import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
 import { useMentionAutocomplete } from "./MentionAutocomplete.tsx";
+import { Components, Embeds, InteractionLine, PollView, Snapshot, SourceTag, ThreadChip, extraSystemText, useGridClass } from "../features/MessageExtras.tsx";
+import { forwardMessage, openCreateThread, openPollComposer, ThreadsPanel, ThreadHeader } from "../features/Threads.tsx";
+import { ComposerExtras, useSlashCommands } from "../features/Commands.tsx";
+import { ChannelBell } from "../features/Notifications.tsx";
+import { FollowButton } from "../features/Stage.tsx";
+import { isThreadType } from "../store.ts";
+import { MessageSquare, CornerUpRight, Send as SendIcon, ArrowDown } from "lucide-react";
 
 /** Which message is being edited (one at a time, like Discord); lets ↑ in the composer start editing. */
 const useEditing = create<{ id: string | null }>(() => ({ id: null }));
@@ -48,7 +55,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   const guild = useStore((s) => (guildId ? s.guilds[guildId] : null));
   const data = useStore((s) => s.messages[channelId]);
   const showMembersDefault = useAppearance((s) => s.resolved.theme.layout.showMembers);
-  const [panel, setPanel] = useState<null | "members" | "pins" | "search" | "appearance">(guildId && showMembersDefault && !isPhone() ? "members" : null); // phones: the list is a full-screen page, opened on demand
+  const [panel, setPanel] = useState<null | "members" | "pins" | "search" | "appearance" | "threads">(guildId && showMembersDefault && !isPhone() ? "members" : null); // phones: the list is a full-screen page, opened on demand
   const label = useAppearance((s) => s.scopes[scopeKey("channel", channelId)]?.data.conversation?.label ?? null);
   const { bg, target } = useActiveBackground();
   const [reply, setReply] = useState<Message | null>(null);
@@ -65,7 +72,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   // Ctrl/⌘+P, +U, +F from the shortcut registry toggle the same panels as the header buttons.
   useEffect(() => {
     const on = (e: Event) => {
-      const want = (e as CustomEvent).detail as "pins" | "members" | "search";
+      const want = (e as CustomEvent).detail as "pins" | "members" | "search" | "threads";
       if (want === "members" && !(guildId || channel?.type === ChannelType.GROUP_DM)) return;
       setPanel((p) => (p === want && want !== "search" ? null : want));
       if (want === "search") requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".side-panel[role=search] input")?.focus());
@@ -99,9 +106,13 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         <MobileNavButton />
         {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <ChannelGlyph c={channel} size={22} className="muted" />}
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
+        {isThreadType(channel.type) && <ThreadHeader channel={channel} />}
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
         <div className="ch-actions">
-          <button className={`icon-btn d-only ${muted ? "active" : ""}`} disabled={muteBusy} aria-pressed={muted} aria-label={muted ? "Unmute conversation" : "Mute conversation"} title={muted ? "Unmute notifications" : "Mute notifications"} onClick={async () => {
+          {channel.type === ChannelType.ANNOUNCEMENT && <FollowButton channel={channel} />}
+          {(channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && <button className={`icon-btn ${panel === "threads" ? "active" : ""}`} aria-pressed={panel === "threads"} aria-label="Threads" title="Threads" onClick={() => setPanel(panel === "threads" ? null : "threads")}><MessageSquare size={20} /></button>}
+          {!isDm && <ChannelBell channel={channel} />}
+          <button className={`icon-btn d-only ${muted ? "active" : ""} ${isDm ? "" : "hidden"}`} disabled={muteBusy} aria-pressed={muted} aria-label={muted ? "Unmute conversation" : "Mute conversation"} title={muted ? "Unmute notifications" : "Mute notifications"} onClick={async () => {
             setMuteBusy(true);
             try { await setConversationMuted(channelId, !muted); toast(muted ? "Notifications unmuted." : "Conversation muted. You can still read and send messages.", "success"); }
             catch (e) { toast(errMsg(e), "error"); }
@@ -138,6 +149,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         </div>
         {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} onClose={() => setPanel(null)} />)}
         {panel === "pins" && <Pins channel={channel} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
+        {panel === "threads" && <ThreadsPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "appearance" && <ConversationPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "search" && <SearchPanel channel={channel} guildId={guildId} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
       </div>
@@ -181,6 +193,14 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   const [dividerAbove, setDividerAbove] = useState(false);
   const jumped = useRef<string | null>(null);
   const canHistory = can(channel, P.READ_MESSAGE_HISTORY) || !channel.guild_id;
+  const [away, setAway] = useState(false);
+  const latestLoaded = !channel.last_message_id || list.some((m) => m.id === channel.last_message_id);
+  const jumpToPresent = async () => {
+    if (!latestLoaded) await loadMessages(channel.id, { latest: true });
+    if (highlight) navigate(`/channels/${channel.guild_id ?? "@me"}/${channel.id}`, true);
+    stick.current = true;
+    requestAnimationFrame(() => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); });
+  };
   const groupingOn = useAppearance((s) => s.resolved.theme.layout.grouping);
 
   useLayoutEffect(() => {
@@ -221,6 +241,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   const onScroll = () => {
     const el = ref.current!;
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAway(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight * 1.5 || !latestLoaded);
     checkDivider();
     if (el.scrollTop < 200 && data?.hasMore && !data.loading && list.length) {
       prevHeight.current = el.scrollHeight;
@@ -234,6 +255,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
       <button className="unread-jump" onClick={jumpToUnread}>{unread.count >= 50 ? "50+" : unread.count} new message{unread.count === 1 ? "" : "s"} since {unread.since ? fmtTime(unread.since) : "you were last here"}</button>
       <button className="unread-mark" onClick={() => { ackChannel(channel); setBarHidden(`${channel.id}:${unread.firstId}`); }}>Mark as read</button>
     </div>}
+      {(away || !latestLoaded) && list.length > 0 && <div className="jump-present"><span>You're viewing older messages</span><button onClick={jumpToPresent}>Jump to present <ArrowDown size={14} /></button></div>}
       {!canHistory && <p className="muted pad">You can't read the history of this channel.</p>}
       {data && !data.hasMore && <Welcome channel={channel} />}
       {data?.loading && <p className="muted pad center">Loading messages…</p>}
@@ -281,7 +303,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
     const r = g.roles.filter((r) => mem.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
     return r ? { c: r.color!, c2: r.color2 } : null;
   }));
-  if (m.type !== 0 && m.type !== 19) return <SystemMessage m={m} channel={channel} />;
+  if (m.type !== 0 && m.type !== 19 && m.type !== 20) return <SystemMessage m={m} channel={channel} />;
+  const gridClass = useGridClass(m);
   const name = m.member_nick || memberName(guildId, m.author);
   const cos = useCosmetics(m.author, m.member?.profile_theme ?? undefined);
   const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;
@@ -310,6 +333,10 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
         { label: "Add reaction", submenu: QUICK.map((x) => ({ label: x, checked: m.reactions.some((r) => r.emoji === x && r.me), onSelect: () => toggleReaction(m, x) })) }, sep);
       if (mine && m.type === 0) items.push({ label: "Edit message", onSelect: () => setEditing(true) });
       if (canSend) items.push({ label: "Reply", onSelect: () => onReply(m) });
+      items.push({ label: "Forward", onSelect: () => forwardMessage(m) });
+      if (guildId && !m.thread && !isThreadType(channel.type) && (channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && can(channel, P.CREATE_PUBLIC_THREADS)) items.push({ label: "Create thread", onSelect: () => openCreateThread(channel, m) });
+      if (channel.type === ChannelType.ANNOUNCEMENT && !((m.flags ?? 0) & 1) && (mine || canManage)) items.push({ label: "Publish", onSelect: () => api.post(`/api/channels/${channel.id}/messages/${m.id}/crosspost`).then(() => toast("Published to following servers.", "success")).catch((x) => toast(errMsg(x), "error")) });
+      if ((m.embeds?.length ?? 0) > 0 && (mine || canManage)) items.push({ label: "Remove embeds", onSelect: () => api.patch(`/api/channels/${channel.id}/messages/${m.id}/flags`, { suppress_embeds: true }).catch((x) => toast(errMsg(x), "error")) });
       if (canManage || !guildId) items.push({ label: m.pinned ? "Unpin message" : "Pin message", onSelect: pin });
       items.push(sep);
       if (m.content) items.push({ label: "Copy text", onSelect: () => copy(plainText(m.content), "Text copied") });
@@ -341,7 +368,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
         <div className="msg-gutter">{grouped ? <time className="msg-time-hover" dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
           : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><Avatar user={m.author} size={40} src={m.member?.avatar ?? undefined} serverTheme={m.member?.profile_theme ?? undefined} /></button>}</div>
         <div className="msg-body">
-          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">APP</span>}<time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
+          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">{m.webhook_id && !m.source ? "BOT" : "APP"}</span>}<SourceTag m={m} /><time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
+          <InteractionLine m={m} guildId={guildId} />
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
               {m.content && <Markdown text={m.content} ctx={mdCtx} />}
@@ -349,7 +377,12 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
             </div>
           )}
           {(m.stickers?.length ?? 0) > 0 && <div className="msg-stickers">{m.stickers!.map((st) => <img key={st.id} className="msg-sticker" src={st.url} alt={`Sticker: ${st.name}`} title={st.name} draggable={false} loading="lazy" />)}</div>}
-          <GalleryCtx.Provider value={media.current}>{m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</GalleryCtx.Provider>
+          {m.snapshot && <Snapshot m={m} mdCtx={mdCtx} />}
+          {m.poll && <PollView m={m} channel={channel} />}
+          <GalleryCtx.Provider value={media.current}>{gridClass ? <div className={gridClass}>{m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</div> : m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</GalleryCtx.Provider>
+          <Embeds m={m} channel={channel} />
+          <Components m={m} channel={channel} />
+          {m.thread && <ThreadChip m={m} guildId={guildId} />}
           {m._state === "pending" && <span className="muted small">Sending…</span>}
           {m._state === "failed" && (
             <div className="send-failed" role="alert">
@@ -375,6 +408,9 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {QUICK.slice(0, 3).map((e) => <button key={e} className="icon-btn sm" aria-label={`React ${e}`} onClick={() => toggleReaction(m, e)}>{e}</button>)}
           <button className="icon-btn sm" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={16} /></button>
           <button className="icon-btn sm" aria-label="Reply" onClick={() => onReply(m)}><CornerUpLeft size={16} /></button>
+          <button className="icon-btn sm" aria-label="Forward" title="Forward" onClick={() => forwardMessage(m)}><CornerUpRight size={16} /></button>
+          {guildId && !m.thread && !isThreadType(channel.type) && (channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && can(channel, P.CREATE_PUBLIC_THREADS) && <button className="icon-btn sm" aria-label="Create thread" title="Create thread" onClick={() => openCreateThread(channel, m)}><MessageSquare size={16} /></button>}
+          {channel.type === ChannelType.ANNOUNCEMENT && !((m.flags ?? 0) & 1) && (mine || canManage) && <button className="icon-btn sm" aria-label="Publish" title="Publish to followers" onClick={() => api.post(`/api/channels/${channel.id}/messages/${m.id}/crosspost`).then(() => toast("Published.", "success")).catch((x) => toast(errMsg(x), "error"))}><SendIcon size={16} /></button>}
           {mine && <button className="icon-btn sm" aria-label="Edit" onClick={() => setEditing(true)}><Pencil size={16} /></button>}
           {(canManage || !guildId) && <button className="icon-btn sm" aria-label={m.pinned ? "Unpin" : "Pin"} onClick={pin}>{m.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>}
           <button className="icon-btn sm" aria-label="Save message" onClick={save}><Bookmark size={16} /></button>
@@ -391,8 +427,9 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
 function SystemMessage({ m, channel }: { m: UIMessage; channel: Channel }) {
   const users = useStore((s) => s.users);
   const who = memberName(channel.guild_id, m.author);
-  let text: React.ReactNode = null;
-  if (m.type === MessageType.MEMBER_JOIN) text = <><strong>{who}</strong> joined. Say hi! 👋</>;
+  let text: React.ReactNode = extraSystemText(m, channel, <strong>{who}</strong>);
+  if (text) { /* new system message kinds */ }
+  else if (m.type === MessageType.MEMBER_JOIN) text = <><strong>{who}</strong> joined. Say hi! 👋</>;
   else if (m.type === MessageType.PINNED) text = <><strong>{who}</strong> pinned a message.</>;
   else if (m.type === MessageType.GROUP_RENAME) text = <><strong>{who}</strong> renamed the group to <strong>{m.content || "(no name)"}</strong>.</>;
   else if (m.type === MessageType.RECIPIENT_ADD) text = <><strong>{who}</strong> added <strong>{displayName(users[m.mentions[0]!])}</strong>.</>;
@@ -597,6 +634,9 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
     return true;
   };
   const mentions = useMentionAutocomplete(channel, text, setText, ta);
+  const slash = useSlashCommands(channel, text, setText, ta);
+  const [pingReply, setPingReply] = useState(true);
+  useEffect(() => { setPingReply(true); }, [reply?.id]);
   const isDm = !channel.guild_id;
   const canSend = isDm ? can(channel, P.SEND_MESSAGES) || !channel.my_permissions : can(channel, P.SEND_MESSAGES);
   const canAttach = isDm || can(channel, P.ATTACH_FILES);
@@ -624,8 +664,13 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
     if (uploads.some((u) => u.status === "uploading")) { toast("Wait for uploads to finish.", "info"); return; }
     if (!content && !ready.length) return;
     if (limits && content.length > limits.max_message_length) { toast(`Messages can be up to ${limits.max_message_length} characters.`, "error"); return; }
+    if (content.startsWith("/") && !ready.length) {
+      const handled = await slash.run(content);
+      if (handled === true) { setText(""); return; }
+      if (typeof handled === "string") { setText(""); onClearReply(); await sendMessage(channel.id, handled, { reply_to: reply?.id, extra: { mention_author: pingReply } }); return; }
+    }
     setText(""); setUploads([]); onClearReply();
-    await sendMessage(channel.id, content, { reply_to: reply?.id, attachment_ids: ready.map((u) => u.id!) });
+    await sendMessage(channel.id, content, { reply_to: reply?.id, attachment_ids: ready.map((u) => u.id!), extra: reply ? { mention_author: pingReply } : undefined });
   };
 
   const startRec = async () => {
@@ -660,7 +705,9 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   if (!canSend) return <div className="composer disabled" role="note">{isDm ? "You can't message this person right now." : "You don't have permission to send messages in this channel."}</div>;
   return (
     <div ref={wrap} className="composer-wrap" data-region="composer" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}>
-      {reply && <div className="reply-bar">Replying to <strong>{memberName(channel.guild_id, reply.author)}</strong><button className="icon-btn sm" aria-label="Cancel reply" onClick={onClearReply}><X size={14} /></button></div>}
+      {reply && <div className="reply-bar">Replying to <strong>{memberName(channel.guild_id, reply.author)}</strong>
+        {reply.author.id !== useStore.getState().me?.id && <button className={`reply-ping ${pingReply ? "on" : ""}`} aria-pressed={pingReply} title={pingReply ? "They'll be notified. Click to reply without a ping." : "They won't be notified."} onClick={() => setPingReply((v) => !v)}><AtSign size={14} /> {pingReply ? "ON" : "OFF"}</button>}
+        <button className="icon-btn sm" aria-label="Cancel reply" onClick={onClearReply}><X size={14} /></button></div>}
       {uploads.length > 0 && (
         <ul className="uploads" aria-label="Attachments">
           {uploads.map((u) => (
@@ -674,6 +721,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         </ul>
       )}
       {mentions.popup}
+      {slash.popup}
       <div className="composer">
         {canAttach && <><button ref={plusBtn} className={`icon-btn composer-plus ${attach ? "active" : ""}`} aria-label="Add photos, videos or files" aria-expanded={attach} title="Add" onClick={() => setAttach((v) => !v)}><Plus size={22} /></button>
           <input ref={fileIn} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} /></>}
@@ -684,7 +732,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
           onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
           onKeyDown={(e) => {
-            if (mentions.onKeyDown(e) || e.nativeEvent.isComposing) return;
+            if (slash.onKeyDown(e) || mentions.onKeyDown(e) || e.nativeEvent.isComposing) return;
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
             if (e.key === "Escape" && reply) { e.preventDefault(); onClearReply(); } // cancel the reply before Esc marks the channel read
             if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !text && editLast()) e.preventDefault();
@@ -692,6 +740,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
         {emoji && <EmojiPicker anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {hasStickers && <button ref={stickerBtn} className={`icon-btn ${stickers ? "active" : ""}`} aria-label="Stickers" aria-expanded={stickers} title="Stickers" onClick={() => setStickers((v) => !v)}><StickerIcon size={20} /></button>}
+        <ComposerExtras channel={channel} onSendGif={(url) => sendMessage(channel.id, url, { reply_to: reply?.id })} />
         {stickers && <StickerPicker anchor={stickerBtn.current} guildId={channel.guild_id} onPick={(st) => { setStickers(false); sendMessage(channel.id, "", { sticker: st, reply_to: reply?.id }); onClearReply(); }} onClose={() => setStickers(false)} />}
         </div>
         {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>

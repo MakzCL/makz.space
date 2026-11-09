@@ -18,6 +18,10 @@ import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, startScree
 import { Avatar } from "./ui.tsx";
 import { isPhone } from "../mobile.ts";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
+import { StageView } from "../features/Stage.tsx";
+import { ActivityButton, ActivityHost } from "../features/Activities.tsx";
+import { VoiceStatusEditor } from "../features/VoiceExtras.tsx";
+import { ChannelType } from "@syndo/shared";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
@@ -35,13 +39,16 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
     <header className="ch-h m-only"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1></header>
     <div className="stage-empty">
       <h1>{channel.name}</h1>
+      {channel.type === ChannelType.STAGE && useStore.getState().stages[channel.id] && <p className="stage-topic">🔴 Live: {useStore.getState().stages[channel.id]!.topic}</p>}
+      {channel.voice_status && <p className="voice-status-line">{channel.voice_status}</p>}
       <p className="muted">{states.length ? `${states.length} ${states.length === 1 ? "person is" : "people are"} here.` : "No one is here yet."}</p>
       <div className="row">{states.map((s) => <Avatar key={s.user_id} user={users[s.user_id]} size={48} />)}</div>
-      <button className="btn primary" onClick={() => joinVoice(channel.id)}>Join voice</button>
+      <button className="btn primary" onClick={() => joinVoice(channel.id)}>{channel.type === ChannelType.STAGE ? "Join stage" : "Join voice"}</button>
     </div>
     </div>
   );
 
+  if (channel.type === ChannelType.STAGE) return <div className="stage" data-region="call"><header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1></header><StageView channel={channel} guild={guild} /></div>;
   type Tile = { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: "camera" | "screen"; speaking: boolean; muted: boolean; local: boolean };
   const tiles: Tile[] = [];
   tiles.push({ key: `${me.id}:camera`, uid: me.id, name: displayName(me), track: v.localCamera, kind: "camera", speaking: v.localSpeaking, muted: v.muted, local: true });
@@ -60,7 +67,9 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
     <div className="stage" data-region="call">
       <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
+        {guild && <VoiceStatusEditor channel={channel} />}
         <div className="ch-actions">
+          <ActivityButton channel={channel} />
           <button className={`icon-btn ${v.layout === "grid" ? "active" : ""}`} onClick={() => useVoice.setState({ layout: v.layout === "grid" ? "focus" : "grid", focus: v.layout === "grid" ? (tiles.find((t) => t.kind === "screen")?.key ?? null) : null })} aria-label="Toggle layout">{v.layout === "grid" ? "Grid" : "Focus"}</button>
           <button className={`icon-btn ${diag ? "active" : ""}`} aria-pressed={diag} aria-label="Connection diagnostics" onClick={() => setDiag(!diag)}><Activity size={20} /></button>
         </div>
@@ -73,6 +82,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           {tiles.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => useVoice.setState({ focus: t.key, layout: "focus" })} />)}
         </div>
       </div>
+      <ActivityHost channel={channel} />
       {diag && <DiagPanel />}
       <div className="call-controls" role="toolbar" aria-label="Call controls">
         <button className={`ctl ${v.muted ? "off" : ""}`} aria-pressed={v.muted} onClick={() => setMuted(!v.muted)} aria-label={v.muted ? "Unmute" : "Mute"} disabled={!v.grants?.speak}>{v.muted ? <MicOff /> : <Mic />}</button>
