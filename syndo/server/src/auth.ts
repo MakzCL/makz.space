@@ -40,7 +40,7 @@ export async function sessionFromToken(token: string, ip: string | null, ua: str
   return { id: r.id, user_id: r.user_id, mfa_pending: r.mfa_pending, status: r.status, email_verified: r.email_verified };
 }
 
-async function createSession(userId: string, req: FastifyRequest, mfaPending: boolean) {
+export async function createSession(userId: string, req: FastifyRequest, mfaPending: boolean) {
   const token = randomToken(32);
   const id = newId();
   await q(
@@ -50,7 +50,7 @@ async function createSession(userId: string, req: FastifyRequest, mfaPending: bo
   return { id, token };
 }
 
-function setCookie(reply: FastifyReply, token: string) {
+export function setCookie(reply: FastifyReply, token: string) {
   reply.setCookie(COOKIE, token, {
     path: "/", httpOnly: true, sameSite: "lax", secure: config.cookieSecure, maxAge: config.sessionDays * 86400,
   });

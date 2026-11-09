@@ -275,6 +275,14 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
         toUser(d.to, "CALL_SIGNAL", { from: conn.userId, channel_id: mine.channel_id, type: d.type, data: d.data ?? null });
         return;
       }
+      if (msg.op === "afk") {
+        // Automatic idle after inactivity: only changes how "online" looks, never the chosen status.
+        const chosen = (await q<any>("select status from users where id = $1", [conn.userId]))[0]?.status ?? "online";
+        if (chosen !== "online") return;
+        const want = msg.d?.afk ? "idle" : "online";
+        if (status.get(conn.userId) !== want) await setStatus(conn.userId, want);
+        return;
+      }
       if (msg.op === "activity") {
         // Start/join/leave an activity in my voice channel.
         const id = msg.d?.activity_id;

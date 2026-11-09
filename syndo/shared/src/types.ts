@@ -311,13 +311,14 @@ export interface NotificationSetting { scope_id: string; scope_kind: 0 | 1 | 2; 
 export interface Connection { type: string; id: string; name: string; verified: boolean; visible: boolean; show_activity: boolean; url?: string | null }
 export interface Activity { type: 0 | 1 | 2 | 3 | 5; name: string; details?: string | null; state?: string | null; started_at?: number | null; url?: string | null; application_id?: string | null }
 
-/** Server boost levels: boosts needed and what each level unlocks. */
+/** Server boost levels: boosts needed and what each level adds on top of the free limits (nothing free is taken away). */
 export const BOOST_LEVELS = [
-  { level: 0, boosts: 0, upload_mb: 25, emoji: 100, stickers: 30, sounds: 48, bitrate_kbps: 96, stream: "720p30", animated_icon: false, banner: false, vanity: false, role_icons: false },
-  { level: 1, boosts: 2, upload_mb: 50, emoji: 150, stickers: 45, sounds: 60, bitrate_kbps: 128, stream: "1080p60", animated_icon: true, banner: false, vanity: false, role_icons: false },
-  { level: 2, boosts: 7, upload_mb: 100, emoji: 200, stickers: 60, sounds: 72, bitrate_kbps: 256, stream: "1440p60", animated_icon: true, banner: true, vanity: false, role_icons: true },
-  { level: 3, boosts: 14, upload_mb: 250, emoji: 250, stickers: 90, sounds: 96, bitrate_kbps: 384, stream: "4K60", animated_icon: true, banner: true, vanity: true, role_icons: true },
+  { level: 0, boosts: 0, upload_mb: 100, emoji: 100, stickers: 30, sounds: 48, bitrate_kbps: 384, stream: "1080p60", animated_banner: false, badge: false },
+  { level: 1, boosts: 2, upload_mb: 150, emoji: 150, stickers: 45, sounds: 60, bitrate_kbps: 384, stream: "1440p60", animated_banner: true, badge: true },
+  { level: 2, boosts: 7, upload_mb: 250, emoji: 200, stickers: 60, sounds: 72, bitrate_kbps: 448, stream: "1440p60", animated_banner: true, badge: true },
+  { level: 3, boosts: 14, upload_mb: 500, emoji: 250, stickers: 90, sounds: 96, bitrate_kbps: 510, stream: "4K60", animated_banner: true, badge: true },
 ] as const;
+export const boostPerks = (tier: number | null | undefined) => BOOST_LEVELS[Math.max(0, Math.min(3, tier ?? 0))]!;
 export const boostLevelFor = (count: number) => [...BOOST_LEVELS].reverse().find((l) => count >= l.boosts)!.level;
 
 export const MessageType = {

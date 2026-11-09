@@ -29,6 +29,8 @@ export async function runMaintenance() {
   await q("delete from auth_challenges where expires_at < now() - interval '1 hour'");
   await q("delete from interactions where created_at < now() - interval '1 day'");
   await q("update notification_settings set muted = false, muted_until = null where muted and muted_until is not null and muted_until < now()");
+  const { expirePremium } = await import("./routes/premium.ts");
+  await expirePremium().catch((e) => console.error("[jobs premium]", e));
   const { runEventLifecycle } = await import("./routes/events.ts");
   await runEventLifecycle().catch((e) => console.error("[jobs events]", e));
   return { attachmentsRemoved: stale.length };

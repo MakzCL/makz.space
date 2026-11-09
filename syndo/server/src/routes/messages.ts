@@ -3,7 +3,7 @@ import { PREFIX, validateDmWire } from "./encryption.ts";
 import type { FastifyInstance } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
-import { ChannelType, MENTION_ROLE, MENTION_USER, MessageType, P, has, isTextLike, type Message } from "@syndo/shared";
+import { ChannelType, boostPerks, MENTION_ROLE, MENTION_USER, MessageType, P, has, isTextLike, type Message } from "@syndo/shared";
 import { config } from "../config.ts";
 import { pool, q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
@@ -619,7 +619,10 @@ export async function messageRoutes(app: FastifyInstance) {
   app.post<{ Params: { cid: string } }>("/api/channels/:cid/attachments", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const me = uid(req);
     const { channel } = await requireChannel(me, req.params.cid, P.ATTACH_FILES);
-    const file = await req.file({ limits: { fileSize: config.limits.max_upload_bytes, files: 1 } });
+    // Boosted servers allow bigger uploads.
+    const tier = channel.guild_id ? (await q1<any>("select premium_tier from guilds where id = $1", [channel.guild_id]))?.premium_tier ?? 0 : 0;
+    const maxBytes = Math.max(config.limits.max_upload_bytes, boostPerks(tier).upload_mb * 1048576);
+    const file = await req.file({ limits: { fileSize: maxBytes, files: 1 } });
     if (!file) throw bad("Attach a file.");
     const fields = file.fields as Record<string, any>;
     const field = (k: string) => (fields[k] && "value" in fields[k] ? String(fields[k].value) : undefined);
@@ -628,12 +631,12 @@ export async function messageRoutes(app: FastifyInstance) {
     const name = safeName(file.filename || "file");
     const key = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/${id}`;
     let size: number;
-    try { size = await storage.put(key, file.file, config.limits.max_upload_bytes); }
+    try { size = await storage.put(key, file.file, maxBytes); }
     catch (e: any) {
-      if (e?.code === "too_large" || file.file.truncated) throw new ApiError(413, "too_large", `Files can be up to ${Math.round(config.limits.max_upload_bytes / 1048576)} MB on this server.`);
+      if (e?.code === "too_large" || file.file.truncated) throw new ApiError(413, "too_large", `Files can be up to ${Math.round(maxBytes / 1048576)} MB here.`);
       throw e;
     }
-    if (file.file.truncated) { await storage.remove(key); throw new ApiError(413, "too_large", `Files can be up to ${Math.round(config.limits.max_upload_bytes / 1048576)} MB on this server.`); }
+    if (file.file.truncated) { await storage.remove(key); throw new ApiError(413, "too_large", `Files can be up to ${Math.round(maxBytes / 1048576)} MB here.`); }
     // Trust the bytes, not the client's claimed type.
     const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
     const sniff = await fileTypeFromBuffer(head);

@@ -76,6 +76,7 @@ export async function userRoutes(app: FastifyInstance) {
         show_mutuals: z.boolean().optional(),
       }).optional(),
       status: z.enum(["online", "idle", "dnd", "invisible"]).optional(),
+      locale: z.enum(["en", "pl", "fr", "es", "de", "pt", "it", "nl", "ru", "uk", "ar", "tr"]).optional(),
     }).strict().parse(req.body);
     const sets: string[] = []; const vals: unknown[] = [uid(req)];
     const set = (col: string, v: unknown) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
@@ -87,6 +88,7 @@ export async function userRoutes(app: FastifyInstance) {
     if (b.display_name !== undefined) set("display_name", b.display_name || null);
     if (b.bio !== undefined) set("bio", b.bio);
     if (b.pronouns !== undefined) set("pronouns", b.pronouns);
+    if (b.locale !== undefined) set("locale", b.locale);
     if (b.accent_color !== undefined) set("accent_color", b.accent_color);
     if (b.profile_theme !== undefined) set("profile_theme", b.profile_theme ? JSON.stringify(b.profile_theme) : null);
     if (b.custom_status !== undefined) set("custom_status", b.custom_status ? JSON.stringify(b.custom_status) : null);
@@ -148,9 +150,16 @@ export async function userRoutes(app: FastifyInstance) {
       const shared = await q1("select 1 from members where guild_id = $1 and user_id = $2", [req.query.guild_id, me]);
       if (shared) member = await q1<any>("select nick, joined_at, avatar_key, banner_key, bio, pronouns, profile_theme, custom_status, (select array_agg(role_id::text) from member_roles where guild_id = $1 and user_id = $2) as roles from members where guild_id = $1 and user_id = $2", [req.query.guild_id, u.id]);
     }
+    const { activityOf } = await import("../gateway.ts");
+    const connections = await q<any>("select type, external_id, name, verified, metadata from user_connections where user_id = $1 and visible order by created_at", [u.id]);
+    const premium = await q1<any>("select min(created_at) as since from premium_subscriptions where user_id = $1 and status = 'active' and (current_period_end is null or current_period_end > now())", [u.id]);
     return {
       user: userOut(u),
       created_at: u.created_at,
+      connections: connections.map((c) => ({ type: c.type, id: c.external_id, name: c.name, verified: c.verified, url: c.metadata?.url ?? null })),
+      activity: presenceOf(u.id) === "offline" ? null : activityOf(u.id),
+      premium_since: premium?.since ?? null,
+      staff: !!u.staff,
       custom_status: u.custom_status,
       presence: presenceOf(u.id),
       relationship: await rel(me, u.id),

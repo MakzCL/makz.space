@@ -28,13 +28,15 @@ import { eventRoutes } from "./routes/events.ts";
 import { stageRoutes } from "./routes/stage.ts";
 import { onboardingRoutes } from "./routes/onboarding.ts";
 import { appRoutes } from "./routes/apps.ts";
+import { premiumRoutes } from "./routes/premium.ts";
+import { signinRoutes } from "./routes/signin.ts";
 import { notificationRoutes } from "./notify.ts";
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: process.env.SYNDO_TRUST_PROXY === "1", bodyLimit: 1024 * 1024 });
 
   await app.register(cookie);
-  await app.register(multipart, { limits: { fileSize: config.limits.max_upload_bytes, files: 1, fields: 10 } });
+  await app.register(multipart, { limits: { fileSize: Math.max(config.limits.max_upload_bytes, 500 * 1024 * 1024), files: 1, fields: 10 } });
   await app.register(rateLimit, {
     max: Number(process.env.SYNDO_RATE_LIMIT ?? 600), timeWindow: "1 minute",
     keyGenerator: (req) => req.session?.user_id ?? req.ip,
@@ -122,6 +124,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(stageRoutes);
   await app.register(onboardingRoutes);
   await app.register(appRoutes);
+  await app.register(premiumRoutes);
+  await app.register(signinRoutes);
   await app.register(notificationRoutes);
 
   // Serve the built web client when present (single-origin deployment).
