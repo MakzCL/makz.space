@@ -11,6 +11,8 @@
 
 Files of 8 MB or more: after the permission check the backend redirects to `/api/files/read` (signed for one key and its response headers, 1 hour); the Worker serves it from R2 with ranges. Big uploads now create their attachment row when the ticket is issued (empty filename = unfinished, can't be attached), so the nightly cleanup of unattached files also removes abandoned big uploads. New R2 lifecycle rule: unfinished multipart uploads under `att/` are aborted after 1 day.
 
+Released: Worker version `c2d5b728-2d6a-46aa-a0b7-2f6038d1ac6d` (`SOURCE_COMMIT` `d1c3bcb`) and the lifecycle rule. Checked on production with a throwaway account (deleted afterwards): 40 MB upload in two pieces, download redirected to the signed R2 link, a range request returned 206, a tampered link 404, a small file still served directly, and an unfinished upload couldn't be attached. A sweep of `att/` in R2 found only files that belong to existing attachments.
+
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → deploy `99d6d618` at 100%.
 2. Lifecycle (optional): R2 → `syndo-beta-uploads` → Settings → Object lifecycle rules → delete "Abort unfinished attachment uploads after 1 day".

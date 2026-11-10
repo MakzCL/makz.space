@@ -228,7 +228,7 @@ export async function guildRoutes(app: FastifyInstance) {
     const users = await onlineMembers(guild.id);
     for (const v of voiceStates().filter((v) => v.guild_id === guild.id)) { await dropVoice(v.user_id); await removeFromRoom(v.channel_id, v.user_id); }
     await q("delete from guilds where id = $1", [guild.id]);
-    await storage.removePrefix(`att/g${guild.id}`).catch(() => {});
+    await storage.removePrefix(`att/g${guild.id}/`).catch(() => {});
     for (const prefix of ["emoji", "sounds", "channel-banners", "stickers"]) await storage.removePrefix(`${prefix}/${guild.id}/`).catch(() => {});
     for (const u of users) toUser(u, "GUILD_DELETE", { id: guild.id });
     return { ok: true };
@@ -618,7 +618,7 @@ export async function guildRoutes(app: FastifyInstance) {
     for (const v of voiceStates().filter((v) => v.channel_id === channel.id)) { await dropVoice(v.user_id); await removeFromRoom(channel.id, v.user_id); }
     await q("delete from channels where id = $1", [channel.id]);
     await q("update guilds set system_channel_id = case when system_channel_id = $1 then null else system_channel_id end, afk_channel_id = case when afk_channel_id = $1 then null else afk_channel_id end, rules_channel_id = case when rules_channel_id = $1 then null else rules_channel_id end where id = $2", [channel.id, channel.guild_id]);
-    await storage.removePrefix(`att/g${channel.guild_id}/c${channel.id}`).catch(() => {});
+    await storage.removePrefix(`att/g${channel.guild_id}/c${channel.id}/`).catch(() => {});
     await audit(channel.guild_id!, uid(req), "channel_delete", channel.id, { name: channel.name });
     await resyncGuild(channel.guild_id!);
     return { ok: true };
