@@ -11,6 +11,8 @@ import { Avatar, statusLabel } from "./ui.tsx";
 
 type Tab = "online" | "all" | "pending" | "blocked" | "add";
 
+const FRIEND_TABS = { online: "Online", all: "All", pending: "Pending", blocked: "Blocked" } as const;
+
 export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
   const [tab, setTab] = useState<Tab>("online");
   const rels = useStore((s) => s.relationships);
@@ -25,11 +27,11 @@ export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
   return (
     <div className="friends">
       <header className="ch-h">
-        <MobileNavButton /><Users size={22} aria-hidden /><h1>Friends</h1>
+        <MobileNavButton /><Users size={22} aria-hidden /><h1 className="t">Friends</h1>
         <div className="tabs" role="tablist" aria-label="Friend lists">
           {(["online", "all", "pending", "blocked"] as const).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-              {t[0]!.toUpperCase() + t.slice(1)}{t === "pending" && pending > 0 && <span className="badge inline">{pending}</span>}
+              {FRIEND_TABS[t]}{t === "pending" && pending > 0 && <span className="badge inline">{pending}</span>}
             </button>
           ))}
           <button role="tab" aria-selected={tab === "add"} className={`add ${tab === "add" ? "active" : ""}`} onClick={() => setTab("add")}>Add friend</button>

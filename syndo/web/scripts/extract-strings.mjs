@@ -18,9 +18,14 @@ for (const f of files) {
   if (f.endsWith(".tsx")) for (const m of src.matchAll(/>([^<>{}\n]*[A-Za-z][^<>{}\n]*)</g)) add(m[1], f);
   for (const m of src.matchAll(/\b(?:label|placeholder|title|hint|aria-label|confirmLabel|body|clearLabel|description)\s*[=:]\s*"([^"\n]{2,160})"/g)) add(m[1], f);
   for (const m of src.matchAll(/\b(?:toast|askConfirm|setErr|throw new Error)\(\s*"([^"\n]{2,160})"/g)) add(m[1], f);
+  if (f.endsWith(".tsx")) for (const m of src.matchAll(/[?:]\s*"([A-Z][^"\n]{1,120})"/g)) add(m[1], f);
+  for (const m of src.matchAll(/\b[a-z_]+:\s*"([A-Z][a-z][^"\n]{0,60})"/g)) add(m[1], f);
   for (const m of src.matchAll(/\[\s*"[a-z_]+"\s*,\s*"([A-Z][^"\n]{1,60})"/g)) add(m[1], f);
 }
-const out = [...found.keys()].sort();
+// Keep the existing order so finished translations stay aligned; new strings go on the end.
+let prev = [];
+try { prev = JSON.parse(readFileSync(new URL("../src/i18n/strings.json", import.meta.url), "utf8")); } catch {}
+const out = [...prev, ...[...found.keys()].filter((k) => !prev.includes(k)).sort()];
 mkdirSync(new URL("../src/i18n/", import.meta.url), { recursive: true });
 writeFileSync(new URL("../src/i18n/strings.json", import.meta.url), JSON.stringify(out, null, 0));
 console.log(out.length, "strings");

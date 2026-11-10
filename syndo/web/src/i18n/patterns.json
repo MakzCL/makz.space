@@ -1,0 +1,13 @@
+{
+"pl":[["^Message (.+)$","Napisz na $1"],["^Answer (\\d+)$","Odpowiedź $1"]],
+"fr":[["^Message (.+)$","Envoyer un message dans $1"],["^Answer (\\d+)$","Réponse $1"]],
+"es":[["^Message (.+)$","Enviar mensaje a $1"],["^Answer (\\d+)$","Respuesta $1"]],
+"de":[["^Message (.+)$","Nachricht an $1"],["^Answer (\\d+)$","Antwort $1"]],
+"pt":[["^Message (.+)$","Conversar em $1"],["^Answer (\\d+)$","Resposta $1"]],
+"it":[["^Message (.+)$","Scrivi in $1"],["^Answer (\\d+)$","Risposta $1"]],
+"nl":[["^Message (.+)$","Bericht in $1"],["^Answer (\\d+)$","Antwoord $1"]],
+"ru":[["^Message (.+)$","Написать в $1"],["^Answer (\\d+)$","Ответ $1"]],
+"uk":[["^Message (.+)$","Написати в $1"],["^Answer (\\d+)$","Відповідь $1"]],
+"ar":[["^Message (.+)$","راسل $1"],["^Answer (\\d+)$","الإجابة $1"]],
+"tr":[["^Message (.+)$","$1 kanalına mesaj gönder"],["^Answer (\\d+)$","Yanıt $1"]]
+}

@@ -51,7 +51,7 @@ export function SavedMessages() {
 
   return (
     <section className="friends saved-messages" aria-label="Saved messages">
-      <header className="ch-h" data-region="header"><MobileNavButton /><Bookmark size={22} aria-hidden /><h1>Saved messages</h1><span className="muted small">Only you can see these</span></header>
+      <header className="ch-h" data-region="header"><MobileNavButton /><Bookmark size={22} aria-hidden /><h1 className="t">Saved messages</h1><span className="muted small">Only you can see these</span></header>
       <div className="saved-tools"><Search size={18} aria-hidden /><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your saves" aria-label="Search saved messages" /></div>
       <div className="friends-body saved-body" aria-busy={!messages && !error}>
         {error ? <div className="empty-state" role="alert"><p>{error}</p><button className="btn" onClick={load}><RotateCcw size={16} /> Try again</button></div>

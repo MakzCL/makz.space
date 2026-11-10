@@ -26,7 +26,7 @@ export function Discovery() {
     <div className="discover">
       <aside className="discover-cats" aria-label="Categories"><h2><Compass size={20} /> Discover</h2>{CATS.map(([id, label]) => <button key={id} className={`side-link ${cat === id ? "active" : ""}`} onClick={() => setCat(id)}>{label}</button>)}</aside>
       <section className="discover-main">
-        <header className="discover-hero"><MobileNavButton /><h1>Find your community on SEND</h1><p>From gaming, to music, to learning, there's a place for you.</p>
+        <header className="discover-hero"><MobileNavButton /><h1 className="t">Find your community on SEND</h1><p>From gaming, to music, to learning, there's a place for you.</p>
           <div className="discover-search"><Search size={18} /><input placeholder="Explore communities" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search servers" /></div></header>
         {!list ? <p className="muted pad">Loading…</p> : !list.length ? <p className="muted pad">No servers here yet. Server owners can list theirs in Server settings → Discovery.</p> : (
           <div className="discover-grid">{list.map((s) => (

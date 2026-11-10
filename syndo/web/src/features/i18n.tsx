@@ -42,7 +42,7 @@ let patterns: [RegExp, string][] = [];
 /** Text inside these is people's content, never translated. */
 const SKIP = [
   ".msg-content", ".msg-name", ".reply-ref", ".embed", ".poll-q", ".poll-a .ellipsis", ".fwd-body", ".thread-chip strong", ".post-title", ".post-snip",
-  ".side-ch .ellipsis", ".side-dm .ellipsis", ".side-thread", ".member .ellipsis", ".guild-menu-btn .ellipsis", ".ch-h h1", ".topic", ".result",
+  ".side-ch .ellipsis", ".side-dm .ellipsis", ".side-thread", ".member .ellipsis", ".guild-menu-btn .ellipsis", ".ch-h h1:not(.t)", ".topic", ".result",
   ".mention-option strong", ".profile-card .bio", ".profile-name", ".voice-participant .ellipsis", ".stage-person .ellipsis", ".discover-card strong",
   ".discover-card p", ".app-card", ".event-card h3", ".event-card p", ".inbox-item .msg-content", "textarea", "input", "code", "pre", "[contenteditable]", "[data-no-i18n]",
 ].join(",");
