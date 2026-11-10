@@ -24,6 +24,7 @@ import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../ap
 import { AppsTab, ConnectionsTab, PasskeysCard, PushCard, StreamerCard } from "../features/AccountExtras.tsx";
 import { BoostSettings } from "../features/Boosts.tsx";
 import { LanguageTab } from "../features/i18n.tsx";
+import { openWhatsNew } from "../features/WhatsNew.tsx";
 
 const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["connections", "Connections"], ["boosts", "Server Boosts"], ["apps", "Apps"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["language", "Language"], ["streamer", "Streamer mode"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
 
@@ -36,7 +37,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
       <div className="settings" data-pane={pane}>
         <ScrollArea className="settings-scroll-nav" viewportClassName="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
           {TABS.map(([id, label]) => <button key={id} role="tab" data-tab={id} aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setPane("detail"); }}>{label}</button>)}
-          <hr /><button className="danger" onClick={() => { onClose(); logout(); }}>Sign out</button>
+          <hr /><button onClick={openWhatsNew}>What's new</button><button className="danger" onClick={() => { onClose(); logout(); }}>Sign out</button>
         </ScrollArea>
         <ScrollArea key={tab} className="settings-scroll-body" viewportClassName="settings-body" role="tabpanel">
           <button className="settings-back m-only" onClick={() => setPane("list")}>‹ All settings</button>

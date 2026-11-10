@@ -19,6 +19,7 @@ import { registerDefaultShortcuts } from "./shortcutActions.ts";
 import { ShortcutHelp } from "./components/Keybinds.tsx";
 import { AskHost, ContextMenuHost, MediaViewerHost, initTooltips } from "./components/overlay.tsx";
 import { ModalHost } from "./features/modals.tsx";
+import { WhatsNewHost } from "./features/WhatsNew.tsx";
 import { QrApprove, useStreamerMode } from "./features/AccountExtras.tsx";
 import { initLive } from "./features/live.tsx";
 import { initI18n } from "./features/i18n.tsx";
@@ -78,7 +79,7 @@ function App() {
   else if (conn === "connecting") page = <Splash />;
   else if (route.name === "qr") page = <main className="auth"><section className="auth-card"><QrApprove id={route.params.id!} /><button className="link" onClick={() => navigate("/channels/@me")}>Back to SEND</button></section></main>;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost /><Toasts /><InAppNotices /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();

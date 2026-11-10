@@ -1,13 +1,200 @@
 {
-"pl":[["^Message (.+)$","Napisz na $1"],["^Answer (\\d+)$","Odpowiedź $1"]],
-"fr":[["^Message (.+)$","Envoyer un message dans $1"],["^Answer (\\d+)$","Réponse $1"]],
-"es":[["^Message (.+)$","Enviar mensaje a $1"],["^Answer (\\d+)$","Respuesta $1"]],
-"de":[["^Message (.+)$","Nachricht an $1"],["^Answer (\\d+)$","Antwort $1"]],
-"pt":[["^Message (.+)$","Conversar em $1"],["^Answer (\\d+)$","Resposta $1"]],
-"it":[["^Message (.+)$","Scrivi in $1"],["^Answer (\\d+)$","Risposta $1"]],
-"nl":[["^Message (.+)$","Bericht in $1"],["^Answer (\\d+)$","Antwoord $1"]],
-"ru":[["^Message (.+)$","Написать в $1"],["^Answer (\\d+)$","Ответ $1"]],
-"uk":[["^Message (.+)$","Написати в $1"],["^Answer (\\d+)$","Відповідь $1"]],
-"ar":[["^Message (.+)$","راسل $1"],["^Answer (\\d+)$","الإجابة $1"]],
-"tr":[["^Message (.+)$","$1 kanalına mesaj gönder"],["^Answer (\\d+)$","Yanıt $1"]]
+"pl": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nowych wiadomości od ostatniej wizyty"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nowych wiadomości od $2"
+],
+[
+"^Message (.+)$",
+"Napisz na $1"
+],
+[
+"^Answer (\\d+)$",
+"Odpowiedź $1"
+]
+],
+"fr": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nouveaux messages depuis votre dernière visite"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nouveaux messages depuis $2"
+],
+[
+"^Message (.+)$",
+"Envoyer un message dans $1"
+],
+[
+"^Answer (\\d+)$",
+"Réponse $1"
+]
+],
+"es": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 mensajes nuevos desde tu última visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 mensajes nuevos desde $2"
+],
+[
+"^Message (.+)$",
+"Enviar mensaje a $1"
+],
+[
+"^Answer (\\d+)$",
+"Respuesta $1"
+]
+],
+"de": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 neue Nachrichten seit deinem letzten Besuch"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 neue Nachrichten seit $2"
+],
+[
+"^Message (.+)$",
+"Nachricht an $1"
+],
+[
+"^Answer (\\d+)$",
+"Antwort $1"
+]
+],
+"pt": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 novas mensagens desde sua última visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 novas mensagens desde $2"
+],
+[
+"^Message (.+)$",
+"Conversar em $1"
+],
+[
+"^Answer (\\d+)$",
+"Resposta $1"
+]
+],
+"it": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nuovi messaggi dalla tua ultima visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nuovi messaggi da $2"
+],
+[
+"^Message (.+)$",
+"Scrivi in $1"
+],
+[
+"^Answer (\\d+)$",
+"Risposta $1"
+]
+],
+"nl": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nieuwe berichten sinds je laatste bezoek"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nieuwe berichten sinds $2"
+],
+[
+"^Message (.+)$",
+"Bericht in $1"
+],
+[
+"^Answer (\\d+)$",
+"Antwoord $1"
+]
+],
+"ru": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Новых сообщений с вашего последнего визита: $1"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"Новых сообщений: $1 с $2"
+],
+[
+"^Message (.+)$",
+"Написать в $1"
+],
+[
+"^Answer (\\d+)$",
+"Ответ $1"
+]
+],
+"uk": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Нових повідомлень з вашого останнього візиту: $1"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"Нових повідомлень: $1 з $2"
+],
+[
+"^Message (.+)$",
+"Написати в $1"
+],
+[
+"^Answer (\\d+)$",
+"Відповідь $1"
+]
+],
+"ar": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 رسائل جديدة منذ زيارتك الأخيرة"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 رسائل جديدة منذ $2"
+],
+[
+"^Message (.+)$",
+"راسل $1"
+],
+[
+"^Answer (\\d+)$",
+"الإجابة $1"
+]
+],
+"tr": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Son ziyaretinden beri $1 yeni mesaj"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$2 itibarıyla $1 yeni mesaj"
+],
+[
+"^Message (.+)$",
+"$1 kanalına mesaj gönder"
+],
+[
+"^Answer (\\d+)$",
+"Yanıt $1"
+]
+]
 }

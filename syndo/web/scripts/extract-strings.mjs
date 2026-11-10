@@ -20,6 +20,8 @@ for (const f of files) {
   for (const m of src.matchAll(/\b(?:toast|askConfirm|setErr|throw new Error)\(\s*"([^"\n]{2,160})"/g)) add(m[1], f);
   if (f.endsWith(".tsx")) for (const m of src.matchAll(/[?:]\s*"([A-Z][^"\n]{1,120})"/g)) add(m[1], f);
   for (const m of src.matchAll(/\b[a-z_]+:\s*"([A-Z][a-z][^"\n]{0,60})"/g)) add(m[1], f);
+  // The changelog keeps its text in plain lists.
+  if (f.endsWith("WhatsNew.tsx")) for (const m of src.matchAll(/"([A-Z][^"\n]{3,200})"/g)) add(m[1], f);
   for (const m of src.matchAll(/\[\s*"[a-z_]+"\s*,\s*"([A-Z][^"\n]{1,60})"/g)) add(m[1], f);
 }
 // Keep the existing order so finished translations stay aligned; new strings go on the end.

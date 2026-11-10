@@ -92,7 +92,7 @@ const CH_TYPES = [
   { type: ChannelType.TEXT, label: "Text", hint: "Messages, images, files, opinions and puns.", Icon: Hash },
   { type: ChannelType.VOICE, label: "Voice", hint: "Hang out with voice, video and screen sharing.", Icon: Volume2 },
   { type: ChannelType.ANNOUNCEMENT, label: "Announcement", hint: "Important updates.", Icon: Megaphone },
-  { type: ChannelType.STAGE, label: "Stage (preview)", hint: "Speakers and an audience. Speaker controls are in progress.", Icon: Radio },
+  { type: ChannelType.STAGE, label: "Stage", hint: "Speakers on stage and a listening audience. Members can raise a hand to ask to speak.", Icon: Radio },
   { type: ChannelType.FORUM, label: "Forum (preview)", hint: "Organised posts. Posts/tags are in progress.", Icon: MessageSquareText },
 ];
 

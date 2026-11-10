@@ -1738,3 +1738,15 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .posts.gallery { grid-template-columns: repeat(2, 1fr); }
   .trivia-a { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------- What's new -- */
+.whats-new { display: grid; gap: 18px; max-width: 560px; }
+.whats-new article > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.whats-new h3 { margin: 0; font-size: 20px; }
+.whats-new time { color: var(--textMuted); font-size: 13px; }
+.whats-new .wn-intro { margin: 6px 0 4px; color: var(--textMuted); }
+.whats-new section { margin-top: 14px; }
+.whats-new h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.whats-new ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; }
+.whats-new li { line-height: 1.45; }
+.whats-new article.older { border-top: 1px solid var(--line); padding-top: 14px; opacity: .85; }
