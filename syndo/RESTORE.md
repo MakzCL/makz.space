@@ -11,6 +11,8 @@
 
 Accounts `makz` and `makztest` were marked `staff` (free boost grants and codes).
 
+Released: database migration `007_major_update.sql` (25 new tables, grants checked); Worker version `fc79e6d2-5146-4c81-b30a-747f23899755` with `SOURCE_COMMIT` `d967a3b` (it also passes optional secrets — push keys, `SYNDO_SECRET`, Stripe, GIFs, connections — to the backend once they exist); Pages deployment `4d241b0b-98dd-4746-996e-d7921926b533`. Push keys and `SYNDO_SECRET` aren't set yet: push is hidden until they are, and link-preview image URLs change when the backend restarts.
+
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → deploy `57def25c` at 100% (its `SOURCE_COMMIT` brings the container back to `77745ff`).
 2. Web: Pages → `syndo-app` → Deployments → `11a8467b` → Rollback to this deployment.
