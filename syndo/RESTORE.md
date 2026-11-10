@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-10 — desktop 0.6.0 (game detection: "Playing …" on your profile)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.5.0.yml` (backup of the feed that pointed at `SEND-Setup-0.5.0.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `c2d5b728-2d6a-46aa-a0b7-2f6038d1ac6d` (download link → 0.5.0) |
+| Source | branch `backup/pre-desktop-060-20261110` (at `6d472bb`); database unchanged |
+
+0.6.0 is the Tauri build from CI run 42898982168 (commit `6d472bb`, 1.7 MB). It adds game detection (known games from the process list, shown as "Playing …", opt-out in settings).
+
+### Roll back
+1. Feed: copy `latest-0.5.0.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.6.0 stay on it.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `c2d5b728` at 100%.
+
 ## 2026-11-10 — big files read straight from R2; abandoned uploads cleaned up
 
 | Layer | Restore point (before this release) |
