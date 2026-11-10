@@ -134,12 +134,20 @@ fn start_url(c: &Config, link: Option<String>) -> WebviewUrl {
 /// Let a server chosen at runtime call the shell's commands (the hosted one is in capabilities/).
 fn allow_origin<R: Runtime>(app: &AppHandle<R>, origin: &str) {
   if origin == "https://syndo.makz.space" { return; }
-  let cap = tauri::ipc::CapabilityBuilder::new(format!("server-{}", origin.replace(|c: char| !c.is_ascii_alphanumeric(), "-")))
+  let mut cap = tauri::ipc::CapabilityBuilder::new(format!("server-{}", origin.replace(|c: char| !c.is_ascii_alphanumeric(), "-")))
     .remote(format!("{origin}/*"))
     .window("main")
     .permission("core:app:default");
+  // The shell's own commands (window buttons, push-to-talk, updates…) — the same set as capabilities/send-remote.json.
+  for p in REMOTE_COMMANDS { cap = cap.permission(*p); }
   let _ = app.add_capability(cap);
 }
+
+const REMOTE_COMMANDS: &[&str] = &[
+  "allow-window-control", "allow-set-ptt", "allow-set-material", "allow-get-settings", "allow-set-performance", "allow-set-startup",
+  "allow-restart-app", "allow-refresh", "allow-set-close-to-tray", "allow-change-server", "allow-update-status", "allow-check-updates",
+  "allow-download-update", "allow-restart-to-update", "allow-flash", "allow-notify",
+];
 
 fn load_app<R: Runtime>(app: &AppHandle<R>) {
   let st = shell(app);

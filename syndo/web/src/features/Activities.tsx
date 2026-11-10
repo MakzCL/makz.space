@@ -40,7 +40,7 @@ export function ActivityButton({ channel, ctl }: { channel: Channel; ctl?: boole
   const start = (id: string) => { gwSend("activity", { activity_id: id }); setOpen(false); };
   return <>
     <button ref={btn} className={ctl ? `ctl ${myAct ? "on" : ""}` : `icon-btn ${myAct ? "active" : ""}`} aria-label="Activities" title="Activities" aria-expanded={open} onClick={() => setOpen((v) => !v)}><Rocket size={ctl ? 22 : 20} /></button>
-    {open && <Popover className="menu activity-menu" label="Activities" anchor={() => btn.current} onClose={() => setOpen(false)}>
+    {open && <Popover className="menu activity-menu" place={ctl ? "above" : "below"} label="Activities" anchor={() => btn.current} onClose={() => setOpen(false)}>
       <div className="act-title">Choose an Activity</div>
       {[...new Set(others)].filter((x) => x !== myAct).map((id) => <button key={`join-${id}`} role="menuitem" onClick={() => start(id)}><Gamepad2 size={16} /> Join {nameOf(id)} <small className="tag">LIVE</small></button>)}
       {(list?.builtin ?? []).map((a) => <button key={a.id} role="menuitem" onClick={() => start(a.id)}><Gamepad2 size={16} /><span><strong>{a.name}</strong><small className="muted block">{a.description}</small></span></button>)}

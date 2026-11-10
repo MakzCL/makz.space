@@ -6,12 +6,32 @@ import { useLayer, type LayerOptions } from "../layers.ts";
 
 /* =============================================================== Popover == */
 /** A transient surface anchored to a toggle: outside press and Escape close it; pressing the toggle again closes it. */
-export function Popover({ onClose, anchor, className = "", children, role = "menu", label, opts, onClick, style }: {
+export function Popover({ onClose, anchor, className = "", children, role = "menu", label, opts, onClick, style, place }: {
   onClose: () => void; anchor?: () => Element | null | undefined; className?: string; children: ReactNode; role?: string; label?: string; opts?: LayerOptions;
   onClick?: React.MouseEventHandler<HTMLDivElement>; style?: React.CSSProperties;
+  /** Position on screen next to the anchor (below it, or above when there's no room) instead of inside the parent's box. */
+  place?: "below" | "above";
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayer(ref, onClose, { anchor, ...opts });
+  useLayoutEffect(() => {
+    const el = ref.current, a = place ? anchor?.() : null;
+    if (!el || !a) return;
+    const fit = () => {
+      const r = a.getBoundingClientRect(), m = 8, vw = window.innerWidth, vh = window.innerHeight;
+      const roomBelow = vh - r.bottom - 4 - m, roomAbove = r.top - 4 - m;
+      // Prefer the asked side; switch when it has little room and the other side has more.
+      const up = place === "above" ? !(roomAbove < 200 && roomBelow > roomAbove) : roomBelow < 200 && roomAbove > roomBelow;
+      Object.assign(el.style, { position: "fixed", right: "auto", overflowY: "auto", minWidth: `${Math.min(r.width, vw - 2 * m)}px`,
+        // Anchored by the edge next to the button, so content that loads later grows away from it.
+        top: up ? "auto" : `${r.bottom + 4}px`, bottom: up ? `${vh - r.top + 4}px` : "auto", maxHeight: `${Math.max(120, up ? roomAbove : roomBelow)}px` });
+      el.style.left = `${Math.max(m, Math.min(r.left, vw - el.offsetWidth - m))}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    window.addEventListener("resize", fit);
+    return () => { ro.disconnect(); window.removeEventListener("resize", fit); };
+  }, [place]); // eslint-disable-line react-hooks/exhaustive-deps
   // Menus get arrow-key navigation between their items; focus moves into the popover when opened from the keyboard.
   useEffect(() => { if (role === "menu" && document.activeElement && anchor?.()?.contains(document.activeElement) && (document.activeElement as HTMLElement).matches(":focus-visible")) ref.current?.querySelector<HTMLElement>("[role^=menuitem]")?.focus(); }, []); // eslint-disable-line
   const key = (e: React.KeyboardEvent) => {
@@ -21,7 +41,9 @@ export function Popover({ onClose, anchor, className = "", children, role = "men
     const n = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
     items[n]!.focus();
   };
-  return <div ref={ref} className={className} role={role} aria-label={label} data-layer onClick={onClick} onKeyDown={key} style={style}>{children}</div>;
+  const box = <div ref={ref} className={className} role={role} aria-label={label} data-layer onClick={onClick} onKeyDown={key} style={style}>{children}</div>;
+  // Placed popovers live at the top of the page: a parent with blur or transforms would otherwise become their frame.
+  return place ? createPortal(box, document.body) : box;
 }
 
 /* ========================================================== Media viewer == */

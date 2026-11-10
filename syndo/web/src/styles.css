@@ -1816,3 +1816,8 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .picker-grid.emote-grid img { object-fit: contain; }
 .emote-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; background: var(--bg2, #0002); border-radius: var(--r); }
 .emote-preview .md-emote { height: 28px; }
+
+/* Server menu: never squeezed — one line per item, at least the header's width */
+.menu.guild-menu { min-width: 220px; }
+.menu.guild-menu [role=menuitem] { white-space: nowrap; }
+.activity-menu { max-width: calc(100vw - 16px); }

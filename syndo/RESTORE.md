@@ -1,5 +1,18 @@
 # SEND restore points
 
+## 2026-11-10 — menu placement fixes; desktop 0.6.1 built (window buttons)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | the emotes deployment (commit `697f3ff`); before that `6157394f-5eb8-4578-987e-3580b92e4ad5` |
+| Backend | unchanged (Worker version `39bbf579-4b3b-4486-8598-e933772c4919`, `SOURCE_COMMIT` `697f3ff`) |
+| Source | branch `backup/pre-menu-fixes-20261110` |
+
+Web: the server menu and the activity menu are placed on screen next to their button (portal + fixed position) instead of inside a parent that clipped or offset them. Desktop 0.6.1 (not published until asked): the shell's own commands are declared in `build.rs` and granted to the hosted app in `capabilities/send-remote.json` (and to runtime-chosen servers in `allow_origin`). Tauri refuses unlisted commands from remote pages, so in 0.5.0–0.6.0 the window buttons, push-to-talk, in-app updates and desktop settings were all refused.
+
+### Roll back
+Web: Pages → `syndo-app` → Deployments → roll back to the emotes deployment.
+
 ## 2026-11-10 — 7TV and BTTV emotes
 
 | Layer | Restore point (before this release) |

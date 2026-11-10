@@ -318,7 +318,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
           <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag">{guild.tag}</span>}<ChevronDown size={18} />
         </button>
         {menu && (
-          <Popover className="menu guild-menu" label={`${guild.name} options`} anchor={() => menuBtn.current} onClose={() => setMenu(false)} onClick={(e) => { if ((e.target as HTMLElement).closest("[role=menuitem]")) setMenu(false); }}>
+          <Popover className="menu guild-menu" place="below" label={`${guild.name} options`} anchor={() => menuBtn.current} onClose={() => setMenu(false)} onClick={(e) => { if ((e.target as HTMLElement).closest("[role=menuitem]")) setMenu(false); }}>
             {has(perms, P.CREATE_INVITE) && <button role="menuitem" onClick={() => onDialog({ kind: "invite", guildId: guild.id, channelId: current })}><UserPlus size={16} /> Invite people</button>}
             {(has(perms, P.MANAGE_GUILD) || has(perms, P.MANAGE_ROLES) || has(perms, P.KICK_MEMBERS) || has(perms, P.BAN_MEMBERS) || has(perms, P.VIEW_AUDIT_LOG)) &&
               <button role="menuitem" onClick={() => onDialog({ kind: "serverSettings", guildId: guild.id })}><Settings size={16} /> Server settings</button>}

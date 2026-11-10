@@ -2,12 +2,17 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, Download, LoaderCircle, Minus, Square, Copy, X } from "lucide-react";
 import { applyDesktopUpdate, desktop, useDesktopUpdate, type DesktopUpdate } from "../desktop.ts";
 import { Wordmark } from "./ui.tsx";
+import { toast } from "../store.ts";
 export function DesktopTitlebar() {
   const [maximized, setMaximized] = useState(false);
   const update = useDesktopUpdate();
   if (!desktop?.capabilities.customTitlebar || !desktop.windowControl) return null;
   const d = desktop;
-  const control = async (action: "minimize" | "maximize" | "close") => { const result = await d.windowControl!(action); if (result) setMaximized(result.maximized); };
+  const control = async (action: "minimize" | "maximize" | "close") => {
+    try { const result = await d.windowControl!(action); if (result) setMaximized(result.maximized); }
+    // SEND for Windows 0.5.0–0.6.0 refused its own commands from the hosted app; 0.6.1 fixes it.
+    catch { toast("These buttons need SEND for Windows 0.6.1 or newer. Download it from the website once — later updates install from the app.", "error"); }
+  };
   return <header className="desktop-titlebar" onDoubleClick={e => { if (!(e.target as HTMLElement).closest("button")) control("maximize"); }}>
     <nav aria-label="Navigation history"><button aria-label="Go back" onClick={() => history.back()}><ArrowLeft size={14}/></button><button aria-label="Go forward" onClick={() => history.forward()}><ArrowRight size={14}/></button></nav>
     <span className="desktop-title"><Wordmark/></span>
