@@ -44,6 +44,8 @@ export function selfOut(r: any): SelfUser {
     privacy: { ...DEFAULT_PRIVACY, ...(r.privacy ?? {}) },
     settings: r.settings ?? {},
     created_at: r.created_at,
+    locale: r.locale ?? "en",
+    staff: !!r.staff,
   };
 }
 
@@ -62,6 +64,13 @@ export function channelOut(r: any, overwrites: any[] = [], extra: Partial<Channe
     icon: mediaUrl(r.icon_key),
     banner: mediaUrl(r.banner_key),
     icon_emoji: r.icon_emoji ?? null,
+    ...(r.type === 11 || r.type === 12 ? { thread: {
+      archived: !!r.archived, locked: !!r.locked, invitable: r.invitable !== false, auto_archive_minutes: r.auto_archive_minutes ?? 4320,
+      archived_at: r.archived_at ?? null, last_activity_at: r.last_activity_at ?? null, message_count: r.message_count ?? 0,
+      applied_tags: (r.applied_tags ?? []).map(String), member_count: r.member_count ?? undefined, me: r.me ?? undefined,
+    } } : {}),
+    ...(r.type === 15 || r.type === 16 ? { available_tags: r.available_tags ?? [], default_sort: r.default_sort ?? 0, default_layout: r.default_layout ?? 0, default_reaction: r.default_reaction ?? null, require_tag: !!r.require_tag } : {}),
+    ...(r.type === 2 || r.type === 13 ? { voice_status: r.voice_status ?? null } : {}),
     permission_overwrites: overwrites.map((o) => ({ target_id: String(o.target_id), target_type: o.target_type, allow: String(o.allow), deny: String(o.deny) })),
     ...extra,
   };

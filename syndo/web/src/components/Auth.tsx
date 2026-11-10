@@ -6,6 +6,8 @@ import { signedIn } from "../actions.ts";
 import { navigate, setTitle, useRoute } from "../router.ts";
 import { Field, Mark } from "./ui.tsx";
 import { ResetAppearanceLink } from "../appearance/Recovery.tsx";
+import { Fingerprint } from "lucide-react";
+import { QrLogin, passkeyLogin } from "../features/AccountExtras.tsx";
 
 function Card({ title, sub, children }: { title: string; sub?: ReactNode; children: ReactNode }) {
   useEffect(() => setTitle(title), [title]);
@@ -58,8 +60,10 @@ export function Login() {
         <Field label="Password" error={err}><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
         <button type="button" className="link left" onClick={() => navigate("/forgot")}>Forgot your password?</button>
         <button className="btn primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+        {typeof window !== "undefined" && "PublicKeyCredential" in window && <button type="button" className="btn" onClick={async () => { setErr(null); try { await passkeyLogin(); afterAuth(); } catch (x) { if ((x as Error).name !== "NotAllowedError") setErr(errMsg(x)); } }}><Fingerprint size={16} /> Sign in with a passkey</button>}
         <p className="muted small">New here? <button type="button" className="link" onClick={() => navigate("/register" + location.search)}>Create an account</button></p>
       </form>
+      <QrLogin onSignedIn={afterAuth} />
     </Card>
   );
 }

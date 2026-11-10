@@ -10,6 +10,7 @@ import { loadMembers } from "../actions.ts";
 import { navigate } from "../router.ts";
 import { displayName, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
+import { AutoModTab, BoostStatusTab, DiscoveryTab, ForumTab, InsightsTab, IntegrationsTab, OnboardingTab, PruneSection, UnsavedBar } from "../features/ServerTools.tsx";
 
 const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
 
@@ -27,6 +28,9 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
     // Shown once the server supports expressions (it then sends `emojis`, even if empty).
     ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["stickers", "Stickers", has(p, P.MANAGE_EXPRESSIONS) && guild.stickers !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined],
     ["bans", "Bans", has(p, P.BAN_MEMBERS)], ["invites", "Invites", has(p, P.MANAGE_GUILD)], ["audit", "Audit log", has(p, P.VIEW_AUDIT_LOG)],
+    ["automod", "AutoMod", has(p, P.MANAGE_GUILD)], ["onboarding", "Onboarding", has(p, P.MANAGE_GUILD)], ["insights", "Server Insights", has(p, P.MANAGE_GUILD)],
+    ["integrations", "Integrations", has(p, P.MANAGE_WEBHOOKS) || has(p, P.MANAGE_GUILD)], ["forums", "Forums", has(p, P.MANAGE_CHANNELS)],
+    ["discovery", "Discovery", has(p, P.MANAGE_GUILD)], ["boosts", "Server Boost", true],
     ["profile", "My server profile", true], ["danger", owner ? "Transfer / delete" : "", owner],
   ];
   return (
@@ -40,13 +44,20 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
           {tab === "overview" && <Overview guild={guild} />}
           {tab === "roles" && <Roles guild={guild} />}
           {tab === "permissions" && <ChannelPerms guild={guild} />}
-          {tab === "members" && <Members guild={guild} />}
+          {tab === "members" && <><Members guild={guild} /><PruneSection guild={guild} /></>}
           {tab === "bans" && <Bans guild={guild} />}
           {tab === "invites" && <Invites guild={guild} />}
           {tab === "emoji" && <EmojiTab guild={guild} />}
           {tab === "stickers" && <StickersTab guild={guild} />}
           {tab === "soundboard" && <SoundboardTab guild={guild} />}
           {tab === "audit" && <Audit guild={guild} />}
+          {tab === "automod" && <AutoModTab guild={guild} />}
+          {tab === "onboarding" && <OnboardingTab guild={guild} />}
+          {tab === "insights" && <InsightsTab guild={guild} />}
+          {tab === "integrations" && <IntegrationsTab guild={guild} />}
+          {tab === "forums" && <ForumTab guild={guild} />}
+          {tab === "discovery" && <DiscoveryTab guild={guild} />}
+          {tab === "boosts" && <BoostStatusTab guild={guild} />}
           {tab === "profile" && <MyProfile guild={guild} />}
           {tab === "danger" && <Danger guild={guild} onClose={onClose} />}
         </section>
@@ -56,7 +67,9 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
 }
 
 function Overview({ guild }: { guild: Guild }) {
-  const [f, setF] = useState({ name: guild.name, description: guild.description ?? "", vanity_code: guild.vanity_code ?? "", tag: guild.tag ?? "", system_channel_id: guild.system_channel_id ?? "", afk_channel_id: guild.afk_channel_id ?? "", afk_timeout: guild.afk_timeout, rules_channel_id: guild.rules_channel_id ?? "" });
+  const initial = () => ({ name: guild.name, description: guild.description ?? "", vanity_code: guild.vanity_code ?? "", tag: guild.tag ?? "", system_channel_id: guild.system_channel_id ?? "", afk_channel_id: guild.afk_channel_id ?? "", afk_timeout: guild.afk_timeout, rules_channel_id: guild.rules_channel_id ?? "" });
+  const [f, setF] = useState(initial);
+  const [base, setBase] = useState(initial);
   const [pct, setPct] = useState<number | null>(null);
   const img = (kind: "icon" | "banner") => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -68,7 +81,7 @@ function Overview({ guild }: { guild: Guild }) {
   const save = () => run(() => api.patch(`/api/guilds/${guild.id}`, {
     name: f.name, description: f.description || null, vanity_code: f.vanity_code || null, tag: f.tag || null,
     system_channel_id: f.system_channel_id || null, afk_channel_id: f.afk_channel_id || null, afk_timeout: f.afk_timeout, rules_channel_id: f.rules_channel_id || null,
-  }), "Saved.");
+  }), "Saved.").then((ok) => { if (ok) setBase(f); });
   return (
     <div className="stack">
       <h2>Overview</h2>
@@ -93,6 +106,7 @@ function Overview({ guild }: { guild: Guild }) {
         <Field label="Inactive timeout"><Select value={f.afk_timeout} onChange={(e) => setF({ ...f, afk_timeout: +e.target.value })}>{[60, 300, 900, 1800, 3600].map((s) => <option key={s} value={s}>{s / 60} min</option>)}</Select></Field>
       </div>
       <button className="btn primary" onClick={save}>Save changes</button>
+      <UnsavedBar dirty={JSON.stringify(f) !== JSON.stringify(base)} onReset={() => setF(base)} onSave={save} />
     </div>
   );
 }

@@ -24,6 +24,7 @@ function parse(): Route {
   const query = new URLSearchParams(location.search);
   if (p[0] === "channels") return { name: "channels", params: { guild: p[1] ?? "@me", channel: p[2] ?? "", message: p[3] ?? "" }, query };
   if (p[0] === "invite" && p[1]) return { name: "invite", params: { code: p[1] }, query };
+  if (p[0] === "qr" && p[1]) return { name: "qr", params: { id: p[1] }, query };
   if (["login", "register", "forgot", "reset", "verify"].includes(p[0] ?? "")) return { name: p[0]!, params: {}, query };
   return { name: "home", params: {}, query };
 }

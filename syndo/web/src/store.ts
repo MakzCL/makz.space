@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import {
-  ChannelType, P, has, type Channel, type Guild, type InstanceLimits, type Member, type Message, type ReadState,
-  type Relationship, type SelfUser, type User, type VoiceState,
+  ChannelType, P, has, type Activity, type Channel, type Guild, type GuildEvent, type InstanceLimits, type Member, type Message, type NotificationSetting, type ReadState,
+  type Relationship, type SelfUser, type StageInstance, type User, type VoiceState,
 } from "@syndo/shared";
 
 export type SendState = "pending" | "failed";
@@ -27,11 +27,21 @@ interface S {
   limits: InstanceLimits | null;
   sessionId: string | null;
   notice: { id: number; text: string; kind: "info" | "error" | "success" }[];
+  /** Threads I can see (active ones per server, plus any I opened), keyed by id. */
+  threads: Record<string, Channel>;
+  joinedThreads: string[];
+  /** Notification settings by scope id (server, channel/category, or "0" for DMs). */
+  notif: Record<string, NotificationSetting>;
+  /** "Playing …" etc. by user id. */
+  activities: Record<string, Activity>;
+  events: Record<string, GuildEvent[]>;
+  stages: Record<string, StageInstance>;
 }
 
 export const useStore = create<S>(() => ({
   conn: "booting", me: null, guilds: {}, dms: {}, relationships: {}, presences: {}, users: {}, members: {},
   messages: {}, readStates: {}, typing: {}, voice: {}, calls: {}, limits: null, sessionId: null, notice: [],
+  threads: {}, joinedThreads: [], notif: {}, activities: {}, events: {}, stages: {},
 }));
 const set = useStore.setState;
 const get = useStore.getState;
@@ -55,7 +65,31 @@ export function channelById(id: string | null | undefined): Channel | null {
   const s = get();
   if (s.dms[id]) return s.dms[id]!;
   for (const g of Object.values(s.guilds)) { const c = g.channels.find((c) => c.id === id); if (c) return c; }
+  if (s.threads[id]) return s.threads[id]!;
   return null;
+}
+export const isThreadType = (t: number) => t === ChannelType.PUBLIC_THREAD || t === ChannelType.PRIVATE_THREAD;
+/** A thread inherits what I can do from its parent channel. */
+export function withParentPerms(t: Channel): Channel {
+  const parent = t.parent_id ? channelById(t.parent_id) : null;
+  return parent && parent.id !== t.id ? { ...t, my_permissions: parent.my_permissions, permission_overwrites: [] } : t;
+}
+export function putThreads(list: Channel[]) {
+  set((s) => { const threads = { ...s.threads }; for (const t of list) threads[t.id] = withParentPerms({ ...(threads[t.id] ?? {}), ...t } as Channel); return { threads }; });
+}
+/** Effective notification level for a channel: 0 all, 1 mentions, 2 nothing. */
+export function notifLevel(ch: Channel | null): 0 | 1 | 2 {
+  if (!ch) return 1;
+  const n = get().notif;
+  const own = n[ch.id]?.level ?? (ch.parent_id ? n[ch.parent_id]?.level : null);
+  if (own != null) return own;
+  if (!ch.guild_id) return n["0"]?.level ?? 0;
+  return n[ch.guild_id]?.level ?? 1;
+}
+export function isMutedScope(id: string | null | undefined) {
+  if (!id) return false;
+  const x = get().notif[id];
+  return !!x?.muted && (!x.muted_until || new Date(x.muted_until).getTime() > Date.now());
 }
 export const myPerms = (ch: Channel | null) => (ch?.my_permissions ? BigInt(ch.my_permissions) : ch && !ch.guild_id ? ~0n : 0n);
 export const can = (ch: Channel | null, flag: bigint) => has(myPerms(ch), flag);
@@ -101,9 +135,10 @@ function upsertMessages(channelId: string, incoming: UIMessage[], opts: { hasMor
 }
 export const messagesApi = { upsertMessages };
 
-function patchChannel(id: string, patch: Partial<Channel>) {
+export function patchChannel(id: string, patch: Partial<Channel>) {
   set((s) => {
     if (s.dms[id]) return { dms: { ...s.dms, [id]: { ...s.dms[id]!, ...patch } } };
+    if (s.threads[id]) return { threads: { ...s.threads, [id]: { ...s.threads[id]!, ...patch } } };
     const guilds = { ...s.guilds };
     for (const g of Object.values(guilds)) {
       const i = g.channels.findIndex((c) => c.id === id);
@@ -132,7 +167,12 @@ export function dispatch(t: string, d: any) {
       for (const r of d.read_states) readStates[r.channel_id] = r;
       const voice: Record<string, VoiceState> = {};
       for (const v of d.voice_states) voice[v.user_id] = v;
-      set({ conn: "ready", me: d.user, guilds, dms, relationships, readStates, voice, presences: d.presences, limits: d.limits, sessionId: d.session_id });
+      const notif: Record<string, NotificationSetting> = {};
+      for (const n of d.notification_settings ?? []) notif[n.scope_id] = n;
+      const stages: Record<string, StageInstance> = {};
+      for (const g of d.guilds) for (const st of g.stage_instances ?? []) stages[st.channel_id] = st;
+      set({ conn: "ready", me: { ...d.user, has_passkey: d.has_passkey }, guilds, dms, relationships, readStates, voice, presences: d.presences, limits: d.limits, sessionId: d.session_id,
+        notif, stages, activities: d.activities ?? {}, joinedThreads: d.joined_threads ?? [] });
       remember([d.user, ...d.relationships.map((r: Relationship) => r.user), ...d.private_channels.flatMap((c: Channel) => c.recipients ?? []), ...d.voice_states.map((v: VoiceState) => v.user).filter(Boolean)]);
       break;
     }
@@ -143,7 +183,40 @@ export function dispatch(t: string, d: any) {
       if (relationships[d.id]) relationships[d.id] = { ...relationships[d.id]!, user: d };
       return { relationships };
     }); break;
-    case "PRESENCE_UPDATE": set((st) => ({ presences: { ...st.presences, [d.user_id]: d.status }, me: d.self_status && st.me ? { ...st.me, status: d.self_status } : st.me })); break;
+    case "PRESENCE_UPDATE": set((st) => {
+      const activities = { ...st.activities };
+      if (d.activity) activities[d.user_id] = d.activity; else delete activities[d.user_id];
+      return { presences: { ...st.presences, [d.user_id]: d.status }, activities, me: d.self_status && st.me ? { ...st.me, status: d.self_status } : st.me };
+    }); break;
+    case "THREAD_CREATE": case "THREAD_UPDATE": putThreads([d]); break;
+    case "THREAD_DELETE": set((st) => { const threads = { ...st.threads }; delete threads[d.id]; return { threads }; }); break;
+    case "THREAD_MEMBERS_UPDATE": set((st) => {
+      const me = st.me?.id ?? "";
+      let j = st.joinedThreads.filter((x) => x !== d.id || !(d.removed ?? []).includes(me));
+      if ((d.added ?? []).includes(me) && !j.includes(d.id)) j = [...j, d.id];
+      return { joinedThreads: j };
+    }); break;
+    case "NOTIFICATION_SETTINGS_UPDATE": set((st) => ({ notif: { ...st.notif, [d.scope_id]: d } })); break;
+    case "VOICE_CHANNEL_STATUS_UPDATE": patchChannel(d.id, { voice_status: d.status }); break;
+    case "STAGE_INSTANCE_CREATE": case "STAGE_INSTANCE_UPDATE": set((st) => ({ stages: { ...st.stages, [d.channel_id]: d } })); break;
+    case "STAGE_INSTANCE_DELETE": set((st) => { const stages = { ...st.stages }; delete stages[d.channel_id]; return { stages }; }); break;
+    case "GUILD_EVENT_CREATE": case "GUILD_EVENT_UPDATE": set((st) => {
+      const list = (st.events[d.guild_id] ?? []).filter((e) => e.id !== d.id);
+      const keep = d.status === 1 || d.status === 2;
+      return { events: { ...st.events, [d.guild_id]: (keep ? [...list, d] : list).sort((a, b) => a.start_at.localeCompare(b.start_at)) } };
+    }); break;
+    case "GUILD_EVENT_DELETE": set((st) => ({ events: { ...st.events, [d.guild_id]: (st.events[d.guild_id] ?? []).filter((e) => e.id !== d.id) } })); break;
+    case "POLL_VOTES": set((st) => {
+      const cur = st.messages[d.channel_id];
+      if (!cur) return {};
+      const list = cur.list.map((m) => {
+        if (m.id !== d.message_id || !m.poll) return m;
+        const mine = d.user_id === st.me?.id;
+        const answers = m.poll.answers.map((a) => ({ ...a, votes: d.counts.find((c: any) => c.answer_id === a.id)?.n ?? 0, me: mine ? d.answer_ids.includes(a.id) : a.me }));
+        return { ...m, poll: { ...m.poll, answers, total_votes: answers.reduce((n, a) => n + a.votes, 0) } };
+      });
+      return { messages: { ...st.messages, [d.channel_id]: { ...cur, list } } };
+    }); break;
     case "RELATIONSHIP_ADD": remember([d.user]); set((st) => ({ relationships: { ...st.relationships, [d.id]: d }, presences: d.presence ? { ...st.presences, [d.id]: d.presence } : st.presences })); break;
     case "RELATIONSHIP_REMOVE": set((st) => { const r = { ...st.relationships }; delete r[d.id]; return { relationships: r }; }); break;
     case "GUILD_CREATE": case "GUILD_SYNC": set((st) => ({ guilds: { ...st.guilds, [d.id]: d } })); break;
@@ -167,6 +240,7 @@ export function dispatch(t: string, d: any) {
     case "CHANNEL_DELETE": set((st) => { const dms = { ...st.dms }; delete dms[d.id]; return { dms }; }); break;
     case "MESSAGE_CREATE": {
       upsertMessages(d.channel_id, [d]);
+      if (s.threads[d.channel_id]) patchChannel(d.channel_id, { thread: { ...s.threads[d.channel_id]!.thread!, message_count: (s.threads[d.channel_id]!.thread?.message_count ?? 0) + 1, last_activity_at: d.created_at, archived: false } });
       patchChannel(d.channel_id, { last_message_id: d.id });
       if (d.author.id === s.me?.id) set((st) => ({ readStates: { ...st.readStates, [d.channel_id]: { channel_id: d.channel_id, last_read_id: d.id, mention_count: 0 } } }));
       set((st) => { const ty = { ...(st.typing[d.channel_id] ?? {}) }; delete ty[d.author.id]; return { typing: { ...st.typing, [d.channel_id]: ty } }; });

@@ -55,3 +55,13 @@ export function safeName(name: string) {
   const clean = base.replace(/[\u0000-\u001f\u007f"<>|:*?]/g, "_").replace(/\s+/g, " ").trim().slice(0, 120);
   return clean || "file";
 }
+
+/** Read an uploaded image and store it under `${prefix}/<id>.<ext>`; returns the storage key. */
+export async function saveImage(req: FastifyRequest, prefix: string, maxBytes: number): Promise<string> {
+  const img = await readImage(req, maxBytes);
+  const { newId } = await import("./ids.ts");
+  const storage = await import("./storage.ts");
+  const key = `${prefix}/${newId()}.${img.ext}`;
+  await storage.put(key, img.buf);
+  return key;
+}

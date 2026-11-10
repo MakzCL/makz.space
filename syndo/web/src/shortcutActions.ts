@@ -37,6 +37,7 @@ export function registerDefaultShortcuts() {
   registerShortcut({ id: "read.channel", group: chat, label: "Mark channel as read", defaults: ["Escape"], inInput: true, run: () => (inChannel() ? markCurrentRead() : false) });
   registerShortcut({ id: "read.server", group: chat, label: "Mark server as read", defaults: ["Shift+Escape"], inInput: true, run: () => markServerRead() });
   registerShortcut({ id: "chat.oldestUnread", group: chat, label: "Jump to oldest unread message", defaults: ["Shift+PageUp"], inInput: true, run: () => { const el = document.querySelector(".new-div"); if (!el) return false; el.scrollIntoView({ block: "center" }); } });
+  registerShortcut({ id: "chat.inbox", group: chat, label: "Open the inbox (mentions and unreads)", defaults: ["Mod+I"], run: () => uiEvent("syndo:inbox") });
   registerShortcut({ id: "chat.pins", group: chat, label: "Toggle pinned messages", defaults: ["Mod+P"], run: () => (inChannel() ? uiEvent("syndo:panel", "pins") : false) });
   registerShortcut({ id: "chat.members", group: chat, label: "Toggle member list", defaults: ["Mod+U"], run: () => (inChannel() ? uiEvent("syndo:panel", "members") : false) });
   registerShortcut({ id: "chat.search", group: chat, label: "Search", defaults: ["Mod+F"], run: () => (inChannel() ? uiEvent("syndo:panel", "search") : false) });

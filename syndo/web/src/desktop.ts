@@ -29,6 +29,8 @@ export interface SENDDesktop {
   /** Download the available update and restart into it (desktop 0.4.1+; older shells download on their own). */
   downloadUpdate?(): Promise<DesktopUpdate>;
   onUpdateStatus(cb: (s: DesktopUpdate) => void): () => void;
+  /** "Playing …" detected by the desktop app (0.6+). */
+  onActivity?(cb: (a: { type: number; name: string } | null) => void): () => void;
   flash(): Promise<void>;
 }
 export const desktop: SENDDesktop | null = (window as any).syndoDesktop ?? null;
@@ -50,6 +52,12 @@ export function initDesktop() {
   useVoice.subscribe((s) => { const k = `${s.settings.mode}|${s.settings.pttKey}`; if (k !== last) { last = k; syncPtt(); } });
   syncPtt();
   desktop.getSettings().then((c) => { if (c.material !== "none") document.documentElement.dataset.desktopMaterial = c.material; }).catch(() => {});
+  // "Playing …" from the desktop app → my presence (if I allow sharing it). Re-sent after reconnects.
+  let playing: { type: number; name: string; started_at: number } | null = null;
+  const share = () => (useStore.getState().me?.settings as any)?.share_activity !== false;
+  const push = () => import("./gateway.ts").then((g) => g.gwSend("presence_activity", share() ? playing : null));
+  desktop.onActivity?.((a) => { playing = a ? { ...a, started_at: playing?.name === a.name ? playing.started_at : Date.now() } : null; push(); });
+  onEvent("READY", () => { if (playing) push(); });
   // Taskbar attention for mentions/DMs while the window isn't focused.
   onEvent("MENTION", () => { if (!document.hasFocus() && useStore.getState().me?.status !== "dnd") desktop.flash(); });
 }

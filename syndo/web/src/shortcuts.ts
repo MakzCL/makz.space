@@ -118,8 +118,13 @@ export function initShortcuts() {
     if (!name || hasLayers()) return;
     const parts: string[] = []; if (isMac ? e.metaKey : e.ctrlKey) parts.push("Mod"); if (e.altKey) parts.push("Alt"); if (e.shiftKey) parts.push("Shift");
     const combo = normalize([...parts, name].join("+"));
-    // Plain back/forward buttons already navigate history natively; only act when a user bound them to something.
-    if (shortcutActions().some((a) => overrides()[a.id]?.includes(combo))) fire(combo, e, false, false);
+    // In a browser plain back/forward buttons already move through history; only act when a user bound them to something.
+    if (shortcutActions().some((a) => overrides()[a.id]?.includes(combo))) { fire(combo, e, false, false); return; }
+    // The desktop app's window doesn't do that by itself, so move through channel history here.
+    if ((window as any).syndoDesktop && parts.length === 0 && (name === "MouseBack" || name === "MouseForward")) {
+      e.preventDefault();
+      if (name === "MouseBack") history.back(); else history.forward();
+    }
   });
 }
 

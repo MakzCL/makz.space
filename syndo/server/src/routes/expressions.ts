@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
-import { ChannelType, EXPRESSION_LIMITS, P, emojiUrl, has, stickerUrl, type Emoji, type SoundboardSound, type Sticker } from "@syndo/shared";
+import { ChannelType, EXPRESSION_LIMITS, boostPerks, P, emojiUrl, has, stickerUrl, type Emoji, type SoundboardSound, type Sticker } from "@syndo/shared";
 import { requireUser, uid } from "../auth.ts";
 import { q, q1 } from "../db.ts";
 import { bad, forbidden, notFound } from "../errors.ts";
@@ -62,6 +62,12 @@ async function readSound(req: FastifyRequest) {
 
 const lastPlay = new Map<string, number>();
 
+/** Emoji/sticker/sound slots grow with the server's boost level. */
+async function slotLimit(guildId: string, kind: "emoji" | "stickers" | "sounds") {
+  const g = await q1<any>("select premium_tier from guilds where id = $1", [guildId]);
+  return boostPerks(g?.premium_tier)[kind];
+}
+
 export async function expressionRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireUser);
 
@@ -78,7 +84,8 @@ export async function expressionRoutes(app: FastifyInstance) {
     const { guild } = await requireGuild(uid(req), req.params.id, P.MANAGE_EXPRESSIONS);
     const name = EMOJI_NAME.parse(req.query.name ?? "");
     const n = await q1<any>("select count(*)::int as n from guild_emojis where guild_id = $1", [guild.id]);
-    if (n.n >= EXPRESSION_LIMITS.emojis) throw bad(`A server can have up to ${EXPRESSION_LIMITS.emojis} emoji.`);
+    const lim = await slotLimit(req.params.id, "emoji");
+    if (n.n >= lim) throw bad(`A server can have up to ${lim} emoji at its boost level.`);
     if (await q1("select 1 from guild_emojis where guild_id = $1 and name = $2", [guild.id, name])) throw bad(`There's already an emoji called :${name}:.`);
     const img = await readImage(req, EXPRESSION_LIMITS.emojiBytes);
     const id = newId(), key = `emoji/${guild.id}/${id}.${img.ext}`;
@@ -129,7 +136,8 @@ export async function expressionRoutes(app: FastifyInstance) {
     const { guild } = await requireGuild(uid(req), req.params.id, P.MANAGE_EXPRESSIONS);
     const meta = StickerMeta.parse(req.query);
     const n = await q1<any>("select count(*)::int as n from guild_stickers where guild_id = $1", [guild.id]);
-    if (n.n >= EXPRESSION_LIMITS.stickers) throw bad(`A server can have up to ${EXPRESSION_LIMITS.stickers} stickers.`);
+    const lim = await slotLimit(req.params.id, "stickers");
+    if (n.n >= lim) throw bad(`A server can have up to ${lim} stickers at its boost level.`);
     const img = await readImage(req, EXPRESSION_LIMITS.stickerBytes);
     if (!["png", "gif", "webp"].includes(img.ext)) throw bad("Stickers can be PNG, APNG, GIF or WebP.", "bad_type");
     const format = img.ext === "png" && img.animated ? "apng" : img.ext;
@@ -177,7 +185,8 @@ export async function expressionRoutes(app: FastifyInstance) {
     const { guild } = await requireGuild(uid(req), req.params.id, P.MANAGE_EXPRESSIONS);
     const meta = SoundMeta.parse(req.query);
     const n = await q1<any>("select count(*)::int as n from guild_sounds where guild_id = $1", [guild.id]);
-    if (n.n >= EXPRESSION_LIMITS.sounds) throw bad(`A server can have up to ${EXPRESSION_LIMITS.sounds} sounds.`);
+    const lim = await slotLimit(req.params.id, "sounds");
+    if (n.n >= lim) throw bad(`A server can have up to ${lim} sounds at its boost level.`);
     const snd = await readSound(req);
     const id = newId(), key = `sounds/${guild.id}/${id}.${snd.ext}`;
     await storage.put(key, snd.buf);

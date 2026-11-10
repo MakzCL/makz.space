@@ -1,6 +1,6 @@
 [package]
 name = "send-desktop"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 description = "SEND for Windows — lightweight shell (Tauri + WebView2)"
 publish = false
@@ -28,7 +28,7 @@ url = "2"
 
 [target.'cfg(windows)'.dependencies]
 window-vibrancy = "0.8"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_System_Registry"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_System_Diagnostics_ToolHelp"] }
 
 [profile.release]
 codegen-units = 1

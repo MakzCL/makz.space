@@ -12,6 +12,7 @@ import {
 import { api, errMsg, upload } from "../api.ts";
 import { displayName, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar } from "../components/ui.tsx";
+import { UnsavedBar } from "../features/ServerTools.tsx";
 import { EffectsLayer, StyledName, normalizeTheme, useCosmetics } from "./effects.tsx";
 
 const LABEL: Record<string, string> = {
@@ -162,13 +163,16 @@ function GlobalProfile() {
   const [f, setF] = useState({ display_name: me.display_name ?? "", bio: me.bio, pronouns: me.pronouns, status: me.custom_status?.text ?? "" });
   const [theme, setTheme] = useState<ProfileTheme>(normalizeTheme(me.profile_theme) ?? DEFAULT_PROFILE_THEME);
   const [pct, setPct] = useState<number | null>(null);
+  // What was last saved, so we can show "unsaved changes" and reset to it.
+  const [base, setBase] = useState(() => JSON.stringify([f, theme]));
+  const dirty = JSON.stringify([f, theme]) !== base;
   const file = async (kind: CropKind, x: File) => {
     const fd = new FormData(); fd.append("file", x);
     try { await upload(`/api/users/@me/${kind}`, fd, setPct).promise; toast(kind === "avatar" ? "Avatar updated." : "Banner updated.", "success"); }
     finally { setPct(null); }
   };
   const save = async () => {
-    try { await api.patch("/api/users/@me", { display_name: f.display_name || null, bio: f.bio, pronouns: f.pronouns, custom_status: f.status ? { text: f.status } : null, profile_theme: theme }); toast("Profile saved.", "success"); }
+    try { await api.patch("/api/users/@me", { display_name: f.display_name || null, bio: f.bio, pronouns: f.pronouns, custom_status: f.status ? { text: f.status } : null, profile_theme: theme }); setBase(JSON.stringify([f, theme])); toast("Profile saved.", "success"); }
     catch (e) { toast(errMsg(e), "error"); }
   };
   return (
@@ -182,6 +186,7 @@ function GlobalProfile() {
         <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects" } }))}>Explore profile effects</button>
         <button className="btn primary" onClick={save}>Save profile</button>
       </div>
+      <UnsavedBar dirty={dirty} onReset={() => { const [bf, bt] = JSON.parse(base); setF(bf); setTheme(bt); }} onSave={save} />
       <div className="stack">
         <small className="muted">Preview — how others see you</small>
         <ProfileMediaEdit onUpload={file}><ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} /></ProfileMediaEdit>
@@ -195,10 +200,12 @@ function ServerProfile({ guildId }: { guildId: string }) {
   const me = useStore((s) => s.me)!;
   const guild = useStore((s) => s.guilds[guildId]);
   const [d, setD] = useState<SP | null>(null);
+  const [base, setBase] = useState<string | null>(null);
   const [server, setServer] = useState<{ avatar: string | null; banner: string | null }>({ avatar: null, banner: null });
   const load = () => api.get<any>(`/api/users/${me.id}/profile?guild_id=${guildId}`).then((p) => {
     const m = p.member ?? {};
-    setD({ nick: m.nick ?? null, bio: m.bio ?? null, pronouns: m.pronouns ?? null, status: m.custom_status?.text ?? null, theme: m.profile_theme ? normalizeTheme(m.profile_theme) : null });
+    const next: SP = { nick: m.nick ?? null, bio: m.bio ?? null, pronouns: m.pronouns ?? null, status: m.custom_status?.text ?? null, theme: m.profile_theme ? normalizeTheme(m.profile_theme) : null };
+    setD(next); setBase(JSON.stringify(next));
     setServer({ avatar: m.avatar ?? null, banner: m.banner ?? null });
   }).catch((e) => toast(errMsg(e), "error"));
   useEffect(() => { load(); }, [guildId]); // eslint-disable-line
@@ -223,6 +230,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
   const save = async () => {
     try {
       await api.patch(`/api/guilds/${guildId}/members/@me`, { ...(canNick ? { nick: d.nick } : {}), bio: d.bio, pronouns: d.pronouns, custom_status: d.status ? { text: d.status } : null, profile_theme: d.theme });
+      setBase(JSON.stringify(d));
       toast(`Server profile for ${guild.name} saved. Your global profile is unchanged.`, "success");
     } catch (e) { toast(errMsg(e), "error"); }
   };
@@ -238,6 +246,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
         <U k="status" label="Status"><input value={d.status ?? ""} maxLength={128} onChange={(e) => setD({ ...d, status: e.target.value })} /></U>
         <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects", target: { kind: "guild", id: guildId, label: guild.name } } }))}>Explore server profile effects</button>
         <div className="row"><button className="btn primary" onClick={save}>Save server profile</button>
+          <UnsavedBar dirty={!!base && JSON.stringify(d) !== base} onReset={() => base && setD(JSON.parse(base))} onSave={save} />
           <button className="btn" onClick={async () => { if (!(await askConfirm({ title: "Reset server profile?", body: "Your server profile goes back to your global profile.", confirmLabel: "Reset", danger: true }))) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>
       </div>
       <div className="stack">

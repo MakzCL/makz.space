@@ -36,14 +36,14 @@ export async function logout() {
 }
 
 /* ------------------------------------------------------------- messages -- */
-export async function loadMessages(channelId: string, opts: { before?: string; around?: string } = {}) {
+export async function loadMessages(channelId: string, opts: { before?: string; around?: string; latest?: boolean } = {}) {
   const cur = get().messages[channelId];
   if (cur?.loading) return;
   set((s) => ({ messages: { ...s.messages, [channelId]: { ...(cur ?? { list: [], hasMore: true, loaded: false }), loading: true } } }));
   try {
     const qs = opts.before ? `&before=${opts.before}` : opts.around ? `&around=${opts.around}` : "";
     const list = await api.get<Message[]>(`/api/channels/${channelId}/messages?limit=50${qs}`);
-    messagesApi.upsertMessages(channelId, list, { hasMore: opts.around ? true : list.length === 50, replace: !!opts.around });
+    messagesApi.upsertMessages(channelId, list, { hasMore: opts.around ? true : list.length === 50, replace: !!opts.around || !!opts.latest });
   } catch (e) {
     set((s) => ({ messages: { ...s.messages, [channelId]: { ...(s.messages[channelId] ?? { list: [], hasMore: false, loaded: true }), loading: false, loaded: true } } }));
     if (!(e instanceof ApiError && e.status === 404)) toast(errMsg(e), "error");
@@ -70,7 +70,8 @@ export async function resyncOpenChannels() {
 
 const nonce = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export async function sendMessage(channelId: string, content: string, opts: { reply_to?: string; attachment_ids?: string[]; sticker?: Sticker; retryOf?: UIMessage } = {}) {
+export interface SendExtras { mention_author?: boolean; silent?: boolean; flags?: number; poll?: { question: string; answers: { text: string; emoji?: string | null }[]; duration_hours: number; allow_multiselect: boolean }; forward?: { message_id: string; channel_id: string } }
+export async function sendMessage(channelId: string, content: string, opts: { reply_to?: string; attachment_ids?: string[]; sticker?: Sticker; retryOf?: UIMessage; extra?: SendExtras } = {}) {
   const sticker = opts.sticker ?? opts.retryOf?.stickers?.[0];
   const me = get().me!;
   const n = opts.retryOf?.nonce ?? nonce();
@@ -81,14 +82,16 @@ export async function sendMessage(channelId: string, content: string, opts: { re
   };
   messagesApi.upsertMessages(channelId, [temp]);
   try {
-    const m = await api.post<Message>(`/api/channels/${channelId}/messages`, { content, nonce: n, reply_to: opts.reply_to, attachment_ids: opts.attachment_ids ?? [], ...(sticker ? { sticker_ids: [sticker.id] } : {}) });
+    const extra = opts.extra ?? (opts.retryOf as any)?._extra ?? {};
+    if (/^@silent\s/.test(content)) { content = content.replace(/^@silent\s+/, ""); extra.silent = true; }
+    const m = await api.post<Message>(`/api/channels/${channelId}/messages`, { content, nonce: n, reply_to: opts.reply_to, attachment_ids: opts.attachment_ids ?? [], ...(sticker ? { sticker_ids: [sticker.id] } : {}), ...extra });
     messagesApi.upsertMessages(channelId, [m]);
   } catch (e) {
     const msg = errMsg(e);
     // Keep content so the user can retry; same nonce makes the retry idempotent.
     set((s) => {
       const cur = s.messages[channelId]; if (!cur) return {};
-      return { messages: { ...s.messages, [channelId]: { ...cur, list: cur.list.map((x) => (x.id === tempId ? { ...x, _state: "failed", _error: msg } : x)) } } };
+      return { messages: { ...s.messages, [channelId]: { ...cur, list: cur.list.map((x) => (x.id === tempId ? { ...x, _state: "failed", _error: msg, _extra: opts.extra } as UIMessage : x)) } } };
     });
   }
 }

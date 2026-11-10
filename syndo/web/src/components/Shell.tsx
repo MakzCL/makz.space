@@ -5,7 +5,8 @@ import {
   Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Monitor, Video, Signal, Image, Radio, Bookmark,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Popover, openContextMenu } from "./overlay.tsx";
+import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
+import { FolderOpen } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -30,7 +31,15 @@ import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { EmojiPicker } from "./ChannelView.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
 import { setContext, updateGlobal, useAppearance } from "../appearance/store.ts";
-import { Palette, PanelLeftOpen } from "lucide-react";
+import { Palette, PanelLeftOpen, Link as LinkIcon, Bell, CalendarDays, Sparkles, Inbox as InboxIcon } from "lucide-react";
+import { ForumView, SidebarThreads, useActiveThreads } from "../features/Threads.tsx";
+import { openServerNotifications } from "../features/Notifications.tsx";
+import { EventsButton, openEvents } from "../features/Events.tsx";
+import { Discovery } from "../features/Discovery.tsx";
+import { openBoostServer } from "../features/Boosts.tsx";
+import { InboxHost } from "../features/Inbox.tsx";
+import { OnboardingGate } from "../features/Onboarding.tsx";
+import { isMutedScope } from "../store.ts";
 
 /** Arrow keys move focus between server icons in the rail/bar (works vertically, horizontally and in columns). */
 function railArrows(e: React.KeyboardEvent<HTMLElement>) {
@@ -58,6 +67,8 @@ export function Shell() {
   const guild = gid !== "@me" ? guilds[gid] : null;
   const cid = route.params.channel || (guild ? defaultChannel(guild) : "");
   const viewingSaved = gid === "@me" && cid === "saved";
+  const viewingDiscover = gid === "@me" && cid === "discover";
+  const forum = useStore((s) => { const c = guild?.channels.find((x) => x.id === cid); return c && (c.type === ChannelType.FORUM || c.type === ChannelType.MEDIA) ? c : null; });
 
   useEffect(() => {
     if (gid !== "@me" && !guild && conn === "ready") navigate("/channels/@me", true);
@@ -110,7 +121,8 @@ export function Shell() {
         </div>
       )}
       <main id="main" className="main" tabIndex={-1}>
-        {viewingSaved ? <SavedMessages /> : viewingVoice ? <VoiceStage channel={viewingVoice} guild={guild!} />
+        {guild && <OnboardingGate guild={guild} />}
+        {viewingSaved ? <SavedMessages /> : viewingDiscover ? <Discovery /> : forum ? <ForumView key={forum.id} channel={forum} /> : viewingVoice ? <VoiceStage channel={viewingVoice} guild={guild!} />
           : cid ? <ChannelView key={cid} channelId={cid} guildId={guild?.id ?? null} highlight={route.params.message || null} />
             : <Friends onDialog={setDialog} />}
       </main>
@@ -120,6 +132,7 @@ export function Shell() {
       {dialog?.kind === "groupDm" && <NewGroupDm onClose={() => setDialog(null)} />}
       {dialog?.kind === "userSettings" && <UserSettings tab={dialog.tab} onClose={() => setDialog(null)} />}
       {dialog?.kind === "serverSettings" && <ServerSettings guildId={dialog.guildId} tab={dialog.tab} onClose={() => setDialog(null)} />}
+      <InboxHost />
     </div>
   );
 }
@@ -159,25 +172,68 @@ function GuildRail({ current, onDialog }: { current: string; onDialog: (d: Dialo
     if (j < 0 || j >= ids.length) return;
     [ids[i], ids[j]] = [ids[j]!, ids[i]!]; updateSettings({ guild_order: ids });
   };
+  const folders = useStore((s) => ((s.me?.settings as any)?.guild_folders ?? NO_ORDER) as { id: string; name: string; color: string | null; guild_ids: string[] }[]);
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem("send.folders.open") ?? "{}"); } catch { return {}; } });
+  const toggleFolder = (id: string) => { const n = { ...openFolders, [id]: !openFolders[id] }; setOpenFolders(n); try { localStorage.setItem("send.folders.open", JSON.stringify(n)); } catch { /* */ } };
+  const inFolder = new Map<string, string>(); for (const f of folders) for (const g of f.guild_ids) if (guilds[g]) inFolder.set(g, f.id);
+  const renderGuild = (g: Guild) => {
+    const mentions = g.channels.reduce((n, c) => n + (readStates[c.id]?.mention_count ?? 0), 0);
+    const unread = g.channels.some((c) => c.type !== ChannelType.CATEGORY && !isVoiceType(c.type) && isUnread(c)) && !isMutedScope(g.id);
+    return (
+      <div key={g.id} className="rail-slot" draggable onDragStart={() => setDrag(g.id)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag && drag !== g.id) move(drag, g.id); setDrag(null); }} onKeyDown={(e) => onKeyMove(e, g.id)}>
+        <RailItem active={current === g.id} unread={unread} badge={mentions} label={g.name + (g.tag ? ` [${g.tag}]` : "")} onClick={() => navigate(`/channels/${g.id}`)} onContextMenu={(e) => openContextMenu(e, [...guildMenuItems(g), { kind: "separator" }, ...folderMenu(g.id, folders)])}>
+          {g.icon ? <img src={g.icon} alt="" /> : <span className="rail-initials">{g.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 3)}</span>}
+        </RailItem>
+      </div>
+    );
+  };
+  const seen = new Set<string>();
   return (
     <nav className="rail" data-region="rail" aria-label="Servers" onKeyDown={railArrows}>
       <RailItem active={current === "@me"} label="Direct messages" badge={dmMentions} onClick={() => navigate("/channels/@me")}><Mark size={30} title={`${BRAND.name} home`} /></RailItem>
       <hr />
       {sorted.map((g) => {
-        const mentions = g.channels.reduce((n, c) => n + (readStates[c.id]?.mention_count ?? 0), 0);
-        const unread = g.channels.some((c) => c.type !== ChannelType.CATEGORY && !isVoiceType(c.type) && isUnread(c));
-        return (
-          <div key={g.id} className="rail-slot" draggable onDragStart={() => setDrag(g.id)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag && drag !== g.id) move(drag, g.id); setDrag(null); }} onKeyDown={(e) => onKeyMove(e, g.id)}>
-            <RailItem active={current === g.id} unread={unread} badge={mentions} label={g.name + (g.tag ? ` [${g.tag}]` : "")} onClick={() => navigate(`/channels/${g.id}`)} onContextMenu={(e) => openContextMenu(e, guildMenuItems(g))}>
-              {g.icon ? <img src={g.icon} alt="" /> : <span className="rail-initials">{g.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 3)}</span>}
-            </RailItem>
-          </div>
-        );
+        const fid = inFolder.get(g.id);
+        if (!fid) return renderGuild(g);
+        if (seen.has(fid)) return null;
+        seen.add(fid);
+        const f = folders.find((x) => x.id === fid)!;
+        const list = f.guild_ids.map((id) => guilds[id]).filter(Boolean) as Guild[];
+        const open = !!openFolders[f.id];
+        const mentions = list.reduce((n, x) => n + x.channels.reduce((m, c) => m + (readStates[c.id]?.mention_count ?? 0), 0), 0);
+        return <div key={f.id} className={`rail-folder ${open ? "open" : ""}`} style={f.color ? { ["--folder" as any]: f.color } : undefined}>
+          <RailItem label={`${f.name || "Folder"} (${list.length} servers)`} badge={open ? 0 : mentions} onClick={() => toggleFolder(f.id)} onContextMenu={(e) => openContextMenu(e, folderItems(f, folders))}>
+            {open ? <FolderOpen size={22} /> : <span className="folder-mini">{list.slice(0, 4).map((x) => x.icon ? <img key={x.id} src={x.icon} alt="" /> : <i key={x.id}>{x.name[0]}</i>)}</span>}
+          </RailItem>
+          {open && list.map(renderGuild)}
+        </div>;
       })}
       <RailItem label="Add a server" onClick={() => onDialog({ kind: "createServer" })} accent><Plus size={22} /></RailItem>
-      <RailItem label="Join with an invite" onClick={async () => { const code = await askText({ title: "Join a server", label: "Invite link or code", placeholder: "https://syndo.makz.space/invite/…", confirmLabel: "Join" }); if (code) navigate(`/invite/${code.trim().split("/").pop()}`); }} accent><Compass size={22} /></RailItem>
+      <RailItem label="Join with an invite" onClick={async () => { const code = await askText({ title: "Join a server", label: "Invite link or code", placeholder: "https://syndo.makz.space/invite/…", confirmLabel: "Join" }); if (code) navigate(`/invite/${code.trim().split("/").pop()}`); }} accent><LinkIcon size={22} /></RailItem>
+      <RailItem label="Explore discoverable servers" active={current === "@me" && location.pathname.endsWith("/discover")} onClick={() => navigate("/channels/@me/discover")} accent><Compass size={22} /></RailItem>
     </nav>
   );
+}
+
+type Folder = { id: string; name: string; color: string | null; guild_ids: string[] };
+function folderMenu(gid: string, folders: Folder[]): MenuItem[] {
+  const strip = (list: Folder[]) => list.map((f) => ({ ...f, guild_ids: f.guild_ids.filter((x) => x !== gid) })).filter((f) => f.guild_ids.length > 0);
+  const cur = folders.find((f) => f.guild_ids.includes(gid));
+  return [
+    { label: "Move to folder", submenu: [
+      ...folders.filter((f) => f !== cur).map((f) => ({ label: f.name || "Folder", onSelect: () => updateSettings({ guild_folders: strip(folders).map((x) => (x.id === f.id ? { ...x, guild_ids: [...x.guild_ids, gid] } : x)) }) })),
+      { label: "New folder…", onSelect: async () => { const name = await askText({ title: "New folder", label: "Folder name", optional: true }); if (name === null) return; updateSettings({ guild_folders: [...strip(folders), { id: String(Date.now()), name, color: null, guild_ids: [gid] }] }); } },
+    ] },
+    ...(cur ? [{ label: "Remove from folder", onSelect: () => updateSettings({ guild_folders: strip(folders) }) } as MenuItem] : []),
+  ];
+}
+function folderItems(f: Folder, folders: Folder[]): MenuItem[] {
+  const save = (p: Partial<Folder>) => updateSettings({ guild_folders: folders.map((x) => (x.id === f.id ? { ...x, ...p } : x)) });
+  return [
+    { label: "Rename folder", onSelect: async () => { const name = await askText({ title: "Rename folder", label: "Folder name", initial: f.name, optional: true }); if (name !== null) save({ name }); } },
+    { label: "Folder colour", submenu: ["#3D6BFF", "#22CC88", "#FFC93C", "#FF5C5C", "#B05CFF", "#FF8FD1"].map((c) => ({ label: c, checked: f.color === c, onSelect: () => save({ color: c }) })) },
+    { label: "Ungroup", danger: true, onSelect: () => updateSettings({ guild_folders: folders.filter((x) => x.id !== f.id) }) },
+  ];
 }
 
 function RailItem({ active, unread, badge, label, onClick, children, accent, onContextMenu }: { active?: boolean; unread?: boolean; badge?: number; label: string; onClick: () => void; children: React.ReactNode; accent?: boolean; onContextMenu?: (e: React.MouseEvent) => void }) {
@@ -204,6 +260,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
         <button className={`side-link ${!current ? "active" : ""}`} onClick={() => navigate("/channels/@me")}>
           <Users size={20} /> <span>Friends</span>{pending > 0 && <span className="badge inline">{pending}</span>}
         </button>
+        <button className="side-link" onClick={() => window.dispatchEvent(new Event("syndo:inbox"))}><InboxIcon size={20} /><span>Inbox</span></button>
         <button className={`side-link ${current === "saved" ? "active" : ""}`} aria-current={current === "saved" ? "page" : undefined} onClick={() => navigate("/channels/@me/saved")}><Bookmark size={20} /><span>Saved messages</span></button>
         <div className="side-sec"><span>Conversations</span><button className="icon-btn sm" aria-label="New group conversation" title="New group" onClick={() => onDialog({ kind: "groupDm" })}><Plus size={16} /></button></div>
         {list.map((c) => {
@@ -230,6 +287,22 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(`syndo.collapsed.${guild.id}`) ?? "{}"); } catch { return {}; } });
   const perms = guildPerms(guild);
   const { loose, cats } = channelTree(guild);
+  useActiveThreads(guild.id);
+  const hideMuted = useStore((s) => !!s.notif[guild.id]?.hide_muted);
+  const readStatesAll = useStore((s) => s.readStates);
+  const visible = (c: Channel) => !hideMuted || c.id === current || !isMutedScope(c.id) || (readStatesAll[c.id]?.mention_count ?? 0) > 0;
+  // Drag a channel onto another to move it there (same category or another one).
+  const canArrange = has(perms, P.MANAGE_CHANNELS);
+  const dropOn = (dragId: string, target: Channel) => {
+    const all = [...guild.channels].filter((c) => c.type !== ChannelType.CATEGORY).sort((a, b) => a.position - b.position);
+    const moving = all.find((c) => c.id === dragId); if (!moving || moving.id === target.id) return;
+    const parent = target.type === ChannelType.CATEGORY ? target.id : target.parent_id;
+    const siblings = all.filter((c) => c.parent_id === parent && c.id !== dragId);
+    const at = target.type === ChannelType.CATEGORY ? siblings.length : siblings.findIndex((c) => c.id === target.id);
+    siblings.splice(Math.max(0, at), 0, moving);
+    api.patch(`/api/guilds/${guild.id}/channels`, siblings.map((c, i) => ({ id: c.id, position: i, ...(c.id === dragId ? { parent_id: parent ?? null } : {}) }))).catch((e) => toast(errMsg(e), "error"));
+  };
+  const drag = canArrange ? { onDragStart: (id: string) => (e: React.DragEvent) => { e.dataTransfer.setData("text/send-channel", id); e.dataTransfer.effectAllowed = "move"; }, onDrop: (c: Channel) => (e: React.DragEvent) => { const id = e.dataTransfer.getData("text/send-channel"); if (id) { e.preventDefault(); dropOn(id, c); } } } : null;
   useEffect(() => { if (current) sessionStorage.setItem(`syndo.last.${guild.id}`, current); }, [current, guild.id]);
   const toggle = (id: string) => { const n = { ...collapsed, [id]: !collapsed[id] }; setCollapsed(n); try { localStorage.setItem(`syndo.collapsed.${guild.id}`, JSON.stringify(n)); } catch { /* */ } };
   const leave = async () => {
@@ -249,6 +322,9 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
             {has(perms, P.CREATE_INVITE) && <button role="menuitem" onClick={() => onDialog({ kind: "invite", guildId: guild.id, channelId: current })}><UserPlus size={16} /> Invite people</button>}
             {(has(perms, P.MANAGE_GUILD) || has(perms, P.MANAGE_ROLES) || has(perms, P.KICK_MEMBERS) || has(perms, P.BAN_MEMBERS) || has(perms, P.VIEW_AUDIT_LOG)) &&
               <button role="menuitem" onClick={() => onDialog({ kind: "serverSettings", guildId: guild.id })}><Settings size={16} /> Server settings</button>}
+            <button role="menuitem" onClick={() => openBoostServer(guild)}><Sparkles size={16} /> Server Boost{guild.premium_tier ? ` · Level ${guild.premium_tier}` : ""}</button>
+            <button role="menuitem" onClick={() => openServerNotifications(guild)}><Bell size={16} /> Notification settings</button>
+            <button role="menuitem" onClick={() => openEvents(guild)}><CalendarDays size={16} /> Events</button>
             {has(perms, P.MANAGE_CHANNELS) && <button role="menuitem" onClick={() => onDialog({ kind: "createChannel", guildId: guild.id })}><Plus size={16} /> Create channel</button>}
             {has(perms, P.MANAGE_CHANNELS) && <button role="menuitem" onClick={() => onDialog({ kind: "createChannel", guildId: guild.id, type: ChannelType.CATEGORY })}><FolderPlus size={16} /> Create category</button>}
             <button role="menuitem" onClick={() => openStudio("profile")}><Users size={16} /> Edit server profile</button>
@@ -258,16 +334,17 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
         )}
       </header>
       <div className="side-scroll">
-        {loose.map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} />)}
+        <EventsButton guild={guild} />
+        {loose.filter(visible).map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} current={current} drag={drag} />)}
         {cats.map(({ cat, children }) => (
-          <div key={cat.id} className="cat">
+          <div key={cat.id} className="cat" onDragOver={drag ? (e) => e.preventDefault() : undefined} onDrop={drag ? (e) => { if ((e.target as HTMLElement).closest(".side-ch")) return; drag.onDrop(cat)(e); } : undefined}>
             <div className="side-sec">
               {cat.banner
                 ? <button className={`cat-btn cat-banner ${collapsed[cat.id] ? "collapsed" : ""}`} aria-expanded={!collapsed[cat.id]} aria-label={`${cat.name || "Untitled"} category`} title={cat.name || undefined} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))} style={{ backgroundImage: `url("${cat.banner}")` }}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} aria-hidden />{cat.name && <span className="ellipsis">{cat.name}</span>}</button>
                 : <button className="cat-btn" aria-expanded={!collapsed[cat.id]} onClick={() => toggle(cat.id)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(cat, guild))}><ChevronDown size={12} className={collapsed[cat.id] ? "rot" : ""} /> {cat.name}</button>}
               {can(cat, P.MANAGE_CHANNELS) && <button className="icon-btn sm" aria-label={`Create channel in ${cat.name}`} onClick={() => onDialog({ kind: "createChannel", guildId: guild.id, parentId: cat.id })}><Plus size={14} /></button>}
             </div>
-            {children.filter((c) => !collapsed[cat.id] || c.id === current || isUnread(c)).map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} />)}
+            {children.filter((c) => (!collapsed[cat.id] || c.id === current || isUnread(c)) && visible(c)).map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} current={current} drag={drag} />)}
           </div>
         ))}
       </div>
@@ -276,7 +353,8 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
 }
 
 
-function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: boolean }) {
+function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: Guild; active: boolean; current?: string; drag?: { onDragStart: (id: string) => (e: React.DragEvent) => void; onDrop: (c: Channel) => (e: React.DragEvent) => void } | null }) {
+  const chMuted = useStore(() => isMutedScope(c.id) || isMutedScope(guild.id));
   const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
   const participantMenu = (id: string, el: HTMLElement, e: { preventDefault(): void; clientX?: number; clientY?: number }) => {
     const user = useStore.getState().users[id] ?? (id === useStore.getState().me?.id ? useStore.getState().me : null);
@@ -302,7 +380,8 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
   };
   return (
     <>
-      <button className={`side-ch ${active ? "active" : ""} ${unread ? "unread" : ""}`} onClick={open} onContextMenu={(e) => openContextMenu(e, channelMenuItems(c, guild))} aria-current={active ? "page" : undefined}
+      <button className={`side-ch ${active ? "active" : ""} ${unread && !chMuted ? "unread" : ""} ${chMuted ? "muted-ch" : ""}`} onClick={open}
+        draggable={!!drag} onDragStart={drag?.onDragStart(c.id)} onDragOver={drag ? (e) => e.preventDefault() : undefined} onDrop={drag?.onDrop(c)} onContextMenu={(e) => openContextMenu(e, channelMenuItems(c, guild))} aria-current={active ? "page" : undefined}
         aria-label={`${c.name}, ${isVoiceType(c.type) ? "voice channel" : "channel"}${unread ? ", unread" : ""}${mentions ? `, ${mentions} mentions` : ""}`}>
         <span ref={iconRef} className={`ch-icon ${canManage ? "editable" : ""}`} title={canManage ? "Change icon" : undefined}
           onClick={canManage ? (e) => { e.stopPropagation(); e.preventDefault(); const el = e.currentTarget; setIconPicker((p) => (p ? null : el)); } : undefined}><ChannelGlyph c={c} /></span>{priv && <Lock size={11} className="lock" aria-hidden />}
@@ -310,6 +389,8 @@ function ChannelLink({ c, guild, active }: { c: Channel; guild: Guild; active: b
         {c.user_limit > 0 && isVoiceType(c.type) && <small className="muted">{voiceUsers.length}/{c.user_limit}</small>}
         {mentions > 0 && <span className="badge inline">{mentions}</span>}
       </button>
+      {c.type === ChannelType.VOICE && c.voice_status && <div className="side-voice-status ellipsis" title={c.voice_status}>{c.voice_status}</div>}
+      {(c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT || c.type === ChannelType.FORUM) && <SidebarThreads parentId={c.id} current={current ?? ""} />}
       {iconPicker && <EmojiPicker anchor={iconPicker} guildId={guild.id} onPick={(e) => setIcon(e)} onClose={() => setIconPicker(null)} onClear={c.icon_emoji ? () => setIcon(null) : undefined} clearLabel={isVoiceType(c.type) ? "Use the speaker icon" : "Use #"} />}
       {profile && <ProfileCard userId={profile.id} guildId={guild.id} anchor={profile.el} onClose={() => setProfile(null)} />}
       {voiceUsers.length > 0 && (
@@ -395,7 +476,7 @@ function UserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
     <section className="user-panel" data-region="userPanel" aria-label="Your account">
       <button ref={meBtn} className="up-me" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-haspopup="menu" aria-label={`Set status, currently ${statusLabel(me.status)}`}>
         <Avatar user={me} size={34} status={me.status === "invisible" ? "invisible" : me.status} />
-        <span className="ellipsis"><strong>{displayName(me)}</strong><small className="block muted ellipsis">{me.custom_status?.text || statusLabel(me.status)}</small></span>
+        <span className="ellipsis"><strong>{displayName(me)}</strong><small className="block muted ellipsis">{me.custom_status ? `${me.custom_status.emoji ?? ""} ${me.custom_status.text}`.trim() : statusLabel(me.status)}</small></span>
       </button>
       {menu && (
         <Popover className="menu up" label="Status" anchor={() => meBtn.current} onClose={() => setMenu(false)}>
@@ -403,12 +484,7 @@ function UserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
             <button key={s} role="menuitemradio" aria-checked={me.status === s} onClick={() => setStatus(s)}><i className={`sdot s-${s}`} /> {statusLabel(s)}</button>
           ))}
           <button role="menuitem" onClick={() => { setMenu(false); openStudio("gallery"); }}><Palette size={14} /> Edit appearance</button>
-          <button role="menuitem" onClick={async () => {
-            setMenu(false);
-            const text = await askText({ title: "Set a custom status", label: "Status", initial: me.custom_status?.text ?? "", optional: true, placeholder: "What's happening?" });
-            if (text === null) return;
-            await api.patch("/api/users/@me", { custom_status: text ? { text } : null }).catch((e) => toast(errMsg(e), "error"));
-          }}>Set custom status…</button>
+          <button role="menuitem" onClick={() => { setMenu(false); import("../features/live.tsx").then((m) => m.openCustomStatus()); }}>Set custom status…</button>
         </Popover>
       )}
       <button className={`icon-btn ${v.muted ? "on-danger" : ""}`} aria-pressed={v.muted} aria-label={v.muted ? "Unmute" : "Mute"} onClick={() => setMuted(!v.muted)}>{v.muted ? <MicOff size={18} /> : <Mic size={18} />}</button>

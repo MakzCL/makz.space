@@ -45,6 +45,7 @@
     restartToUpdate: () => inv("restart_to_update"),
     downloadUpdate: () => inv("download_update"),
     onUpdateStatus: (cb) => on("update-status", cb),
+    onActivity: (cb) => on("activity", cb),
     flash: () => inv("flash"),
   });
 
