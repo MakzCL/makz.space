@@ -159,6 +159,31 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   );
 }
 
+/** The text chat beside a voice call (voice channels have their own messages, like Discord). */
+export function CallChat({ channel, onClose }: { channel: Channel; onClose: () => void }) {
+  const data = useStore((s) => s.messages[channel.id]);
+  const guildId = channel.guild_id ?? null;
+  const [reply, setReply] = useState<Message | null>(null);
+  const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
+  useEffect(() => { if (!data?.loaded) loadMessages(channel.id); }, [channel.id]); // eslint-disable-line
+  useEffect(() => { if (document.visibilityState === "visible") ackChannel(channel); }, [channel.last_message_id]); // eslint-disable-line
+  const mdCtx = { guildId, onMention: (id: string, el: HTMLElement) => setProfile((p) => (p && p.el === el ? null : { id, el })), onChannel: (id: string) => { const c = channelById(id); if (c) navigate(`/channels/${c.guild_id ?? "@me"}/${id}`); } };
+  return (
+    <aside className="channel call-chat" aria-label={`Chat in ${channel.name ?? "this call"}`}>
+      <header className="call-chat-h">
+        <MessageSquare size={20} aria-hidden /><ChannelGlyph c={channel} size={18} className="muted" /><strong className="ellipsis">{channel.name}</strong>
+        <button className="icon-btn" onClick={onClose} aria-label="Hide chat" title="Close"><X size={20} /></button>
+      </header>
+      <div className="ch-body"><div className="ch-main" data-region="chat">
+        <MessageList channel={channel} data={data} highlight={null} onReply={setReply} mdCtx={mdCtx} />
+        <Typing channelId={channel.id} guildId={guildId} />
+        <Composer channel={channel} title={channel.name ?? ""} reply={reply} onClearReply={() => setReply(null)} />
+      </div></div>
+      {profile && <ProfileCard userId={profile.id} guildId={guildId} anchor={profile.el} onClose={() => setProfile(null)} />}
+    </aside>
+  );
+}
+
 /** DM / group-DM call: the call view at the top of the conversation while I'm in it (expandable). */
 function DmCall({ channel }: { channel: Channel }) {
   const inCall = useVoice((v) => v.channelId === channel.id);
@@ -291,7 +316,7 @@ function Welcome({ channel }: { channel: Channel }) {
   return (
     <div className="welcome">
       <div className="welcome-ico">{channel.guild_id ? <ChannelGlyph c={channel} size={36} /> : <Avatar user={channel.recipients?.[0]} size={72} />}</div>
-      <h2>{channel.guild_id ? `Welcome to #${channel.name}!` : dmTitle(channel)}</h2>
+      <h2>{channel.guild_id ? `Welcome to ${channel.type === ChannelType.VOICE ? "" : "#"}${channel.name}!` : dmTitle(channel)}</h2>
       <p className="muted">{channel.guild_id ? "This is the start of the channel." : "This is the beginning of your conversation."}</p>
     </div>
   );

@@ -24,8 +24,12 @@ function useActivityEvents(fn: (d: any, from: string) => void) {
   useEffect(() => onEvent("ACTIVITY_EVENT", (e) => ref.current(e.data, e.from)), []);
 }
 
-export function ActivityButton({ channel }: { channel: Channel }) {
+/** Open the activity picker from anywhere in the call (the bar button, the empty-call card). */
+export const openActivityPicker = () => window.dispatchEvent(new Event("syndo:activity-picker"));
+
+export function ActivityButton({ channel, ctl }: { channel: Channel; ctl?: boolean }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => { const on = () => setOpen(true); window.addEventListener("syndo:activity-picker", on); return () => window.removeEventListener("syndo:activity-picker", on); }, []);
   const [list, setList] = useState(catalog);
   const btn = useRef<HTMLButtonElement>(null);
   const here = useVoice((v) => v.channelId === channel.id);
@@ -35,7 +39,7 @@ export function ActivityButton({ channel }: { channel: Channel }) {
   if (!here) return null;
   const start = (id: string) => { gwSend("activity", { activity_id: id }); setOpen(false); };
   return <>
-    <button ref={btn} className={`icon-btn ${myAct ? "active" : ""}`} aria-label="Activities" title="Activities" aria-expanded={open} onClick={() => setOpen((v) => !v)}><Rocket size={20} /></button>
+    <button ref={btn} className={ctl ? `ctl ${myAct ? "on" : ""}` : `icon-btn ${myAct ? "active" : ""}`} aria-label="Activities" title="Activities" aria-expanded={open} onClick={() => setOpen((v) => !v)}><Rocket size={ctl ? 22 : 20} /></button>
     {open && <Popover className="menu activity-menu" label="Activities" anchor={() => btn.current} onClose={() => setOpen(false)}>
       <div className="act-title">Choose an Activity</div>
       {[...new Set(others)].filter((x) => x !== myAct).map((id) => <button key={`join-${id}`} role="menuitem" onClick={() => start(id)}><Gamepad2 size={16} /> Join {nameOf(id)} <small className="tag">LIVE</small></button>)}

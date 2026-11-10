@@ -1,5 +1,16 @@
 # SEND restore points
 
+## 2026-11-10 — call screen: grouped controls, device menus, "…" menu, chat beside the call
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `4d241b0b-98dd-4746-996e-d7921926b533` |
+| Backend | unchanged (Worker version `fc79e6d2`, `SOURCE_COMMIT` `d967a3b`) |
+| Source | branch `backup/pre-call-ui-20261110`; database unchanged |
+
+### Roll back
+Pages → `syndo-app` → Deployments → `4d241b0b` → Rollback to this deployment.
+
 ## 2026-11-10 — major update (threads, forums, stages, events, AutoMod, bots, boosts, passkeys, push, 11 languages)
 
 | Layer | Restore point (before this release) |

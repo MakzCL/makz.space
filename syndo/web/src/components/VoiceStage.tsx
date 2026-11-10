@@ -22,6 +22,8 @@ import { StageView } from "../features/Stage.tsx";
 import { ActivityButton, ActivityHost } from "../features/Activities.tsx";
 import { VoiceStatusEditor } from "../features/VoiceExtras.tsx";
 import { ChannelType } from "@syndo/shared";
+import { CameraGroup, ChatToggle, InviteCard, MessagePreviews, MicGroup, MoreButton } from "../features/CallControls.tsx";
+import { CallChat } from "./ChannelView.tsx";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
@@ -31,6 +33,9 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const states = useStore(useShallow((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id)));
   const [diag, setDiag] = useState(false);
   const [shareMenu, setShareMenu] = useState(false);
+  // The call chat stays open or closed the way you left it.
+  const [chat, setChatRaw] = useState(() => { try { return localStorage.getItem("send.callChat") === "1"; } catch { return false; } });
+  const setChat = (on: boolean) => { setChatRaw(on); try { localStorage.setItem("send.callChat", on ? "1" : "0"); } catch { /* private mode */ } };
   const here = v.channelId === channel.id;
   useEffect(() => setTitle(`${channel.name ?? "Call"}${guild ? ` · ${guild.name}` : ""}`), [channel, guild]);
 
@@ -59,54 +64,69 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   }
   // Show cached participants as soon as the gateway announces them, before media negotiation.
   for(const state of states)if(state.user_id!==me.id&&!v.peers[state.user_id])tiles.push({key:`${state.user_id}:camera`,uid:state.user_id,name:displayName(users[state.user_id])||"Connecting…",track:null,kind:"camera",speaking:false,muted:state.self_mute,local:false});
-  const focused = v.focus ? tiles.find((t) => t.key === v.focus) : null;
+  // "…" menu view options: hide my own tile, hide people without video (never hide everyone).
+  const others = tiles.filter((t) => !t.local);
+  const alone = others.length === 0;
+  let shown = tiles.filter((t) => v.settings.callShowSelf || !t.local || t.kind === "screen");
+  if (!v.settings.callShowNonVideo) { const withVideo = shown.filter((t) => t.track); if (withVideo.length) shown = withVideo; }
+  if (!shown.length) shown = tiles.slice(0, 1);
+  const focused = v.focus ? shown.find((t) => t.key === v.focus) ?? null : null;
+  const chatOn = chat && !!guild;
   const caps = captureCapabilities();
   const st = v.settings.stream;
 
   return (
-    <div className="stage" data-region="call">
+    <div className={`stage ${chatOn ? "with-chat" : ""}`} data-region="call">
+      <div className="stage-main">
       <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         {guild && <VoiceStatusEditor channel={channel} />}
         <div className="ch-actions">
-          <ActivityButton channel={channel} />
-          <button className={`icon-btn ${v.layout === "grid" ? "active" : ""}`} onClick={() => useVoice.setState({ layout: v.layout === "grid" ? "focus" : "grid", focus: v.layout === "grid" ? (tiles.find((t) => t.kind === "screen")?.key ?? null) : null })} aria-label="Toggle layout">{v.layout === "grid" ? "Grid" : "Focus"}</button>
-          <button className={`icon-btn ${diag ? "active" : ""}`} aria-pressed={diag} aria-label="Connection diagnostics" onClick={() => setDiag(!diag)}><Activity size={20} /></button>
+          {guild && <ChatToggle channel={channel} open={chatOn} onToggle={() => setChat(!chatOn)} />}
         </div>
       </header>
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
-      <div className={`tiles ${focused ? "focused" : ""}`} data-count={tiles.length}>
+      <div className={`tiles ${focused ? "focused" : ""}`} data-count={shown.length + (alone && guild ? 1 : 0)}>
         {focused && <VideoTile t={focused} guildId={guild?.id ?? null} big onFocus={() => useVoice.setState({ focus: null })} />}
         <div className={focused ? "tile-strip" : "tile-grid"}>
-          {tiles.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => useVoice.setState({ focus: t.key, layout: "focus" })} />)}
+          {shown.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => useVoice.setState({ focus: t.key, layout: "focus" })} />)}
+          {alone && guild && !focused && <InviteCard channel={channel} guild={guild} />}
         </div>
       </div>
       <ActivityHost channel={channel} />
       {diag && <DiagPanel />}
+      {guild && <MessagePreviews channel={channel} chatOpen={chatOn} onOpen={() => setChat(true)} />}
       <div className="call-controls" role="toolbar" aria-label="Call controls">
-        <button className={`ctl ${v.muted ? "off" : ""}`} aria-pressed={v.muted} onClick={() => setMuted(!v.muted)} aria-label={v.muted ? "Unmute" : "Mute"} disabled={!v.grants?.speak}>{v.muted ? <MicOff /> : <Mic />}</button>
-        <button className={`ctl ${v.deafened ? "off" : ""}`} aria-pressed={v.deafened} onClick={() => setDeafened(!v.deafened)} aria-label={v.deafened ? "Undeafen" : "Deafen"}>{v.deafened ? <HeadphoneOff /> : <Headphones />}</button>
-        <button className={`ctl ${v.camera ? "on" : ""}`} aria-pressed={v.camera} onClick={toggleCamera} aria-label={v.camera ? "Turn camera off" : "Turn camera on"} disabled={!v.grants?.video}>{v.camera ? <Camera /> : <CameraOff />}</button>
-        <div className="ctl-wrap">
-          <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video || !caps.canShare} title={caps.canShare ? undefined : "This browser can't share screens."}
-            onClick={() => (v.sharing ? stopScreenShare() : setShareMenu(!shareMenu))} aria-label={v.sharing ? "Stop sharing" : "Share screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
-          {v.sharing && <button className="ctl sm" onClick={switchScreenSource} aria-label="Switch shared window"><RefreshCw size={16} /></button>}
-          {shareMenu && !v.sharing && (
-            <div className="share-menu" role="dialog" aria-label="Screen share quality">
-              <h3>Share your screen</h3>
-              <label>Resolution <Select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></Select></label>
-              <label>Frame rate <Select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></label>
-              <label>Optimise for <Select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></Select></label>
-              <label className="row"><input type="checkbox" checked={st.audio} onChange={(e) => updateVoiceSettings({ stream: { ...st, audio: e.target.checked } })} /> Include audio {!caps.tabAudio && <small className="muted">(not supported in this browser)</small>}</label>
-              <p className="muted small">Your browser will ask which screen, window or tab to share.</p>
-              <button className="btn primary" onClick={() => { setShareMenu(false); startScreenShare(); }}>Go live</button>
-            </div>
-          )}
+        <div className="ctl-group">
+          <MicGroup />
+          <CameraGroup />
         </div>
-        {guild && guild.sounds !== undefined && <SoundboardButton channel={channel} guild={guild} />}
-        <button className="ctl danger" onClick={() => leaveVoice()} aria-label="Leave call"><PhoneOff /></button>
+        <div className="ctl-group">
+          <div className="ctl-wrap">
+            <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video || !caps.canShare} title={caps.canShare ? (v.sharing ? "Stop sharing" : "Share your screen") : "This browser can't share screens."}
+              onClick={() => (v.sharing ? stopScreenShare() : setShareMenu(!shareMenu))} aria-label={v.sharing ? "Stop sharing" : "Share screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
+            {v.sharing && <button className="ctl sm" onClick={switchScreenSource} aria-label="Switch shared window"><RefreshCw size={16} /></button>}
+            {shareMenu && !v.sharing && (
+              <div className="share-menu" role="dialog" aria-label="Screen share quality">
+                <h3>Share your screen</h3>
+                <label>Resolution <Select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></Select></label>
+                <label>Frame rate <Select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></label>
+                <label>Optimise for <Select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></Select></label>
+                <label className="row"><input type="checkbox" checked={st.audio} onChange={(e) => updateVoiceSettings({ stream: { ...st, audio: e.target.checked } })} /> Include audio {!caps.tabAudio && <small className="muted">(not supported in this browser)</small>}</label>
+                <p className="muted small">Your browser will ask which screen, window or tab to share.</p>
+                <button className="btn primary" onClick={() => { setShareMenu(false); startScreenShare(); }}>Go live</button>
+              </div>
+            )}
+          </div>
+          <ActivityButton channel={channel} ctl />
+          {guild && guild.sounds !== undefined && <SoundboardButton channel={channel} guild={guild} />}
+          <MoreButton channel={channel} guild={guild} onDiag={() => setDiag(!diag)} />
+        </div>
+        <button className="ctl danger hang-up" onClick={() => leaveVoice()} aria-label="Leave call" title="Disconnect"><PhoneOff /></button>
       </div>
+      </div>
+      {chatOn && <CallChat channel={channel} onClose={() => setChat(false)} />}
     </div>
   );
 }

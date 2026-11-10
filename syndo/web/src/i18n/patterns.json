@@ -15,6 +15,14 @@
 [
 "^Answer (\\d+)$",
 "Odpowiedź $1"
+],
+[
+"^Welcome to (.+)!$",
+"Witaj na kanale $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Dobrze cię znowu widzieć w $1."
 ]
 ],
 "fr": [
@@ -33,6 +41,14 @@
 [
 "^Answer (\\d+)$",
 "Réponse $1"
+],
+[
+"^Welcome to (.+)!$",
+"Bienvenue dans $1 !"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Ravi de vous revoir sur $1."
 ]
 ],
 "es": [
@@ -51,6 +67,14 @@
 [
 "^Answer (\\d+)$",
 "Respuesta $1"
+],
+[
+"^Welcome to (.+)!$",
+"¡Te damos la bienvenida a $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Qué bien verte de nuevo en $1."
 ]
 ],
 "de": [
@@ -69,6 +93,14 @@
 [
 "^Answer (\\d+)$",
 "Antwort $1"
+],
+[
+"^Welcome to (.+)!$",
+"Willkommen in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Schön, dich wieder auf $1 zu sehen."
 ]
 ],
 "pt": [
@@ -87,6 +119,14 @@
 [
 "^Answer (\\d+)$",
 "Resposta $1"
+],
+[
+"^Welcome to (.+)!$",
+"Boas-vindas a $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Que bom ver você de novo no $1."
 ]
 ],
 "it": [
@@ -105,6 +145,14 @@
 [
 "^Answer (\\d+)$",
 "Risposta $1"
+],
+[
+"^Welcome to (.+)!$",
+"Benvenuto in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Che bello rivederti su $1."
 ]
 ],
 "nl": [
@@ -123,6 +171,14 @@
 [
 "^Answer (\\d+)$",
 "Antwoord $1"
+],
+[
+"^Welcome to (.+)!$",
+"Welkom in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Fijn je weer te zien op $1."
 ]
 ],
 "ru": [
@@ -141,6 +197,14 @@
 [
 "^Answer (\\d+)$",
 "Ответ $1"
+],
+[
+"^Welcome to (.+)!$",
+"Добро пожаловать в $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Рады снова видеть вас в $1."
 ]
 ],
 "uk": [
@@ -159,6 +223,14 @@
 [
 "^Answer (\\d+)$",
 "Відповідь $1"
+],
+[
+"^Welcome to (.+)!$",
+"Ласкаво просимо до $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Раді знову бачити вас у $1."
 ]
 ],
 "ar": [
@@ -177,6 +249,14 @@
 [
 "^Answer (\\d+)$",
 "الإجابة $1"
+],
+[
+"^Welcome to (.+)!$",
+"مرحبًا بك في $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"سعداء برؤيتك مجددًا على $1."
 ]
 ],
 "tr": [
@@ -195,6 +275,14 @@
 [
 "^Answer (\\d+)$",
 "Yanıt $1"
+],
+[
+"^Welcome to (.+)!$",
+"$1 kanalına hoş geldin!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Seni $1'de yeniden görmek güzel."
 ]
 ]
 }
