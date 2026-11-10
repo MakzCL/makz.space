@@ -10,6 +10,8 @@
 
 0.6.0 is the Tauri build from CI run 42898982168 (commit `6d472bb`, 1.7 MB). It adds game detection (known games from the process list, shown as "Playing …", opt-out in settings).
 
+Released: feed `latest.yml` → `SEND-Setup-0.6.0.exe` (sha512 checked on the public copy before the feed switched); Worker version `30168c15-2803-4e0f-9cd2-34a03c51d726` sends `/api/downloads/windows` to 0.6.0 (same code and backend otherwise). Uploaded with a one-hour R2 token limited to this bucket, deleted right after.
+
 ### Roll back
 1. Feed: copy `latest-0.5.0.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.6.0 stay on it.
 2. Download link: Workers → `send-beta-api` → Deployments → deploy `c2d5b728` at 100%.
