@@ -35,7 +35,9 @@ export function currentLocale() {
 }
 
 interface Pack { t: string[]; patterns?: [string, string][] }
-const files = import.meta.glob<{ default: Pack }>("../i18n/*.json");
+// Vite turns this into a map of lazy imports at build time; outside Vite (unit tests) there are no language files.
+let files: Record<string, () => Promise<{ default: Pack }>> = {};
+try { files = import.meta.glob<{ default: Pack }>("../i18n/*.json"); } catch { /* not built by Vite */ }
 let dict: Map<string, string> | null = null;
 let patterns: [RegExp, string][] = [];
 
