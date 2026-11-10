@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-10 — big files read straight from R2; abandoned uploads cleaned up
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `99d6d618-06ad-4069-9b86-565cfaa1b63d`, `SOURCE_COMMIT` `9276db8` |
+| Web | unchanged |
+| Storage | R2 `syndo-beta-uploads` lifecycle had only the default 7-day multipart abort rule |
+| Source | branch `backup/pre-direct-reads-20261110`; database unchanged |
+
+Files of 8 MB or more: after the permission check the backend redirects to `/api/files/read` (signed for one key and its response headers, 1 hour); the Worker serves it from R2 with ranges. Big uploads now create their attachment row when the ticket is issued (empty filename = unfinished, can't be attached), so the nightly cleanup of unattached files also removes abandoned big uploads. New R2 lifecycle rule: unfinished multipart uploads under `att/` are aborted after 1 day.
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy `99d6d618` at 100%.
+2. Lifecycle (optional): R2 → `syndo-beta-uploads` → Settings → Object lifecycle rules → delete "Abort unfinished attachment uploads after 1 day".
+
 ## 2026-11-10 — big uploads go straight to storage in pieces (up to 500 MB)
 
 | Layer | Restore point (before this release) |

@@ -38,6 +38,26 @@ export function checkTicket(t: { key?: unknown; size?: unknown; exp?: unknown; s
   return { key, size, exp, sig };
 }
 
+/**
+ * Big files are read straight from storage too: after the permission check, the backend redirects to a link
+ * signed for one key and one set of response headers, valid for an hour. The Worker serves it from R2 (ranges
+ * included, so video seeking works); the bytes never pass through this server.
+ */
+export const DIRECT_READ_FROM = 8 * 1024 * 1024;
+const readPayload = (key: string, type: string, disp: string, exp: number) => `read\n${key}\n${type}\n${disp}\n${exp}`;
+export function signedRead(key: string, type: string, disposition: string): string {
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const sig = createHmac("sha256", SECRET).update(readPayload(key, type, disposition, exp)).digest("base64url");
+  return `/api/files/read?${new URLSearchParams({ key, type, disp: disposition, exp: String(exp), sig })}`;
+}
+function checkRead(qs: Record<string, unknown>) {
+  const key = String(qs.key ?? ""), type = String(qs.type ?? ""), disp = String(qs.disp ?? ""), exp = Number(qs.exp), sig = String(qs.sig ?? "");
+  if (!/^att\/[a-z0-9/_.-]+$/i.test(key) || key.includes("..") || !Number.isSafeInteger(exp)) return null;
+  const a = Buffer.from(sig), b = Buffer.from(createHmac("sha256", SECRET).update(readPayload(key, type, disp, exp)).digest("base64url"));
+  if (a.length !== b.length || !timingSafeEqual(a, b) || exp * 1000 < Date.now()) return null;
+  return { key, type, disp };
+}
+
 /** Local stand-in for the Worker's /api/uploads/large/* endpoints (only registered without remote storage). */
 export async function localLargeUploads(app: FastifyInstance) {
   if (config.storageOrigin) return; // the Worker answers these in production
@@ -45,6 +65,23 @@ export async function localLargeUploads(app: FastifyInstance) {
   const q = (req: any) => checkTicket(req.query ?? {});
   const uploadDir = (id: unknown) => { const s = String(id ?? ""); if (!/^[a-f0-9]{32}$/.test(s)) throw bad("Unknown upload."); return join(dir, s); };
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer", bodyLimit: PART_SIZE + 1024 }, (_req, body, done) => done(null, body));
+
+  app.get("/api/files/read", async (req, reply) => {
+    const r = checkRead(req.query as Record<string, unknown>);
+    if (!r) return reply.code(404).send({ code: "not_found", message: "File doesn't exist or you can't see it." });
+    const total = await storage.size(r.key).catch(() => -1);
+    if (total < 0) return reply.code(404).send({ code: "not_found", message: "File doesn't exist or you can't see it." });
+    reply.header("content-type", r.type).header("content-disposition", r.disp).header("x-content-type-options", "nosniff")
+      .header("content-security-policy", "default-src 'none'; sandbox").header("cache-control", "private, max-age=3600").header("accept-ranges", "bytes");
+    const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+    if (range && total > 0) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), total - 1) : total - 1;
+      if (start > end || start >= total) return reply.code(416).header("content-range", `bytes */${total}`).send("");
+      return reply.code(206).header("content-range", `bytes ${start}-${end}/${total}`).header("content-length", end - start + 1).send(storage.open(r.key, { start, end }));
+    }
+    return reply.header("content-length", total).send(storage.open(r.key));
+  });
 
   app.post("/api/uploads/large/start", async (req) => {
     q(req);

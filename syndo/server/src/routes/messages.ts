@@ -18,7 +18,7 @@ import { checkAutomod } from "./automod.ts";
 import { notifyMessage } from "../notify.ts";
 import { trackStat } from "./insights.ts";
 import { safeName } from "../uploads.ts";
-import { LARGE_MAX, PART_SIZE, checkTicket, issueTicket } from "../largeUpload.ts";
+import { DIRECT_READ_FROM, LARGE_MAX, PART_SIZE, checkTicket, issueTicket, signedRead } from "../largeUpload.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);
 
@@ -257,7 +257,7 @@ export async function messageRoutes(app: FastifyInstance) {
         if (isThread) await c.query("update channels set message_count = message_count + 1, last_activity_at = now(), archived = false, archived_at = null where id = $1", [channel.id]);
         if (isThread) await c.query("insert into thread_members(channel_id, user_id) values ($1,$2) on conflict do nothing", [channel.id, me]);
         if (b.attachment_ids.length) {
-          const r = await c.query("update attachments set message_id = $1 where id = any($2::bigint[]) and uploader_id = $3 and channel_id = $4 and message_id is null returning id", [id, b.attachment_ids, me, channel.id]);
+          const r = await c.query("update attachments set message_id = $1 where id = any($2::bigint[]) and uploader_id = $3 and channel_id = $4 and message_id is null and filename <> '' returning id", [id, b.attachment_ids, me, channel.id]);
           if (r.rowCount !== b.attachment_ids.length) throw bad("One of the attachments is missing or already used. Try uploading it again.");
         }
         await c.query("update channels set last_message_id = $2 where id = $1", [channel.id, id]);
@@ -665,6 +665,8 @@ export async function messageRoutes(app: FastifyInstance) {
     if (size > maxBytes) throw new ApiError(413, "too_large", `Files can be up to ${Math.round(maxBytes / 1048576)} MB here.`);
     const id = newId();
     const key = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/${id}`;
+    // An unfinished row (empty filename): if the upload is abandoned, the nightly cleanup removes it and its file.
+    await q("insert into attachments(id, channel_id, uploader_id, filename, content_type, size, storage_key) values ($1,$2,$3,'','application/octet-stream',$4,$5)", [id, channel.id, me, size, key]);
     return { id, ticket: issueTicket(key, size), part_size: PART_SIZE, endpoint: "/api/uploads/large" };
   });
   app.post<{ Params: { cid: string } }>("/api/channels/:cid/attachments/large/finish", async (req) => {
@@ -676,7 +678,6 @@ export async function messageRoutes(app: FastifyInstance) {
     const prefix = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/`;
     const id = t.key.slice(prefix.length);
     if (!t.key.startsWith(prefix) || !/^\d{1,20}$/.test(id)) throw bad("This upload isn't valid.");
-    if (await q1("select 1 from attachments where id = $1", [id])) throw bad("This upload was already used.");
     const size = await storage.size(t.key).catch(() => -1);
     if (size !== t.size) throw bad("The upload didn't arrive complete. Try again.");
     const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(t.key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
@@ -685,9 +686,10 @@ export async function messageRoutes(app: FastifyInstance) {
     if (type === "image/svg+xml") type = "application/octet-stream";
     const name = safeName(body.filename || "file");
     const num = (v: number | undefined, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(v, max) : null);
-    await q(`insert into attachments(id, channel_id, uploader_id, filename, content_type, size, storage_key, width, height, duration, waveform)
-             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id, channel.id, me, name, type, size, t.key, num(body.width, 20000), num(body.height, 20000), num(body.duration, 86400), body.waveform || null]);
+    const done = await q1(`update attachments set filename = $4, content_type = $5, width = $6, height = $7, duration = $8, waveform = $9
+             where id = $1 and channel_id = $2 and uploader_id = $3 and filename = '' and message_id is null returning id`,
+      [id, channel.id, me, name, type, num(body.width, 20000), num(body.height, 20000), num(body.duration, 86400), body.waveform || null]);
+    if (!done) throw bad("This upload was already used.");
     return { id, filename: name, content_type: type, size, url: attUrl({ id, filename: name }) };
   });
 
@@ -743,7 +745,7 @@ export async function attachmentDownloadRoute(app: FastifyInstance) {
   app.get<{ Params: { aid: string; name: string } }>("/api/attachments/:aid/:name", { preHandler: requireUser }, async (req, reply) => {
     if (!/^\d{1,20}$/.test(req.params.aid)) throw notFound("File");
     const a = await q1<any>("select a.*, m.deleted_at from attachments a left join messages m on m.id = a.message_id where a.id = $1", [req.params.aid]);
-    if (!a || a.deleted_at) throw notFound("File");
+    if (!a || a.deleted_at || !a.filename) throw notFound("File");
     if (a.message_id) await requireChannel(uid(req), a.channel_id, P.READ_MESSAGE_HISTORY);
     else if (a.uploader_id !== uid(req)) throw notFound("File");
     const inline = /^(image\/(png|jpeg|gif|webp|avif)|video\/(mp4|webm|quicktime)|audio\/(mpeg|ogg|wav|webm|mp4|x-m4a|aac|flac))$/.test(a.content_type);
@@ -753,7 +755,10 @@ export async function attachmentDownloadRoute(app: FastifyInstance) {
     reply.header("content-security-policy", "default-src 'none'; sandbox");
     reply.header("cache-control", "private, max-age=3600");
     reply.header("accept-ranges", "bytes");
-    reply.header("content-disposition", `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(a.filename)}`);
+    const disposition = `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(a.filename)}`;
+    reply.header("content-disposition", disposition);
+    // Big files: hand the browser a short-lived signed link and let storage serve the bytes directly.
+    if (total >= DIRECT_READ_FROM) return reply.code(302).header("location", signedRead(a.storage_key, a.content_type, disposition)).header("cache-control", "private, max-age=3000").send();
     const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
     if (range && total > 0) {
       const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));

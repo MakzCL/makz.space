@@ -116,7 +116,7 @@ export async function threadRoutes(app: FastifyInstance) {
       await tx(async (c) => {
         await c.query("insert into messages(id, channel_id, guild_id, author_id, content, type, sticker_id) values ($1,$2,$3,$4,$5,0,$6)", [mid, id, parent.guild_id, me, b.message!.content, b.message!.sticker_ids[0] ?? null]);
         if (b.message!.attachment_ids.length) {
-          const r = await c.query("update attachments set message_id = $1, channel_id = $2 where id = any($3::bigint[]) and uploader_id = $4 and channel_id = $5 and message_id is null returning id", [mid, id, b.message!.attachment_ids, me, parent.id]);
+          const r = await c.query("update attachments set message_id = $1, channel_id = $2 where id = any($3::bigint[]) and uploader_id = $4 and channel_id = $5 and message_id is null and filename <> '' returning id", [mid, id, b.message!.attachment_ids, me, parent.id]);
           if (r.rowCount !== b.message!.attachment_ids.length) throw bad("One of the attachments is missing. Try uploading it again.");
         }
         await c.query("update channels set last_message_id = $2, message_count = 1 where id = $1", [id, mid]);

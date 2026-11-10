@@ -177,6 +177,37 @@ export async function largeUpload(request: Request, env: Env) {
   return new Response(null, { status: 405 });
 }
 
+/* Big files are read straight from R2: the backend checks permission and redirects here with a link signed for
+   one key and one set of response headers (an hour). Ranges work, so video seeking does too. */
+export async function fileRead(request: Request, env: Env) {
+  if (!["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405 });
+  const url = new URL(request.url), q = (k: string) => url.searchParams.get(k) ?? "";
+  const key = q("key"), type = q("type"), disp = q("disp"), exp = Number(q("exp")), sig = q("sig");
+  const notFound = () => Response.json({ code: "not_found", message: "File doesn't exist or you can't see it." }, { status: 404 });
+  if (!/^att\/[a-z0-9/_.-]+$/i.test(key) || key.includes("..") || !/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(type) || !/^(inline|attachment); filename\*=UTF-8''[^\r\n]{1,800}$/.test(disp) || !Number.isSafeInteger(exp) || exp * 1000 < Date.now()) return notFound();
+  const secret = (env as unknown as { STORAGE_TOKEN?: string }).STORAGE_TOKEN ?? "";
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const want = new TextEncoder().encode(b64url(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(`read\n${key}\n${type}\n${disp}\n${exp}`))));
+  const got = new TextEncoder().encode(sig);
+  if (!secret || got.byteLength !== want.byteLength || !timingSafeEqual(got, want)) return notFound();
+  const headers = new Headers({ "content-type": type, "content-disposition": disp, "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", "cache-control": "private, max-age=3600", "accept-ranges": "bytes" });
+  if (request.method === "HEAD") {
+    const h = await env.UPLOADS.head(key); if (!h) return notFound();
+    headers.set("content-length", String(h.size)); return new Response(null, { headers });
+  }
+  let obj: R2ObjectBody | null;
+  try { obj = await env.UPLOADS.get(key, { range: request.headers }); } catch { return new Response(null, { status: 416 }); }
+  if (!obj) return notFound();
+  headers.set("etag", obj.httpEtag);
+  if (request.headers.has("range") && obj.range && "offset" in obj.range) {
+    const offset = obj.range.offset ?? 0, length = obj.range.length ?? obj.size - offset;
+    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${obj.size}`); headers.set("content-length", String(length));
+    return new Response(obj.body, { status: 206, headers });
+  }
+  headers.set("content-length", String(obj.size));
+  return new Response(obj.body, { headers });
+}
+
 export async function storage(request: Request, env: Env) {
   const supplied = new TextEncoder().encode(request.headers.get("authorization") ?? "");
   const expected = new TextEncoder().encode(`Bearer ${env.STORAGE_TOKEN}`);
@@ -228,6 +259,7 @@ export default {
     if (path.startsWith("/__release/")) return releaseUpload(request,env);
     if (path.startsWith("/__storage/")) return storage(request,env);
     if (path.startsWith("/api/uploads/large/")) return largeUpload(request,env);
+    if (path === "/api/files/read") return fileRead(request,env);
     if (path !== "/gateway" && !path.startsWith("/api/")) return new Response(null,{status:404});
     try {
       // One Node process is the backend's realtime coordination unit. The beta

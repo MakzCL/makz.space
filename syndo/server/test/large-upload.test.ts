@@ -41,6 +41,7 @@ describe("Big attachments in pieces", () => {
       assert.equal(r.status, 200, `piece ${n}`);
       parts.push(await r.json());
     }
+    assert.equal((await a.post(`/api/channels/${text.id}/messages`, { content: "too soon", attachment_ids: [t.body.id] })).status, 400, "unfinished uploads can't be attached");
     const done = await raw(a, "POST", `${endpoint}/complete?${qs({ upload_id: start.upload_id })}`, JSON.stringify({ parts }));
     assert.equal(done.status, 200);
 
@@ -53,6 +54,14 @@ describe("Big attachments in pieces", () => {
     const m = await a.post(`/api/channels/${text.id}/messages`, { content: "big one", attachment_ids: [fin.body.id] });
     assert.equal(m.status, 200, JSON.stringify(m.body));
     assert.equal(m.body.attachments[0].size, size);
+    const hop = await fetch(base + m.body.attachments[0].url, { headers: { cookie: a.cookie }, redirect: "manual" });
+    assert.equal(hop.status, 302, "big files are served from storage via a signed link");
+    const link = hop.headers.get("location")!;
+    assert.match(link, /^\/api\/files\/read\?/);
+    assert.equal((await fetch(base + link.replace("sig=", "sig=x"))).status, 404, "tampered link refused");
+    const part = await fetch(base + link, { headers: { range: "bytes=0-99" } });
+    assert.equal(part.status, 206, "ranges work (video seeking)");
+    assert.equal((await part.arrayBuffer()).byteLength, 100);
     const dl = await fetch(base + m.body.attachments[0].url, { headers: { cookie: a.cookie } });
     assert.equal(dl.status, 200);
     assert.equal((await dl.arrayBuffer()).byteLength, size);
