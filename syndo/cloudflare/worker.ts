@@ -54,6 +54,17 @@ const run = promisify(cp.execFile);
   }, Number(process.env.SYNDO_RUNTIME_CACHE_DELAY_MS || 60000));
 })().catch(e => {console.error(e.message);process.exit(1)});
 `;
+// Keys the backend picks up when they're saved as Worker secrets (Settings → Variables and Secrets), so turning on
+// push, Stripe, GIFs or account connections needs no code change — only a secret and a restart of the backend.
+const OPTIONAL_ENV = ["SYNDO_SECRET", "SYNDO_VAPID_PUBLIC", "SYNDO_VAPID_PRIVATE", "SYNDO_VAPID_SUBJECT", "SYNDO_STAFF_USER_IDS",
+  "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "SYNDO_GIF_PROVIDER", "SYNDO_GIF_KEY",
+  ...["GITHUB", "TWITCH", "SPOTIFY", "REDDIT", "GOOGLE", "XBOX"].flatMap((p) => [`SYNDO_${p}_CLIENT_ID`, `SYNDO_${p}_CLIENT_SECRET`])];
+function optionalEnv(env: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of OPTIONAL_ENV) if (typeof env[k] === "string" && env[k]) out[k] = env[k] as string;
+  return out;
+}
+
 export class SENDBackend extends DurableObject<Env> {
   private starting?: Promise<void>;
   private ready = false;
@@ -78,6 +89,7 @@ export class SENDBackend extends DurableObject<Env> {
       SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
       SYNDO_AUTO_MIGRATE:"0", SYNDO_REQUIRE_DM_E2EE:"0", SYNDO_SFU_APP_ID:this.env.SFU_APP_ID, SYNDO_SFU_SECRET:this.env.SFU_APP_SECRET, SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
       SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT, SYNDO_TURN_KEY_ID:this.env.TURN_KEY_ID ?? "", SYNDO_TURN_KEY_TOKEN:this.env.TURN_KEY_TOKEN ?? "",
+      ...optionalEnv(this.env as unknown as Record<string, unknown>),
     }});
     await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
     await c.setInactivityTimeout(TIMEOUT);
