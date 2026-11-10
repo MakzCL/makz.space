@@ -54,4 +54,54 @@ export function upload<T = any>(path: string, form: FormData, onProgress: (f: nu
   return { promise, cancel: () => { cancelled = true; xhr.abort(); } };
 }
 
+/**
+ * Big files go straight to storage in pieces (no single request carries the whole file): get a ticket for this
+ * channel, send each piece, then finish. Progress covers all pieces; each piece is retried a few times.
+ */
+export function uploadLarge<T = any>(channelId: string, file: File, fields: Record<string, string>, onProgress: (f: number) => void): { promise: Promise<T>; cancel: () => void } {
+  if (previewMode) return { promise: Promise.reject(new ApiError(0, "preview", "Uploads need the live server. No sample files were sent.")), cancel() {} };
+  let cancelled = false, xhr: XMLHttpRequest | null = null, abortUrl: string | null = null;
+  const json = async (method: string, path: string, body?: unknown) => {
+    const headers: Record<string, string> = { "x-syndo-client": "1" };
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "same-origin" });
+    const d = await r.json().catch(() => null);
+    if (!r.ok) throw new ApiError(r.status, d?.code ?? "error", d?.message ?? "Upload failed.");
+    return d;
+  };
+  const sendPart = (url: string, blob: Blob, onBytes: (n: number) => void) => new Promise<{ part_number: number; etag: string }>((res, rej) => {
+    xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("content-type", "application/octet-stream");
+    xhr.setRequestHeader("x-syndo-client", "1");
+    xhr.upload.onprogress = (e) => onBytes(e.loaded);
+    xhr.onload = () => { let d: any = null; try { d = JSON.parse(xhr!.responseText); } catch { /* */ } if (xhr!.status >= 200 && xhr!.status < 300) res(d); else rej(new ApiError(xhr!.status, d?.code ?? "error", d?.message ?? "Upload failed.")); };
+    xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed — check your connection."));
+    xhr.onabort = () => rej(new ApiError(0, "aborted", "Upload cancelled."));
+    xhr.send(blob);
+  });
+  const promise = (async () => {
+    const t = await json("POST", `/api/channels/${channelId}/attachments/large`, { size: file.size });
+    const qs = (extra: Record<string, string> = {}) => new URLSearchParams({ key: t.ticket.key, size: String(t.ticket.size), exp: String(t.ticket.exp), sig: t.ticket.sig, ...extra }).toString();
+    const start = await json("POST", `${t.endpoint}/start?${qs()}`);
+    abortUrl = `${t.endpoint}/abort?${qs({ upload_id: start.upload_id })}`;
+    const size = start.part_size as number, count = Math.ceil(file.size / size), parts: { part_number: number; etag: string }[] = [];
+    for (let n = 1; n <= count; n++) {
+      const blob = file.slice((n - 1) * size, Math.min(file.size, n * size));
+      for (let attempt = 1; ; attempt++) {
+        if (cancelled) throw new ApiError(0, "aborted", "Upload cancelled.");
+        try { parts.push(await sendPart(`${t.endpoint}/part?${qs({ upload_id: start.upload_id, part: String(n) })}`, blob, (b) => onProgress(Math.min(0.99, ((n - 1) * size + b) / file.size)))); break; }
+        catch (e) { if (cancelled || attempt >= 3 || (e instanceof ApiError && e.status >= 400 && e.status < 500)) throw e; await new Promise((r) => setTimeout(r, 1500 * attempt)); }
+      }
+    }
+    await json("POST", `${t.endpoint}/complete?${qs({ upload_id: start.upload_id })}`, { parts });
+    abortUrl = null;
+    const num = (k: string) => (fields[k] !== undefined && fields[k] !== "" && Number.isFinite(+fields[k]!) ? +fields[k]! : undefined);
+    const done = await json("POST", `/api/channels/${channelId}/attachments/large/finish`, { ticket: t.ticket, filename: file.name, width: num("width"), height: num("height"), duration: num("duration"), waveform: fields.waveform || undefined });
+    onProgress(1);
+    return done as T;
+  })().catch((e) => { if (abortUrl) fetch(abortUrl, { method: "DELETE", headers: { "x-syndo-client": "1" } }).catch(() => {}); throw e; });
+  return { promise, cancel: () => { cancelled = true; (xhr as XMLHttpRequest | null)?.abort(); } };
+}
+
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");

@@ -1,4 +1,4 @@
-import { ApiError, api, errMsg, upload } from "./api.ts";
+import { ApiError, api, errMsg, upload, uploadLarge } from "./api.ts";
 import { connectGateway, disconnectGateway } from "./gateway.ts";
 import { navigate } from "./router.ts";
 import { messagesApi, toast, useStore, type UIMessage } from "./store.ts";
@@ -125,13 +125,19 @@ export async function toggleReaction(m: Message, emoji: string) {
 
 export interface PendingUpload { key: string; file: File; progress: number; status: "uploading" | "done" | "error"; error?: string; id?: string; cancel?: () => void; spoiler?: boolean }
 
+/** Files bigger than this go to storage in pieces (Cloudflare caps a single request at 100 MB). */
+export const LARGE_UPLOAD_FROM = 20 * 1024 * 1024;
+
 export function startUpload(channelId: string, file: File, onUpdate: (u: PendingUpload) => void, extraFields: Record<string, string> = {}) {
   const key = nonce();
   const u: PendingUpload = { key, file, progress: 0, status: "uploading" };
+  // Big files (not end-to-end-encrypted ones) skip the single-request upload and go to storage in pieces.
+  const big = file.size > LARGE_UPLOAD_FROM && extraFields.encrypted !== "1";
   const form = new FormData();
-  for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
-  form.append("file", file, file.name);
-  const { promise, cancel } = upload<{ id: string }>(`/api/channels/${channelId}/attachments`, form, (p) => onUpdate({ ...u, progress: p, cancel }));
+  if (!big) { for (const [k, v] of Object.entries(extraFields)) form.append(k, v); form.append("file", file, file.name); }
+  const { promise, cancel } = big
+    ? uploadLarge<{ id: string }>(channelId, file, extraFields, (p) => onUpdate({ ...u, progress: p, cancel }))
+    : upload<{ id: string }>(`/api/channels/${channelId}/attachments`, form, (p) => onUpdate({ ...u, progress: p, cancel }));
   u.cancel = cancel;
   onUpdate(u);
   promise.then((r) => onUpdate({ ...u, progress: 1, status: "done", id: r.id }))

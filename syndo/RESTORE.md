@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-10 — big uploads go straight to storage in pieces (up to 500 MB)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `fc79e6d2-5146-4c81-b30a-747f23899755`, `SOURCE_COMMIT` `d967a3b` |
+| Web (Pages `syndo-app`) | deployment `ebf2a5e9-fb4b-4cb3-be36-eb0361f4d405` |
+| Source | branch `backup/pre-large-uploads-20261110`; database unchanged |
+
+Files over 20 MB: the backend signs a ticket (storage key + exact size + 6 h expiry, HMAC with the existing storage token); the browser sends 32 MB pieces to `/api/uploads/large/*`, which the Worker writes into R2 as a multipart upload; the backend then checks the stored size and the file type and attaches it. Small files use the old single upload.
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy `fc79e6d2` at 100%.
+2. Web: Pages → `syndo-app` → Deployments → `ebf2a5e9` → Rollback to this deployment.
+
 ## 2026-11-10 — call screen: grouped controls, device menus, "…" menu, chat beside the call
 
 | Layer | Restore point (before this release) |

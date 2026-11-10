@@ -128,6 +128,55 @@ export class SENDBackend extends DurableObject<Env> {
     return this.ctx.container!.getTcpPort(3900).fetch(forwarded);
   }
 }
+/* Big attachments: the backend signs a ticket (storage key + exact size + expiry) with the shared storage token;
+   the browser sends the file here in 32 MB pieces and they go straight into R2 as a multipart upload. */
+const PART_SIZE = 32 * 1024 * 1024, LARGE_MAX = 500 * 1024 * 1024;
+const b64url = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function checkTicket(url: URL, env: Env): Promise<{ key: string; size: number } | Response> {
+  const key = url.searchParams.get("key") ?? "", size = Number(url.searchParams.get("size")), exp = Number(url.searchParams.get("exp")), sig = url.searchParams.get("sig") ?? "";
+  const no = (status: number, message: string) => Response.json({ code: "bad_ticket", message }, { status });
+  if (!/^att\/[a-z0-9/_.-]+$/i.test(key) || key.includes("..") || !Number.isSafeInteger(size) || size <= 0 || size > LARGE_MAX || !Number.isSafeInteger(exp)) return no(400, "This upload isn't valid.");
+  const secret = (env as unknown as { STORAGE_TOKEN?: string }).STORAGE_TOKEN ?? "";
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const want = new TextEncoder().encode(b64url(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(`${key}\n${size}\n${exp}`))));
+  const got = new TextEncoder().encode(sig);
+  if (!secret || got.byteLength !== want.byteLength || !timingSafeEqual(got, want)) return no(403, "This upload isn't valid.");
+  if (exp < Date.now()) return no(410, "This upload took too long. Try again.");
+  return { key, size };
+}
+export async function largeUpload(request: Request, env: Env) {
+  const url = new URL(request.url), action = url.pathname.slice("/api/uploads/large/".length);
+  const t = await checkTicket(url, env);
+  if (t instanceof Response) return t;
+  const parts = Math.ceil(t.size / PART_SIZE);
+  const uploadId = url.searchParams.get("upload_id") ?? "";
+  try {
+    if (action === "start" && request.method === "POST") {
+      const up = await env.UPLOADS.createMultipartUpload(t.key);
+      return Response.json({ upload_id: up.uploadId, part_size: PART_SIZE });
+    }
+    if (action === "part" && request.method === "PUT") {
+      const n = Number(url.searchParams.get("part")), len = Number(request.headers.get("content-length"));
+      const want = n < parts ? PART_SIZE : t.size - PART_SIZE * (parts - 1);
+      if (!Number.isInteger(n) || n < 1 || n > parts || len !== want || !request.body) return Response.json({ code: "bad_part", message: "That piece is the wrong size." }, { status: 400 });
+      const part = await env.UPLOADS.resumeMultipartUpload(t.key, uploadId).uploadPart(n, request.body);
+      return Response.json({ part_number: part.partNumber, etag: part.etag });
+    }
+    if (action === "complete" && request.method === "POST") {
+      const body = await request.json<{ parts: { part_number: number; etag: string }[] }>();
+      if (!Array.isArray(body?.parts) || body.parts.length !== parts) return Response.json({ code: "bad_parts", message: "Some pieces are missing." }, { status: 400 });
+      const obj = await env.UPLOADS.resumeMultipartUpload(t.key, uploadId).complete(body.parts.map((p) => ({ partNumber: p.part_number, etag: p.etag })));
+      if (obj.size !== t.size) { await env.UPLOADS.delete(t.key); return Response.json({ code: "incomplete", message: "The upload didn't arrive complete." }, { status: 400 }); }
+      return Response.json({ ok: true, size: obj.size });
+    }
+    if (action === "abort" && request.method === "DELETE") { await env.UPLOADS.resumeMultipartUpload(t.key, uploadId).abort(); return Response.json({ ok: true }); }
+  } catch (e) {
+    console.error("large_upload", e instanceof Error ? e.message : e);
+    return Response.json({ code: "upload_failed", message: "The upload failed. Try again." }, { status: 502 });
+  }
+  return new Response(null, { status: 405 });
+}
+
 export async function storage(request: Request, env: Env) {
   const supplied = new TextEncoder().encode(request.headers.get("authorization") ?? "");
   const expected = new TextEncoder().encode(`Bearer ${env.STORAGE_TOKEN}`);
@@ -178,6 +227,7 @@ export default {
     if (path === "/api/downloads/android") return androidDownload(request,env);
     if (path.startsWith("/__release/")) return releaseUpload(request,env);
     if (path.startsWith("/__storage/")) return storage(request,env);
+    if (path.startsWith("/api/uploads/large/")) return largeUpload(request,env);
     if (path !== "/gateway" && !path.startsWith("/api/")) return new Response(null,{status:404});
     try {
       // One Node process is the backend's realtime coordination unit. The beta

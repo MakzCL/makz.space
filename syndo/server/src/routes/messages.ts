@@ -18,6 +18,7 @@ import { checkAutomod } from "./automod.ts";
 import { notifyMessage } from "../notify.ts";
 import { trackStat } from "./insights.ts";
 import { safeName } from "../uploads.ts";
+import { LARGE_MAX, PART_SIZE, checkTicket, issueTicket } from "../largeUpload.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);
 
@@ -647,6 +648,46 @@ export async function messageRoutes(app: FastifyInstance) {
     await q(`insert into attachments(id, channel_id, uploader_id, filename, content_type, size, storage_key, width, height, duration, waveform)
              values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, channel.id, me, name, type, size, key, num(field("width"), 20000), num(field("height"), 20000), num(field("duration"), 86400), (field("waveform") ?? "").slice(0, 400) || null]);
+    return { id, filename: name, content_type: type, size, url: attUrl({ id, filename: name }) };
+  });
+
+  /* Big files: ask for a ticket, send the pieces straight to storage, then finish here. */
+  const uploadLimit = async (channel: ChanRow) => {
+    const tier = channel.guild_id ? (await q1<any>("select premium_tier from guilds where id = $1", [channel.guild_id]))?.premium_tier ?? 0 : 0;
+    return Math.min(LARGE_MAX, Math.max(config.limits.max_upload_bytes, boostPerks(tier).upload_mb * 1048576));
+  };
+  app.post<{ Params: { cid: string } }>("/api/channels/:cid/attachments/large", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const me = uid(req);
+    const { channel } = await requireChannel(me, req.params.cid, P.ATTACH_FILES);
+    const { size } = z.object({ size: z.number().int().positive() }).parse(req.body);
+    if (!channel.guild_id && config.requireDmE2ee) throw bad("Direct-message attachments must be encrypted before upload.");
+    const maxBytes = await uploadLimit(channel);
+    if (size > maxBytes) throw new ApiError(413, "too_large", `Files can be up to ${Math.round(maxBytes / 1048576)} MB here.`);
+    const id = newId();
+    const key = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/${id}`;
+    return { id, ticket: issueTicket(key, size), part_size: PART_SIZE, endpoint: "/api/uploads/large" };
+  });
+  app.post<{ Params: { cid: string } }>("/api/channels/:cid/attachments/large/finish", async (req) => {
+    const me = uid(req);
+    const { channel } = await requireChannel(me, req.params.cid, P.ATTACH_FILES);
+    const body = z.object({ ticket: z.object({ key: z.string(), size: z.number(), exp: z.number(), sig: z.string() }), filename: z.string().max(255),
+      width: z.number().optional(), height: z.number().optional(), duration: z.number().optional(), waveform: z.string().max(400).optional() }).parse(req.body);
+    const t = checkTicket(body.ticket);
+    const prefix = `att/${channel.guild_id ? `g${channel.guild_id}` : "dm"}/c${channel.id}/`;
+    const id = t.key.slice(prefix.length);
+    if (!t.key.startsWith(prefix) || !/^\d{1,20}$/.test(id)) throw bad("This upload isn't valid.");
+    if (await q1("select 1 from attachments where id = $1", [id])) throw bad("This upload was already used.");
+    const size = await storage.size(t.key).catch(() => -1);
+    if (size !== t.size) throw bad("The upload didn't arrive complete. Try again.");
+    const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(t.key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
+    const sniff = await fileTypeFromBuffer(head);
+    let type = sniff?.mime ?? (!head.includes(0) && /\.(txt|md|log|csv)$/i.test(body.filename) ? "text/plain" : "application/octet-stream");
+    if (type === "image/svg+xml") type = "application/octet-stream";
+    const name = safeName(body.filename || "file");
+    const num = (v: number | undefined, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(v, max) : null);
+    await q(`insert into attachments(id, channel_id, uploader_id, filename, content_type, size, storage_key, width, height, duration, waveform)
+             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, channel.id, me, name, type, size, t.key, num(body.width, 20000), num(body.height, 20000), num(body.duration, 86400), body.waveform || null]);
     return { id, filename: name, content_type: type, size, url: attUrl({ id, filename: name }) };
   });
 

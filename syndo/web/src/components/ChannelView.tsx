@@ -7,7 +7,7 @@ import {
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChannelType, MessageType, P, has, type Channel, type Message, type Sticker } from "@syndo/shared";
+import { ChannelType, MessageType, P, boostPerks, has, type Channel, type Message, type Sticker } from "@syndo/shared";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
@@ -701,7 +701,10 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const addFiles = (files: FileList | File[]) => {
     if (!canAttach) { toast("You can't attach files here.", "error"); return; }
     for (const f of [...files].slice(0, 10)) {
-      if (limits && f.size > limits.max_upload_bytes) { toast(`${f.name} is larger than this server's ${fmtBytes(limits.max_upload_bytes)} limit.`, "error"); continue; }
+      // Boosted servers allow bigger files (up to 500 MB); the server checks again.
+      const tier = channel.guild_id ? useStore.getState().guilds[channel.guild_id]?.premium_tier ?? 0 : 0;
+      const maxBytes = limits ? Math.min(500 * 1048576, Math.max(limits.max_upload_bytes, boostPerks(tier).upload_mb * 1048576)) : Infinity;
+      if (f.size > maxBytes) { toast(`${f.name} is larger than the ${fmtBytes(maxBytes)} limit here.`, "error"); continue; }
       const extra: Record<string, string> = {};
       if (f.type.startsWith("image/")) {
         const img = new Image(); const url = URL.createObjectURL(f);
