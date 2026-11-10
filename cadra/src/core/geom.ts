@@ -27,10 +27,22 @@ export type Arc = Base & { t: "arc"; c: V; r: number; a0: number; a1: number };
 export type Poly = Base & { t: "poly"; pts: V[]; closed: boolean };
 export type Text = Base & { t: "text"; p: V; h: number; s: string; rot: number };
 /** Linear dimension between p1 and p2, dimension line through `at`; kind sets what is measured. */
-export type Dim = Base & { t: "dim"; kind: "aligned" | "horizontal" | "vertical" | "radius" | "diameter"; p1: V; p2: V; at: V; text?: string };
+export type Dim = Base & { t: "dim"; kind: "aligned" | "horizontal" | "vertical" | "radius" | "diameter" | "angular"; p1: V; p2: V; at: V; text?: string; /** angular: the vertex */ c?: V };
 /** Solid hatch filling a closed boundary. */
 export type Hatch = Base & { t: "hatch"; pts: V[] };
-export type Ent = Line | Circle | Arc | Poly | Text | Dim | Hatch;
+/** A placed copy of a named block: block-local point q maps to p + rotate(k·(q − base), rot). */
+export type Insert = Base & { t: "insert"; name: string; p: V; k: number; rot: number };
+export type Ent = Line | Circle | Arc | Poly | Text | Dim | Hatch | Insert;
+export interface BlockDef { base: V; ents: Ent[] }
+/** Block definitions of the drawing being worked on (the session keeps this in step with its drawing). */
+export const BLOCKS = new Map<string, BlockDef>();
+export const setBlocks = (b: Record<string, BlockDef> | undefined) => { BLOCKS.clear(); for (const [k, v] of Object.entries(b ?? {})) BLOCKS.set(k, v); };
+/** The entities an insert stands for, in drawing coordinates (nested blocks expanded; objects on layer 0 take the insert's layer). */
+export function expand(e: Insert, depth = 0): Ent[] {
+  const b = BLOCKS.get(e.name); if (!b || depth > 8) return [];
+  const c = Math.cos(e.rot), s = Math.sin(e.rot); const f = (q: V): V => { const x = (q[0] - b.base[0]) * e.k, y = (q[1] - b.base[1]) * e.k; return [e.p[0] + x * c - y * s, e.p[1] + x * s + y * c]; };
+  return b.ents.flatMap((x) => { const t = transformEnt(x, f, { rot: e.rot, k: e.k }); const own = { ...t, layer: x.layer === "0" ? e.layer : x.layer, color: x.color ?? e.color } as Ent; return own.t === "insert" ? expand(own, depth + 1) : [own]; });
+}
 
 let n = 0; export const eid = () => `e${Date.now().toString(36)}${(n++).toString(36)}`;
 
@@ -44,6 +56,7 @@ export function segsOf(e: Ent): Seg[] {
     case "poly": case "hatch": { const p = e.pts, s: Seg[] = []; for (let i = 1; i < p.length; i++) s.push({ k: "l", a: p[i - 1], b: p[i] }); if ((e.t === "hatch" || e.closed) && p.length > 2) s.push({ k: "l", a: p[p.length - 1], b: p[0] }); return s; }
     case "text": { const w = e.s.length * e.h * 0.8; const r = rotPts([[0, 0], [w, 0], [w, e.h], [0, e.h]], e.rot).map((q) => add(q, e.p)); return [0, 1, 2, 3].map((i) => ({ k: "l" as const, a: r[i], b: r[(i + 1) % 4] })); }
     case "dim": return dimGeometry(e).lines.map(([a, b]) => ({ k: "l" as const, a, b }));
+    case "insert": return expand(e).flatMap(segsOf);
   }
 }
 const rotPts = (ps: V[], r: number): V[] => ps.map(([x, y]) => [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)]);
@@ -101,6 +114,7 @@ export function snapPoints(e: Ent): Snap[] {
     case "poly": case "hatch": { const s: Snap[] = e.pts.map((p) => ({ p, kind: "end" as const })); segsOf(e).forEach((g) => g.k === "l" && s.push({ p: mul(add(g.a, g.b), 0.5), kind: "mid" })); return s; }
     case "text": return [{ p: e.p, kind: "node" }];
     case "dim": return [{ p: e.p1, kind: "node" }, { p: e.p2, kind: "node" }];
+    case "insert": return [{ p: e.p, kind: "node" }, ...expand(e).flatMap(snapPoints).filter((x) => x.kind !== "node")];
   }
 }
 /** Best snap within `tol` of p: fixed points first (end/mid/center/quad/int), then perpendicular from `from`, then nearest. */
@@ -130,7 +144,8 @@ export function transformEnt(e: Ent, f: Xf, o: { rot?: number; flip?: boolean; k
     case "arc": { const c = f(e.c), p0 = f(polar(e.c, e.r, e.a0)), p1 = f(polar(e.c, e.r, e.a1)); const a0 = ang(sub(p0, c)), a1 = ang(sub(p1, c)); return o.flip ? { ...e, c, r: e.r * k, a0: a1, a1: a0 } : { ...e, c, r: e.r * k, a0, a1 }; }
     case "poly": case "hatch": return { ...e, pts: e.pts.map(f) } as Ent;
     case "text": return { ...e, p: f(e.p), h: e.h * k, rot: e.rot + rot };
-    case "dim": return { ...e, p1: f(e.p1), p2: f(e.p2), at: f(e.at) };
+    case "dim": return { ...e, p1: f(e.p1), p2: f(e.p2), at: f(e.at), ...(e.c ? { c: f(e.c) } : {}) };
+    case "insert": return { ...e, p: f(e.p), k: e.k * k, rot: e.rot + rot };
   }
 }
 
@@ -187,6 +202,14 @@ export function trimEnt(e: Ent, cutters: Ent[], pick: V): Ent[] | null {
 // ---------- dimensions ----------
 /** Lines, text position and measured value of a dimension. */
 export function dimGeometry(d: Dim): { lines: [V, V][]; text: string; textAt: V; textRot: number; value: number } {
+  if (d.kind === "angular" && d.c) {
+    const c = d.c, r = Math.max(dist(c, d.at), 1e-6), t1 = ang(sub(d.p1, c)), t2 = ang(sub(d.p2, c)), ta = ang(sub(d.at, c));
+    const [a0, a1] = onSweep(ta, t1, t2) ? [t1, t2] : [t2, t1]; const sw = normAng(a1 - a0) || TAU; const n = Math.max(8, Math.ceil(sw / 0.08));
+    const lines: [V, V][] = []; for (let i = 0; i < n; i++) lines.push([polar(c, r, a0 + (sw * i) / n), polar(c, r, a0 + (sw * (i + 1)) / n)]);
+    for (const [p, t] of [[d.p1, t1], [d.p2, t2]] as [V, number][]) { const L = dist(c, p); if (L < r) lines.push([p, polar(c, r + 1.5, t)]); }
+    const mid = a0 + sw / 2; const tr = normAng(mid - Math.PI / 2 + Math.PI / 2) % Math.PI - Math.PI / 2; // tangent, kept readable
+    const v = deg(sw); return { lines, value: v, text: d.text ?? `${fmt(v, 1)}°`, textAt: polar(c, r + 2, mid), textRot: tr };
+  }
   if (d.kind === "radius" || d.kind === "diameter") {
     const r = dist(d.p1, d.p2), v = d.kind === "radius" ? r : 2 * r; const dir = norm(sub(d.p2, d.p1));
     const a = d.kind === "radius" ? d.p1 : sub(d.p1, mul(dir, r));
@@ -203,3 +226,46 @@ export function dimGeometry(d: Dim): { lines: [V, V][]; text: string; textAt: V;
   return { lines, value, text: d.text ?? fmt(value), textAt: add(mul(add(q1, q2), 0.5), mul(nrm, 2 * Math.sign(off || 1))), textRot: tr };
 }
 export const fmt = (v: number, dp = 2) => (Math.round(v * 10 ** dp) / 10 ** dp).toString();
+
+// ---------- extend ----------
+/** Extend the end of a line or arc nearest `pick` to the closest boundary it would meet. */
+export function extendEnt(e: Ent, bounds: Ent[], pick: V): Ent | null {
+  const bs = bounds.filter((b) => b.id !== e.id).flatMap(segsOf);
+  if (e.t === "line") {
+    const endB = dist(pick, e.b) <= dist(pick, e.a); const from = endB ? e.a : e.b, to = endB ? e.b : e.a; const d = sub(to, from), L = dot(d, d); if (L < EPS) return null;
+    let best = Infinity; for (const b of bs) for (const p of segX({ k: "l", a: from, b: to }, b, true)) { if (!onSeg(b, p)) continue; const t = dot(sub(p, from), d) / L; if (t > 1 + 1e-9 && t < best) best = t; }
+    if (!Number.isFinite(best)) return null; const q = add(from, mul(d, best)); return endB ? { ...e, b: q } : { ...e, a: q };
+  }
+  if (e.t === "arc") {
+    const atEnd = dist(pick, polar(e.c, e.r, e.a1)) <= dist(pick, polar(e.c, e.r, e.a0)); let best = Infinity;
+    for (const b of bs) for (const p of segX({ k: "c", c: e.c, r: e.r }, b, true)) { if (!onSeg(b, p)) continue; const t = ang(sub(p, e.c)); const g = atEnd ? normAng(t - e.a1) : normAng(e.a0 - t); if (g > 1e-9 && g < best && g < TAU - normAng(e.a1 - e.a0) - 1e-9) best = g; }
+    if (!Number.isFinite(best)) return null; return atEnd ? { ...e, a1: e.a1 + best } : { ...e, a0: e.a0 - best };
+  }
+  return null;
+}
+
+// ---------- fillet / chamfer between two lines ----------
+function corner(l1: Line, l2: Line, p1: V, p2: V) {
+  const r = sub(l1.b, l1.a), q = sub(l2.b, l2.a), den = cross(r, q); if (Math.abs(den) < EPS * (len(r) * len(q) || 1)) return null;
+  const X = add(l1.a, mul(r, cross(sub(l2.a, l1.a), q) / den)); const d1 = norm(r), d2 = norm(q);
+  const u1 = dot(sub(p1, X), d1) >= 0 ? d1 : mul(d1, -1), u2 = dot(sub(p2, X), d2) >= 0 ? d2 : mul(d2, -1);
+  const far = (l: Line, u: V) => (dot(sub(l.a, X), u) >= dot(sub(l.b, X), u) ? l.a : l.b);
+  return { X, u1, u2, f1: far(l1, u1), f2: far(l2, u2) };
+}
+/** Round the corner between two lines with radius r (r = 0 makes a sharp corner). Picks say which sides to keep. */
+export function filletLines(l1: Line, l2: Line, r: number, p1: V, p2: V): { l1: Line; l2: Line; arc: Arc | null } | string {
+  const k = corner(l1, l2, p1, p2); if (!k) return "Lines are parallel";
+  if (r <= 0) return { l1: { ...l1, a: k.f1, b: k.X }, l2: { ...l2, a: k.X, b: k.f2 }, arc: null };
+  const th = Math.acos(Math.max(-1, Math.min(1, dot(k.u1, k.u2)))); if (th < 1e-6 || Math.PI - th < 1e-6) return "Lines are parallel";
+  const t = r / Math.tan(th / 2); if (dot(sub(k.f1, k.X), k.u1) < t - 1e-9 || dot(sub(k.f2, k.X), k.u2) < t - 1e-9) return "Radius is too large for these lines";
+  const T1 = add(k.X, mul(k.u1, t)), T2 = add(k.X, mul(k.u2, t)), C = add(k.X, mul(norm(add(k.u1, k.u2)), r / Math.sin(th / 2)));
+  let a0 = ang(sub(T1, C)), a1 = ang(sub(T2, C)); if (normAng(a1 - a0) > Math.PI) [a0, a1] = [a1, a0];
+  return { l1: { ...l1, a: k.f1, b: T1 }, l2: { ...l2, a: T2, b: k.f2 }, arc: { id: eid(), layer: l1.layer, color: l1.color, t: "arc", c: C, r, a0, a1 } };
+}
+/** Bevel the corner: distance d1 along the first line and d2 along the second from their intersection. */
+export function chamferLines(l1: Line, l2: Line, d1: number, d2: number, p1: V, p2: V): { l1: Line; l2: Line; edge: Line } | string {
+  const k = corner(l1, l2, p1, p2); if (!k) return "Lines are parallel";
+  if (dot(sub(k.f1, k.X), k.u1) < d1 - 1e-9 || dot(sub(k.f2, k.X), k.u2) < d2 - 1e-9) return "Chamfer distance is too large for these lines";
+  const T1 = add(k.X, mul(k.u1, d1)), T2 = add(k.X, mul(k.u2, d2));
+  return { l1: { ...l1, a: k.f1, b: T1 }, l2: { ...l2, a: T2, b: k.f2 }, edge: { id: eid(), layer: l1.layer, color: l1.color, t: "line", a: T1, b: T2 } };
+}

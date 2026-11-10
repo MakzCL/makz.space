@@ -1,6 +1,6 @@
 // Canvas renderer for the model space: grid, entities by layer colour, selection, previews, snap marker, crosshair.
 import { arc3 } from "../core/cad";
-import { dimGeometry, dist, polar, sub, ang, type Ent, type V } from "../core/geom";
+import { expand, dimGeometry, dist, polar, sub, ang, type Ent, type V } from "../core/geom";
 import type { Drawing } from "../core/cad";
 
 export type Palette = "light" | "granat" | "dark";
@@ -32,6 +32,7 @@ export function draw(cv: HTMLCanvasElement, d: Drawing, v: View, pal: Palette, o
   const layers = new Map(d.layers.map((l) => [l.name, l]));
   const colOf = (e: Ent) => { const c = e.color ?? layers.get(e.layer)?.color ?? "#ffffff"; return c.toLowerCase() === "#ffffff" || c.toLowerCase() === "#000000" ? T.fg : c; };
   for (const e of d.ents) { const l = layers.get(e.layer); if (!l?.visible) continue; const on = o.sel.has(e.id), hov = o.hover === e.id;
+    if (e.t === "insert") { for (const x of expand(e)) { if (layers.get(x.layer)?.visible === false) continue; ent(g, x, S, v, on ? T.sel : colOf(x), on, hov); } continue; }
     ent(g, e, S, v, on ? T.sel : colOf(e), on, hov); }
   g.setLineDash([]);
   for (const e of o.preview) ent(g, e, S, v, T.prev, false, false, true);

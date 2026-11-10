@@ -1,10 +1,10 @@
 // CADRA drawing model and command engine. Commands are async scripts that ask for points, distances, selections and
 // options; input comes from typed text (AutoCAD-style coordinates) or from the pointer. The same engine runs in the
 // app and in tests (tests feed scripted input).
-import { add, ang, bbox, deg, dimGeometry, dist, eid, findSnap, fmt, intersections, mirrorAcross, norm, offsetEnt, polar, rad, rotateAbout, scaleAbout, sub, transformEnt, translate, trimEnt, distTo, type Box, type Ent, type SnapKind, type V } from "./geom";
+import { expand, setBlocks, BLOCKS, type BlockDef, type Insert, extendEnt, filletLines, chamferLines, boxOf, add, ang, bbox, deg, dimGeometry, dist, eid, findSnap, fmt, intersections, mirrorAcross, norm, offsetEnt, polar, rad, rotateAbout, scaleAbout, sub, transformEnt, translate, trimEnt, distTo, type Box, type Ent, type SnapKind, type V } from "./geom";
 
 export interface Layer { name: string; color: string; visible: boolean; locked: boolean }
-export interface Drawing { format: "cadra"; version: 1; units: "mm" | "in"; layers: Layer[]; current: string; ents: Ent[] }
+export interface Drawing { format: "cadra"; version: 1; units: "mm" | "in"; layers: Layer[]; current: string; ents: Ent[]; blocks?: Record<string, BlockDef> }
 export const newDrawing = (): Drawing => ({ format: "cadra", version: 1, units: "mm", current: "0",
   layers: [{ name: "0", color: "#ffffff", visible: true, locked: false }, { name: "Dimensions", color: "#5ec8ff", visible: true, locked: false }, { name: "Hidden", color: "#f5c85c", visible: true, locked: false }], ents: [] });
 
@@ -16,7 +16,8 @@ export interface Settings { ortho: boolean; snap: boolean; grid: number; osnap: 
 export const defaultSettings = (): Settings => ({ ortho: false, snap: false, grid: 10, osnap: true, osnapKinds: new Set<SnapKind>(["end", "mid", "center", "quad", "int", "perp"]) });
 
 export class Session {
-  d: Drawing; sel = new Set<string>(); last: V | null = null; lastPick: V | null = null; offDist = 10; s = defaultSettings();
+  private _d!: Drawing; get d() { return this._d; } set d(v: Drawing) { this._d = v; setBlocks(v.blocks); }
+  sel = new Set<string>(); last: V | null = null; lastPick: V | null = null; offDist = 10; filletR = 0; chamfer: [number, number] = [5, 5]; s = defaultSettings();
   log: string[] = []; prompt = "Command:"; want: Want | null = null; preview: Ent[] = []; running: string | null = null;
   private past: Drawing[] = []; private future: Drawing[] = []; private wait: ((i: Input) => void) | null = null; private queue: Input[] = [];
   onChange: () => void = () => {};
@@ -106,6 +107,12 @@ export class Session {
     }
     this.sel.clear(); return this.d.ents.filter((e) => picked.has(e.id));
   }
+  /** Pick an object, or type one of the options. */
+  async pickOr(prompt: string, opts: string[]): Promise<Ent | string | null> {
+    for (;;) { const i = await this.next({ kind: "select", prompt, options: opts }); if (i.k === "esc") throw new Cancel(); if (i.k === "enter") return null;
+      if (i.k === "text") { const o = opts.find((x) => x.toLowerCase().startsWith(i.s.trim().toLowerCase()) && i.s.trim()); if (o) return o; if (!i.s.trim()) return null; this.say(`Pick an object or type ${opts.join("/")}`); continue; }
+      if (i.k === "pick") { const e = this.d.ents.find((x) => x.id === i.id); if (e && this.editable(e)) { this.lastPick = i.p; return e; } } }
+  }
   async pickOne(prompt: string): Promise<Ent | null> {
     for (;;) { const i = await this.next({ kind: "select", prompt }); if (i.k === "esc") throw new Cancel(); if (i.k === "enter") return null;
       if (i.k === "pick") { const e = this.d.ents.find((x) => x.id === i.id); if (e && this.editable(e)) { this.lastPick = i.p; return e; } } }
@@ -126,7 +133,7 @@ const ang2v = (dir: V, d: number): V => [dir[0] * d, dir[1] * d];
 
 type Cmd = (s: Session, args: string) => Promise<void>;
 export const ALIASES: Record<string, string> = { L: "LINE", PL: "PLINE", C: "CIRCLE", A: "ARC", REC: "RECTANG", POL: "POLYGON", T: "TEXT", DT: "TEXT", DLI: "DIMLINEAR", DAL: "DIMALIGNED", DRA: "DIMRADIUS", DDI: "DIMDIAMETER",
-  M: "MOVE", CO: "COPY", CP: "COPY", RO: "ROTATE", SC: "SCALE", MI: "MIRROR", O: "OFFSET", TR: "TRIM", E: "ERASE", H: "HATCH", X: "EXPLODE", LA: "LAYER", U: "UNDO", DI: "DIST", F: "FILLET" };
+  M: "MOVE", CO: "COPY", CP: "COPY", RO: "ROTATE", SC: "SCALE", MI: "MIRROR", O: "OFFSET", TR: "TRIM", E: "ERASE", H: "HATCH", X: "EXPLODE", LA: "LAYER", U: "UNDO", DI: "DIST", F: "FILLET", CHA: "CHAMFER", EX: "EXTEND", AR: "ARRAYRECT", ARRAY: "ARRAYRECT", PA: "ARRAYPOLAR", DAN: "DIMANGULAR", B: "BLOCK", I: "INSERT" };
 export const COMMANDS: Record<string, Cmd> = {
   async LINE(s) {
     let a = await s.pt("Specify first point:", null); if (!a) return; const first = a; let n = 0;
@@ -203,18 +210,80 @@ export const COMMANDS: Record<string, Cmd> = {
     const pts = e.t === "poly" && e.closed ? e.pts : e.t === "circle" ? Array.from({ length: 72 }, (_, i) => polar(e.c, e.r, (2 * Math.PI * i) / 72)) : null;
     if (!pts) return s.say("That boundary is not closed"); s.addEnts([s.ent({ t: "hatch", pts: [...pts] })]);
   },
+  async BLOCK(s, args) {
+    const name = (args.trim() || (await s.textIn("Enter block name:")) || "").trim(); if (!name) return;
+    if (!/^[A-Za-z0-9_\- .]{1,64}$/.test(name)) return s.say("Block names use letters, digits, space, _ - . (up to 64)");
+    if (s.d.blocks?.[name]) { const o = await s.option(`Block "${name}" already exists. Redefine it?`, ["Yes", "No"], "No"); if (o !== "Yes") return; }
+    const base = await s.pt("Specify insertion base point:", null); if (!base) return; const es = await s.select(); if (!es.length) return s.say("A block needs at least one object");
+    if (es.some((e) => e.t === "insert" && (e.name === name || nests(e.name, name)))) return s.say("A block cannot contain itself");
+    const ids = new Set(es.map((e) => e.id)); const ins: Insert = { id: eid(), layer: s.d.current, t: "insert", name, p: base, k: 1, rot: 0 };
+    s.commit((d) => { d.blocks = { ...(d.blocks ?? {}), [name]: { base, ents: structuredClone(es) } }; d.ents = d.ents.filter((e) => !ids.has(e.id)).concat(ins); });
+    s.say(`Block "${name}" defined from ${es.length} object(s) and placed where they were`);
+  },
+  async INSERT(s, args) {
+    const names = Object.keys(s.d.blocks ?? {}); if (!names.length) return s.say("This drawing has no blocks yet. Make one with BLOCK.");
+    const name = (args.trim() || (await s.textIn(`Enter block name (${names.join(", ")}):`)) || "").trim(); if (!name) return;
+    const real = names.find((n) => n.toLowerCase() === name.toLowerCase()); if (!real) return s.say(`No block named "${name}". Blocks: ${names.join(", ")}`);
+    const p = await s.pt("Specify insertion point:", null); if (!p) return; s.last = p;
+    const k = await s.num("Specify scale factor", p, 1); if (!k || k <= 0) return; const r = await s.angle("Specify rotation angle", p, 0);
+    s.addEnts([{ id: eid(), layer: s.d.current, t: "insert", name: real, p, k, rot: r ?? 0 }]); s.say(`Inserted "${real}"`);
+  },
   async EXPLODE(s) {
-    const es = (await s.select()).filter((e) => e.t === "poly" || e.t === "dim"); if (!es.length) return s.say("Nothing that can be exploded");
+    const es = (await s.select()).filter((e) => e.t === "poly" || e.t === "dim" || e.t === "insert"); if (!es.length) return s.say("Nothing that can be exploded");
     const ids = new Set(es.map((e) => e.id)); const out: Ent[] = [];
-    for (const e of es) { if (e.t === "poly") { const P = e.pts; for (let i = 1; i < P.length; i++) out.push({ id: eid(), layer: e.layer, color: e.color, t: "line", a: P[i - 1], b: P[i] }); if (e.closed) out.push({ id: eid(), layer: e.layer, color: e.color, t: "line", a: P[P.length - 1], b: P[0] }); }
+    for (const e of es) { if (e.t === "insert") { out.push(...expand(e).map((x) => ({ ...x, id: eid() }))); continue; } if (e.t === "poly") { const P = e.pts; for (let i = 1; i < P.length; i++) out.push({ id: eid(), layer: e.layer, color: e.color, t: "line", a: P[i - 1], b: P[i] }); if (e.closed) out.push({ id: eid(), layer: e.layer, color: e.color, t: "line", a: P[P.length - 1], b: P[0] }); }
       else if (e.t === "dim") { const g = dimGeometry(e); g.lines.forEach(([a, b]) => out.push({ id: eid(), layer: e.layer, t: "line", a, b })); out.push({ id: eid(), layer: e.layer, t: "text", p: g.textAt, h: 2.5, s: g.text, rot: g.textRot }); } }
     s.commit((d) => { d.ents = d.ents.filter((e) => !ids.has(e.id)).concat(out); }); s.say(`${es.length} exploded into ${out.length} objects`);
   },
-  async FILLET(s) { // radius 0 corner (join two lines at their intersection), the common drafting use
-    const a = await s.pickOne("Select first line:"); if (!a || a.t !== "line") return; const b = await s.pickOne("Select second line:"); if (!b || b.t !== "line") return;
-    const [x] = intersectLines(a.a, a.b, b.a, b.b); if (!x) return s.say("Lines are parallel");
-    const keepFar = (l: typeof a): typeof a => (dist(l.a, x) > dist(l.b, x) ? { ...l, b: x } : { ...l, a: x });
-    s.commit((d) => { d.ents = d.ents.map((e) => (e.id === a.id ? keepFar(a) : e.id === b.id ? keepFar(b) : e)); });
+  async FILLET(s) {
+    s.say(`Current settings: radius = ${fmt(s.filletR, 4)}`);
+    let a: Ent | string | null;
+    for (;;) { a = await s.pickOr("Select first line or [Radius]:", ["Radius"]); if (a === "Radius") { const r = await s.num("Specify fillet radius", undefined, s.filletR); if (r !== null && r >= 0) s.filletR = r; continue; } break; }
+    if (!a || typeof a === "string" || a.t !== "line") return s.say("FILLET works on lines"); const pa = s.lastPick ?? a.a;
+    const b = await s.pickOne("Select second line:"); if (!b || b.t !== "line" || b.id === a.id) return s.say("FILLET works on two different lines"); const pb = s.lastPick ?? b.a;
+    const r = filletLines(a, b, s.filletR, pa, pb); if (typeof r === "string") return s.say(r);
+    s.commit((d) => { d.ents = d.ents.map((e) => (e.id === a.id ? r.l1 : e.id === b.id ? r.l2 : e)); if (r.arc) d.ents.push(r.arc); });
+  },
+  async CHAMFER(s) {
+    s.say(`Current settings: distance 1 = ${fmt(s.chamfer[0], 4)}, distance 2 = ${fmt(s.chamfer[1], 4)}`);
+    let a: Ent | string | null;
+    for (;;) { a = await s.pickOr("Select first line or [Distance]:", ["Distance"]); if (a === "Distance") { const d1 = await s.num("Specify first chamfer distance", undefined, s.chamfer[0]); if (d1 === null || d1 < 0) continue; const d2 = await s.num("Specify second chamfer distance", undefined, d1); if (d2 !== null && d2 >= 0) s.chamfer = [d1, d2]; continue; } break; }
+    if (!a || typeof a === "string" || a.t !== "line") return s.say("CHAMFER works on lines"); const pa = s.lastPick ?? a.a;
+    const b = await s.pickOne("Select second line:"); if (!b || b.t !== "line" || b.id === a.id) return s.say("CHAMFER works on two different lines"); const pb = s.lastPick ?? b.a;
+    const r = chamferLines(a, b, s.chamfer[0], s.chamfer[1], pa, pb); if (typeof r === "string") return s.say(r);
+    s.commit((d) => { d.ents = d.ents.map((e) => (e.id === a.id ? r.l1 : e.id === b.id ? r.l2 : e)); d.ents.push(r.edge); });
+  },
+  async EXTEND(s) {
+    s.say("Current settings: boundary edges = all objects");
+    for (;;) { const e = await s.pickOne("Select object to extend or <exit>:"); if (!e) return;
+      if (e.t !== "line" && e.t !== "arc") { s.say("Only lines and arcs can be extended"); continue; }
+      const out = extendEnt(e, s.d.ents.filter((x) => x.id !== e.id && s.layerOf(x.layer)?.visible), s.lastPick ?? (e.t === "line" ? e.b : e.c));
+      if (!out) { s.say("No boundary in that direction: nothing to extend"); continue; } s.commit((d) => { d.ents = d.ents.map((x) => (x.id === e.id ? out : x)); }); }
+  },
+  async ARRAYRECT(s) {
+    const es = await s.select(); if (!es.length) return;
+    const rows = await s.num("Enter number of rows", undefined, 3), cols = await s.num("Enter number of columns", undefined, 4);
+    if (!rows || !cols || rows < 1 || cols < 1 || rows % 1 || cols % 1 || rows * cols > 10000) return s.say("Rows and columns must be whole numbers, at most 10 000 items in total");
+    const b = boxOf(es)!; const dy = rows > 1 ? await s.num("Specify the distance between rows", undefined, +fmt(Math.max(b[3] - b[1], 1) * 1.5, 4)) : 0; const dx = cols > 1 ? await s.num("Specify the distance between columns", undefined, +fmt(Math.max(b[2] - b[0], 1) * 1.5, 4)) : 0;
+    if (dx === null || dy === null) return; const out: Ent[] = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (r || c) { const f = translate([c * +dx, r * +dy]); out.push(...es.map((e) => ({ ...transformEnt(e, f), id: eid() }))); }
+    s.addEnts(out); s.say(`Array: ${rows} × ${cols} (${out.length} new objects)`);
+  },
+  async ARRAYPOLAR(s) {
+    const es = await s.select(); if (!es.length) return; const c = await s.pt("Specify center point of array:", null); if (!c) return;
+    const n = await s.num("Enter number of items", undefined, 6); if (!n || n < 2 || n % 1 || n > 10000) return s.say("Requires a whole number of items from 2 to 10 000");
+    const fill = await s.num("Specify the angle to fill (+ counter-clockwise)", undefined, 360); if (fill === null || fill === 0 || Math.abs(fill) > 360) return s.say("The fill angle must be between -360 and 360, not 0");
+    const step = Math.abs(fill) === 360 ? rad(fill) / n : rad(fill) / (n - 1); const out: Ent[] = [];
+    for (let k = 1; k < n; k++) { const t = step * k; out.push(...es.map((e) => ({ ...transformEnt(e, rotateAbout(c, t), { rot: t }), id: eid() }))); }
+    s.addEnts(out); s.say(`Polar array: ${n} items over ${fmt(fill, 2)}°`);
+  },
+  async DIMANGULAR(s) {
+    const a = await s.pickOne("Select first line:"); if (!a || a.t !== "line") return s.say("Select a line"); const pa = s.lastPick ?? a.b;
+    const b = await s.pickOne("Select second line:"); if (!b || b.t !== "line" || b.id === a.id) return s.say("Select a second, different line"); const pb = s.lastPick ?? b.b;
+    const X = intersectLines(a.a, a.b, b.a, b.b)[0]; if (!X) return s.say("Lines are parallel: no angle");
+    const ray = (l: typeof a, p: V): V => (dist(l.a, X) > dist(l.b, X) ? l.a : dist(l.b, X) > 1e-9 ? l.b : p);
+    const at = await s.pt("Specify dimension arc line location:", X); if (!at) return;
+    const lay = s.layerOf("Dimensions") ? "Dimensions" : s.d.current; const dm = s.ent({ t: "dim", kind: "angular", c: X, p1: ray(a, pa), p2: ray(b, pb), at, layer: lay }); s.addEnts([dm]); s.say(`Dimension text = ${dimGeometry(dm as never).text}`);
   },
   async LAYER(s, args) {
     const name = args.trim() || (await s.textIn(`Current layer "${s.d.current}". Enter layer name to make current (new names are created):`))?.trim(); if (!name) return;
@@ -225,6 +294,8 @@ export const COMMANDS: Record<string, Cmd> = {
   async HELP(s) { s.say(`Commands: ${Object.keys(COMMANDS).sort().join(", ")}. Aliases: ${Object.entries(ALIASES).map(([k, v]) => `${k}=${v}`).join(" ")}`); },
 };
 const PALETTE = ["#ff5d4f", "#3fcf8e", "#5ec8ff", "#f5c85c", "#c9a2ff", "#ff9ad5", "#ffffff"];
+/** Does block `outer` (directly or through nested inserts) contain block `inner`? */
+function nests(outer: string, inner: string, depth = 0): boolean { const b = BLOCKS.get(outer); if (!b || depth > 8) return false; return b.ents.some((e) => e.t === "insert" && (e.name === inner || nests(e.name, inner, depth + 1))); }
 const polarMid = (e: Ent): V => { const b = bbox(e); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; };
 function intersectLines(a: V, b: V, c: V, d: V): V[] { return intersections({ id: "", layer: "", t: "line", a, b }, { id: "", layer: "", t: "line", a: c, b: d }).length ? intersections({ id: "", layer: "", t: "line", a, b }, { id: "", layer: "", t: "line", a: c, b: d }) : infX(a, b, c, d); }
 function infX(a: V, b: V, c: V, d: V): V[] { const r = sub(b, a), q = sub(d, c), den = r[0] * q[1] - r[1] * q[0]; if (Math.abs(den) < 1e-12) return []; const u = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den; return [add(a, [r[0] * u, r[1] * u])]; }

@@ -12,8 +12,8 @@ const restore = (): Drawing | undefined => { try { const s = localStorage.getIte
 
 const TOOLS: { group: string; items: [string, string, string][] }[] = [ // [command, label, icon path]
   { group: "Draw", items: [["LINE", "Line (L)", "M4 20 20 4"], ["PLINE", "Polyline (PL)", "M3 19 9 7l6 8 6-10"], ["CIRCLE", "Circle (C)", "M12 4a8 8 0 1 0 0.01 0Z"], ["ARC", "Arc, 3 points (A)", "M4 18A10 10 0 0 1 20 18"], ["RECTANG", "Rectangle (REC)", "M4 6h16v12H4Z"], ["POLYGON", "Polygon (POL)", "M12 3l8 6-3 10H7L4 9Z"], ["TEXT", "Text (T)", "M5 5h14M12 5v14"], ["HATCH", "Hatch (H)", "M4 4h16v16H4ZM4 12 12 4M4 20 20 4M12 20l8-8"]] },
-  { group: "Modify", items: [["MOVE", "Move (M)", "M12 3v18M3 12h18M12 3l-3 3m3-3 3 3M12 21l-3-3m3 3 3-3"], ["COPY", "Copy (CO)", "M8 8h12v12H8ZM4 4h12v2M4 4v12h2"], ["ROTATE", "Rotate (RO)", "M19 12a7 7 0 1 1-2-5m2-3v4h-4"], ["SCALE", "Scale (SC)", "M4 20V10h10v10ZM10 4h10v10"], ["MIRROR", "Mirror (MI)", "M12 3v18M9 7 4 17h5ZM15 7l5 10h-5Z"], ["OFFSET", "Offset (O)", "M4 18 18 4M8 20 20 8"], ["TRIM", "Trim (TR)", "M4 12h16M12 4v6m0 4v6"], ["FILLET", "Corner / fillet 0 (F)", "M4 20V8a4 4 0 0 1 4-4h12"], ["EXPLODE", "Explode (X)", "M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M18 6l-3 3M9 15l-3 3"], ["ERASE", "Erase (E)", "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"]] },
-  { group: "Annotate", items: [["DIMLINEAR", "Linear dimension (DLI)", "M4 8v10M20 8v10M4 14h16"], ["DIMALIGNED", "Aligned dimension (DAL)", "M4 16 16 4M7 19 19 7M5 17l12-12"], ["DIMRADIUS", "Radius dimension (DRA)", "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M12 12l6-6"], ["DIMDIAMETER", "Diameter dimension (DDI)", "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M6 18 18 6"], ["DIST", "Measure distance (DI)", "M3 17 17 3l4 4L7 21ZM7 13l2 2M10 10l2 2M13 7l2 2"]] },
+  { group: "Modify", items: [["MOVE", "Move (M)", "M12 3v18M3 12h18M12 3l-3 3m3-3 3 3M12 21l-3-3m3 3 3-3"], ["COPY", "Copy (CO)", "M8 8h12v12H8ZM4 4h12v2M4 4v12h2"], ["ROTATE", "Rotate (RO)", "M19 12a7 7 0 1 1-2-5m2-3v4h-4"], ["SCALE", "Scale (SC)", "M4 20V10h10v10ZM10 4h10v10"], ["MIRROR", "Mirror (MI)", "M12 3v18M9 7 4 17h5ZM15 7l5 10h-5Z"], ["OFFSET", "Offset (O)", "M4 18 18 4M8 20 20 8"], ["TRIM", "Trim (TR)", "M4 12h16M12 4v6m0 4v6"], ["EXTEND", "Extend (EX)", "M3 12h11M18 4v16M11 9l3 3-3 3"], ["FILLET", "Fillet, R option for radius (F)", "M4 20V10a6 6 0 0 1 6-6h10"], ["CHAMFER", "Chamfer (CHA)", "M4 20V10l6-6h10"], ["ARRAYRECT", "Rectangular array (AR)", "M4 4h5v5H4ZM15 4h5v5h-5ZM4 15h5v5H4ZM15 15h5v5h-5Z"], ["ARRAYPOLAR", "Polar array (PA)", "M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"], ["EXPLODE", "Explode (X)", "M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M18 6l-3 3M9 15l-3 3"], ["ERASE", "Erase (E)", "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"]] },
+  { group: "Annotate", items: [["DIMLINEAR", "Linear dimension (DLI)", "M4 8v10M20 8v10M4 14h16"], ["DIMALIGNED", "Aligned dimension (DAL)", "M4 16 16 4M7 19 19 7M5 17l12-12"], ["DIMRADIUS", "Radius dimension (DRA)", "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M12 12l6-6"], ["DIMDIAMETER", "Diameter dimension (DDI)", "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M6 18 18 6"], ["DIMANGULAR", "Angular dimension (DAN)", "M4 20h16M4 20 16 6M14 20a10 10 0 0 0-3-7"], ["BLOCK", "Make block (B)", "M4 4h16v16H4ZM8 8h8v8H8Z"], ["INSERT", "Insert block (I)", "M4 4h16v16H4ZM12 8v8M8 12h8"], ["DIST", "Measure distance (DI)", "M3 17 17 3l4 4L7 21ZM7 13l2 2M10 10l2 2M13 7l2 2"]] },
 ];
 const SNAPS: [SnapKind, string][] = [["end", "Endpoint"], ["mid", "Midpoint"], ["center", "Center"], ["quad", "Quadrant"], ["int", "Intersection"], ["perp", "Perpendicular"], ["near", "Nearest"]];
 
@@ -182,7 +182,7 @@ export default function App() {
   );
 }
 const inBox = (p: V, b: [number, number, number, number]) => p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
-const kindName = (e: Ent) => ({ line: "line", circle: "circle", arc: "arc", poly: "polyline", text: "text", dim: "dimension", hatch: "hatch" })[e.t];
+const kindName = (e: Ent) => ({ line: "line", circle: "circle", arc: "arc", poly: "polyline", text: "text", dim: "dimension", hatch: "hatch", insert: "block reference" })[e.t];
 function measures(e: Ent): [string, string][] {
   const f = (v: number) => fmt(v, 4); const area = (P: V[]) => Math.abs(P.reduce((s, p, i) => s + p[0] * P[(i + 1) % P.length][1] - P[(i + 1) % P.length][0] * p[1], 0)) / 2;
   const plen = (P: V[], c: boolean) => P.reduce((s, p, i) => s + (i ? dist(P[i - 1], p) : 0), 0) + (c && P.length > 1 ? dist(P[P.length - 1], P[0]) : 0);
@@ -193,6 +193,7 @@ function measures(e: Ent): [string, string][] {
     case "poly": return [["Vertices", String(e.pts.length)], ["Closed", e.closed ? "Yes" : "No"], ["Length", f(plen(e.pts, e.closed))], ...(e.closed ? [["Area", f(area(e.pts))] as [string, string]] : [])];
     case "hatch": return [["Area", f(area(e.pts))]];
     case "text": return [["Height", f(e.h)], ["Rotation", `${fmt(deg(e.rot), 2)}°`]];
+    case "insert": return [["Block", e.name], ["Insertion point", `${f(e.p[0])}, ${f(e.p[1])}`], ["Scale", f(e.k)], ["Rotation", `${fmt(deg(e.rot), 2)}°`]];
     case "dim": return [["Kind", e.kind], ["Measurement", f(e.kind === "diameter" ? 2 * dist(e.p1, e.p2) : e.kind === "radius" ? dist(e.p1, e.p2) : e.kind === "aligned" ? dist(e.p1, e.p2) : Math.abs(e.kind === "horizontal" ? e.p2[0] - e.p1[0] : e.p2[1] - e.p1[1]))]];
   }
 }

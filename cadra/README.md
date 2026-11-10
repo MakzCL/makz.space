@@ -53,8 +53,9 @@ When a command asks for a point, you can enter it in several ways:
 | Group | Commands (aliases) |
 |---|---|
 | Draw | LINE (L), PLINE (PL), CIRCLE (C, with the 2P and Diameter options), ARC (A, 3 points), RECTANG (REC), POLYGON (POL), TEXT (T/DT), HATCH (H) |
-| Modify | MOVE (M), COPY (CO/CP, multiple), ROTATE (RO), SCALE (SC), MIRROR (MI, keep or erase the source), OFFSET (O), TRIM (TR), FILLET (F, radius 0 corner), EXPLODE (X), ERASE (E) |
-| Annotate | DIMLINEAR (DLI, picks horizontal or vertical automatically), DIMALIGNED (DAL), DIMRADIUS (DRA), DIMDIAMETER (DDI), DIST (DI) |
+| Modify | MOVE (M), COPY (CO/CP, multiple), ROTATE (RO), SCALE (SC), MIRROR (MI, keep or erase the source), OFFSET (O), TRIM (TR), EXTEND (EX), FILLET (F, Radius option; 0 makes a sharp corner), CHAMFER (CHA, two distances), ARRAYRECT (AR), ARRAYPOLAR (PA), EXPLODE (X), ERASE (E) |
+| Annotate | DIMLINEAR (DLI, picks horizontal or vertical automatically), DIMALIGNED (DAL), DIMRADIUS (DRA), DIMDIAMETER (DDI), DIMANGULAR (DAN), DIST (DI) |
+| Blocks | BLOCK (B), INSERT (I); EXPLODE breaks a block reference into its objects |
 | Other | LAYER (LA), UNDO (U), REDO, ZOOM (Z, extents), HELP, NEW, OPEN, SAVE, DXFOUT, SVGOUT |
 
 ### Object snaps
@@ -71,7 +72,7 @@ The available snaps are endpoint, midpoint, center, quadrant, intersection, perp
 | Format | Read | Write | Notes |
 |---|---|---|---|
 | `.cadra` (JSON) | yes | yes | Lossless native format. |
-| DXF (ASCII) | yes | yes (R12 / AC1009) | Read: LINE, CIRCLE, ARC, LWPOLYLINE, POLYLINE, TEXT, MTEXT, HATCH (polyline boundaries), and DIMENSION (linear, aligned, radius, diameter). Anything else is listed as "not imported" when the file opens. Written dimensions become lines and text, and hatches become closed polylines. |
+| DXF (ASCII) | yes | yes (R12 / AC1009) | Blocks are written as BLOCK definitions with INSERT references, and read back. Read: LINE, CIRCLE, ARC, LWPOLYLINE, POLYLINE, TEXT, MTEXT, HATCH (polyline boundaries), and DIMENSION (linear, aligned, radius, diameter). Anything else is listed as "not imported" when the file opens. Written dimensions become lines and text, and hatches become closed polylines. |
 | SVG | | yes | Visible layers, at real size in mm or inches. |
 
 The tests check DXF output with [ezdxf](https://ezdxf.mozman.de/), an independent reader: `tests/tools/check_dxf.py` must report 0 errors. CADRA also reads an R2018 file written by ezdxf, which is checked in `tests/dxf.test.ts`.
@@ -85,10 +86,10 @@ Each drawing is autosaved in the browser after every change, so a reload brings 
 | Command line, coordinate entry, aliases, repeat last command | ✅ |
 | Object snaps, ortho, grid snap | ✅ (no polar tracking yet) |
 | Draw: line, polyline, circle, 3-point arc, rectangle, polygon, text, hatch | ✅ (no ellipse, spline or multiline text editor yet) |
-| Modify: move, copy, rotate, scale, mirror, offset, trim, explode, erase, corner | ✅ (no extend, stretch or array yet; fillet only joins corners, with radius 0) |
-| Dimensions: linear, aligned, radius, diameter | ✅ (no angular or ordinate dimensions, and no dimension styles yet) |
+| Modify: move, copy, rotate, scale, mirror, offset, trim, extend, fillet (any radius), chamfer, rectangular and polar array, explode, erase | ✅ (no stretch or path array yet; fillet and chamfer work on lines) |
+| Dimensions: linear, aligned, radius, diameter, angular | ✅ (no ordinate dimensions or dimension styles yet) |
 | Layers: current, visibility, lock, colour | ✅ (no linetypes or lineweights yet) |
-| Blocks / INSERT | ❌ not yet |
+| Blocks: BLOCK, INSERT (scale, rotation), nested blocks, EXPLODE | ✅ (no block attributes or block editor yet) |
 | DXF in and out | ✅ (R12 out; common entities in) |
 | DWG | ❌ not supported |
 | Paper space, layouts, plotting to PDF | ❌ not yet (SVG export only) |

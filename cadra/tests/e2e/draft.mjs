@@ -47,11 +47,20 @@ await p.getByRole("button", { name: "Show layer Holes" }).click();
 // 7 bad input and Esc
 await cmd("line", "nonsense"); /Invalid point/.test(await log()) ? ok("invalid coordinates are explained, command keeps waiting") : fail("invalid");
 await p.keyboard.press("Escape"); await p.waitForTimeout(40); /\*Cancel\*/.test(await log()) ? ok("Esc cancels the running command") : fail("esc");
+// 7b fillet with radius by clicking two lines, polar array, block + insert
+await cmd("l", "200,0", "240,0", "240,40", ""); await cmd("c", "300,0", "2"); await cmd("z"); const fa = await scr(220, 0), fb = await scr(240, 20);
+await cmd("f", "r", "5"); await p.mouse.click(fa[0], fa[1]); await p.mouse.click(fb[0], fb[1]); await p.waitForTimeout(60);
+const props = async () => { await p.keyboard.press("Escape"); const c = await scr(240 - 5 + 5 * Math.cos(-Math.PI / 4), 5 + 5 * Math.sin(-Math.PI / 4)); await p.mouse.click(c[0], c[1]); await p.waitForTimeout(60); return p.locator("[aria-label=Properties]").innerText(); };
+/1 arc/.test(await props()) && /Radius\s*5/.test(await p.locator("[aria-label=Properties]").innerText()) ? ok("FILLET R5 on two clicked lines made a radius-5 arc") : fail(`fillet: ${(await log()).slice(-200)}`);
+await p.keyboard.press("Escape"); const n0 = await count() - 1; await cmd("pa"); const pc = await scr(300, 0); await p.mouse.click(pc[0], pc[1]); await cmd("", "300,20", "6", "360");
+(await count()) === n0 + 6 ? ok("ARRAYPOLAR made 6 circles around a centre") : fail(`polar array count ${await count()} vs ${n0 + 6}: ${(await log()).slice(-200)}`);
+await cmd("b", "HOLE6", "300,20"); const w3 = await scr(276, -10), w4 = await scr(324, 45); await p.mouse.move(w3[0], w3[1]); await p.mouse.down(); await p.mouse.move(w4[0], w4[1], { steps: 4 }); await p.mouse.up(); await cmd("");
+await cmd("i", "HOLE6", "260,20", "0.5", "0"); /Block "HOLE6" defined from 6 object/.test(await log()) && /Inserted "HOLE6"/.test(await log()) ? ok("BLOCK from a window selection, then INSERT at half scale") : fail(`block: ${(await log()).slice(-300)}`);
 // 8 export DXF, validate with ezdxf, reopen
 await p.getByRole("button", { name: "File" }).click(); const [dl] = await Promise.all([p.waitForEvent("download"), p.getByRole("menuitem", { name: /Export DXF/ }).click()]);
 const f = `${OUT}/cadra-e2e.dxf`; await dl.saveAs(f);
 const py = execFileSync("/opt/nuc-venv/bin/python", ["-c", "import sys,ezdxf;from ezdxf import recover;d,a=recover.readfile(sys.argv[1]);c={};[c.__setitem__(e.dxftype(),c.get(e.dxftype(),0)+1) for e in d.modelspace()];print(len(a.errors),sorted(l.dxf.name for l in d.layers),c)", f]).toString().trim();
-py.startsWith("0 ") && py.includes("Holes") ? ok(`exported DXF opens in ezdxf with no errors: ${py}`) : fail(`ezdxf ${py}`);
+py.startsWith("0 ") && py.includes("Holes") && py.includes("INSERT") ? ok(`exported DXF opens in ezdxf with no errors: ${py}`) : fail(`ezdxf ${py}`);
 await p.getByRole("button", { name: "File" }).click(); await p.getByRole("menuitem", { name: "New" }).click(); await p.waitForTimeout(100);
 const [fc] = await Promise.all([p.waitForEvent("filechooser"), (async () => { await p.getByRole("button", { name: "File" }).click(); await p.getByRole("menuitem", { name: /Open/ }).click(); })()]);
 await fc.setFiles(f); await p.waitForTimeout(300); /Opened cadra-e2e\.dxf: \d+ objects/.test(await log()) && (await count()) > 5 ? ok(`reopened the DXF (${await count()} objects)`) : fail(`reopen ${(await log()).slice(-200)}`);
