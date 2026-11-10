@@ -10,6 +10,7 @@ import { loadMembers } from "../actions.ts";
 import { navigate } from "../router.ts";
 import { displayName, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
+import { EmotesTab } from "../features/Emotes.tsx";
 import { AutoModTab, BoostStatusTab, DiscoveryTab, ForumTab, InsightsTab, IntegrationsTab, OnboardingTab, PruneSection, UnsavedBar } from "../features/ServerTools.tsx";
 
 const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
@@ -26,7 +27,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
     ["overview", "Overview", has(p, P.MANAGE_GUILD)], ["roles", "Roles", has(p, P.MANAGE_ROLES)], ["permissions", "Channel permissions", has(p, P.MANAGE_ROLES)],
     ["members", "Members", has(p, P.MANAGE_ROLES) || has(p, P.KICK_MEMBERS) || has(p, P.BAN_MEMBERS) || has(p, P.MODERATE_MEMBERS)],
     // Shown once the server supports expressions (it then sends `emojis`, even if empty).
-    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["stickers", "Stickers", has(p, P.MANAGE_EXPRESSIONS) && guild.stickers !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined],
+    ["emoji", "Emoji", has(p, P.MANAGE_EXPRESSIONS) && guild.emojis !== undefined], ["stickers", "Stickers", has(p, P.MANAGE_EXPRESSIONS) && guild.stickers !== undefined], ["soundboard", "Soundboard", has(p, P.MANAGE_EXPRESSIONS) && guild.sounds !== undefined], ["emotes", "7TV and BTTV", has(p, P.MANAGE_EXPRESSIONS)],
     ["bans", "Bans", has(p, P.BAN_MEMBERS)], ["invites", "Invites", has(p, P.MANAGE_GUILD)], ["audit", "Audit log", has(p, P.VIEW_AUDIT_LOG)],
     ["automod", "AutoMod", has(p, P.MANAGE_GUILD)], ["onboarding", "Onboarding", has(p, P.MANAGE_GUILD)], ["insights", "Server Insights", has(p, P.MANAGE_GUILD)],
     ["integrations", "Integrations", has(p, P.MANAGE_WEBHOOKS) || has(p, P.MANAGE_GUILD)], ["forums", "Forums", has(p, P.MANAGE_CHANNELS)],
@@ -48,6 +49,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
           {tab === "bans" && <Bans guild={guild} />}
           {tab === "invites" && <Invites guild={guild} />}
           {tab === "emoji" && <EmojiTab guild={guild} />}
+          {tab === "emotes" && <EmotesTab guild={guild} />}
           {tab === "stickers" && <StickersTab guild={guild} />}
           {tab === "soundboard" && <SoundboardTab guild={guild} />}
           {tab === "audit" && <Audit guild={guild} />}

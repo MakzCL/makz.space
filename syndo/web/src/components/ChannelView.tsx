@@ -34,6 +34,7 @@ import { ChannelType as CT } from "@syndo/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { customReaction, emojiText, myEmojis, myStickers, reactionKey } from "../expressions.ts";
+import { ThirdPartyEmote, emoteGroups, emoteToken, emoteUrl, loadEmotes, parseEmoteToken, useEmotes } from "../features/Emotes.tsx";
 import { ConversationPanel } from "../appearance/ConversationPanel.tsx";
 import { StyledName, useCosmetics } from "../appearance/effects.tsx";
 import { scopeKey, useAppearance } from "../appearance/store.ts";
@@ -544,9 +545,21 @@ function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {
   );
 }
 
-export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLabel }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null; onClear?: () => void; clearLabel?: string }) {
+/** A favourite / recent entry: unicode, a server emoji or a 7TV/BTTV emote. */
+function pickerGlyph(e: string) {
+  const t = parseEmoteToken(e);
+  if (t) return <ThirdPartyEmote provider={t.provider} id={t.id} name={t.name} />;
+  if (/^<a?:/.test(e)) return <CustomEmoji id={e.match(/:(\d+)>$/)?.[1] ?? ""} name={e.match(/:(\w+):/)?.[1] ?? ""} />;
+  return e;
+}
+
+export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLabel, emotes }: { onPick: (e: string) => void; onClose: () => void; anchor?: HTMLElement | null; guildId?: string | null; onClear?: () => void; clearLabel?: string; emotes?: boolean }) {
   const custom = useStore(useShallow((s) => Object.values(s.guilds).map((g) => g.emojis?.length ?? 0).join(",")));
   const groups = useMemo(() => myEmojis(guildId), [custom, guildId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 7TV / BTTV sections (message box only — reactions and icons take emoji the server can check).
+  const emoteVersion = useEmotes((s) => `${s.global?.length ?? 0}:${Object.keys(s.guild).length}`);
+  useEffect(() => { if (emotes) loadEmotes(guildId); }, [emotes, guildId]);
+  const emoteSecs = useMemo(() => (emotes ? emoteGroups(guildId) : []), [emotes, guildId, emoteVersion]);
   const ALL = "😀 😃 😄 😁 😆 🥹 😅 😂 🤣 🥲 😊 😇 🙂 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 🤗 🤔 🫡 🤭 🤫 😶 😐 😑 😬 🙄 😯 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 👍 👎 👏 🙌 👐 🤝 🙏 ✌️ 🤞 🫶 🤟 🤘 👌 👋 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🌟 ⭐ 🔥 🎉 🎊 🌻 🌈 ☀️ 🌙 ⚡ 🍀 🌸 🐶 🐱 🦊 🐻 🐼 🐨 🦁 🐸 🐧 🦄 🍕 🍔 🍟 🍩 🍪 🎂 🍰 ☕ 🧋 🎮 🎧 🎵 🎨 📚 ⚽ 🏀 🚀 🧦 👀 ✅ ❌ ❓ ❗".split(" ");
   const [q, setQ] = useState("");
   const settings = useStore((s) => (s.me?.settings ?? NO_SETTINGS) as any);
@@ -584,13 +597,17 @@ export function EmojiPicker({ onPick, onClose, anchor, guildId, onClear, clearLa
       {onClear && <button className="picker-clear" onClick={onClear}>{clearLabel ?? "Remove"}</button>}
       <div className="tone-row" role="radiogroup" aria-label="Skin tone">{TONES.map((t) => <button key={t || "default"} role="radio" aria-checked={tone === t} className={tone === t ? "on" : ""} onClick={() => import("../actions.ts").then((a) => a.updateSettings({ emoji_tone: t }))} aria-label={t ? `Skin tone ${TONES.indexOf(t)}` : "Default skin tone"}>{"👋" + t}</button>)}</div>
       <div className="picker-scroll">
-        {!q && favs.length > 0 && <section aria-label="Favorites"><h4 className="picker-sec">Favorites</h4><div className="picker-grid">{favs.map((e) => <button key={e} onClick={() => onPick(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e} title="Right-click to unfavorite">{/^<a?:/.test(e) ? <CustomEmoji id={e.match(/:(\d+)>$/)?.[1] ?? ""} name={e.match(/:(\w+):/)?.[1] ?? ""} /> : e}</button>)}</div></section>}
-        {!q && recent.length > 0 && <section aria-label="Frequently used"><h4 className="picker-sec">Frequently used</h4><div className="picker-grid">{recent.map((e) => <button key={e} onClick={() => pickEmoji(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e}>{/^<a?:/.test(e) ? <CustomEmoji id={e.match(/:(\d+)>$/)?.[1] ?? ""} name={e.match(/:(\w+):/)?.[1] ?? ""} /> : e}</button>)}</div></section>}
+        {!q && favs.length > 0 && <section aria-label="Favorites"><h4 className="picker-sec">Favorites</h4><div className="picker-grid">{favs.filter((e) => emotes || !parseEmoteToken(e)).map((e) => <button key={e} onClick={() => onPick(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e} title="Right-click to unfavorite">{pickerGlyph(e)}</button>)}</div></section>}
+        {!q && recent.length > 0 && <section aria-label="Frequently used"><h4 className="picker-sec">Frequently used</h4><div className="picker-grid">{recent.filter((e) => emotes || !parseEmoteToken(e)).map((e) => <button key={e} onClick={() => pickEmoji(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e}>{pickerGlyph(e)}</button>)}</div></section>}
         {groups.map((g) => { const list = g.emojis.filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase())); return list.length ? <section key={g.guildId} aria-label={g.guildName}>
           <h4 className="picker-sec">{g.guildName}</h4>
           <div className="picker-grid">{list.map((e) => <button key={e.id} onClick={() => pickEmoji(emojiText(e))} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(emojiText(e)); }} aria-label={`:${e.name}:`} title={`:${e.name}:`}><img src={e.url} alt="" loading="lazy" draggable={false} /></button>)}</div>
         </section> : null; })}
-        {groups.length > 0 && <h4 className="picker-sec">Emoji</h4>}
+        {emoteSecs.map((g) => { const list = g.emotes.filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase())); return list.length ? <section key={g.key} aria-label={g.title}>
+          <h4 className="picker-sec">{g.title}</h4>
+          <div className="picker-grid emote-grid">{list.slice(0, q ? 200 : 400).map((e) => <button key={e.provider + e.id} onClick={() => pickEmoji(emoteToken(e))} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(emoteToken(e)); }} aria-label={`:${e.name}:`} title={`:${e.name}:`}><img src={emoteUrl(e.provider, e.id)} alt="" loading="lazy" draggable={false} /></button>)}</div>
+        </section> : null; })}
+        {(groups.length > 0 || emoteSecs.length > 0) && <h4 className="picker-sec">Emoji</h4>}
         <div className="picker-grid">{ALL.filter((e) => !q || e.includes(q)).map((e) => <button key={e} onClick={() => pickEmoji(e)} onContextMenu={(ev) => { ev.preventDefault(); toggleFav(e); }} aria-label={e} title="Right-click to favorite">{withTone(e)}</button>)}</div>
       </div>
     </div>, document.body)
@@ -794,7 +811,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
             if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !text && editLast()) e.preventDefault();
           }} />
         <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
-        {emoji && <EmojiPicker anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
+        {emoji && <EmojiPicker emotes anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {hasStickers && <button ref={stickerBtn} className={`icon-btn ${stickers ? "active" : ""}`} aria-label="Stickers" aria-expanded={stickers} title="Stickers" onClick={() => setStickers((v) => !v)}><StickerIcon size={20} /></button>}
         <ComposerExtras channel={channel} onSendGif={(url) => sendMessage(channel.id, url, { reply_to: reply?.id })} />
         {stickers && <StickerPicker anchor={stickerBtn.current} guildId={channel.guild_id} onPick={(st) => { setStickers(false); sendMessage(channel.id, "", { sticker: st, reply_to: reply?.id }); onClearReply(); }} onClose={() => setStickers(false)} />}

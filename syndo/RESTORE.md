@@ -1,5 +1,21 @@
 # SEND restore points
 
+## 2026-11-10 — 7TV and BTTV emotes
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `30168c15-2803-4e0f-9cd2-34a03c51d726`, `SOURCE_COMMIT` `d1c3bcb` |
+| Web (Pages `syndo-app`) | deployment `6157394f-5eb8-4578-987e-3580b92e4ad5` |
+| Database | migrations up to `007`; this release adds `008_third_party_emotes.sql` (one column with a default — the old backend ignores it) |
+| Source | branch `backup/pre-emotes-20261110` |
+
+Global 7TV and BTTV sets everywhere; a server can turn them off or link a channel's set (7TV profile or set link, or a Twitch user ID) under Server settings → 7TV and BTTV. Typed as `:name:` or picked from the message box's emoji menu; messages store `<7tv:name:id>` / `<bttv:name:id>`. Images are fetched once by the backend, cached in R2 under `emotes/`, and served from `/api/emotes/img/…`.
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy `30168c15` at 100%.
+2. Web: Pages → `syndo-app` → Deployments → `6157394f` → Rollback to this deployment.
+3. Database: nothing needed (the column is unused by the old code).
+
 ## 2026-11-10 — desktop 0.6.0 (game detection: "Playing …" on your profile)
 
 | Layer | Restore point (before this release) |

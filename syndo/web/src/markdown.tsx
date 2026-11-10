@@ -2,6 +2,7 @@ import { askConfirm, askText } from "./components/overlay.tsx";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { channelById, memberName, useStore } from "./store.ts";
 import { emojiUrl } from "@syndo/shared";
+import { ThirdPartyEmote } from "./features/Emotes.tsx";
 
 /**
  * Message markdown → React elements. Never produces HTML strings, so message
@@ -13,9 +14,9 @@ import { emojiUrl } from "@syndo/shared";
 export interface MdCtx { guildId: string | null; onMention?: (userId: string, el: HTMLElement) => void; onChannel?: (id: string) => void; mentionMe?: (id: string) => boolean }
 
 /** Only emoji (custom or unicode, up to 30) → shown large, like Discord's "jumbo" emoji. */
-const ONLY_EMOJI = /^(?:\s*(?:<a?:[A-Za-z0-9_]{2,32}:\d{1,20}>|\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*|\p{Regional_Indicator}{2}))+\s*$/u;
+const ONLY_EMOJI = /^(?:\s*(?:<a?:[A-Za-z0-9_]{2,32}:\d{1,20}>|<(?:7tv|bttv):[A-Za-z0-9_]{2,32}:[A-Za-z0-9]{24,26}>|\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*|\p{Regional_Indicator}{2}))+\s*$/u;
 export function Markdown({ text, ctx }: { text: string; ctx: MdCtx }) {
-  const jumbo = text.length < 900 && ONLY_EMOJI.test(text) && (text.match(/<a?:|\p{Extended_Pictographic}|\p{Regional_Indicator}{2}/gu)?.length ?? 0) <= 30;
+  const jumbo = text.length < 900 && ONLY_EMOJI.test(text) && (text.match(/<a?:|<(?:7tv|bttv):|\p{Extended_Pictographic}|\p{Regional_Indicator}{2}/gu)?.length ?? 0) <= 30;
   return jumbo ? <span className="md-jumbo">{blocks(text, ctx)}</span> : <>{blocks(text, ctx)}</>;
 }
 
@@ -95,6 +96,7 @@ const RULES: { re: RegExp; render: (m: RegExpExecArray, ctx: MdCtx, key: number)
   { re: /^<#(\d{1,20})>/, render: (m, c, k) => <ChannelMention key={k} id={m[1]!} ctx={c} /> },
   { re: /^<t:(-?\d{1,13})(?::([tTdDfFR]))?>/, render: (m, _c, k) => <Timestamp key={k} unix={Number(m[1])} style={(m[2] ?? "f") as any} /> },
   { re: /^<a?:([a-zA-Z0-9_]{2,32}):(\d{1,20})>/, render: (m, _c, k) => <CustomEmoji key={k} id={m[2]!} name={m[1]!} /> },
+  { re: /^<(7tv|bttv):([A-Za-z0-9_]{2,32}):([A-Za-z0-9]{24,26})>/, render: (m, _c, k) => <ThirdPartyEmote key={k} provider={m[1]!} name={m[2]!} id={m[3]!} /> },
   { re: /^@(everyone|here)\b/, render: (m, _c, k) => <span key={k} className="mention">@{m[1]}</span> },
   { re: /^<(https?:\/\/[^\s>]+)>/, render: (m, _c, k) => <SafeLink key={k} href={m[1]!} /> },
   { re: /^\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)/, render: (m, _c, k) => <SafeLink key={k} href={m[2]!} label={m[1]!} /> },
@@ -254,6 +256,7 @@ export function plainText(s: string) {
     .replace(/<t:(-?\d{1,13})(?::([tTdDfFR]))?>/g, (_, u, st) => fmtStamp(Number(u), (st ?? "f") as any))
     .replace(/<#(\d+)>/g, (_, id) => `#${channelById(id)?.name ?? "channel"}`)
     .replace(/<a?:([A-Za-z0-9_]{2,32}):\d{1,20}>/g, ":$1:")
+    .replace(/<(?:7tv|bttv):([A-Za-z0-9_]{2,32}):[A-Za-z0-9]{24,26}>/g, ":$1:")
     .replace(/\|\|[\s\S]*?\|\|/g, "▒▒▒▒")
     .replace(/[*_~`]/g, "");
 }

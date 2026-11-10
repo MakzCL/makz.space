@@ -1809,3 +1809,10 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .ctl-seg, .ctl-chev { height: 42px; } .ctl-chev { width: 22px; }
   .call-controls .ctl.hang-up { width: 56px; height: 48px; }
 }
+
+/* 7TV / BTTV emotes: often wider than tall, so size by height */
+.md-emoji.md-emote { width: auto; height: 1.5em; max-width: 6em; object-fit: contain; }
+.md-jumbo .md-emoji.md-emote { width: auto; height: 3rem; max-width: 12rem; }
+.picker-grid.emote-grid img { object-fit: contain; }
+.emote-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; background: var(--bg2, #0002); border-radius: var(--r); }
+.emote-preview .md-emote { height: 28px; }

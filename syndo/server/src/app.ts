@@ -18,6 +18,7 @@ import { dmRoutes } from "./routes/dms.ts";
 import { guildRoutes, inviteRoutes } from "./routes/guilds.ts";
 import { attachmentDownloadRoute, embedMediaRoute, messageRoutes } from "./routes/messages.ts";
 import { localLargeUploads } from "./largeUpload.ts";
+import { emoteRoutes } from "./routes/emotes.ts";
 import { userRoutes } from "./routes/users.ts";
 import { voiceRoutes } from "./routes/voice.ts";
 import { expressionRoutes } from "./routes/expressions.ts";
@@ -113,6 +114,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(messageRoutes);
   await app.register(attachmentDownloadRoute);
   await app.register(localLargeUploads);
+  await app.register(emoteRoutes);
   await app.register(embedMediaRoute);
   await app.register(voiceRoutes);
   await app.register(expressionRoutes);

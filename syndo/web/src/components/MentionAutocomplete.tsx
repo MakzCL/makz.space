@@ -5,6 +5,7 @@ import { api } from "../api.ts";
 import { can, displayName, useStore } from "../store.ts";
 import { Avatar } from "./ui.tsx";
 import { emojiText, myEmojis } from "../expressions.ts";
+import { emoteGroups, emoteToken, emoteUrl, loadEmotes, useEmotes } from "../features/Emotes.tsx";
 
 type Suggestion = { key: string; label: string; detail: string; value: string; user?: Member["user"]; image?: string };
 
@@ -23,6 +24,9 @@ export function useMentionAutocomplete(channel: Channel, text: string, setText: 
   const emojiMatch = prefix.match(/(?:^|\s):([A-Za-z0-9_]{2,32})$/);
   const match = emojiMatch ?? prefix.match(/(?:^|\s)@([^\s@<>`]{0,32})$/u);
   const kind = emojiMatch ? "emoji" : "mention";
+  // 7TV/BTTV emotes join the :name: suggestions once loaded.
+  const emoteVersion = useEmotes((s) => `${s.global?.length ?? 0}:${Object.keys(s.guild).length}`);
+  useEffect(() => { if (kind === "emoji") loadEmotes(channel.guild_id); }, [kind, channel.guild_id]);
   const signature = `${caret}:${prefix}`;
   // A selection replaces text, rather than completing a token in the middle of it.
   const active = !!match && signature !== dismissed && textarea.current?.selectionStart === textarea.current?.selectionEnd;
@@ -51,6 +55,12 @@ export function useMentionAutocomplete(channel: Channel, text: string, setText: 
       for (const g of myEmojis(channel.guild_id)) for (const e of g.emojis) {
         if (e.name.toLowerCase().includes(query)) out.push({ key: `emoji:${e.id}`, label: `:${e.name}:`, detail: g.guildName, value: emojiText(e), image: e.url });
       }
+      const seen = new Set(out.map((o) => o.label.toLowerCase()));
+      for (const g of emoteGroups(channel.guild_id)) for (const e of g.emotes) {
+        if (!e.name.toLowerCase().includes(query) || seen.has(`:${e.name.toLowerCase()}:`)) continue;
+        seen.add(`:${e.name.toLowerCase()}:`);
+        out.push({ key: `emote:${e.provider}:${e.id}`, label: `:${e.name}:`, detail: g.title, value: emoteToken(e), image: emoteUrl(e.provider, e.id) });
+      }
       return out.sort((a, b) => Number(!a.label.slice(1).toLowerCase().startsWith(query)) - Number(!b.label.slice(1).toLowerCase().startsWith(query)) || a.label.localeCompare(b.label)).slice(0, 10);
     }
     const matches = (...values: (string | null | undefined)[]) => values.some((v) => v?.toLocaleLowerCase().includes(query));
@@ -71,7 +81,7 @@ export function useMentionAutocomplete(channel: Channel, text: string, setText: 
       if (matches(name)) out.push({ key: name, label: `@${name}`, detail: name === "here" ? "Notify online members" : "Notify everyone", value: `@${name}` });
     }
     return out.sort((a, b) => Number(!a.label.toLocaleLowerCase().startsWith(query)) - Number(!b.label.toLocaleLowerCase().startsWith(query)) || a.label.localeCompare(b.label)).slice(0, 10);
-  }, [query, members, remote, me, channel, guild, kind]);
+  }, [query, members, remote, me, channel, guild, kind, emoteVersion]);
   const index = Math.min(selected, Math.max(0, options.length - 1));
   useEffect(() => { document.getElementById(`${id}-${index}`)?.scrollIntoView?.({ block: "nearest" }); }, [id, index, options.length]);
   const choose = (option: Suggestion) => {
