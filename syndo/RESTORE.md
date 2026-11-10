@@ -10,6 +10,8 @@
 
 0.6.1 is the Tauri build from CI run 42902628130 (commit `47f2382`, 1.7 MB): the shell's commands are granted to the hosted app. Apps on 0.5.0/0.6.0 can't use their update button (it was refused too), so those users install 0.6.1 once from the download link.
 
+Released: feed `latest.yml` → `SEND-Setup-0.6.1.exe` (sha512 checked on the public copy before the feed switched); Worker version `5b680e1c-71f4-41b6-b0f7-784b2c4fb499` sends `/api/downloads/windows` to 0.6.1 (same code and backend otherwise). Uploaded with a one-hour R2 token limited to this bucket, deleted right after.
+
 ### Roll back
 1. Feed: copy `latest-0.6.0.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.6.1 stay on it.
 2. Download link: Workers → `send-beta-api` → Deployments → deploy `39bbf579` at 100%.
