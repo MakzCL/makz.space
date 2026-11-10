@@ -10,6 +10,8 @@
 
 Files over 20 MB: the backend signs a ticket (storage key + exact size + 6 h expiry, HMAC with the existing storage token); the browser sends 32 MB pieces to `/api/uploads/large/*`, which the Worker writes into R2 as a multipart upload; the backend then checks the stored size and the file type and attaches it. Small files use the old single upload.
 
+Released: Worker version `99d6d618-06ad-4069-9b86-565cfaa1b63d` (`SOURCE_COMMIT` `9276db8`), Pages deployment `6157394f-5eb8-4578-987e-3580b92e4ad5`. Checked on production with a throwaway account (deleted afterwards): a 40 MB file went up in two pieces, attached, and downloaded back intact.
+
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → deploy `fc79e6d2` at 100%.
 2. Web: Pages → `syndo-app` → Deployments → `ebf2a5e9` → Rollback to this deployment.
