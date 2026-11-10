@@ -1,5 +1,22 @@
 # SEND restore points
 
+## 2026-11-10 — major update (threads, forums, stages, events, AutoMod, bots, boosts, passkeys, push, 11 languages)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `57def25c-567a-4d33-aa65-3275f2a93d11`, `SOURCE_COMMIT` `77745ff` |
+| Web (Pages `syndo-app`) | deployment `11a8467b-a7e6-4892-8ba0-293960b631e0` |
+| Source | branch `backup/pre-major-update-20261110` (at `b430649`) |
+| Database | migrations up to `006_channel_emoji.sql`; this release adds `007_major_update.sql` (only new tables and columns with defaults — the old backend runs fine on the new schema) |
+
+Accounts `makz` and `makztest` were marked `staff` (free boost grants and codes).
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy `57def25c` at 100% (its `SOURCE_COMMIT` brings the container back to `77745ff`).
+2. Web: Pages → `syndo-app` → Deployments → `11a8467b` → Rollback to this deployment.
+3. Source: reset `claude/charming-meitner-a8exoe` to `backup/pre-major-update-20261110`.
+4. Database: no action needed — leave 007 in place. To remove it anyway, drop the 25 tables it creates and the added columns (see the migration file), then delete its row from `schema_migrations`.
+
 ## 2026-11-06 — desktop 0.5.0 (lightweight Tauri shell replaces Electron)
 
 | Layer | Restore point (before this release) |
