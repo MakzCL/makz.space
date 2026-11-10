@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-10 — desktop 0.6.1 (window buttons, push-to-talk and in-app updates work again)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.6.0.yml` (backup of the feed that pointed at `SEND-Setup-0.6.0.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `39bbf579-4b3b-4486-8598-e933772c4919` (download link → 0.6.0) |
+| Source | branch `backup/pre-desktop-061-20261110` (at `47f2382`); database unchanged |
+
+0.6.1 is the Tauri build from CI run 42902628130 (commit `47f2382`, 1.7 MB): the shell's commands are granted to the hosted app. Apps on 0.5.0/0.6.0 can't use their update button (it was refused too), so those users install 0.6.1 once from the download link.
+
+### Roll back
+1. Feed: copy `latest-0.6.0.yml` over `latest.yml` (`text/yaml`, `cache-control: no-cache`). Apps already on 0.6.1 stay on it.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `39bbf579` at 100%.
+
 ## 2026-11-10 — menu placement fixes; desktop 0.6.1 built (window buttons)
 
 | Layer | Restore point (before this release) |
