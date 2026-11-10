@@ -47,7 +47,7 @@ The reference behaviour is unverified for Proteus 9.2 (see `proteus-reference-au
 | Vias | Yes | Through vias, drill/diameter from rules | Verified | Router + DRC tests | No blind/buried vias |
 | DRC | Yes | Shorts, clearance (measured value vs limit), unrouted, track width, drill, annular ring, board edge, outside board, courtyard overlap, dangling track | Verified | `pcb.test.ts` (clearance reported as exactly 0.15 mm < 0.2 mm; shorts; outside; tiny via) | — |
 | Copper pours | Zones / power planes | Per net and layer; clearance, edge keep-out, sliver removal, unconnected islands removed, thermal reliefs or solid | Verified | `pcb.test.ts` (DRC clean; Gerber regions read by gerbonara); e2e PCB step 7 | No hatched fill; one outline per board |
-| Gerber RS-274X | Yes | Copper ×2, mask ×2, silkscreen with references, board outline; X2 file attributes; mm 4.6 | Verified | gerbonara: flash/track/region counts equal the board; gerbv renders every file | Paste layers not yet |
+| Gerber RS-274X | Yes | Copper ×2, mask ×2, paste (SMD pads, top/bottom), silkscreen with references, board outline; X2 file attributes; mm 4.6 | Verified | gerbonara: flash/track/region counts equal the board; paste flashes equal the SMD pads; gerbv renders every file | — |
 | Excellon drill | Yes | Plated holes, metric, tools sorted by size | Verified | gerbonara: hit count and sizes equal the board | No NPTH/slots (no footprint uses them yet) |
 | Pick-and-place | Yes | CSV: ref, value, package, X/Y (mm, same origin as Gerber), rotation, side | Verified | `pcb.test.ts` | — |
 | Manufacturing zip | — | One download with every file | Verified | e2e PCB step 8 (unzip + gerbonara) | — |

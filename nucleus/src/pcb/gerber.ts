@@ -54,12 +54,14 @@ export function fabFiles(b: Board, pr: Project, base = "board"): FabFile[] {
   const con = connectivity(pr); const pads = padsOf(b, pr, con); const [, , , top] = outlineBox(b); const R = b.rules;
   const cu: Record<Layer, Gerber> = { "F.Cu": new Gerber("Copper,L1,Top", top), "B.Cu": new Gerber("Copper,L2,Bot", top) };
   const mask = { "F.Cu": new Gerber("Soldermask,Top", top), "B.Cu": new Gerber("Soldermask,Bot", top) };
+  const paste = { "F.Cu": new Gerber("Paste,Top", top), "B.Cu": new Gerber("Paste,Bot", top) }; // stencil openings: SMD pads, 1:1
   const silk = { top: new Gerber("Legend,Top", top), bottom: new Gerber("Legend,Bot", top) };
   const edge = new Gerber("Profile,NP", top);
   const kind = (s: string) => (s === "circle" ? "C" : s === "rect" ? "R" : "O") as "C" | "R" | "O";
   for (const p of pads) for (const l of p.layers) {
     cu[l].flash(kind(p.shape), p.size[0], p.size[1], p.at);
     mask[l].flash(kind(p.shape), p.size[0] + 2 * R.maskMargin, p.size[1] + 2 * R.maskMargin, p.at);
+    if (!p.drill) paste[l].flash(kind(p.shape), p.size[0], p.size[1], p.at);
   }
   for (const f of fillZones(b, baseItems(b, pads))) for (const poly of f.polys) cu[f.zone.layer].region(poly.rings); // pours first, pads and tracks on top
   for (const t of b.tracks) cu[t.layer].line(t.width, t.a, t.b);
@@ -77,6 +79,7 @@ export function fabFiles(b: Board, pr: Project, base = "board"): FabFile[] {
     { name: `${base}-F_Silkscreen.gbr`, text: silk.top.text() },
   ];
   if (!silk.bottom.empty) files.push({ name: `${base}-B_Silkscreen.gbr`, text: silk.bottom.text() });
+  for (const [l, n] of [["F.Cu", "F_Paste"], ["B.Cu", "B_Paste"]] as const) if (!paste[l].empty) files.push({ name: `${base}-${n}.gbr`, text: paste[l].text() });
   files.push({ name: `${base}-Edge_Cuts.gbr`, text: edge.text() }, { name: `${base}-PTH.drl`, text: excellon(b, pads.filter((p) => p.drill).map((p) => ({ at: p.at, d: p.drill! })).concat(b.vias.map((v) => ({ at: v.at, d: v.drill }))), top) });
   files.push({ name: `${base}-pos.csv`, text: placement(b, pr, top) });
   return files;

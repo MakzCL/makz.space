@@ -10,6 +10,7 @@ import { FOOTPRINTS, footprint, mm } from "../src/pcb/footprints";
 import { padsOf, ratsnest, sync } from "../src/pcb/board";
 import { drc } from "../src/pcb/drc";
 import { autoroute } from "../src/pcb/route";
+import { rectOutline } from "../src/pcb/board";
 import { fabFiles, zip, crc32 } from "../src/pcb/gerber";
 
 import { ledBoardPlaced, ledBoardSchematic } from "../src/examples/examples";
@@ -76,6 +77,16 @@ describe("autorouter", { timeout: 120000 }, () => {
     const errs = drc(r.board, pr).filter((d) => d.severity === "error");
     expect(errs.map((e) => e.message)).toEqual([]);
     expect(r.board.tracks.length).toBeGreaterThan(5);
+    expect(r.attempts).toBe(1); // nothing failed, so no rip-up was needed
+  });
+  it("rip-up and retry: a connection blocked by pads or the edge stops after the retry, and retrying is never worse", () => {
+    const { pr, board } = placed(); const bd = structuredClone(board); bd.outline = rectOutline(24, 18);
+    let rnd = 30; const r = () => { rnd = (rnd * 16807) % 2147483647; return rnd / 2147483647; };
+    for (const p of bd.parts) { p.at = [mm(3 + r() * 18), mm(3 + r() * 12)]; p.rot = ([0, 90, 180, 270] as const)[Math.floor(r() * 4)]; }
+    const one = autoroute(bd, pr, { maxAttempts: 1, viaCost: 1e9 }), many = autoroute(bd, pr, { maxAttempts: 8, viaCost: 1e9 });
+    expect(one.failed.length).toBeGreaterThan(0); expect(one.attempts).toBe(1);
+    expect(many.attempts).toBe(2); // failed connections went first and still failed: no order can fix them, so it stops
+    expect(many.failed.length).toBeLessThanOrEqual(one.failed.length);
   });
 });
 
@@ -91,6 +102,8 @@ describe.skipIf(!haveTools)("Gerber / Excellon (checked by gerbonara and gerbv)"
     expect(s["led-F_Cu.gbr"].flashes).toBe(top + board.vias.length); expect(s["led-B_Cu.gbr"].flashes).toBe(bot + board.vias.length);
     expect(s["led-F_Cu.gbr"].lines + s["led-B_Cu.gbr"].lines).toBe(board.tracks.length);
     expect(s["led-F_Mask.gbr"].flashes).toBe(top); // vias tented
+    const smdTop = pads.filter((p) => !p.drill && p.layers.includes("F.Cu")).length; expect(smdTop).toBeGreaterThan(0);
+    expect(s["led-F_Paste.gbr"].flashes).toBe(smdTop); expect(files.some((f) => f.name === "led-B_Paste.gbr")).toBe(pads.some((p) => !p.drill && p.layers.includes("B.Cu"))); // paste only on SMD pads
     expect(s["led-PTH.drl"].hits).toBe(tht + board.vias.length);
     expect(s["led-PTH.drl"].sizes_mm).toEqual([...new Set([...pads.filter((p) => p.drill).map((p) => p.drill! / 1e6), ...board.vias.map((v) => v.drill / 1e6)])].sort((a, c) => a - c));
     const [x0, y0, x1, y1] = s["led-Edge_Cuts.gbr"].bbox; expect(x1 - x0).toBeCloseTo(40.1, 3); expect(y1 - y0).toBeCloseTo(30.1, 3); // 40 × 30 board + 0.1 mm line

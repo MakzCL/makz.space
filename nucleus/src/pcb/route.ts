@@ -6,10 +6,30 @@ import { connectivity } from "../connectivity/connectivity";
 import { bbox, copperGroups, dist, insideOutline, items, outlineBox, padsOf, pid, ratsnest, segSeg, type Board, type Item, type Layer, type P, type Shape } from "./board";
 import { mm } from "./footprints";
 
-export interface RouteResult { board: Board; routed: number; failed: { net: string; from: string; to: string }[]; ms: number }
+export interface RouteResult { board: Board; routed: number; failed: { net: string; from: string; to: string }[]; ms: number; attempts: number }
+type Opts = { grid?: number; viaCost?: number; maxPasses?: number; maxAttempts?: number; budgetMs?: number };
+const key = (w: { net: string; from: string; to: string }) => `${w.net}|${w.from}|${w.to}`;
+const score = (r: Omit<RouteResult, "attempts" | "ms">) => r.failed.length * 1e12 + r.board.vias.length * 1e9 + r.board.tracks.reduce((s, t) => s + Math.hypot(t.a[0] - t.b[0], t.a[1] - t.b[1]), 0);
 
-export function autoroute(b0: Board, pr: Project, opts: { grid?: number; viaCost?: number; maxPasses?: number } = {}): RouteResult {
-  const t0 = Date.now(); const b: Board = structuredClone(b0); const con = connectivity(pr); const R = b.rules;
+/** Route every connection. When some fail, rip up everything and route again with the failed connections first
+ * (they keep their priority across attempts), until all are routed, attempts run out or the time budget is spent.
+ * The best attempt wins: fewest failures, then fewest vias, then shortest copper. */
+export function autoroute(b0: Board, pr: Project, opts: Opts = {}): RouteResult {
+  const t0 = Date.now(); const maxA = opts.maxAttempts ?? 8, budget = opts.budgetMs ?? 20000;
+  const first: string[] = []; let best: Omit<RouteResult, "attempts" | "ms"> | null = null; let attempts = 0;
+  while (attempts < maxA) {
+    const r = routeOnce(b0, pr, opts, first); attempts++;
+    if (!best || score(r) < score(best)) best = r;
+    if (!r.failed.length || Date.now() - t0 > budget) break;
+    const fk = r.failed.map(key); const before = first.join();
+    for (const k of fk.reverse()) { const i = first.indexOf(k); if (i >= 0) first.splice(i, 1); first.unshift(k); } // newest failures first
+    if (first.join() === before && attempts > 1) break; // the same order again would give the same result
+  }
+  return { ...best!, attempts, ms: Date.now() - t0 };
+}
+
+function routeOnce(b0: Board, pr: Project, opts: Opts, first: string[]): Omit<RouteResult, "attempts" | "ms"> {
+  const prio = new Map(first.map((k, i) => [k, i])); const b: Board = structuredClone(b0); const con = connectivity(pr); const R = b.rules;
   const g = opts.grid ?? mm(0.125), viaCost = opts.viaCost ?? 12;
   const [bx0, by0, bx1, by1] = outlineBox(b); const W = Math.ceil((bx1 - bx0) / g) + 1, H = Math.ceil((by1 - by0) / g) + 1, N = W * H;
   const cx = (i: number) => bx0 + (i % W) * g, cy = (i: number) => by0 + Math.floor(i / W) * g;
@@ -42,7 +62,8 @@ export function autoroute(b0: Board, pr: Project, opts: { grid?: number; viaCost
   const failed: RouteResult["failed"] = []; let routed = 0; const skip = new Set<string>();
   for (let pass = 0; pass < (opts.maxPasses ?? 400); pass++) {
     const its = items(b, padsOf(b, pr, con)); const grp = copperGroups(its);
-    const wires = ratsnest(b, pr, con).filter((w) => !skip.has(`${w.net}|${w.from}|${w.to}`)).sort((a, c) => Math.hypot(a.a[0] - a.b[0], a.a[1] - a.b[1]) - Math.hypot(c.a[0] - c.b[0], c.a[1] - c.b[1]));
+    const len = (w: { a: P; b: P }) => Math.hypot(w.a[0] - w.b[0], w.a[1] - w.b[1]); const pr0 = (w: { net: string; from: string; to: string }) => prio.get(key(w)) ?? Infinity;
+    const wires = ratsnest(b, pr, con).filter((w) => !skip.has(key(w))).sort((a, c) => pr0(a) - pr0(c) || len(a) - len(c));
     const w = wires[0]; if (!w) break;
     const k = nid(w.net);
     const islandOf = (at: P) => grp.get(its.find((x) => x.kind === "pad" && x.net === w.net && x.at[0] === at[0] && x.at[1] === at[1])!.id)!;
@@ -56,7 +77,7 @@ export function autoroute(b0: Board, pr: Project, opts: { grid?: number; viaCost
       }
     }
     const path = astar(src, dst, k);
-    if (!path) { skip.add(`${w.net}|${w.from}|${w.to}`); failed.push({ net: w.net, from: w.from, to: w.to }); continue; }
+    if (!path) { skip.add(key(w)); failed.push({ net: w.net, from: w.from, to: w.to }); continue; }
     // path → tracks and vias
     const newItems: Item[] = []; let segStart = path[0];
     const emitTrack = (a: number, c: number) => { if (a === c) return; const l: Layer = a >= N ? "B.Cu" : "F.Cu"; const t = { id: pid("t"), layer: l, a: [cx(a % N), cy(a % N)] as P, b: [cx(c % N), cy(c % N)] as P, width: R.track, net: w.net };
@@ -74,7 +95,7 @@ export function autoroute(b0: Board, pr: Project, opts: { grid?: number; viaCost
     for (const x of newItems) addItem(x);
     routed++;
   }
-  return { board: b, routed, failed, ms: Date.now() - t0 };
+  return { board: b, routed, failed };
 
   function astar(src: number[], dst: Set<number>, k: number): number[] | null {
     if (!src.length || !dst.size) return null;

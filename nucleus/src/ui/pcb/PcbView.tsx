@@ -63,7 +63,7 @@ export function PcbView({ dark }: { dark: string }) {
   const doRoute = useCallback(() => {
     if (!board) return; setBusy("Autorouting…");
     setTimeout(() => { try { const r = autoroute(board, pr); S.change((p) => ({ ...p, pcb: r.board, modified: new Date().toISOString() }), "Autoroute");
-      S.say(r.failed.length ? `Autorouter: ${r.routed} routed, ${r.failed.length} could not be routed (${r.failed.map((f) => f.net).join(", ")}). Move parts apart or route them by hand.` : `Autorouter: all ${r.routed} connections routed in ${(r.ms / 1000).toFixed(1)} s`, r.failed.length ? "error" : "ok");
+      S.say(r.failed.length ? `Autorouter: ${r.routed} routed, ${r.failed.length} could not be routed (${r.failed.map((f) => f.net).join(", ")}) after ${r.attempts} attempt${r.attempts === 1 ? "" : "s"} with rip-up and retry. Move parts apart or route them by hand.` : `Autorouter: all ${r.routed} connections routed in ${(r.ms / 1000).toFixed(1)} s${r.attempts > 1 ? ` (${r.attempts} attempts, rip-up and retry)` : ""}`, r.failed.length ? "error" : "ok");
       setFindings(drc(r.board, pr)); } finally { setBusy(null); } }, 30);
   }, [board, pr, S]);
   const exportFab = useCallback(() => {
