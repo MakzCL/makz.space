@@ -45,7 +45,7 @@ import { ComposerExtras, useSlashCommands } from "../features/Commands.tsx";
 import { ChannelBell } from "../features/Notifications.tsx";
 import { FollowButton } from "../features/Stage.tsx";
 import { isThreadType } from "../store.ts";
-import { MessageSquare, CornerUpRight, Send as SendIcon, ArrowDown } from "lucide-react";
+import { Play, Pause, Download, MessageSquare, CornerUpRight, Send as SendIcon, ArrowDown } from "lucide-react";
 
 /** Which message is being edited (one at a time, like Discord); lets ↑ in the composer start editing. */
 const useEditing = create<{ id: string | null }>(() => ({ id: null }));
@@ -526,7 +526,7 @@ function AttachmentContent({ a, index }: { a: Message["attachments"][number]; in
   );
   if (a.content_type.startsWith("video/")) return <video className="att-video" src={a.url} controls preload="metadata" />;
   if (a.content_type.startsWith("audio/")) return (
-    <div className="att-audio">{a.waveform && <Waveform data={a.waveform} />}<audio src={a.url} controls preload="metadata" aria-label={a.filename} /></div>
+    <AudioPlayer a={a} />
   );
   return (
     <a className="att-file" href={a.url} download={a.filename}>
@@ -535,9 +535,55 @@ function AttachmentContent({ a, index }: { a: Message["attachments"][number]; in
   );
 }
 
-function Waveform({ data }: { data: string }) {
-  const bars = useMemo(() => { try { return [...atob(data)].map((c) => c.charCodeAt(0) / 255); } catch { return []; } }, [data]);
-  return <div className="wave" aria-hidden>{bars.map((b, i) => <i key={i} style={{ height: `${Math.max(8, b * 100)}%` }} />)}</div>;
+const fmtClock = (s: number) => { const n = Math.max(0, Math.floor(s)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; };
+let playingAudio: HTMLAudioElement | null = null; // only one clip plays at a time
+
+/** Voice messages and audio files: play button, seekable waveform (or bar), time, speed. */
+function AudioPlayer({ a }: { a: Message["attachments"][number] }) {
+  const ref = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [t, setT] = useState(0);
+  const [len, setLen] = useState(a.duration ?? 0);
+  const [rate, setRate] = useState(1);
+  const bars = useMemo(() => { try { return a.waveform ? [...atob(a.waveform)].map((c) => c.charCodeAt(0) / 255) : []; } catch { return []; } }, [a.waveform]);
+  const voice = bars.length > 0 || a.filename.startsWith("voice-message.");
+  const frac = len > 0 ? Math.min(1, t / len) : 0;
+  const toggle = () => {
+    const el = ref.current!;
+    if (el.paused) { if (playingAudio && playingAudio !== el) playingAudio.pause(); playingAudio = el; if (el.ended || (len > 0 && el.currentTime >= len)) el.currentTime = 0; void el.play().catch(() => toast("Couldn't play this audio", "error")); }
+    else el.pause();
+  };
+  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!len) return;
+    const r = e.currentTarget.getBoundingClientRect(); const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    ref.current!.currentTime = f * len; setT(f * len);
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!len || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    e.preventDefault(); e.stopPropagation();
+    const n = Math.min(len, Math.max(0, t + (e.key === "ArrowRight" ? 5 : -5))); ref.current!.currentTime = n; setT(n);
+  };
+  const cycleRate = () => { const n = rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1; setRate(n); ref.current!.playbackRate = n; };
+  return (
+    <div className={`att-audio ${voice ? "voice" : ""} ${playing ? "playing" : ""}`}>
+      <audio ref={ref} src={a.url} preload="metadata"
+        onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (isFinite(d) && d > 0) setLen(d); }}
+        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+        onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setT(0); }} />
+      <button className="aud-play" onClick={toggle} aria-label={playing ? "Pause" : voice ? "Play voice message" : `Play ${a.filename}`}>{playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}</button>
+      <div className="aud-main">
+        {!voice && <strong className="ellipsis aud-name" title={a.filename}>{a.filename}</strong>}
+        <div className={bars.length ? "wave" : "aud-bar"} role="slider" tabIndex={0} aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(len)} aria-valuenow={Math.round(t)} aria-valuetext={`${fmtClock(t)} of ${fmtClock(len)}`}
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); }} onPointerMove={(e) => { if (e.buttons === 1) seek(e); }} onKeyDown={onKey}>
+          {bars.length ? bars.map((b, i) => <i key={i} className={(i + 0.5) / bars.length <= frac ? "on" : ""} style={{ height: `${Math.max(12, b * 100)}%` }} />) : <span style={{ width: `${frac * 100}%` }} />}
+        </div>
+      </div>
+      <span className="aud-time">{playing || t > 0 ? fmtClock(t) : fmtClock(len)}</span>
+      <button className="aud-rate" onClick={cycleRate} aria-label={`Playback speed ${rate}x`} title="Playback speed">{rate}x</button>
+      {!voice && <a className="icon-btn sm" href={a.url} download={a.filename} aria-label={`Download ${a.filename}`} title="Download"><Download size={16} /></a>}
+    </div>
+  );
 }
 
 function EditBox({ m, onDone }: { m: Message; onDone: () => void }) {

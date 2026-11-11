@@ -18,6 +18,7 @@ export const CHANGELOG: Release[] = [
       { title: "Messages", items: [
         "Replies show the person's picture and a line linking to their message.",
         "The hover bar is shorter: reactions, reply, forward, thread and a More menu.",
+        "Voice messages have a new player: a waveform you can drag, and 1x, 1.5x or 2x speed.",
         "Bold text is clearly bold.",
         "The quick switcher is just a search box.",
       ] },

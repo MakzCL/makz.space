@@ -8,6 +8,7 @@
 - **Quick switcher** (Ctrl+K) has no title bar, only the search box.
 - **Profile card** dates read like "Nov 10, 2026".
 - **Friends** empty states are centred.
+- **Voice messages and audio files** have their own player instead of the browser's grey one: round play/pause button, a waveform that fills as it plays and can be dragged to seek, time, 1x/1.5x/2x speed, and a download button on audio files. Starting one clip pauses any other.
 - **Tests:** browser suites skip the What's new and install prompts and follow the new phone header; interactions 41/41, keyboard 34/34, mobile 52/52.
 
 ## 2026-11-04 — Phone layout and Android app 0.3.0

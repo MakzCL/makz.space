@@ -211,8 +211,24 @@ img.freeze { /* animated images still animate in <img>; this hint is used where 
 .att-img { all: unset; display: block; cursor: zoom-in; margin-top: 4px; max-width: min(420px, 100%); }
 .att-img img { max-width: 100%; max-height: 350px; border-radius: var(--r-sm); display: block; height: auto; }
 .att-video { max-width: min(480px, 100%); max-height: 360px; border-radius: var(--r-sm); margin-top: 4px; display: block; }
-.att-audio { display: flex; flex-direction: column; gap: 4px; background: var(--bg3); border-radius: var(--r); padding: 8px; max-width: 420px; margin-top: 4px; }
-.att-audio audio { width: 100%; }
+.att-audio { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px 6px 6px; width: min(400px, 100%); margin-top: 4px; }
+.att-audio:not(.voice) { border-radius: var(--r); padding: 8px 10px; width: min(420px, 100%); }
+.att-audio audio { display: none; }
+.aud-play { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--accent); color: #fff; cursor: pointer; transition: transform .12s, filter .12s; }
+.aud-play:hover { filter: brightness(1.12); } .aud-play:active { transform: scale(.94); }
+.aud-play svg { margin-left: 2px; } .att-audio.playing .aud-play svg { margin-left: 0; }
+.aud-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.aud-name { font-size: 13px; }
+.att-audio .wave { display: flex; align-items: center; gap: 1.5px; overflow: hidden; height: 28px; cursor: pointer; touch-action: none; }
+.att-audio .wave i { flex: 1 1 0; min-width: 0; max-width: 4px; border-radius: 2px; background: var(--textMuted); opacity: .45; transition: background .1s, opacity .1s; }
+.att-audio .wave i.on { background: var(--accent); opacity: 1; }
+.aud-bar { height: 16px; display: flex; align-items: center; cursor: pointer; touch-action: none; position: relative; }
+.aud-bar::before { content: ""; position: absolute; inset: 6px 0; border-radius: 2px; background: var(--textMuted); opacity: .3; }
+.aud-bar span { position: relative; height: 4px; border-radius: 2px; background: var(--accent); }
+.att-audio [role=slider]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.aud-time { flex: none; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--textMuted); min-width: 30px; text-align: right; }
+.aud-rate { flex: none; border: 0; background: transparent; color: var(--textMuted); font-size: 12px; font-weight: 700; padding: 4px 6px; border-radius: 999px; cursor: pointer; min-width: 34px; }
+.aud-rate:hover { background: var(--bg2); color: var(--text); }
 .wave { display: flex; align-items: center; gap: 2px; height: 28px; } .wave i { flex: 1; background: var(--accent); border-radius: 2px; min-height: 2px; }
 .att-file { display: flex; gap: 10px; align-items: center; background: var(--bg3); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; max-width: 420px; text-decoration: none; color: var(--text); margin-top: 4px; }
 .lightbox { max-width: 100%; max-height: 75vh; display: block; margin: 0 auto 8px; }
