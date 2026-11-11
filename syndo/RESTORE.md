@@ -1,5 +1,17 @@
 # SEND restore points
 
+## 2026-11-11 — Discord-style call tiles
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `82421f5b-62d5-4ed7-a7c9-94815eb458b5` (commit `3bed9fc`) |
+| Backend | unchanged |
+
+Released as deployment `ad315ff1-89a7-40c6-9845-e00dbe14cba8` (commit `e58139d`, started with *Retry deployment*).
+
+### Roll back
+1. Web: Pages → `syndo-app` → Deployments → `82421f5b` → *Rollback to this deployment*.
+
 ## 2026-11-11 — rename, camera + screen together, no echo in screen shares, voice status, noise suppression
 
 | Layer | Restore point (before this release) |
