@@ -8,6 +8,8 @@
 | Backend | unchanged (Worker version `5b680e1c-71f4-41b6-b0f7-784b2c4fb499`) |
 | Source | branch `backup/pre-polish-20261111`; database unchanged |
 
+Released: Pages deployment `2440ea03-8e9b-452a-9a4f-d74fafd362b0` (commit `e3f1c21`).
+
 Web only. Phones: back arrow with mention badge, online count under the channel name (tap for members), search + menu only, edge-to-edge chat, one-pill message box, round jump-to-present button. Everywhere: heading sizes, numbered lists, inline "(edited)", shorter date lines, shorter mutual-server list, a second "What's new" entry.
 
 ### Roll back
