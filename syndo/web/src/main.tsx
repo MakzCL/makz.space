@@ -26,6 +26,8 @@ import { initLive } from "./features/live.tsx";
 import { initI18n } from "./features/i18n.tsx";
 import { initNotifications } from "./notify.ts";
 import { initDesktop } from "./desktop.ts";
+import { initWebUpdates } from "./webUpdate.ts";
+import { WebUpdateBar } from "./components/WebUpdateBar.tsx";
 import { navigate, useRoute } from "./router.ts";
 import { useStore } from "./store.ts";
 import { restoreSnapshot } from "./appearance/engine.ts";
@@ -80,7 +82,7 @@ function App() {
   else if (conn === "connecting") page = <Splash />;
   else if (route.name === "qr") page = <main className="auth"><section className="auth-card"><QrApprove id={route.params.id!} /><button className="link" onClick={() => navigate("/channels/@me")}>Back to SEND</button></section></main>;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><WebUpdateBar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();
@@ -91,5 +93,6 @@ initNotifications();
 initCallSounds();
 initSoundboard();
 initDesktop();
+initWebUpdates();
 boot();
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

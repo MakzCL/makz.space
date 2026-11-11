@@ -28,6 +28,7 @@ import { CallChat } from "./ChannelView.tsx";
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
   const v = useVoice();
+  const [gridRef, gridStyle] = useBestGrid();
   // A stream that ended has to be chosen again when it comes back (Discord resets "watching" too).
   const streamers = Object.values(v.peers).filter((p) => p.screen).map((p) => p.id).join(",");
   useEffect(() => { const live = new Set(streamers.split(",")); const keep = v.watching.filter((u) => live.has(u)); if (keep.length !== v.watching.length) useVoice.setState({ watching: keep }); }, [streamers]); // eslint-disable-line
@@ -94,11 +95,16 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={shown.length + (alone && guild ? 1 : 0)}>
-        {focused && <VideoTile t={focused} guildId={guild?.id ?? null} big onFocus={() => activate(focused)} />}
-        {focused && <button className="strip-toggle" onClick={() => useVoice.setState({ hideStrip: !v.hideStrip })} aria-expanded={!v.hideStrip} title={v.hideStrip ? "Show members" : "Hide members"} aria-label={v.hideStrip ? "Show members" : "Hide members"}>{v.hideStrip ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>}
-        {!(focused && v.hideStrip) && <div className={focused ? "tile-strip" : "tile-grid"}>
-          {shown.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => activate(t)} />)}
-          {alone && guild && !focused && <InviteCard channel={channel} guild={guild} />}
+        {/* Focused: the big tile, the members toggle and strip move together as one centred group. */}
+        {focused ? <div className={`focus-area ${v.hideStrip || shown.length < 2 ? "no-strip" : ""}`}>
+          <VideoTile t={focused} guildId={guild?.id ?? null} big onFocus={() => activate(focused)} />
+          {shown.length > 1 && <button className="strip-toggle" onClick={() => useVoice.setState({ hideStrip: !v.hideStrip })} aria-expanded={!v.hideStrip} title={v.hideStrip ? "Show members" : "Hide members"} aria-label={v.hideStrip ? "Show members" : "Hide members"}>{v.hideStrip ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>}
+          {!v.hideStrip && shown.length > 1 && <div className="tile-strip">
+            {shown.filter((t) => t.key !== focused.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => activate(t)} />)}
+          </div>}
+        </div> : <div ref={gridRef} style={gridStyle} className="tile-grid">
+          {shown.map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => activate(t)} />)}
+          {alone && guild && <InviteCard channel={channel} guild={guild} />}
         </div>}
       </div>
       <ActivityHost channel={channel} />
@@ -152,6 +158,9 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
     const el = ref.current; if (!el) return;
     el.srcObject = t.track ? new MediaStream([t.track]) : null;
   }, [t.track]);
+  // The focused tile takes the video's own shape, so a screen share has no black bars around it.
+  const [ar, setAr] = useState<number | null>(null);
+  const measure = () => { const el = ref.current; if (el && el.videoWidth && el.videoHeight) setAr(el.videoWidth / el.videoHeight); };
   const fullscreen = () => tileRef.current?.requestFullscreen?.();
   const pip = () => (ref.current as HTMLVideoElement & { requestPictureInPicture?: () => Promise<unknown> })?.requestPictureInPicture?.();
   const watched = t.kind === "screen" && !t.local && !t.preview;
@@ -168,11 +177,11 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
     }));
   };
   return (
-    <figure ref={tileRef} tabIndex={0} aria-label={t.preview ? `${t.name}. Watch stream` : t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} ${t.track ? "has-video" : ""} ${t.preview ? "preview" : ""} k-${t.kind}`} style={tint ? ({ "--tile-bg": tint } as React.CSSProperties) : undefined}
+    <figure ref={tileRef} tabIndex={0} aria-label={t.preview ? `${t.name}. Watch stream` : t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} ${t.track ? "has-video" : ""} ${t.preview ? "preview" : ""} k-${t.kind}`} style={{ ...(tint ? { "--tile-bg": tint } : {}), ...(big && ar && t.track ? { "--ar": ar } : {}) } as React.CSSProperties}
       onClick={(e) => { if (!(e.target as HTMLElement).closest("button, input, a, .vol-pop")) onFocus(); }}
       onContextMenu={context} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFocus(); return; } contextMenuKey(e, () => context(e)); }}
       onDoubleClick={() => { if (!t.preview) void fullscreen()?.catch(() => {}); }}>
-      {t.track ? <video ref={ref} autoPlay playsInline muted className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
+      {t.track ? <video ref={ref} autoPlay playsInline muted onLoadedMetadata={measure} onResize={measure} className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
       {t.preview && <div className="watch-cta"><button className="btn primary" onClick={onFocus}>Watch Stream</button></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis tile-name">{t.name}</span></figcaption>
       <div className="tile-tools">
@@ -268,4 +277,37 @@ function useImageTint(url: string | null) {
     return () => { alive = false; };
   }, [url]);
   return tint;
+}
+
+/**
+ * Discord-style grid: pick the number of columns that makes 16:9 tiles as large as possible for the space
+ * there is — side by side in a wide window, stacked in a tall one — and centre them. Phones keep their own
+ * stacked layout (styles.css).
+ */
+function useBestGrid(): [(el: HTMLDivElement | null) => void, React.CSSProperties | undefined] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [style, setStyle] = useState<React.CSSProperties>();
+  useEffect(() => {
+    if (!el) return;
+    const fit = () => {
+      if (isPhone()) { setStyle(undefined); return; }
+      const n = el.querySelectorAll(":scope > .tile, :scope > .invite-card").length || 1;
+      const gap = 8, W = el.clientWidth, H = el.clientHeight;
+      if (!W || !H) return;
+      let best = { cols: 1, w: 0 };
+      for (let cols = 1; cols <= n; cols++) {
+        const rows = Math.ceil(n / cols);
+        const w = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (rows - 1)) / rows) * 16 / 9);
+        if (w > best.w) best = { cols, w };
+      }
+      const w = Math.max(120, Math.floor(best.w));
+      // Wrapping rows of equal tiles, centred — a shorter last row sits in the middle, like Discord.
+      setStyle((s) => ((s as any)?.["--tile-w"] === `${w}px` ? s : { display: "flex", flexWrap: "wrap", justifyContent: "center", alignContent: "center", "--tile-w": `${w}px` } as React.CSSProperties));
+    };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    const mo = new MutationObserver(fit); mo.observe(el, { childList: true });
+    return () => { ro.disconnect(); mo.disconnect(); };
+  }, [el]);
+  return [setEl, style];
 }

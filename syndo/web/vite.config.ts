@@ -32,9 +32,28 @@ function brand(): Plugin {
   };
 }
 
+/**
+ * Build id = a hash of the built JS/CSS file names (which carry content hashes), so it only changes when the
+ * app's code or styles change. It goes into index.html and /version.json; running apps compare the two and
+ * offer "update" when a new build is live on Cloudflare.
+ */
+function buildId(): Plugin {
+  const idOf = (bundle: Record<string, unknown>) => {
+    const names = Object.keys(bundle).filter((n) => /\.(js|css)$/.test(n)).sort().join("|");
+    let h = 0x811c9dc5; for (let i = 0; i < names.length; i++) { h ^= names.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(36);
+  };
+  return {
+    name: "send-build-id",
+    apply: "build",
+    generateBundle(_o, bundle) { this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: idOf(bundle) }) }); },
+    transformIndexHtml: { order: "post", handler: (html, ctx) => html.replace("</head>", `<meta name="send-build" content="${ctx.bundle ? idOf(ctx.bundle) : "dev"}"></head>`) },
+  };
+}
+
 const api = process.env.SEND_API ?? process.env.SYNDO_API ?? "http://localhost:3900";
 export default defineConfig({
-  plugins: [react(), brand()],
+  plugins: [react(), brand(), buildId()],
   server: {
     port: 5173,
     proxy: {

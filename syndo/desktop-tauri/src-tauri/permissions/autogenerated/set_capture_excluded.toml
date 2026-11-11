@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-capture-excluded"
+description = "Enables the set_capture_excluded command without any pre-configured scope."
+commands.allow = ["set_capture_excluded"]
+
+[[permission]]
+identifier = "deny-set-capture-excluded"
+description = "Denies the set_capture_excluded command without any pre-configured scope."
+commands.deny = ["set_capture_excluded"]

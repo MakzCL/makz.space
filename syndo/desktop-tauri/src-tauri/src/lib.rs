@@ -146,7 +146,7 @@ fn allow_origin<R: Runtime>(app: &AppHandle<R>, origin: &str) {
 const REMOTE_COMMANDS: &[&str] = &[
   "allow-window-control", "allow-set-ptt", "allow-set-material", "allow-get-settings", "allow-set-performance", "allow-set-startup",
   "allow-restart-app", "allow-refresh", "allow-set-close-to-tray", "allow-change-server", "allow-update-status", "allow-check-updates",
-  "allow-download-update", "allow-restart-to-update", "allow-flash", "allow-notify",
+  "allow-download-update", "allow-restart-to-update", "allow-flash", "allow-notify", "allow-set-capture-excluded",
 ];
 
 fn load_app<R: Runtime>(app: &AppHandle<R>) {
@@ -171,7 +171,7 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
     "version": app.package_info().version.to_string(),
     "platform": if cfg!(windows) { "win32" } else { std::env::consts::OS },
     "osBuild": windows_build(),
-    "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true },
+    "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true, "captureExclusion": cfg!(windows) },
   });
   let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required");
   if !c.hardware_acceleration { args.push_str(" --disable-gpu"); }
@@ -462,6 +462,24 @@ fn flash<R: Runtime>(app: AppHandle<R>) {
   }
 }
 
+/// Keep SEND's own window out of screen captures (Windows 10 2004+: WDA_EXCLUDEFROMCAPTURE). The web app turns it
+/// on while you share your screen, so people watching don't see SEND inside your share.
+#[tauri::command]
+fn set_capture_excluded<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R>, excluded: bool) -> bool {
+  if main_only(&webview).is_err() { return false; }
+  #[cfg(windows)]
+  if let Some(w) = app.get_webview_window("main") {
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+    if let Ok(h) = w.hwnd() {
+      let hwnd = windows::Win32::Foundation::HWND(h.0 as _);
+      return unsafe { SetWindowDisplayAffinity(hwnd, if excluded { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }) }.is_ok();
+    }
+  }
+  #[cfg(not(windows))]
+  let _ = (app, excluded);
+  false
+}
+
 #[tauri::command]
 fn notify<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R>, title: String, body: String) {
   if main_only(&webview).is_err() { return; }
@@ -524,7 +542,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       window_control, set_ptt, set_material, get_settings, set_performance, set_startup, restart_app, refresh,
       set_close_to_tray, change_server, update_status, check_updates, download_update, restart_to_update,
-      flash, notify, connect_set_server, connect_info
+      flash, notify, connect_set_server, connect_info, set_capture_excluded
     ])
     .setup(|app| {
       let handle = app.handle().clone();

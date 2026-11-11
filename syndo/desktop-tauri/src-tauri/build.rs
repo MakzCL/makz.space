@@ -4,7 +4,7 @@
 const COMMANDS: &[&str] = &[
   "window_control", "set_ptt", "set_material", "get_settings", "set_performance", "set_startup", "restart_app", "refresh",
   "set_close_to_tray", "change_server", "update_status", "check_updates", "download_update", "restart_to_update",
-  "flash", "notify", "connect_set_server", "connect_info",
+  "flash", "notify", "connect_set_server", "connect_info", "set_capture_excluded",
 ];
 
 fn main() {

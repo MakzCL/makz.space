@@ -32,6 +32,8 @@ export interface SENDDesktop {
   /** "Playing …" detected by the desktop app (0.6+). */
   onActivity?(cb: (a: { type: number; name: string } | null) => void): () => void;
   flash(): Promise<void>;
+  /** Keep the SEND window out of screen captures (desktop 0.6.3+, Windows). */
+  setCaptureExcluded?(excluded: boolean): Promise<boolean>;
 }
 export const desktop: SENDDesktop | null = (window as any).sendDesktop ?? null;
 
@@ -50,6 +52,9 @@ export function initDesktop() {
   desktop.onPushToTalk((down) => (down ? pttPress() : pttRelease()));
   let last = "";
   useVoice.subscribe((s) => { const k = `${s.settings.mode}|${s.settings.pttKey}`; if (k !== last) { last = k; syncPtt(); } });
+  // While you share your screen, SEND's own window stays out of the capture, so viewers don't see the call inside it.
+  let sharing = false;
+  useVoice.subscribe((s) => { if (s.sharing !== sharing) { sharing = s.sharing; desktop?.setCaptureExcluded?.(sharing).catch(() => {}); } });
   syncPtt();
   desktop.getSettings().then((c) => { if (c.material !== "none") document.documentElement.dataset.desktopMaterial = c.material; }).catch(() => {});
   // "Playing …" from the desktop app → my presence (if I allow sharing it). Re-sent after reconnects.

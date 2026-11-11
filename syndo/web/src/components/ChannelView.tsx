@@ -434,7 +434,6 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           <Embeds m={m} channel={channel} />
           <Components m={m} channel={channel} />
           {m.thread && <ThreadChip m={m} guildId={guildId} />}
-          {m._state === "pending" && <span className="muted small">Sending…</span>}
           {m._state === "failed" && (
             <div className="send-failed" role="alert">
               <span>{m._error ?? "Couldn't send."}</span>

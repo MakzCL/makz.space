@@ -10,6 +10,24 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-calls-layout",
+    title: "Calls fit your window",
+    date: "2026-11-11",
+    intro: "Video and screen shares now use all the space you give them.",
+    sections: [
+      { title: "In calls", items: [
+        "In a tall window, video tiles stack and fill the space instead of sitting in a row.",
+        "A shared screen keeps its own shape, with no black bars around it.",
+        "The people under a big tile sit right under it, centred.",
+        "In the desktop app, SEND keeps itself out of your screen share.",
+      ] },
+      { title: "Everywhere", items: [
+        "Your messages show up instantly — no more \"Sending…\".",
+        "When there's a new version of SEND, you get an update button.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-call-tiles",
     title: "Calls that work like you'd expect",
     date: "2026-11-11",

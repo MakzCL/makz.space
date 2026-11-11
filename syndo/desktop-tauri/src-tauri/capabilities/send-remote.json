@@ -28,6 +28,7 @@
     "allow-download-update",
     "allow-restart-to-update",
     "allow-flash",
-    "allow-notify"
+    "allow-notify",
+    "allow-set-capture-excluded"
   ]
 }

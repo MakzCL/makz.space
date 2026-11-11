@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Download, LoaderCircle, Minus, Square, Copy, X } from "lucide-react";
 import { applyDesktopUpdate, desktop, useDesktopUpdate, type DesktopUpdate } from "../desktop.ts";
+import { applyWebUpdate, useWebUpdate } from "../webUpdate.ts";
 import { Wordmark } from "./ui.tsx";
 import { toast } from "../store.ts";
 export function DesktopTitlebar() {
@@ -22,7 +23,12 @@ export function DesktopTitlebar() {
 
 /** Green download icon, shown only while an update is waiting. Nothing installs until it is pressed. */
 function UpdateButton({ u }: { u: DesktopUpdate | null }) {
-  if (!u || !desktop) return null;
+  const web = useWebUpdate();
+  if (!desktop) return null;
+  // A new desktop app wins (it brings the newest web app too); otherwise a new web build is an update as well.
+  const desktopPending = !!u && (u.state === "ready" || u.state === "downloading" || (!!desktop.downloadUpdate && (u.state === "available" || (u.state === "error" && !!u.version))));
+  if (!desktopPending && web) return <button className="desktop-update" aria-label="Update ready — click to restart SEND" title="Update ready — click to restart SEND" onClick={applyWebUpdate}><Download size={15} strokeWidth={2.4} /></button>;
+  if (!u) return null;
   const canDownload = !!desktop.downloadUpdate;
   const show = u.state === "ready" || u.state === "downloading" || (canDownload && (u.state === "available" || (u.state === "error" && !!u.version)));
   if (!show) return null;

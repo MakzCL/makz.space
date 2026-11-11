@@ -347,7 +347,7 @@ export class MeshCall {
     const st = useVoice.getState().settings.stream;
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: { height: st.height === "source" ? undefined : { ideal: st.height }, frameRate: { ideal: st.fps } },
-        audio: st.audio ? screenAudioConstraints() : false, ...(st.audio ? { systemAudio: "include" } : {}) } as DisplayMediaStreamOptions);
+        audio: st.audio ? screenAudioConstraints() : false, ...(st.audio ? { systemAudio: "include" } : {}), selfBrowserSurface: "exclude", surfaceSwitching: "include" } as DisplayMediaStreamOptions);
       this.screenTrack = stream.getVideoTracks()[0]!;
       this.screenSound = stream.getAudioTracks()[0] ?? null;
       if (screenAudioMayEcho(this.screenSound)) toast(SCREEN_ECHO_NOTE, "info");

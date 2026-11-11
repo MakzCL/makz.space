@@ -1,5 +1,18 @@
 # SEND changelog
 
+## 2026-11-11 — Calls fit the window, update prompt, instant messages, desktop 0.6.3
+
+- **Call grid:** picks the number of columns that gives the largest 16:9 tiles for the space — stacked in a
+  tall window, side by side in a wide one — with a short last row centred.
+- **Focused tile:** takes the video's own shape (no black bars around screen shares); the members strip and
+  its toggle sit directly under it as one centred group.
+- **No "Sending…":** your message shows at full strength the moment you send it; only a failure is marked.
+- **Every web deploy is an update:** builds carry an id (meta tag + `/version.json`). The app checks every 5
+  minutes and when you return to it; a new build shows the green update button in the desktop title bar, or
+  an "Update" bar in the browser and Android app. Clicking reloads. A removed old file reloads by itself.
+- **SEND stays out of your screen share:** desktop 0.6.3 (Windows) excludes its own window from screen
+  capture while you share. Browsers no longer offer the SEND tab itself in the share picker.
+
 ## 2026-11-11 — GIF search through GIPHY
 
 - **GIPHY** is a supported GIF provider (`SEND_GIF_PROVIDER=giphy`). Results are cached and shared by

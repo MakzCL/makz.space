@@ -47,6 +47,7 @@
     onUpdateStatus: (cb) => on("update-status", cb),
     onActivity: (cb) => on("activity", cb),
     flash: () => inv("flash"),
+    setCaptureExcluded: (excluded) => inv("set_capture_excluded", { excluded: !!excluded }),
   });
 
   // Web notifications → native Windows toasts (WebView2's own notification support varies by runtime).
