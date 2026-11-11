@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-11 — rename, camera + screen together, no echo in screen shares, voice status, noise suppression
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `b96e6d11-ebef-46ba-a7af-03eb7177efe2` (commit `3e93951`) |
+| Backend (Worker `send-beta-api`) | unchanged — the rename's server side (SEND_ names, `send_session`, `send_names`) arrives with the next backend deploy; the web app works with the current backend |
+| Source | commit `3e93951`; database unchanged |
+
+Released as deployment `82421f5b-62d5-4ed7-a7c9-94815eb458b5` (commit `3bed9fc`). Git-triggered builds for
+`syndo-app` stay "queued" since this morning; each release so far was started with *Retry deployment*.
+
+### Roll back
+1. Web: Pages → `syndo-app` → Deployments → `b96e6d11` → *Rollback to this deployment*.
+
 ## 2026-11-11 — AI noise suppression (RNNoise)
 
 | Layer | Restore point (before this release) |
