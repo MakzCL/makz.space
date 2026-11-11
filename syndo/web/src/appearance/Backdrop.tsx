@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import type { Background } from "@syndo/shared";
-import { assetUrl, rgba } from "./engine.ts";
+import { activeBackground, assetUrl, rgba } from "./engine.ts";
 import { useAppearance } from "./store.ts";
 
 /**
@@ -13,9 +13,8 @@ import { useAppearance } from "./store.ts";
  */
 export function useActiveBackground(): { bg: Background | null; target: "app" | "chat" } {
   const t = useAppearance((s) => s.resolved.theme);
-  const set = t.background ?? {};
-  const bg = (t.meta.scheme === "light" ? set.light ?? set.dark : set.dark ?? set.light) ?? null;
-  return { bg: bg && bg.kind !== "none" ? bg : null, target: set.target ?? "app" };
+  const bg = activeBackground(t);
+  return { bg, target: t.background?.target ?? "app" };
 }
 
 export const Backdrop = memo(function Backdrop({ bg, className = "" }: { bg: Background; className?: string }) {

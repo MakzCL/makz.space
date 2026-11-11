@@ -23,6 +23,10 @@ export const CHANGELOG: Release[] = [
       { title: "Messages", items: [
         "Replies to a picture or file now show a hint to open the attachment.",
       ] },
+      { title: "Starting up", items: [
+        "The start-up screen now matches your theme and wallpaper.",
+        "A cleaner logo animation while SEND connects.",
+      ] },
     ],
   },
   {

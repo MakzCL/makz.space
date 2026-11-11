@@ -119,20 +119,31 @@ export let timeFormat: "12h" | "24h" | "relative" = "12h";
 /* ---------------------------------------------------- startup snapshot -- */
 const SNAP = "syndo.appearance.snapshot.v2";
 /** Last applied CSS, so the next start paints with the user's look before preferences load (no flash). */
-export function saveSnapshot() {
+/** The wallpaper a theme shows for its scheme, or null. */
+export function activeBackground(t: ThemeDoc): Background | null {
+  const set = t.background ?? {};
+  const bg = (t.meta.scheme === "light" ? set.light ?? set.dark : set.dark ?? set.light) ?? null;
+  return bg && bg.kind !== "none" ? bg : null;
+}
+/** What the last start-up snapshot held: `restored` stops the defaults from repainting over it before preferences load. */
+export const snapshot: { restored: boolean; bg: Background | null | undefined } = { restored: false, bg: undefined };
+export function saveSnapshot(bg?: Background | null) {
   try {
     const css = document.getElementById("syndo-theme")?.textContent ?? "";
-    localStorage.setItem(SNAP, JSON.stringify({ css, data: { ...document.documentElement.dataset } }));
+    localStorage.setItem(SNAP, JSON.stringify({ css, data: { ...document.documentElement.dataset }, bg: bg ?? null }));
   } catch { /* storage unavailable */ }
 }
 export function restoreSnapshot(): boolean {
   try {
     const raw = localStorage.getItem(SNAP);
     if (!raw) return false;
-    const { css, data } = JSON.parse(raw);
+    const { css, data, bg } = JSON.parse(raw);
     if (typeof css !== "string" || css.length > 200_000) return false;
     const style = document.createElement("style"); style.id = "syndo-theme"; style.textContent = css; document.head.appendChild(style);
     for (const [k, v] of Object.entries(data ?? {})) if (typeof v === "string" && /^[a-zA-Z]+$/.test(k)) document.documentElement.dataset[k] = v;
+    if (typeof data?.scheme === "string") document.documentElement.style.colorScheme = data.scheme;
+    snapshot.restored = true;
+    if (bg !== undefined) snapshot.bg = bg && typeof bg === "object" && typeof bg.kind === "string" ? bg : null;
     return true;
   } catch { return false; }
 }

@@ -5,7 +5,7 @@ import {
 } from "@syndo/shared";
 import { ApiError, api, errMsg } from "../api.ts";
 import { onEvent, toast, useStore } from "../store.ts";
-import { applyToDocument, clearSnapshot, defaultResolved, saveSnapshot } from "./engine.ts";
+import { activeBackground, applyToDocument, clearSnapshot, defaultResolved, saveSnapshot, snapshot } from "./engine.ts";
 
 export interface Preset { id: string; name: string; data: ThemeDoc }
 export interface SharedTheme { id: string; channel_id: string; proposer_id: string; data: DeepPartial<ThemeDoc>; my_vote: boolean | null; created_at: string }
@@ -98,16 +98,18 @@ export function reapply() {
   requestAnimationFrame(() => {
     applyQueued = false;
     const s = get();
+    // Before preferences load, keep the look restored from the last session instead of repainting (and re-saving) the defaults.
+    if (!s.loaded && snapshot.restored && !s.safeMode && !s.draft) return;
     const ctx = s.previewCtx ?? s.ctx;
     const r = resolveFor(ctx);
     applyToDocument(r.resolved, r.conversation, r.customCss);
     set({ resolved: r.resolved, conversation: r.conversation });
     (window as any).__syndoTheme = r.resolved.theme.meta.id; // test/diagnostics hook
-    if (!s.draft && !s.safeMode && !s.previewCtx) saveSnapshot();
+    if (!s.draft && !s.safeMode && !s.previewCtx && (s.loaded || !snapshot.restored)) saveSnapshot(activeBackground(r.resolved.theme));
   });
 }
 useAppearance.subscribe((s, p) => {
-  if (s.global !== p.global || s.scopes !== p.scopes || s.draft !== p.draft || s.ctx !== p.ctx || s.previewCtx !== p.previewCtx || s.presets !== p.presets || s.shared !== p.shared || s.device !== p.device || s.safeMode !== p.safeMode) reapply();
+  if (s.loaded !== p.loaded || s.global !== p.global || s.scopes !== p.scopes || s.draft !== p.draft || s.ctx !== p.ctx || s.previewCtx !== p.previewCtx || s.presets !== p.presets || s.shared !== p.shared || s.device !== p.device || s.safeMode !== p.safeMode) reapply();
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", reapply);
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", reapply);

@@ -1,5 +1,15 @@
 # SEND restore points
 
+## 2026-11-11 — themed start-up screen
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | unchanged (`SOURCE_COMMIT` `baee2d8`) |
+| Web (Pages `syndo-app`) | deployment `291eac2e-b28e-4153-a1e7-6217ee3eaa45` |
+| Source | branch `backup/pre-splash-20261111`; database unchanged |
+
+The start-up screen uses the last session's theme (colours, glass, wallpaper) or the default Glass look on a first visit, with a new logo animation. Fixes the start-up snapshot being overwritten by the defaults before preferences loaded. Web only.
+
 ## 2026-11-11 — phone drawer, reply attachment hint
 
 | Layer | Restore point (before this release) |
