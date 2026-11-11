@@ -8,7 +8,7 @@
 | Web (Pages `syndo-app`) | deployment `291eac2e-b28e-4153-a1e7-6217ee3eaa45` |
 | Source | branch `backup/pre-splash-20261111`; database unchanged |
 
-The start-up screen uses the last session's theme (colours, glass, wallpaper) or the default Glass look on a first visit, with a new logo animation. Fixes the start-up snapshot being overwritten by the defaults before preferences loaded. Web only.
+The start-up screen uses the last session's theme (colours, glass, wallpaper) or the default Glass look on a first visit, with a new logo animation. Fixes the start-up snapshot being overwritten by the defaults before preferences loaded. Web only. Released at `3e93951` (Pages deployment `b96e6d11-ebef-46ba-a7af-03eb7177efe2`).
 
 ## 2026-11-11 — phone drawer, reply attachment hint
 
