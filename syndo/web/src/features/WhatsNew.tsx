@@ -10,6 +10,20 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-call-tiles",
+    title: "Calls that work like you'd expect",
+    date: "2026-11-11",
+    intro: "Video and screen share tiles now behave the way you're used to.",
+    sections: [
+      { title: "In calls", items: [
+        "Click anyone's tile to make it big; click it again to go back to the grid.",
+        "Someone's screen share shows a Watch Stream button, and you only hear it once you watch.",
+        "Stop watching from the tile, and hide or show the people under a big tile.",
+        "Names show when you hover over video.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-noise",
     title: "Noise suppression",
     date: "2026-11-11",

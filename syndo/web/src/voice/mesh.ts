@@ -262,7 +262,7 @@ export class MeshCall {
       const sink = s.settings.outputDeviceId === "default" ? "" : s.settings.outputDeviceId;
       if (el.setSinkId && el.sinkId !== sink) el.setSinkId(sink).catch(() => {});
       const sa = p.screenAudio as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void>; sinkId?: string };
-      sa.muted = s.deafened;
+      sa.muted = s.deafened || !s.watching.includes(uid); // stream sound plays only while watching
       sa.volume = Math.max(0, Math.min(1, s.settings.userVolumes[`${uid}:stream`] ?? 1));
       if (sa.setSinkId && sa.sinkId !== sink) sa.setSinkId(sink).catch(() => {});
     }

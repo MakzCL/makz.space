@@ -45,12 +45,14 @@ export function selfCallMenuItems(): MenuItem[] {
 export interface TileMenuOptions {
   uid: string; screen: boolean; local: boolean; focused: boolean; hasVideo: boolean;
   onFocus: () => void; onFullscreen: () => unknown; onPip?: () => unknown;
+  onWatch?: () => void; onStopWatching?: () => void;
   onProfile?: () => void; participantItems: MenuItem[];
 }
 /** Screen shares are media surfaces, not moderation targets. Cameras keep the participant's actions. */
 export function tileMenuItems(o: TileMenuOptions): MenuItem[] {
   const items: MenuItem[] = [
-    { label: o.focused ? "Unfocus" : o.screen ? "Focus stream" : "Focus participant", onSelect: o.onFocus },
+    o.onWatch ? { label: "Watch stream", onSelect: o.onWatch } : { label: o.focused ? "Unfocus" : o.screen ? "Focus stream" : "Focus participant", onSelect: o.onFocus },
+    ...(o.onStopWatching ? [{ label: "Stop watching", onSelect: o.onStopWatching } as MenuItem] : []),
     ...(o.hasVideo ? [{ label: "Fullscreen", onSelect: safe(o.onFullscreen) } as MenuItem,
       ...(o.onPip ? [{ label: "Picture in picture", onSelect: safe(o.onPip) } as MenuItem] : [])] : []),
     { kind: "separator" },

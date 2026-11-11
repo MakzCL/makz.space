@@ -1,5 +1,15 @@
 # SEND changelog
 
+## 2026-11-11 — Discord-style call tiles
+
+- **Click to focus:** clicking a tile makes it the big one; clicking the big one returns to the grid.
+  Enter or Space does the same from the keyboard.
+- **Watch Stream:** someone else's screen share starts as a blurred preview with a LIVE badge and a
+  "Watch Stream" button. Its sound stays off until you watch. Watching focuses it; "Stop watching"
+  (tile button or right-click) returns it to a preview. A stream that ends has to be watched again.
+- **Members strip:** under a big tile, a small toggle hides or shows everyone else.
+- **Names** appear on hover over video; mute icons and LIVE badges stay visible.
+
 ## 2026-11-11 — Camera and screen together, no call echo in screen shares
 
 - **Camera + screen at once** in direct (peer-to-peer) calls: each connection now has a separate video

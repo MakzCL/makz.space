@@ -1902,3 +1902,14 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .ns-seg button:disabled { opacity: .45; cursor: not-allowed; }
 .voice-bar .vb-ns { color: var(--textMuted); }
 .voice-bar .vb-ns.on { color: var(--brand-success); }
+
+/* Call tiles behave like Discord's: click to focus, click again for the grid; names show on hover over
+   video; someone's stream is a blurred preview with "Watch Stream" until you choose to watch it. */
+.tile { cursor: pointer; }
+.tile.has-video:not(:hover):not(:focus-within) figcaption .tile-name { display: none; }
+.tile.has-video:not(:hover):not(:focus-within) figcaption:not(:has(svg, .live)) { opacity: 0; }
+.tile.preview video { filter: blur(14px) brightness(.55); transform: scale(1.08); }
+.tile .watch-cta { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, #000 25%, transparent); }
+.tile .watch-cta .btn { font-weight: 700; padding: 8px 16px; }
+.tiles.focused .strip-toggle { align-self: center; flex: none; border: 0; background: color-mix(in srgb, var(--bg2) 80%, transparent); color: var(--text); border-radius: 999px; width: 36px; height: 22px; display: grid; place-items: center; cursor: pointer; margin: -4px 0; }
+.tiles.focused .strip-toggle:hover { background: var(--bg3); }

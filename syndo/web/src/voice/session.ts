@@ -50,11 +50,15 @@ interface VS {
   grants: { speak: boolean; video: boolean; vad: boolean } | null;
   focus: string | null; // "<identity>:screen" | "<identity>:camera"
   layout: "grid" | "focus";
+  /** People whose screen share I chose to watch (Discord "Watch Stream"); others show a preview card and stay silent. */
+  watching: string[];
+  /** Hide the participant strip under a focused tile. */
+  hideStrip: boolean;
 }
 
 export const useVoice = create<VS>(() => ({
   channelId: null, status: "idle", error: null, muted: false, deafened: false, camera: false, sharing: false, pttActive: false, localSpeaking: false,
-  peers: {}, localCamera: null, localScreen: null, settings: loadVoiceSettings(), grants: null, focus: null, layout: "grid",
+  peers: {}, localCamera: null, localScreen: null, settings: loadVoiceSettings(), grants: null, focus: null, layout: "grid", watching: [], hideStrip: false,
 }));
 const set = useVoice.setState;
 const get = useVoice.getState;
@@ -230,7 +234,7 @@ export async function joinVoice(channelId: string) {
   playCallSound("join");
   await leaveVoice({ switching: true });
   const my = ++joinToken;
-  set({ channelId, status: "connecting", error: null, peers: {}, camera: false, sharing: false });
+  set({ channelId, status: "connecting", error: null, peers: {}, camera: false, sharing: false, watching: [], focus: null });
   // Show me under the channel now and tell everyone else now — media connects in the background.
   showSelf(channelId);
   reportState();
@@ -319,7 +323,7 @@ function cleanup() {
   if (gainCtx) { gainCtx.raw.stop(); gainCtx.ctx.close().catch(() => {}); gainCtx = null; }
   micTrack?.stop(); micTrack = null;
   room = null;
-  set({ peers: {}, localCamera: null, localScreen: null, camera: false, sharing: false, focus: null });
+  set({ peers: {}, localCamera: null, localScreen: null, camera: false, sharing: false, focus: null, watching: [] });
 }
 
 export async function leaveVoice(opts: { switching?: boolean } = {}) {
@@ -531,3 +535,11 @@ export { DEFAULT_VOICE };
 function applySpeakingColor() { try { document.documentElement.style.setProperty("--speaking", get().settings.speakingColor || "#23a55a"); } catch { /* no DOM */ } }
 applySpeakingColor();
 useVoice.subscribe((s, p) => { if (s.settings.speakingColor !== p.settings.speakingColor) applySpeakingColor(); });
+
+/** Start or stop watching someone's screen share. Watching focuses it; stopping goes back to the grid. */
+export function setWatching(uid: string, on: boolean) {
+  const v = get(), key = `${uid}:screen`;
+  const watching = on ? [...new Set([...v.watching, uid])] : v.watching.filter((x) => x !== uid);
+  set({ watching, focus: on ? key : v.focus === key ? null : v.focus });
+  cf?.output();
+}
