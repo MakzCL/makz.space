@@ -13,13 +13,14 @@ every later web deploy shows open apps an update button/bar.
 
 Desktop 0.6.3 from CI run 43111248299 (artifact digest `sha256:48b44a4b…`): `SEND-Setup-0.6.3.exe`, 1,729,339 bytes,
 sha512 `iViQizMSEywYOuuTa7OMu25Xq5PDpCigHIBQNu6atLlM8p3mYBK+mD3KaTswfCCK3mH2Ff85Xr9XJe5/AaDjMA==` (public copy verified).
-Uploaded with a one-hour token limited to `syndo-desktop`, revoked right after. The website download link
-(`/api/downloads/windows`) still points at 0.6.2 until the next backend deploy (`cloudflare/releases.ts` already says
-0.6.3); new installs then update to 0.6.3 from inside the app.
+Uploaded with a one-hour token limited to `syndo-desktop`, revoked right after. Download link: Worker
+`send-beta-api` redeployed (deployment `93da95e2`, only the installer name changed; `SOURCE_COMMIT` kept at `cf5ca73`,
+so the server container didn't restart). Before it: version `c0d0f344-6365-4480-bfe5-575d716edcae`.
 
 ### Roll back
 1. Feed: copy `latest-0.6.2.yml` over `latest.yml` in the `syndo-desktop` bucket.
-2. Web: Pages → `syndo-app` → Deployments → `f12b067e` → *Rollback to this deployment*.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy version `c0d0f344` at 100%.
+3. Web: Pages → `syndo-app` → Deployments → `f12b067e` → *Rollback to this deployment*.
 
 ## 2026-11-11 — GIPHY GIF search; backend catches up with the rename
 
