@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
-import {
+import { MoreHorizontal,
   AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Plus, Phone, Pin, PinOff,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
@@ -411,7 +411,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
     <article onContextMenu={onContextMenu} onClickCapture={onClickCapture} className={`msg ${picker ? "picking" : ""} ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${mine ? "mine" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
       {m.reply_to && (
         <button className="reply-ref" onClick={() => navigate(`/channels/${guildId ?? "@me"}/${channel.id}/${m.reply_to!.id}`)}>
-          <CornerUpLeft size={14} aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <><strong>@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> <span className="ellipsis">{plainText(m.reply_to.content)}</span></>}
+          <span className="reply-spine" aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <>{m.reply_to.author && <Avatar user={m.reply_to.author} size={16} />}<strong className="reply-who">@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> <span className="ellipsis">{plainText(m.reply_to.content) || "Click to see attachment"}</span></>}
         </button>
       )}
       <div className="msg-row">
@@ -463,10 +463,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {guildId && !m.thread && !isThreadType(channel.type) && (channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && can(channel, P.CREATE_PUBLIC_THREADS) && <button className="icon-btn sm" aria-label="Create thread" title="Create thread" onClick={() => openCreateThread(channel, m)}><MessageSquare size={16} /></button>}
           {channel.type === ChannelType.ANNOUNCEMENT && !((m.flags ?? 0) & 1) && (mine || canManage) && <button className="icon-btn sm" aria-label="Publish" title="Publish to followers" onClick={() => api.post(`/api/channels/${channel.id}/messages/${m.id}/crosspost`).then(() => toast("Published.", "success")).catch((x) => toast(errMsg(x), "error"))}><SendIcon size={16} /></button>}
           {mine && <button className="icon-btn sm" aria-label="Edit" onClick={() => setEditing(true)}><Pencil size={16} /></button>}
-          {(canManage || !guildId) && <button className="icon-btn sm" aria-label={m.pinned ? "Unpin" : "Pin"} onClick={pin}>{m.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>}
-          <button className="icon-btn sm" aria-label="Save message" onClick={save}><Bookmark size={16} /></button>
-          <button className="icon-btn sm" aria-label="Copy message link" onClick={() => { navigator.clipboard.writeText(messageLink(guildId, channel.id, m.id)); toast("Link copied.", "success"); }}><Link2 size={16} /></button>
-          <button className="icon-btn sm" aria-label="Mark unread" onClick={() => api.post(`/api/channels/${channel.id}/messages/${m.id}/unread`)}><BookmarkCheck size={16} /></button>
+          <button className="icon-btn sm" aria-label="More" title="More" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.closest("article")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left, clientY: r.bottom + 4, button: 2 })); }}><MoreHorizontal size={16} /></button>
           {(mine || canManage) && <button className="icon-btn sm danger" aria-label="Delete" title="Delete (hold Shift to skip confirmation)" onClick={(e) => del(e.shiftKey)}><Trash2 size={16} /></button>}
         </div>
       )}

@@ -1855,3 +1855,14 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .composer > .icon-btn[aria-label="Record a voice message"], .composer > .icon-btn[aria-label="Stop recording"] { width: 42px !important; height: 42px !important; }
   .composer-send.ready { width: 38px !important; height: 38px !important; margin: 2px; }
 }
+
+/* ---- polish pass 2: replies, bold, toolbar, empty states ---- */
+.reply-ref { position: relative; margin-left: 56px; gap: 5px; max-width: calc(100% - 72px); min-width: 0; }
+.reply-ref .reply-who { white-space: nowrap; flex: none; font-weight: 600; color: var(--text); opacity: .85; }
+.reply-ref .avatar { flex: none; }
+.reply-spine { position: absolute; left: -36px; top: 50%; width: 30px; height: 12px; border-left: 2px solid var(--line); border-top: 2px solid var(--line); border-top-left-radius: 6px; opacity: .9; pointer-events: none; }
+.reply-ref:hover .reply-spine { border-color: var(--textMuted); }
+[data-msg-style="bubbles"] .reply-spine { display: none; }
+.msg-content strong, .msg-content b { font-weight: 700; }
+.list-empty { display: grid; place-items: center; text-align: center; min-height: 40vh; font-size: .95rem; }
+@media (max-width: 760px) { .reply-ref { margin-left: 52px; max-width: calc(100% - 60px); } .reply-spine { left: -32px; width: 26px; } }

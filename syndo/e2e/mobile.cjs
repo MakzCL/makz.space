@@ -11,7 +11,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
   const b = await chromium.launch();
   for (const [label, dev] of [['Pixel 7', devices['Pixel 7']], ['iPhone SE', devices['iPhone SE']]]) {
     const SFX = Date.now().toString(36).slice(-5) + label.length;
-    const mk = async () => { const c = await b.newContext({ ...dev }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); p.setDefaultTimeout(8000); return p; };
+    const mk = async () => { const c = await b.newContext({ ...dev }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); localStorage.setItem('send.whatsNew.seen', 'skip'); localStorage.setItem('send.android-prompt.dismissed.v1', '1'); localStorage.setItem('send.ios-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); p.setDefaultTimeout(8000); return p; };
     const p = await mk(), q = await mk(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('dialog', (d) => { errs.push('native dialog'); d.dismiss(); });
     const api = (pg, m, path, body) => pg.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-syndo-client': '1' } : { 'x-syndo-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
     await p.goto(BASE + '/login'); await api(p, 'POST', '/api/auth/register', { email: `mb${SFX}@example.test`, username: `mb${SFX}`, password: 'correct horse battery', display_name: 'Mobi' });
@@ -65,7 +65,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
     await p.evaluate(() => window.__sendBack()); await gone(pk);
 
     // Members page full-screen with its own close; back closes it.
-    await p.locator('.ch-actions [aria-label="Member list"]').tap();
+    await p.locator('.ch-h .ch-title').tap();
     const mem = p.locator('.side-panel.members'); await mem.waitFor(); await p.waitForTimeout(350);
     check(L('Member list opens as a full-screen page'), await seen(mem) && await mem.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left <= 0 && r.top <= 0 && r.width >= innerWidth - 1 && r.height >= innerHeight - 1; }));
     check(L('Back closes the member list'), await p.evaluate(() => window.__sendBack()) && await gone(mem));

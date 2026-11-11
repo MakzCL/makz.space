@@ -10,7 +10,7 @@ const seen = (loc, ms = 8000) => loc.waitFor({ state: 'visible', timeout: ms }).
 const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${extra}`); };
 (async () => {
   const b = await chromium.launch();
-  const mk = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); return { c, p, errs }; };
+  const mk = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); localStorage.setItem('send.whatsNew.seen', 'skip'); localStorage.setItem('send.android-prompt.dismissed.v1', '1'); localStorage.setItem('send.ios-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); return { c, p, errs }; };
   const A = await mk(), B = await mk();
   const reg = async (x, u) => {
     await x.p.goto(BASE + '/register');

@@ -26,7 +26,7 @@ async function setRange(loc, value) {
 (async () => {
   const b = await chromium.launch();
   const errs = [];
-  const mk = async (opts = {}) => { const c = await b.newContext({ viewport: { width: 1360, height: 860 }, ...opts }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); return { c, p }; };
+  const mk = async (opts = {}) => { const c = await b.newContext({ viewport: { width: 1360, height: 860 }, ...opts }); await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); localStorage.setItem('send.whatsNew.seen', 'skip'); localStorage.setItem('send.android-prompt.dismissed.v1', '1'); localStorage.setItem('send.ios-prompt.dismissed.v1', '1'); } catch {} }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); return { c, p }; };
   const reg = async (x, u) => {
     await x.p.goto(BASE + '/register');
     await x.p.getByLabel('Email').fill(`${U(u)}@example.test`);

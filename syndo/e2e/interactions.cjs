@@ -13,7 +13,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
   const b = await chromium.launch();
   const mk = async (name) => {
     const c = await b.newContext({ viewport: { width: 1280, height: 800 } });
-    await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); } catch {} });
+    await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); localStorage.setItem('send.whatsNew.seen', 'skip'); localStorage.setItem('send.android-prompt.dismissed.v1', '1'); localStorage.setItem('send.ios-prompt.dismissed.v1', '1'); } catch {} });
     const p = await c.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message));
     p.on('dialog', (d) => { errs.push('NATIVE DIALOG: ' + d.message()); d.dismiss(); });

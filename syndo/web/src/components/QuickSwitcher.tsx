@@ -22,7 +22,7 @@ export function QuickSwitcher({ onClose }: { onClose: () => void }) {
   }, [guilds, dms, q]);
   const go = (href: string) => { navigate(href); onClose(); };
   return (
-    <Modal title="Jump to" onClose={onClose}>
+    <Modal label="Jump to" onClose={onClose}>
       <input autoFocus value={q} placeholder="Where would you like to go?" aria-label="Search channels and conversations" aria-controls="qs-list"
         onChange={(e) => { setQ(e.target.value); setI(0); }}
         onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setI((x) => Math.min(items.length - 1, x + 1)); } if (e.key === "ArrowUp") { e.preventDefault(); setI((x) => Math.max(0, x - 1)); } if (e.key === "Enter" && items[i]) go(items[i]!.href); }} />

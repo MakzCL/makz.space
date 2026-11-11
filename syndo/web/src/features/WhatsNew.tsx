@@ -15,6 +15,12 @@ export const CHANGELOG: Release[] = [
     date: "2026-11-11",
     intro: "A tidier phone layout, big uploads, 7TV and BTTV emotes and a nicer call screen.",
     sections: [
+      { title: "Messages", items: [
+        "Replies show the person's picture and a line linking to their message.",
+        "The hover bar is shorter: reactions, reply, forward, thread and a More menu.",
+        "Bold text is clearly bold.",
+        "The quick switcher is just a search box.",
+      ] },
       { title: "On your phone", items: [
         "A back arrow with your waiting mentions, and the online count under the channel name.",
         "Chat fills the whole screen, edge to edge.",
@@ -118,7 +124,7 @@ export function WhatsNewHost() {
     window.addEventListener("syndo:whatsnew", on);
     // First launch after an update: wait until nothing else (download prompt, onboarding…) is on screen.
     let timer: number | undefined;
-    if (seen() !== latest.id) {
+    if (seen() !== latest.id && seen() !== "skip") { // "skip" is set by the browser tests
       const tryOpen = () => { if (document.querySelector('[aria-modal="true"]')) timer = window.setTimeout(tryOpen, 1500); else setOpen(true); };
       timer = window.setTimeout(tryOpen, 1200);
     }

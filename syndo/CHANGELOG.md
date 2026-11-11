@@ -1,5 +1,15 @@
 # SEND changelog
 
+## 2026-11-11 — Message polish
+
+- **Replies** show the author's small avatar and a connector line; the name no longer wraps onto two lines.
+- **Hover toolbar** trimmed to quick reactions, reply, forward, thread, More (opens the full menu), edit and delete.
+- **Bold** renders at a visibly heavier weight.
+- **Quick switcher** (Ctrl+K) has no title bar, only the search box.
+- **Profile card** dates read like "Nov 10, 2026".
+- **Friends** empty states are centred.
+- **Tests:** browser suites skip the What's new and install prompts and follow the new phone header; interactions 41/41, keyboard 34/34, mobile 52/52.
+
 ## 2026-11-04 — Phone layout and Android app 0.3.0
 
 ### Changed (phones, ≤760px; also used by the Android app)
