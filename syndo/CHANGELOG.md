@@ -1,5 +1,11 @@
 # SEND changelog
 
+## 2026-11-11 — Desktop 0.6.4
+
+- **Updates install again:** in 0.6.2 and 0.6.3 the green update button froze on the "Updating SEND" window.
+  The update and change-server commands now run off the main thread. People on 0.6.2/0.6.3 are sent to the
+  installer from the website instead (it updates SEND in place); from 0.6.4 on, updates install from the app.
+
 ## 2026-11-11 — Calls fit the window, update prompt, instant messages, desktop 0.6.3
 
 - **Call grid:** picks the number of columns that gives the largest 16:9 tiles for the space — stacked in a

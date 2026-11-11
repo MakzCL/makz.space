@@ -1,5 +1,26 @@
 # SEND restore points
 
+## 2026-11-11 — desktop 0.6.4 (updater no longer freezes)
+
+0.6.2 and 0.6.3 froze on the "Updating SEND" window: the update commands were synchronous, so the window was built
+on the main thread, which deadlocks on Windows. 0.6.4 runs them off the main thread. The web app sends 0.6.2/0.6.3
+users to the installer instead of their own updater.
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.6.3.yml` (feed at 0.6.3) and `latest-0.6.2.yml`; installers stay in the bucket |
+| Download link (Worker `send-beta-api`) | version `c0d0f344-6365-4480-bfe5-575d716edcae` (link → 0.6.2) |
+| Web (Pages `syndo-app`) | deployment `75efed08-62ed-49bc-8f49-833e9fa0cdc5` (commit `b46af53`) |
+
+Released from commit `a529209` (CI run 43114670072, artifact digest `sha256:5b002106…`): `SEND-Setup-0.6.4.exe`,
+1,728,171 bytes, sha512 verified on the public copy. One-hour bucket-limited token, revoked. Download link: Worker
+deployment `19016c5c` (installer name only; `SOURCE_COMMIT` still `cf5ca73`). Web: deployment `3b0ff942`.
+
+### Roll back
+1. Feed: copy `latest-0.6.2.yml` over `latest.yml` in the `syndo-desktop` bucket (0.6.3 has the frozen updater too).
+2. Download link: Workers → `send-beta-api` → Deployments → deploy version `c0d0f344` at 100%.
+3. Web: Pages → `syndo-app` → Deployments → `75efed08` → *Rollback to this deployment*.
+
 ## 2026-11-11 — calls fit the window, update prompt, instant messages, desktop 0.6.3
 
 | Layer | Restore point (before this release) |
