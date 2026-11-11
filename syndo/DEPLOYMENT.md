@@ -147,3 +147,7 @@ names (`syndo-app`, `syndo-desktop`, `syndo-beta-uploads`, the `syndo-beta-weur-
 Supabase project and its `syndo` schema and roles, the local Postgres user and databases, the Android and
 desktop app identifiers (`space.makz.syndo…`, changing them would install a separate app), the
 workflow file names and the already-applied database migrations.
+
+The web package is still named `@syndo/web` because the Cloudflare Pages build command for `syndo-app`
+is `cd .. && npm ci && npm run build -w @syndo/web`. To rename it, first change that command (Pages →
+`syndo-app` → Settings → Builds) to `cd .. && npm ci && npm run build -w web`, which works with any name.
