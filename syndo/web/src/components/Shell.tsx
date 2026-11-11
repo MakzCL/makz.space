@@ -391,11 +391,12 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
         aria-label={`${c.name}, ${isVoiceType(c.type) ? "voice channel" : "channel"}${unread ? ", unread" : ""}${mentions ? `, ${mentions} mentions` : ""}`}>
         <span ref={iconRef} className={`ch-icon ${canManage ? "editable" : ""}`} title={canManage ? "Change icon" : undefined}
           onClick={canManage ? (e) => { e.stopPropagation(); e.preventDefault(); const el = e.currentTarget; setIconPicker((p) => (p ? null : el)); } : undefined}><ChannelGlyph c={c} /></span>{priv && <Lock size={11} className="lock" aria-hidden />}
-        <span className="ellipsis">{c.name}</span>
+        {c.type === ChannelType.VOICE && c.voice_status
+          ? <span className="side-ch-text"><span className="ellipsis">{c.name}</span><small className="side-voice-status ellipsis" title={c.voice_status}>{c.voice_status}</small></span>
+          : <span className="ellipsis">{c.name}</span>}
         {c.user_limit > 0 && isVoiceType(c.type) && <small className="muted">{voiceUsers.length}/{c.user_limit}</small>}
         {mentions > 0 && <span className="badge inline">{mentions}</span>}
       </button>
-      {c.type === ChannelType.VOICE && c.voice_status && <div className="side-voice-status ellipsis" title={c.voice_status}>{c.voice_status}</div>}
       {(c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT || c.type === ChannelType.FORUM) && <SidebarThreads parentId={c.id} current={current ?? ""} />}
       {iconPicker && <EmojiPicker anchor={iconPicker} guildId={guild.id} onPick={(e) => setIcon(e)} onClose={() => setIconPicker(null)} onClear={c.icon_emoji ? () => setIcon(null) : undefined} clearLabel={isVoiceType(c.type) ? "Use the speaker icon" : "Use #"} />}
       {profile && <ProfileCard userId={profile.id} guildId={guild.id} anchor={profile.el} onClose={() => setProfile(null)} />}

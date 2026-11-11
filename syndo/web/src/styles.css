@@ -1575,7 +1575,11 @@ video.viewer-media { cursor: default; }
 .side-thread { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 3px 8px; border-radius: var(--r-sm); font-size: .85rem; color: var(--textMuted); cursor: pointer; }
 .side-thread:hover, .side-thread.active { background: var(--bg3); color: var(--text); }
 .side-ch.muted-ch { opacity: .45; }
-.side-voice-status { margin: -2px 0 2px 34px; font-size: .75rem; color: var(--textMuted); }
+/* Voice channel status sits inside the channel row, under the name, in smaller text. */
+.side-ch-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.2; }
+.side-ch-text > .ellipsis { max-width: 100%; }
+.side-voice-status { display: block; font-size: .72rem; font-weight: 500; color: var(--textMuted); margin-top: 1px; }
+.side-ch.active .side-voice-status, .side-ch:hover .side-voice-status { color: color-mix(in srgb, var(--text) 70%, transparent); }
 .events-link { margin-bottom: 6px; border: 1px solid var(--line); } .events-link.live { color: var(--brand-success); border-color: var(--brand-success); }
 .pick-list { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
 .pick-row { all: unset; display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: var(--r-sm); cursor: pointer; }
