@@ -10,6 +10,8 @@
 
 Phone drawer: search bar, invite and events buttons under the server name, rounded icons and panel. Reply previews of attachment-only messages say "Click to see attachment" (the backend now sends the original's attachment count with `reply_to`).
 
+Released at `baee2d8` (Worker `SOURCE_COMMIT` → `baee2d8`, Pages deployment `291eac2e-b28e-4153-a1e7-6217ee3eaa45`). This release also carries the other session's work pushed in between: reply preview with avatar and connector, shorter hover toolbar, voice-message player (`c648bd4`, `405ba1c`). Checked live: reply to an attachment-only message returns `attachments: 1`; big uploads, signed reads and ranges still pass.
+
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → deploy `5b680e1c` at 100%.
 2. Web: Pages → `syndo-app` → Deployments → `2440ea03` → Rollback to this deployment.
