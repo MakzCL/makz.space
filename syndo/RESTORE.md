@@ -1,5 +1,23 @@
 # SEND restore points
 
+## 2026-11-11 — GIPHY GIF search; backend catches up with the rename
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `8130bff5-5f0c-4550-97e3-f02947a1e481` (deployment `7aa0f264`), `SOURCE_COMMIT` `baee2d8` |
+| Web (Pages `syndo-app`) | deployment `ad315ff1-89a7-40c6-9845-e00dbe14cba8` (commit `e58139d`) |
+| Source | commit `54c8c5b`; database unchanged |
+
+Backend: full script upload (with the container declaration, existing secrets kept), `SOURCE_COMMIT`
+→ `cf5ca73`, new `SEND_GIF_PROVIDER=giphy` and secret `SEND_GIF_KEY`. This also brings the server half of the
+Syndo → SEND rename (SEND_ settings with SYNDO_ fallback, `send_session` cookie, `send_names`). Healthy ~30 s
+after upload. Web: deployment `f12b067e-5150-46cb-8965-290c6f990c85` (commit `cf5ca73`).
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy version `8130bff5` at 100%.
+   (`send_session` cookies issued meanwhile are not read by that version; those people sign in again.)
+2. Web: Pages → `syndo-app` → Deployments → `ad315ff1` → *Rollback to this deployment*.
+
 ## 2026-11-11 — Discord-style call tiles
 
 | Layer | Restore point (before this release) |
