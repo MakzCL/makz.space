@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-11 — desktop 0.6.2 (update and connect windows match the Glass look)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.6.1.yml` (backup of the feed that pointed at `SEND-Setup-0.6.1.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `1757ed9b-1362-48d5-aa36-a0fb6b9eb9c1` (download link → 0.6.1) |
+| Source | branch `backup/pre-desktop-062-20261111`; database unchanged |
+
+Released from commit `27567b2` (CI run 43075692364). `SEND-Setup-0.6.2.exe`, 1,727,238 bytes, sha512 `zIYGSmlTrI5+o8DrlW7sDm6NRLi+vCZuzMOaQlnew0kL8juMuCzpuUpHOVds3aEoDvWrPXzOutg89Cyebsf1XQ==` (public copy verified). The "Updating SEND" window and the connect window use the Glass colours and the new logo animation; no behaviour changes.
+
+### Roll back
+1. Feed: copy `latest-0.6.1.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy `1757ed9b` at 100%.
+
 ## 2026-11-11 — themed start-up screen
 
 | Layer | Restore point (before this release) |
