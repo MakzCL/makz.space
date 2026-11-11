@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-11 — phone drawer, reply attachment hint
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `5b680e1c-71f4-41b6-b0f7-784b2c4fb499`, `SOURCE_COMMIT` `697f3ff` |
+| Web (Pages `syndo-app`) | deployment `2440ea03-8e9b-452a-9a4f-d74fafd362b0` |
+| Source | branch `backup/pre-drawer-20261111`; database unchanged |
+
+Phone drawer: search bar, invite and events buttons under the server name, rounded icons and panel. Reply previews of attachment-only messages say "Click to see attachment" (the backend now sends the original's attachment count with `reply_to`).
+
+### Roll back
+1. Backend: Workers → `send-beta-api` → Deployments → deploy `5b680e1c` at 100%.
+2. Web: Pages → `syndo-app` → Deployments → `2440ea03` → Rollback to this deployment.
+
 ## 2026-11-11 — polish pass (Discord-like phone layout, text details, changelog entry)
 
 | Layer | Restore point (before this release) |

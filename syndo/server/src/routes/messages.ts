@@ -44,7 +44,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
   const ixRows = ixUsers.length ? await q<any>(`select ${prefixedCols("u", "a_")} from users u where u.id = any($1::bigint[])`, [ixUsers]) : [];
   const replyIds = rows.map((r) => r.reply_to_id).filter(Boolean);
   const replies = replyIds.length ? await q<any>(
-    `select m.id::text, m.content, m.deleted_at, ${prefixedCols("u", "a_")} from messages m left join users u on u.id = m.author_id where m.id = any($1::bigint[])`, [replyIds]) : [];
+    `select m.id::text, m.content, m.deleted_at, (select count(*)::int from attachments x where x.message_id = m.id) as att_n, ${prefixedCols("u", "a_")} from messages m left join users u on u.id = m.author_id where m.id = any($1::bigint[])`, [replyIds]) : [];
   const pollOut = (r: any) => {
     const p = pollRows.find((x) => String(x.message_id) === String(r.id));
     if (!p) return null;
@@ -61,7 +61,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       member_nick: r.member_nick ?? null,
       member: r.guild_id && (r.member_avatar_key || r.member_profile_theme) ? { avatar: mediaUrl(r.member_avatar_key), profile_theme: r.member_profile_theme ?? null } : null,
       content: r.deleted_at ? "" : r.content, type: r.type, created_at: r.created_at, edited_at: r.edited_at, pinned: r.pinned,
-      reply_to: r.reply_to_id ? (rep ? { id: rep.id, author: prefixedUser(rep, "a_"), content: rep.deleted_at ? "" : (String(rep.content).startsWith(PREFIX) ? String(rep.content) : String(rep.content).slice(0, 200)), deleted: !!rep.deleted_at } : { id: String(r.reply_to_id), author: null, content: "", deleted: true }) : null,
+      reply_to: r.reply_to_id ? (rep ? { id: rep.id, author: prefixedUser(rep, "a_"), content: rep.deleted_at ? "" : (String(rep.content).startsWith(PREFIX) ? String(rep.content) : String(rep.content).slice(0, 200)), deleted: !!rep.deleted_at, attachments: rep.deleted_at ? 0 : Number(rep.att_n ?? 0) } : { id: String(r.reply_to_id), author: null, content: "", deleted: true }) : null,
       mentions: (r.mentions ?? []).map(String), mention_roles: (r.mention_roles ?? []).map(String), mention_everyone: r.mention_everyone,
       attachments: atts.filter((a) => a.message_id === r.id).map((a) => ({
         id: a.id, filename: a.filename, content_type: a.content_type, size: Number(a.size), url: attUrl(a), width: a.width, height: a.height, duration: a.duration, waveform: a.waveform,

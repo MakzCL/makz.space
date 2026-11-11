@@ -21,7 +21,7 @@ import { joinVoice, useVoice } from "../voice/session.ts";
 import { primeCallAudio } from "../voice/cloudflare.ts";
 import { openDialog } from "./Shell.tsx";
 import { Avatar, fmtBytes, fmtTime, MobileNavButton } from "./ui.tsx";
-import { MoreVertical, ChevronRight } from "lucide-react";
+import { MoreVertical, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { ProfileCard } from "./Dialogs.tsx";
 import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuItem } from "./overlay.tsx";
 import { copy, developerMode, userMenuItems } from "./menus.tsx";
@@ -411,7 +411,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
     <article onContextMenu={onContextMenu} onClickCapture={onClickCapture} className={`msg ${picker ? "picking" : ""} ${grouped ? "grouped" : ""} ${mentioned ? "mentioned" : ""} ${mine ? "mine" : ""} ${m._state ?? ""}`} data-mid={m.id} aria-label={`${name}, ${fmtTime(m.created_at)}`} tabIndex={-1}>
       {m.reply_to && (
         <button className="reply-ref" onClick={() => navigate(`/channels/${guildId ?? "@me"}/${channel.id}/${m.reply_to!.id}`)}>
-          <span className="reply-spine" aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <>{m.reply_to.author && <Avatar user={m.reply_to.author} size={16} />}<strong className="reply-who">@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> <span className="ellipsis">{plainText(m.reply_to.content) || "Click to see attachment"}</span></>}
+          <span className="reply-spine" aria-hidden /> {m.reply_to.deleted ? <em className="muted">Original message was deleted</em> : <>{m.reply_to.author && <Avatar user={m.reply_to.author} size={16} />}<strong className="reply-who">@{m.reply_to.author ? memberName(guildId, m.reply_to.author) : "unknown"}</strong> {m.reply_to.content ? <span className="ellipsis">{plainText(m.reply_to.content)}</span> : m.reply_to.attachments ? <span className="reply-att"><ImageIcon size={14} aria-hidden /><em>Click to see attachment</em></span> : null}</>}
         </button>
       )}
       <div className="msg-row">

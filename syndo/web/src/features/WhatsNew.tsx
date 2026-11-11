@@ -10,6 +10,22 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-drawer",
+    title: "A tidier phone menu",
+    date: "2026-11-11",
+    intro: "Small fixes to make SEND on your phone feel more like home.",
+    sections: [
+      { title: "On your phone", items: [
+        "A search bar, invite button and events button under the server name.",
+        "Rounded server icons and a rounded channel panel.",
+        "Slimmer channel rows with a clearer highlight on the one you're in.",
+      ] },
+      { title: "Messages", items: [
+        "Replies to a picture or file now show a hint to open the attachment.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-polish",
     title: "Polish and phones",
     date: "2026-11-11",

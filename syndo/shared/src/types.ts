@@ -212,7 +212,7 @@ export interface Message {
   created_at: string;
   edited_at: string | null;
   pinned: boolean;
-  reply_to: { id: string; author: User | null; content: string; deleted: boolean } | null;
+  reply_to: { id: string; author: User | null; content: string; deleted: boolean; attachments?: number } | null;
   mentions: string[];
   mention_roles: string[];
   mention_everyone: boolean;

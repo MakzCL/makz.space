@@ -1882,3 +1882,17 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .msg-content strong, .msg-content b { font-weight: 700; }
 .list-empty { display: grid; place-items: center; text-align: center; min-height: 40vh; font-size: .95rem; }
 @media (max-width: 760px) { .reply-ref { margin-left: 52px; max-width: calc(100% - 60px); } .reply-spine { left: -32px; width: 26px; } }
+/* reply previews of attachment-only messages */
+.reply-att { display: inline-flex; align-items: center; gap: 4px; color: var(--textMuted); }
+
+/* Phone drawer: search + invite under the server name, rounded channel panel, Discord-like rows */
+.guild-quick { display: none; }
+@media (max-width: 760px) {
+  .sidebar { border-top-left-radius: 18px !important; overflow: hidden; background: var(--r-side-bg, color-mix(in srgb, var(--bg1) 92%, var(--text) 3%)); }
+  .guild-quick { display: flex; align-items: center; gap: 8px; padding: 8px 12px 10px; flex: none; }
+  .guild-search { flex: 1; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 18px; background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--textMuted); font: inherit; font-weight: 600; cursor: pointer; }
+  .guild-quick .icon-btn { width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--text) 9%, transparent); }
+  .side-ch, .side-dm, .side-link { min-height: 40px; border-radius: 10px; font-size: 1rem; }
+  .side-ch.active { background: color-mix(in srgb, var(--text) 14%, transparent); }
+  .rail-item > button, .rail-item .rail-btn { border-radius: 16px; }
+}

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -333,6 +333,12 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
           </Popover>
         )}
       </header>
+      {/* Phones: search and invite under the server name, like Discord's app. */}
+      <div className="guild-quick">
+        <button className="guild-search" onClick={() => window.dispatchEvent(new Event("syndo:quickswitcher"))}><Search size={16} aria-hidden /> Search</button>
+        {has(perms, P.CREATE_INVITE) && <button className="icon-btn" aria-label="Invite people" title="Invite people" onClick={() => onDialog({ kind: "invite", guildId: guild.id, channelId: current })}><UserPlus size={18} /></button>}
+        <button className="icon-btn" aria-label="Events" title="Events" onClick={() => openEvents(guild)}><CalendarDays size={18} /></button>
+      </div>
       <div className="side-scroll">
         <EventsButton guild={guild} />
         {loose.filter(visible).map((c) => <ChannelLink key={c.id} c={c} guild={guild} active={current === c.id} current={current} drag={drag} />)}
