@@ -11,13 +11,21 @@ the next backend deploy does it, or it happens on its own after an hour with no 
 
 ---
 
-## GIF search (Klipy)
+## GIF search (GIPHY or Klipy)
 
-Google shut down the public Tenor API on 30 June 2026, so SEND uses **Klipy**. Klipy's API key is free.
+Google shut down the public Tenor API on 30 June 2026. SEND supports **GIPHY** and **Klipy**.
 
-1. Sign up at <https://partner.klipy.com>, create an app and copy its API key.
-2. Add the secret `SEND_GIF_KEY` with that key. (`SEND_GIF_PROVIDER` is optional; it defaults to `klipy`.)
-3. Restart the backend (see above).
+**GIPHY** (in use): add the secrets `SEND_GIF_PROVIDER` = `giphy` and `SEND_GIF_KEY` = your GIPHY API key.
+A GIPHY beta key allows about 100 calls an hour for the whole server, so SEND caches results and shares
+them between everyone (trending for 30 minutes, each search for 6 hours) and stops at 90 calls an hour
+(`SEND_GIF_HOURLY_LIMIT` changes that). Near the limit, people get older cached results, or a "try again in
+a few minutes" note for a brand-new search. For heavier use, apply for a production key in GIPHY's
+developer dashboard. The picker shows "Powered by GIPHY", as GIPHY's terms ask.
+
+**Klipy** (alternative, free key from <https://partner.klipy.com>): `SEND_GIF_PROVIDER` = `klipy` and
+`SEND_GIF_KEY` = the Klipy key.
+
+Restart the backend after saving (see above).
 
 **Check:** in any channel, open the GIF button in the message box. Trending GIFs should load, and
 searching should work. GIFs people already sent keep showing either way.

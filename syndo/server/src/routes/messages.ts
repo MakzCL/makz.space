@@ -717,18 +717,18 @@ export async function embedMediaRoute(app: FastifyInstance) {
     return reply.send(r.body);
   });
 
-  /** GIF search through Klipy. The key stays on the server. */
+  /** GIF search through GIPHY or Klipy. The key stays on the server. */
   app.get<{ Querystring: { q?: string; pos?: string } }>("/api/gifs", { preHandler: requireUser, config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
     const key = process.env.SEND_GIF_KEY, provider = config.gifProvider;
     if (!key || !provider) throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up on this server yet.");
     const text = String(req.query.q ?? "").trim().slice(0, 100);
     const pos = String(req.query.pos ?? "").slice(0, 100);
-    const { safeFetch: get } = await import("../unfurl.ts");
+    if (provider === "giphy") return giphySearch(key, text, pos);
     if (provider !== "klipy") {
-      // Klipy is the only provider left: Google closed the public Tenor API on 30 June 2026.
-      throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up correctly on this server (it needs a Klipy key).");
+      // Google closed the public Tenor API on 30 June 2026.
+      throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up correctly on this server (use GIPHY or Klipy).");
     }
-    // Klipy
+    const { safeFetch: get } = await import("../unfurl.ts");
     const page = Math.max(1, Number(pos) || 1);
     const url = text ? `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/gifs/search?q=${encodeURIComponent(text)}&per_page=30&page=${page}&customer_id=${uid(req)}`
       : `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/gifs/trending?per_page=30&page=${page}&customer_id=${uid(req)}`;
@@ -736,6 +736,48 @@ export async function embedMediaRoute(app: FastifyInstance) {
     const list = j.data?.data ?? [];
     return { next: j.data?.has_next ? String(page + 1) : null, results: list.map((g: any) => ({ id: String(g.id), title: g.title ?? "", url: g.file?.hd?.gif?.url, preview: g.file?.sm?.gif?.url ?? g.file?.xs?.gif?.url, gif: g.file?.hd?.gif?.url ?? g.file?.md?.gif?.url, mp4: g.file?.hd?.mp4?.url ?? null, width: g.file?.hd?.gif?.width ?? null, height: g.file?.hd?.gif?.height ?? null })) };
   });
+}
+
+/*
+ * GIPHY. A beta key allows about 100 calls an hour for the whole server, so results are cached and
+ * shared by everyone: trending for 30 minutes, searches for 6 hours. Upstream calls are counted per
+ * rolling hour; near the limit, old cached results are served and new searches wait.
+ */
+type GifPage = { next: string | null; results: unknown[] };
+const gifCache = new Map<string, { at: number; page: GifPage }>();
+const giphyCalls: number[] = [];
+const GIPHY_HOURLY = Number(process.env.SEND_GIF_HOURLY_LIMIT ?? 90);
+export async function giphySearch(key: string, text: string, pos: string): Promise<GifPage> {
+  const offset = Math.max(0, Math.min(4999, Number(pos) || 0));
+  const cacheKey = `${text.toLowerCase()}|${offset}`;
+  const hit = gifCache.get(cacheKey), now = Date.now();
+  const ttl = text ? 6 * 3600_000 : 30 * 60_000;
+  if (hit && now - hit.at < ttl) return hit.page;
+  while (giphyCalls.length && now - giphyCalls[0]! > 3600_000) giphyCalls.shift();
+  if (giphyCalls.length >= GIPHY_HOURLY) {
+    if (hit) return hit.page;
+    throw new ApiError(429, "gifs_busy", "Lots of people are searching GIFs right now. Try again in a few minutes, or pick from your favourites.");
+  }
+  giphyCalls.push(now);
+  const { safeFetch: get } = await import("../unfurl.ts");
+  const qs = new URLSearchParams({ api_key: key, limit: "30", offset: String(offset), rating: "pg-13", bundle: "messaging_non_clips", ...(text ? { q: text, lang: "en" } : {}) });
+  const r = await get(`https://api.giphy.com/v1/gifs/${text ? "search" : "trending"}?${qs}`, { accept: "application/json", maxBytes: 2_000_000 });
+  if (r.status === 429) { if (hit) return hit.page; throw new ApiError(429, "gifs_busy", "GIF search is busy. Try again in a few minutes."); }
+  if (r.status !== 200) throw new ApiError(502, "gifs_failed", "GIF search didn't respond. Try again in a moment.");
+  const j = JSON.parse(r.body.toString("utf8"));
+  const p = j.pagination ?? {};
+  const nextOffset = (p.offset ?? offset) + (p.count ?? 0);
+  const page: GifPage = {
+    next: p.count && nextOffset < Math.min(p.total_count ?? 0, 4999) ? String(nextOffset) : null,
+    results: (j.data ?? []).map((g: any) => {
+      const im = g.images ?? {}, send = im.downsized_medium?.url || im.original?.url;
+      return { id: String(g.id), title: g.title ?? "", url: send, preview: im.fixed_width_downsampled?.url || im.fixed_width?.url || send, gif: send,
+        mp4: im.original_mp4?.mp4 ?? im.original?.mp4 ?? null, width: Number(im.downsized_medium?.width ?? im.original?.width) || null, height: Number(im.downsized_medium?.height ?? im.original?.height) || null };
+    }).filter((g: any) => g.url),
+  };
+  gifCache.set(cacheKey, { at: now, page });
+  if (gifCache.size > 1000) gifCache.delete(gifCache.keys().next().value!);
+  return page;
 }
 
 /** Attachment download — permission-checked on every request; no public URLs. */

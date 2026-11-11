@@ -1913,3 +1913,6 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .tile .watch-cta .btn { font-weight: 700; padding: 8px 16px; }
 .tiles.focused .strip-toggle { align-self: center; flex: none; border: 0; background: color-mix(in srgb, var(--bg2) 80%, transparent); color: var(--text); border-radius: 999px; width: 36px; height: 22px; display: grid; place-items: center; cursor: pointer; margin: -4px 0; }
 .tiles.focused .strip-toggle:hover { background: var(--bg3); }
+
+/* GIPHY asks apps to credit it next to its results. */
+.gif-picker .gif-credit { margin: 0; padding: 4px 10px 8px; text-align: right; font-size: .7rem; font-weight: 700; letter-spacing: .04em; color: var(--textMuted); }

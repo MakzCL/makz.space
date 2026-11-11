@@ -1,5 +1,12 @@
 # SEND changelog
 
+## 2026-11-11 — GIF search through GIPHY
+
+- **GIPHY** is a supported GIF provider (`SEND_GIF_PROVIDER=giphy`). Results are cached and shared by
+  everyone (trending 30 min, searches 6 h) with an hourly cap of 90 upstream calls, so a 100-calls-an-hour
+  beta key holds up; near the cap, cached results or a "try again in a few minutes" note are shown.
+- The picker credits "Powered by GIPHY" and waits a little longer while you type before searching.
+
 ## 2026-11-11 — Discord-style call tiles
 
 - **Click to focus:** clicking a tile makes it the big one; clicking the big one returns to the grid.

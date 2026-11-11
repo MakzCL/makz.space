@@ -137,6 +137,7 @@ function GifPicker({ anchor, initial, onPick, onClose }: { anchor: HTMLElement |
   const [error, setError] = useState<string | null>(null);
   const fav = useStore((s) => ((s.me?.settings as any)?.favorite_gifs ?? NONE) as string[]);
   const [tab, setTab] = useState<"search" | "favorites">("search");
+  const provider = useStore((s) => s.limits?.gif_provider ?? null);
   const [pos, setPos] = useState<React.CSSProperties>();
   useLayoutEffect(() => {
     if (!anchor || !ref.current) return;
@@ -145,7 +146,7 @@ function GifPicker({ anchor, initial, onPick, onClose }: { anchor: HTMLElement |
   }, [anchor, res]);
   useEffect(() => {
     if (tab !== "search") return;
-    const t = setTimeout(() => api.get<{ results: Gif[]; next: string | null }>(`/api/gifs?q=${encodeURIComponent(q)}`).then((r) => { setRes(r); setError(null); }).catch((e) => setError(errMsg(e))), q ? 300 : 0);
+    const t = setTimeout(() => api.get<{ results: Gif[]; next: string | null }>(`/api/gifs?q=${encodeURIComponent(q)}`).then((r) => { setRes(r); setError(null); }).catch((e) => setError(errMsg(e))), q ? 450 : 0); // a little longer: searches share an hourly quota
     return () => clearTimeout(t);
   }, [q, tab]);
   const toggleFav = async (url: string) => {
@@ -162,6 +163,7 @@ function GifPicker({ anchor, initial, onPick, onClose }: { anchor: HTMLElement |
           : !res ? <p className="muted small pad">Loading…</p>
           : res.results.map((g) => <GifTile key={g.id} src={g.preview || g.gif} onPick={() => onPick(g.url || g.gif)} fav={fav.includes(g.url || g.gif)} onFav={() => toggleFav(g.url || g.gif)} />)}
       </div>
+      {provider === "giphy" && <p className="gif-credit">Powered by GIPHY</p>}
     </div>, document.body);
 }
 function GifTile({ src, onPick, fav, onFav }: { src: string; onPick: () => void; fav: boolean; onFav: () => void }) {
