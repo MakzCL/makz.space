@@ -439,7 +439,7 @@ fn set_close_to_tray<R: Runtime>(app: AppHandle<R>, value: bool) -> Value {
 }
 
 #[tauri::command]
-fn change_server<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R>) { if main_only(&webview).is_ok() { change_server_now(&app); } }
+async fn change_server<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R>) { if main_only(&webview).is_ok() { change_server_now(&app); } }
 
 #[tauri::command]
 fn update_status<R: Runtime>(app: AppHandle<R>) -> updater::Status { shell(&app).update.lock().unwrap().clone() }
@@ -450,10 +450,13 @@ async fn check_updates<R: Runtime>(app: AppHandle<R>) -> updater::Status {
 }
 
 #[tauri::command]
-fn download_update<R: Runtime>(app: AppHandle<R>) -> updater::Status { download_and_install(&app) }
+// These open windows ("Updating SEND", the connect window). A synchronous command runs on the main thread, and
+// building a window from there deadlocks on Windows — the updater froze on its animation in 0.6.2/0.6.3. Async
+// commands run off the main thread, so the window is created by the event loop as it should be.
+async fn download_update<R: Runtime>(app: AppHandle<R>) -> updater::Status { download_and_install(&app) }
 
 #[tauri::command]
-fn restart_to_update<R: Runtime>(app: AppHandle<R>) { if shell(&app).update.lock().unwrap().state == "ready" { install(&app); } }
+async fn restart_to_update<R: Runtime>(app: AppHandle<R>) { if shell(&app).update.lock().unwrap().state == "ready" { install(&app); } }
 
 #[tauri::command]
 fn flash<R: Runtime>(app: AppHandle<R>) {

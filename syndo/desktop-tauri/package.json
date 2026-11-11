@@ -1,7 +1,7 @@
 {
   "name": "send-desktop-lite",
   "productName": "SEND",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "description": "SEND for Windows — lightweight shell (Tauri + the system WebView2).",
   "scripts": {

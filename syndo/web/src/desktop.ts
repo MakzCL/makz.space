@@ -90,6 +90,19 @@ export function useDesktopUpdate(): DesktopUpdate | null {
 /** What the green update button does: install a downloaded update, or download one and install it. */
 export function applyDesktopUpdate(u: DesktopUpdate | null) {
   if (!desktop || !u) return;
+  // Desktop 0.6.2 and 0.6.3 freeze on their "Updating SEND" window (the window was created on the main thread).
+  // For them, fetch the installer from the website instead: it updates SEND in place, and 0.6.4+ updates itself.
+  if (olderThan(desktop.version, "0.6.4")) {
+    window.open("https://syndo.makz.space/api/downloads/windows", "_blank", "noopener");
+    import("./store.ts").then(({ toast }) => toast("Downloading the new SEND installer — run it to update. After this, updates install from the app.", "info")).catch(() => {});
+    return;
+  }
   if (u.state === "ready") return desktop.restartToUpdate();
   if (u.state === "available" || (u.state === "error" && u.version)) return desktop.downloadUpdate?.();
+}
+
+function olderThan(a: string, b: string) {
+  const pa = a.split(".").map((x) => parseInt(x, 10) || 0), pb = b.split(".").map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < 3; i++) { if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) < (pb[i] ?? 0); }
+  return false;
 }
