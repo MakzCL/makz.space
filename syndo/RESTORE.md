@@ -1,5 +1,26 @@
 # SEND restore points
 
+## 2026-11-11 — calls fit the window, update prompt, instant messages, desktop 0.6.3
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `f12b067e-5150-46cb-8965-290c6f990c85` (commit `cf5ca73`) |
+| Desktop feed | `syndo-desktop/latest-0.6.2.yml` (backup of the feed that pointed at `SEND-Setup-0.6.2.exe`; that installer stays in the bucket) |
+| Backend | unchanged (`SOURCE_COMMIT` `cf5ca73`) |
+
+Web: deployment `75efed08-62ed-49bc-8f49-833e9fa0cdc5` (commit `b46af53`, build id `1vz6rdn`). From this build on,
+every later web deploy shows open apps an update button/bar.
+
+Desktop 0.6.3 from CI run 43111248299 (artifact digest `sha256:48b44a4b…`): `SEND-Setup-0.6.3.exe`, 1,729,339 bytes,
+sha512 `iViQizMSEywYOuuTa7OMu25Xq5PDpCigHIBQNu6atLlM8p3mYBK+mD3KaTswfCCK3mH2Ff85Xr9XJe5/AaDjMA==` (public copy verified).
+Uploaded with a one-hour token limited to `syndo-desktop`, revoked right after. The website download link
+(`/api/downloads/windows`) still points at 0.6.2 until the next backend deploy (`cloudflare/releases.ts` already says
+0.6.3); new installs then update to 0.6.3 from inside the app.
+
+### Roll back
+1. Feed: copy `latest-0.6.2.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Web: Pages → `syndo-app` → Deployments → `f12b067e` → *Rollback to this deployment*.
+
 ## 2026-11-11 — GIPHY GIF search; backend catches up with the rename
 
 | Layer | Restore point (before this release) |

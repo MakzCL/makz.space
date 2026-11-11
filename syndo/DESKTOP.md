@@ -17,6 +17,7 @@ Details and build steps: `desktop-tauri/README.md`.
 - Global push-to-talk while SEND is in the background (keyboard keys, mouse buttons 4/5).
 - Screen sharing through WebView2's picker, with "share system audio" on Windows.
 - Tray icon, close to tray, native Windows toasts, taskbar flash on mentions, launch on startup.
+- Keeps its own window out of screen captures while you share your screen (0.6.3+, Windows 10 2004+).
 - `syndo://invite/CODE` links; Windows 11 (22H2+) Mica/Acrylic.
 - Security: no Node or file access in the page, only the shell's own commands, callable only from the configured server's origin; navigation locked to that origin; camera/mic/notifications granted only to it; external links open in the browser; http only for localhost.
 
