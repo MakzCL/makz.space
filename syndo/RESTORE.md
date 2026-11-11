@@ -1,5 +1,15 @@
 # SEND restore points
 
+## 2026-11-11 — AI noise suppression (RNNoise)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | unchanged |
+| Web (Pages `syndo-app`) | deployment `b96e6d11-ebef-46ba-a7af-03eb7177efe2` |
+| Source | branch `backup/pre-noise-20261111`; database unchanged |
+
+Noise suppression is now a choice: AI (RNNoise via `@sapphi-red/web-noise-suppressor`, MIT, runs in an AudioWorklet on the device), Standard (the browser's) or None. AI is the default; people who had turned suppression off keep None. Settings → Voice & video, the mic arrow menu in a call, and a quick button next to Disconnect. All three call paths (Cloudflare SFU, mesh, LiveKit) send the cleaned microphone; any failure falls back to the raw microphone. Code and model (~150 KB) load only when used. Web only. `voice/denoise.ts` is where a licensed Krisp SDK would slot in.
+
 ## 2026-11-11 — desktop 0.6.2 (update and connect windows match the Glass look)
 
 | Layer | Restore point (before this release) |

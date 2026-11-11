@@ -10,6 +10,19 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-noise",
+    title: "Noise suppression",
+    date: "2026-11-11",
+    intro: "Background noise stays out of your calls.",
+    sections: [
+      { title: "Calls", items: [
+        "AI noise suppression removes fans, keyboards and traffic from your microphone. It's on by default and runs on your device.",
+        "Switch between AI, Standard and None in your voice settings or from the arrow next to your mic.",
+        "A quick on/off button sits next to Disconnect while you're in a call.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-calls",
     title: "Camera and screen together",
     date: "2026-11-11",

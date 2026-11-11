@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
-import { FolderOpen, Search } from "lucide-react";
+import { AudioLines, FolderOpen, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -16,7 +16,8 @@ import { updateSettings } from "../actions.ts";
 import { gwSend } from "../gateway.ts";
 import { navigate, useRoute } from "../router.ts";
 import { can, channelTree, displayName, dmTitle, guildPerms, isUnread, toast, useStore } from "../store.ts";
-import { joinVoice, leaveVoice, setDeafened, setMuted, useVoice } from "../voice/session.ts";
+import { joinVoice, leaveVoice, setDeafened, setMuted, updateVoiceSettings, useVoice } from "../voice/session.ts";
+import { suppressionFor } from "../voice/settings.ts";
 import { ChannelView } from "./ChannelView.tsx";
 import { CreateChannel, CreateServer, InviteDialog, NewGroupDm, ProfileCard } from "./Dialogs.tsx";
 import { Friends } from "./Friends.tsx";
@@ -465,6 +466,9 @@ function VoiceBar() {
         <button className="link vb-where" onClick={() => v.channelId && navigate(`/channels/${ch?.gid ?? "@me"}/${v.channelId}`)} title={title}>
           <span className="sr-only">{label}: </span><strong className="ellipsis">{ch ? ch.name : ""}</strong><small className="block muted ellipsis">{ch ? ch.guild : ""}</small>
         </button>
+        <button className={`icon-btn vb-ns ${v.settings.suppression === "rnnoise" ? "on" : ""}`} aria-pressed={v.settings.suppression === "rnnoise"}
+          onClick={() => void updateVoiceSettings({ ...suppressionFor(v.settings.suppression === "rnnoise" ? "standard" : "rnnoise"), presetId: "custom" })}
+          aria-label="AI noise suppression" title={v.settings.suppression === "rnnoise" ? "AI noise suppression is on" : "AI noise suppression is off"}><AudioLines size={18} /></button>
         <button className="icon-btn danger" onClick={() => leaveVoice()} aria-label="Disconnect"><PhoneOff size={18} /></button>
       </div>
       {v.sharing && <div className="sharing-ind" role="status"><Monitor size={14} /> You're sharing your screen</div>}

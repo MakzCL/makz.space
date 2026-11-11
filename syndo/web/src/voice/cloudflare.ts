@@ -2,6 +2,7 @@ import { SCREEN_ECHO_NOTE, screenAudioMayEcho, screenAudioConstraints, streamBit
 import { api } from "../api.ts";
 import { toast, useStore } from "../store.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
+import { denoiseTrack } from "./denoise.ts";
 type Kind="mic"|"camera"|"screen"|"screen-audio";
 type Ref={session:string;name:string;user:string;kind:Kind;mid?:string};
 // SFU signaling carries the gathered SDP; there is no separate trickle-ICE route.
@@ -48,19 +49,20 @@ export class CloudflareCall {
  async publish(kind:Kind,track:MediaStreamTrack){return this.serial(async()=>{if(this.stopped){track.stop();return;}const trans=this.producer.addTransceiver(track,{direction:"sendonly"});const offer=await this.producer.createOffer();await this.producer.setLocalDescription(offer);await gatherIce(this.producer);const name=`${kind}_${crypto.randomUUID().replaceAll("-","")}`;const response=await this.request("publish",{sessionDescription:{type:"offer",sdp:this.producer.localDescription!.sdp},tracks:[{kind,mid:trans.mid,name}]});await this.producer.setRemoteDescription(response.sessionDescription);this.tracks.set(kind,track);this.senders.set(kind,trans.sender);});}
  microphone(){const next=this.micChanges.then(()=>this.buildMicrophone());this.micChanges=next.catch(()=>{});return next;}
  async buildMicrophone(){if(this.stopped||!useVoice.getState().grants?.speak)return;const s=useVoice.getState().settings;const early=this.preMic;this.preMic=null;const stream=early?await early.catch(()=>navigator.mediaDevices.getUserMedia({audio:micConstraints(s),video:false})):await navigator.mediaDevices.getUserMedia({audio:micConstraints(s),video:false});
- if(this.stopped){stream.getTracks().forEach(t=>t.stop());return;}const raw=stream.getAudioTracks()[0]!,ctx=this.audioContext();
+ if(this.stopped){stream.getTracks().forEach(t=>t.stop());return;}const captured=stream.getAudioTracks()[0]!,raw=await denoiseTrack(captured,s),ctx=this.audioContext();
+ if(this.stopped){raw.stop();return;}const micStream=raw===captured?stream:new MediaStream([raw]);
  if(ctx.state!=="running")await Promise.race([ctx.resume(),new Promise(r=>setTimeout(r,600))]).catch(()=>{});
  // Send the microphone as captured. Only an input-gain change routes it through the audio engine — and only if
  // that engine is actually running (a suspended engine would send silence).
  let track:MediaStreamTrack=raw,source:MediaStreamAudioSourceNode|null=null,gain:GainNode|null=null;
- if(ctx.state==="running"){try{source=ctx.createMediaStreamSource(stream);if(Math.abs(s.inputGain-1)>.01){gain=ctx.createGain();gain.gain.value=s.inputGain;const dest=ctx.createMediaStreamDestination();dest.channelCount=s.stereo?2:1;source.connect(gain).connect(dest);track=dest.stream.getAudioTracks()[0]!;}if(ctx.createAnalyser){const an=ctx.createAnalyser();an.fftSize=512;(gain??source).connect(an);this.levels.set("local",an);}}catch{track=raw;}}
+ if(ctx.state==="running"){try{source=ctx.createMediaStreamSource(micStream);if(Math.abs(s.inputGain-1)>.01){gain=ctx.createGain();gain.gain.value=s.inputGain;const dest=ctx.createMediaStreamDestination();dest.channelCount=s.stereo?2:1;source.connect(gain).connect(dest);track=dest.stream.getAudioTracks()[0]!;}if(ctx.createAnalyser){const an=ctx.createAnalyser();an.fftSize=512;(gain??source).connect(an);this.levels.set("local",an);}}catch{track=raw;}}
  const old=this.tracks.get("mic"),sender=this.senders.get("mic");
  const undo=()=>{raw.stop();if(track!==raw)track.stop();source?.disconnect();gain?.disconnect();};
  try{if(sender){await sender.replaceTrack(track);this.tracks.set("mic",track);}else await this.publish("mic",track);}catch(e){undo();throw e;}
  if(this.stopped){undo();return;}if(this.micInput!==raw)this.micInput?.stop();this.micSource?.disconnect();this.micGain?.disconnect();if(old&&old!==raw)old.stop();this.micInput=raw;this.micSource=source;this.micGain=gain;this.mute();await this.bitrate("mic",s.bitrate);}
  async bitrate(kind:Kind,value:number){const sender=this.senders.get(kind);if(!sender)return;const params=sender.getParameters();if(!params.encodings?.length)return;params.encodings[0]!.maxBitrate=value;await sender.setParameters(params);}
  async applySettings(previous:VoiceSettings,next:VoiceSettings){this.output();if(this.micGain)this.micGain.gain.value=next.inputGain;
- const captureChanged=(["inputDeviceId","stereo","echoCancellation","noiseSuppression","autoGainControl"]as const).some(k=>previous[k]!==next[k])||(!this.micGain&&Math.abs(next.inputGain-1)>.01&&previous.inputGain!==next.inputGain)||(!!this.micGain&&Math.abs(next.inputGain-1)<=.01);if(captureChanged)await this.microphone();else if(previous.bitrate!==next.bitrate)await this.bitrate("mic",next.bitrate);
+ const captureChanged=(["inputDeviceId","stereo","echoCancellation","noiseSuppression","suppression","autoGainControl"]as const).some(k=>previous[k]!==next[k])||(!this.micGain&&Math.abs(next.inputGain-1)>.01&&previous.inputGain!==next.inputGain)||(!!this.micGain&&Math.abs(next.inputGain-1)<=.01);if(captureChanged)await this.microphone();else if(previous.bitrate!==next.bitrate)await this.bitrate("mic",next.bitrate);
  if(this.tracks.has("camera")&&(previous.videoDeviceId!==next.videoDeviceId||previous.cameraHeight!==next.cameraHeight))await this.replaceCamera();
  const screen=this.tracks.get("screen");if(screen&&JSON.stringify(previous.stream)!==JSON.stringify(next.stream)){const st=next.stream;await screen.applyConstraints({height:st.height==="source"?undefined:{ideal:st.height},frameRate:{ideal:st.fps}});screen.contentHint=st.contentHint;await this.bitrate("screen",streamBitrate(st,screen.getSettings().height??1080));}}
  async replaceCamera(){const s=useVoice.getState().settings,stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:s.videoDeviceId?{exact:s.videoDeviceId}:undefined,height:{ideal:s.cameraHeight}},audio:false}),track=stream.getVideoTracks()[0]!;if(this.stopped){track.stop();return;}const sender=this.senders.get("camera");if(!sender){track.stop();return;}await sender.replaceTrack(track);this.tracks.get("camera")?.stop();this.tracks.set("camera",track);useVoice.setState({localCamera:track});}

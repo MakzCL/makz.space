@@ -1,4 +1,5 @@
 import { AUDIO_PRESETS, suggestedStreamBitrate } from "@send/shared";
+import type { Suppression } from "./denoise.ts";
 
 /** Per-device media settings (kept in localStorage — devices differ per machine). */
 export interface VoiceSettings {
@@ -9,7 +10,10 @@ export interface VoiceSettings {
   dtx: boolean;
   red: boolean;
   echoCancellation: boolean;
+  /** Browser noise suppression; follows `suppression` ("standard"). Kept for older saved settings. */
   noiseSuppression: boolean;
+  /** Noise suppression: AI (RNNoise, built in), the browser's standard one, or none. */
+  suppression: Suppression;
   autoGainControl: boolean;
   inputDeviceId: string;
   outputDeviceId: string;
@@ -48,7 +52,7 @@ export interface StreamSettings {
 const speech = AUDIO_PRESETS[0]!;
 export const DEFAULT_VOICE: VoiceSettings = {
   presetId: speech.id, bitrate: speech.bitrate, stereo: speech.stereo, dtx: speech.dtx, red: speech.red,
-  echoCancellation: speech.echoCancellation, noiseSuppression: speech.noiseSuppression, autoGainControl: speech.autoGainControl,
+  echoCancellation: speech.echoCancellation, noiseSuppression: false, suppression: speech.noiseSuppression ? "rnnoise" : "off", autoGainControl: speech.autoGainControl,
   inputDeviceId: "default", outputDeviceId: "default", videoDeviceId: "", inputGain: 1, mode: "vad", pttKey: "KeyV", pttReleaseDelay: 200,
   userVolumes: {}, cameraHeight: 720,
   stream: { height: 1080, fps: 30, bitrate: 0, contentHint: "detail", audio: true, codec: "auto" },
@@ -57,7 +61,14 @@ export const DEFAULT_VOICE: VoiceSettings = {
 
 const KEY = "send.voice.v1";
 export function loadVoiceSettings(): VoiceSettings {
-  try { return { ...DEFAULT_VOICE, ...JSON.parse(localStorage.getItem(KEY) ?? "{}"), stream: { ...DEFAULT_VOICE.stream, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}").stream ?? {}) } }; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
+    // Settings saved before the suppression choice existed: keep "off" for people who turned it off, otherwise use the AI one.
+    if (!saved.suppression) saved.suppression = saved.noiseSuppression === false ? "off" : "rnnoise";
+    if (!["rnnoise", "standard", "off"].includes(saved.suppression)) saved.suppression = "rnnoise";
+    saved.noiseSuppression = saved.suppression === "standard";
+    return { ...DEFAULT_VOICE, ...saved, stream: { ...DEFAULT_VOICE.stream, ...(saved.stream ?? {}) } };
+  }
   catch { return DEFAULT_VOICE; }
 }
 export function saveVoiceSettings(s: VoiceSettings) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode */ } }
@@ -65,7 +76,11 @@ export function saveVoiceSettings(s: VoiceSettings) { try { localStorage.setItem
 export function applyPreset(s: VoiceSettings, id: string): VoiceSettings {
   const p = AUDIO_PRESETS.find((x) => x.id === id);
   if (!p) return s;
-  return { ...s, presetId: id, bitrate: p.bitrate, stereo: p.stereo, dtx: p.dtx, red: p.red, echoCancellation: p.echoCancellation, noiseSuppression: p.noiseSuppression, autoGainControl: p.autoGainControl };
+  return { ...s, presetId: id, bitrate: p.bitrate, stereo: p.stereo, dtx: p.dtx, red: p.red, echoCancellation: p.echoCancellation, ...suppressionFor(p.noiseSuppression ? (s.suppression === "off" ? "rnnoise" : s.suppression) : "off"), autoGainControl: p.autoGainControl };
+}
+
+export function suppressionFor(v: Suppression): Pick<VoiceSettings, "suppression" | "noiseSuppression"> {
+  return { suppression: v, noiseSuppression: v === "standard" };
 }
 
 export function streamBitrate(st: StreamSettings, capturedHeight: number) {

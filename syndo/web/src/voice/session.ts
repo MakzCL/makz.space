@@ -1,6 +1,7 @@
 import { playCallSound } from "./sounds.ts";
 import { CloudflareCall, primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { MeshCall } from "./mesh.ts";
+import { denoiseTrack } from "./denoise.ts";
 import { create } from "zustand";
 import type {
   LocalAudioTrack, LocalVideoTrack, Room, LocalTrackPublication, RemoteParticipant, RemoteTrack,
@@ -165,12 +166,13 @@ function applyOutput() {
 async function buildMic(s: VoiceSettings): Promise<LocalAudioTrack> {
   const constraints: MediaTrackConstraints = {
     deviceId: s.inputDeviceId && s.inputDeviceId !== "default" ? { exact: s.inputDeviceId } : undefined,
-    echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl,
+    echoCancellation: s.echoCancellation, noiseSuppression: s.suppression === "standard", autoGainControl: s.autoGainControl,
     channelCount: s.stereo ? 2 : 1, sampleRate: 48000, sampleSize: 16,
   };
-  if (s.inputGain === 1) return LK.createLocalAudioTrack(constraints as any);
-  // Input gain via WebAudio; the processed track is what gets published.
-  const raw = (await navigator.mediaDevices.getUserMedia({ audio: constraints })).getAudioTracks()[0]!;
+  if (s.inputGain === 1 && s.suppression !== "rnnoise") return LK.createLocalAudioTrack(constraints as any);
+  // AI noise suppression and input gain via WebAudio; the processed track is what gets published.
+  const raw = await denoiseTrack((await navigator.mediaDevices.getUserMedia({ audio: constraints })).getAudioTracks()[0]!, s);
+  if (s.inputGain === 1) return new LK.LocalAudioTrack(raw, constraints, true);
   const ctx = new AudioContext({ sampleRate: 48000 });
   const src = ctx.createMediaStreamSource(new MediaStream([raw]));
   const gain = ctx.createGain(); gain.gain.value = s.inputGain;
@@ -205,7 +207,7 @@ export async function updateVoiceSettings(patch: Partial<VoiceSettings>) {
   applyOutput();
   if (cf) { await cf.applySettings(prev,next).catch(e=>toast(`Couldn’t apply call settings: ${errMsg(e)}`,"error")); return; }
   if (!room || !micTrack) return;
-  const needsRepublish = (["stereo", "dtx", "red", "echoCancellation", "noiseSuppression", "autoGainControl", "inputDeviceId"] as const).some((k) => prev[k] !== next[k])
+  const needsRepublish = (["stereo", "dtx", "red", "echoCancellation", "noiseSuppression", "suppression", "autoGainControl", "inputDeviceId"] as const).some((k) => prev[k] !== next[k])
     || (prev.inputGain === 1) !== (next.inputGain === 1);
   if (needsRepublish) { await publishMic().catch((e) => toast(`Couldn't apply audio settings: ${errMsg(e)}`, "error")); return; }
   if (gainCtx && prev.inputGain !== next.inputGain) gainCtx.gain.gain.value = next.inputGain;
@@ -305,7 +307,7 @@ function prewarmMic() {
 export function micConstraints(s: VoiceSettings): MediaTrackConstraints {
   return {
     deviceId: s.inputDeviceId && s.inputDeviceId !== "default" ? { exact: s.inputDeviceId } : undefined,
-    echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl,
+    echoCancellation: s.echoCancellation, noiseSuppression: s.suppression === "standard", autoGainControl: s.autoGainControl,
     channelCount: s.stereo ? 2 : 1, sampleRate: 48000,
   };
 }

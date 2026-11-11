@@ -12,7 +12,8 @@ import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, 
 import { api, errMsg, upload } from "../api.ts";
 import { logout, updateSettings } from "../actions.ts";
 import { displayName, toast, useStore } from "../store.ts";
-import { applyPreset, captureCapabilities } from "../voice/settings.ts";
+import { applyPreset, captureCapabilities, suppressionFor } from "../voice/settings.ts";
+import { SUPPRESSION_LABEL, denoiseSupported, denoiseTrack, type Suppression } from "../voice/denoise.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { PRESETS, type A11yPrefs } from "@send/shared";
@@ -180,6 +181,11 @@ function Privacy() {
   );
 }
 
+const NS_HINT: Record<Suppression, string> = {
+  rnnoise: "Removes background noise like fans, keyboards and traffic. It runs on your device, never on a server.",
+  standard: "Your browser's built-in noise reduction. Lighter, removes less.",
+  off: "Your microphone is sent as is. Best for music.",
+};
 const SPEAKING_COLORS: [string, string][] = [["#23a55a", "Green"], ["#3d6bff", "Blue"], ["#a66bff", "Purple"], ["#ff6bb5", "Pink"], ["#ffb02e", "Gold"], ["#f2f3f5", "White"]];
 function VoiceTab() {
   const s = useVoice((v) => v.settings);
@@ -190,7 +196,8 @@ function VoiceTab() {
   useEffect(() => { navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => {}); }, []);
   const test = async () => {
     try {
-      const st = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: s.inputDeviceId !== "default" ? s.inputDeviceId : undefined, echoCancellation: s.echoCancellation, noiseSuppression: s.noiseSuppression, autoGainControl: s.autoGainControl } });
+      const cap = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: s.inputDeviceId !== "default" ? s.inputDeviceId : undefined, echoCancellation: s.echoCancellation, noiseSuppression: s.suppression === "standard", autoGainControl: s.autoGainControl } });
+      const st = new MediaStream([await denoiseTrack(cap.getAudioTracks()[0]!, s)]); // the meter shows what others will hear
       setDevices(await navigator.mediaDevices.enumerateDevices());
       const ctx = new AudioContext(); const an = ctx.createAnalyser(); ctx.createMediaStreamSource(st).connect(an);
       const buf = new Uint8Array(an.fftSize); const end = Date.now() + 8000;
@@ -231,8 +238,11 @@ function VoiceTab() {
       </Field>
       <Toggle label="Stereo (music mode)" hint="Needs a stereo source and turn off echo cancellation for true stereo; the receiver's device must play stereo." checked={s.stereo} onChange={(v) => updateVoiceSettings({ stereo: v, presetId: "custom" })} />
       <Toggle label="Echo cancellation" checked={s.echoCancellation} onChange={(v) => updateVoiceSettings({ echoCancellation: v, presetId: "custom" })} />
-      <div className="card stack"><strong>Noise suppression</strong><p className="muted small">Built-in processing runs locally. For Krisp, choose its virtual microphone below after installing the Krisp desktop app. Embedded Krisp SDK processing requires a separate licence.</p><button className="btn" onClick={() => { const device = devices.find(d => d.kind === "audioinput" && /krisp/i.test(d.label)); if (device) switchDevice("audioinput", device.deviceId); else toast("Krisp microphone not found. Start Krisp, allow microphone access, then refresh your devices.", "info"); }}>Use Krisp microphone</button></div>
-      <Toggle label="Noise suppression" checked={s.noiseSuppression} onChange={(v) => updateVoiceSettings({ noiseSuppression: v, presetId: "custom" })} />
+      <Field label="Noise suppression" hint={NS_HINT[s.suppression]}>
+        <div className="seg ns-seg" role="radiogroup" aria-label="Noise suppression">{(["rnnoise", "standard", "off"] as Suppression[]).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={s.suppression === k} className={s.suppression === k ? "on" : ""} disabled={k === "rnnoise" && !denoiseSupported()} onClick={() => updateVoiceSettings({ ...suppressionFor(k), presetId: "custom" })}>{SUPPRESSION_LABEL[k]}</button>))}</div>
+      </Field>
+      <p className="muted small">Using the Krisp app? <button className="link" onClick={() => { const device = devices.find(d => d.kind === "audioinput" && /krisp/i.test(d.label)); if (device) switchDevice("audioinput", device.deviceId); else toast("Krisp microphone not found. Start Krisp, allow microphone access, then refresh your devices.", "info"); }}>Use the Krisp microphone</button> and set noise suppression to None.</p>
       <Toggle label="Automatic gain control" checked={s.autoGainControl} onChange={(v) => updateVoiceSettings({ autoGainControl: v, presetId: "custom" })} />
       <Toggle label="Save bandwidth in silence (DTX)" hint="Good for speech, bad for quiet music." checked={s.dtx} onChange={(v) => updateVoiceSettings({ dtx: v, presetId: "custom" })} />
       <Toggle label="Redundant audio (RED)" hint="Survives packet loss better; roughly doubles audio traffic." checked={s.red} onChange={(v) => updateVoiceSettings({ red: v, presetId: "custom" })} />

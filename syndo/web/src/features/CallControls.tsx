@@ -7,6 +7,8 @@ import { openDialog } from "../components/Shell.tsx";
 import { can, displayName, useStore } from "../store.ts";
 import { setDeafened, setMuted, switchDevice, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { openActivityPicker } from "./Activities.tsx";
+import { SUPPRESSION_LABEL, type Suppression } from "../voice/denoise.ts";
+import { suppressionFor } from "../voice/settings.ts";
 
 /* Discord-style call controls: split mic/camera buttons with device menus, a "…" menu with view options,
    a chat toggle, the "invite people" card for an empty call and message previews over the call. */
@@ -45,6 +47,8 @@ export function MicGroup() {
         { label: "Voice Activity", checked: v.settings.mode === "vad", onSelect: () => void import("../voice/session.ts").then((m) => m.setMode("vad")) },
         { label: "Push to Talk", checked: v.settings.mode === "ptt", onSelect: () => void import("../voice/session.ts").then((m) => m.setMode("ptt")) },
       ] },
+      { label: "Noise Suppression", hint: SUPPRESSION_LABEL[v.settings.suppression], submenu: (["rnnoise", "standard", "off"] as Suppression[]).map((k) => (
+        { label: SUPPRESSION_LABEL[k], checked: v.settings.suppression === k, onSelect: () => void updateVoiceSettings({ ...suppressionFor(k), presetId: "custom" }) })) },
       { kind: "separator" },
       { label: v.deafened ? "Undeafen" : "Deafen", icon: v.deafened ? <HeadphoneOff size={16} /> : <Headphones size={16} />, onSelect: () => setDeafened(!v.deafened) },
       { label: "Voice Settings", icon: <Settings size={16} />, onSelect: openSettings },

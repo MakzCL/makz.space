@@ -2,6 +2,7 @@ import { gwSend } from "../gateway.ts";
 import { onEvent, toast, useStore } from "../store.ts";
 import { primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
+import { denoiseTrack } from "./denoise.ts";
 import { SCREEN_ECHO_NOTE, screenAudioMayEcho, screenAudioConstraints, streamBitrate, type VoiceSettings } from "./settings.ts";
 
 /**
@@ -55,7 +56,9 @@ export class MeshCall {
         const early = this.preMic; this.preMic = null;
         const stream = early ? await early.catch(() => navigator.mediaDevices.getUserMedia({ audio: micConstraints(v.settings), video: false })) : await navigator.mediaDevices.getUserMedia({ audio: micConstraints(v.settings), video: false });
         if (this.stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
-        this.mic = stream.getAudioTracks()[0] ?? null;
+        const captured = stream.getAudioTracks()[0];
+        this.mic = captured ? await denoiseTrack(captured, v.settings) : null;
+        if (this.stopped) { this.mic?.stop(); return; }
         this.local = new MediaStream(this.mic ? [this.mic] : []);
         this.mute();
         this.measureLocal();
@@ -294,10 +297,10 @@ export class MeshCall {
 
   async applySettings(prev: VoiceSettings, next: VoiceSettings) {
     this.output();
-    const capture = (["inputDeviceId", "stereo", "echoCancellation", "noiseSuppression", "autoGainControl"] as const).some((k) => prev[k] !== next[k]);
+    const capture = (["inputDeviceId", "stereo", "echoCancellation", "noiseSuppression", "suppression", "autoGainControl"] as const).some((k) => prev[k] !== next[k]);
     if (capture && this.mic) {
       const s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(next), video: false });
-      const track = s.getAudioTracks()[0]!; const old = this.mic;
+      const track = await denoiseTrack(s.getAudioTracks()[0]!, next); const old = this.mic;
       this.mic = track; this.local = new MediaStream([track, ...(this.outgoingVideo() ? [this.outgoingVideo()!] : [])]);
       for (const p of this.peers.values()) { const tr = p.pc.getTransceivers().find((t) => t.receiver.track.kind === "audio"); await tr?.sender.replaceTrack(track).catch(() => {}); }
       old.stop(); this.mute(); this.localLevel = null; this.measureLocal();

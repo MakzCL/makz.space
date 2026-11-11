@@ -1897,3 +1897,8 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .side-ch.active { background: color-mix(in srgb, var(--text) 14%, transparent); }
   .rail-item > button, .rail-item .rail-btn { border-radius: 16px; }
 }
+/* Noise suppression choice and the voice bar's AI noise suppression button */
+.ns-seg button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+.ns-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.voice-bar .vb-ns { color: var(--textMuted); }
+.voice-bar .vb-ns.on { color: var(--brand-success); }
