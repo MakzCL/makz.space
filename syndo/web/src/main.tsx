@@ -1,3 +1,4 @@
+import "./legacy.ts"; // must stay first: maps names from before the rename (desktop bridge, saved settings)
 import { DesktopPrompt } from "./components/DesktopPrompt.tsx";
 import { initCallSounds } from "./voice/sounds.ts";
 import { initSoundboard } from "./expressions.ts";
@@ -5,7 +6,7 @@ import { DesktopTitlebar } from "./components/DesktopTitlebar.tsx";
 import { InAppNotices } from "./components/InAppNotices.tsx";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { boot } from "./actions.ts";
 import { Forgot, Login, Register, Reset, Verify } from "./components/Auth.tsx";
 import { InvitePage } from "./components/Dialogs.tsx";
@@ -53,15 +54,15 @@ function App() {
   const [studio, setStudio] = useState<null | { section?: any; target?: any }>(null);
   useEffect(() => {
     const open = (e: Event) => setStudio((e as CustomEvent).detail ?? {});
-    window.addEventListener("syndo:studio", open);
-    return () => window.removeEventListener("syndo:studio", open);
+    window.addEventListener("send:studio", open);
+    return () => window.removeEventListener("send:studio", open);
   }, []);
-  useEffect(() => { (window as any).__syndoLimits = limits; }, [limits]);
+  useEffect(() => { (window as any).__sendLimits = limits; }, [limits]);
   useEffect(() => {
     // Ctrl/⌘+K and Ctrl/⌘+/ come from the shortcut registry (configurable in Settings → Keybinds).
     const qs = () => { if (conn === "ready") setSwitcher((v) => !v); }, help = () => { if (conn === "ready") setHelp((v) => !v); };
-    window.addEventListener("syndo:quickswitcher", qs); window.addEventListener("syndo:shortcut-help", help);
-    return () => { window.removeEventListener("syndo:quickswitcher", qs); window.removeEventListener("syndo:shortcut-help", help); };
+    window.addEventListener("send:quickswitcher", qs); window.addEventListener("send:shortcut-help", help);
+    return () => { window.removeEventListener("send:quickswitcher", qs); window.removeEventListener("send:shortcut-help", help); };
   }, [conn]);
   useEffect(() => {
     const publicRoute = ["login", "register", "forgot", "reset", "verify", "invite"].includes(route.name);
@@ -79,7 +80,7 @@ function App() {
   else if (conn === "connecting") page = <Splash />;
   else if (route.name === "qr") page = <main className="auth"><section className="auth-card"><QrApprove id={route.params.id!} /><button className="link" onClick={() => navigate("/channels/@me")}>Back to SEND</button></section></main>;
   else page = <Shell />;
-  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("syndo.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();

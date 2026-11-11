@@ -6,14 +6,14 @@ const bootstrap = `
 const fs = require('node:fs'), cp = require('node:child_process'), { promisify } = require('node:util');
 const run = promisify(cp.execFile);
 (async () => {
-  const sha = process.env.SYNDO_SOURCE_COMMIT;
+  const sha = process.env.SEND_SOURCE_COMMIT;
   if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid source commit');
   fs.mkdirSync('/app', {recursive:true});
   // Runtime cache: the unpacked server + its installed packages for this commit, kept in the
   // private uploads bucket. A cold start then skips the GitHub download and npm install.
-  const origin = (process.env.SYNDO_STORAGE_ORIGIN || '').replace(/\\/$/, '');
-  const auth = { authorization: 'Bearer ' + (process.env.SYNDO_STORAGE_TOKEN || '') };
-  const cacheUrl = origin && process.env.SYNDO_STORAGE_TOKEN ? origin + '/__storage/_runtime/' + sha + '.tgz' : null;
+  const origin = (process.env.SEND_STORAGE_ORIGIN || '').replace(/\\/$/, '');
+  const auth = { authorization: 'Bearer ' + (process.env.SEND_STORAGE_TOKEN || '') };
+  const cacheUrl = origin && process.env.SEND_STORAGE_TOKEN ? origin + '/__storage/_runtime/' + sha + '.tgz' : null;
   const t0 = Date.now();
   let cached = false;
   if (cacheUrl) {
@@ -35,7 +35,7 @@ const run = promisify(cp.execFile);
     // Only what the API server needs: skips the web app, desktop, Android and the rest of the repo.
     cp.execFileSync('tar', ['xzf','/tmp/source.tgz','--strip-components=1','-C','/app','--wildcards','*/syndo/package.json','*/syndo/package-lock.json','*/syndo/tsconfig.base.json','*/syndo/server/*','*/syndo/shared/*']);
     fs.rmSync('/tmp/source.tgz', {force:true});
-    cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','-w','@syndo/server','-w','@syndo/shared'], {cwd:'/app/syndo',stdio:'inherit'});
+    cp.execFileSync('npm', ['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','-w','@send/server','-w','@send/shared'], {cwd:'/app/syndo',stdio:'inherit'});
   }
   console.log('[boot] ' + (cached ? 'runtime cache hit' : 'fresh install') + ' in ' + (Date.now() - t0) + ' ms');
   const child = cp.spawn(process.execPath, ['--import','tsx','server/src/index.ts'], {cwd:'/app/syndo',stdio:'inherit'});
@@ -51,17 +51,21 @@ const run = promisify(cp.execFile);
       const u = await fetch(cacheUrl, { method: 'PUT', headers: auth, body: buf });
       console.log('[boot] runtime cached:', u.status, buf.length);
     } catch (e) { console.error('[boot] runtime cache upload failed:', e.message); }
-  }, Number(process.env.SYNDO_RUNTIME_CACHE_DELAY_MS || 60000));
+  }, Number(process.env.SEND_RUNTIME_CACHE_DELAY_MS || 60000));
 })().catch(e => {console.error(e.message);process.exit(1)});
 `;
 // Keys the backend picks up when they're saved as Worker secrets (Settings → Variables and Secrets), so turning on
 // push, Stripe, GIFs or account connections needs no code change — only a secret and a restart of the backend.
-const OPTIONAL_ENV = ["SYNDO_SECRET", "SYNDO_VAPID_PUBLIC", "SYNDO_VAPID_PRIVATE", "SYNDO_VAPID_SUBJECT", "SYNDO_STAFF_USER_IDS",
-  "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "SYNDO_GIF_PROVIDER", "SYNDO_GIF_KEY",
-  ...["GITHUB", "TWITCH", "SPOTIFY", "REDDIT", "GOOGLE", "XBOX"].flatMap((p) => [`SYNDO_${p}_CLIENT_ID`, `SYNDO_${p}_CLIENT_SECRET`])];
+const OPTIONAL_ENV = ["SEND_SECRET", "SEND_VAPID_PUBLIC", "SEND_VAPID_PRIVATE", "SEND_VAPID_SUBJECT", "SEND_STAFF_USER_IDS",
+  "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "SEND_GIF_PROVIDER", "SEND_GIF_KEY",
+  ...["GITHUB", "TWITCH", "SPOTIFY", "REDDIT", "GOOGLE", "XBOX"].flatMap((p) => [`SEND_${p}_CLIENT_ID`, `SEND_${p}_CLIENT_SECRET`])];
 function optionalEnv(env: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const k of OPTIONAL_ENV) if (typeof env[k] === "string" && env[k]) out[k] = env[k] as string;
+  for (const k of OPTIONAL_ENV) {
+    // Secrets saved before the rename use the old SYNDO_ prefix; either name works.
+    const v = env[k] || (k.startsWith("SEND_") ? env[`SYNDO_${k.slice(5)}`] : undefined);
+    if (typeof v === "string" && v) out[k] = v;
+  }
   return out;
 }
 
@@ -86,9 +90,9 @@ export class SENDBackend extends DurableObject<Env> {
     }
     if (!c.running) c.start({image:"cloudflare/debian-trixie",instance:"basic",enableInternet:true,entrypoint:["node","-e",bootstrap],env:{
       DATABASE_URL:this.env.DATABASE_URL, NODE_ENV:"production", PG_POOL:"5", PORT:"3900",
-      SYNDO_PUBLIC_URL:"https://syndo.makz.space", SYNDO_COOKIE_SECURE:"1", SYNDO_TRUST_PROXY:"1",
-      SYNDO_AUTO_MIGRATE:"0", SYNDO_REQUIRE_DM_E2EE:"0", SYNDO_SFU_APP_ID:this.env.SFU_APP_ID, SYNDO_SFU_SECRET:this.env.SFU_APP_SECRET, SYNDO_MAX_UPLOAD_MB:"25", SYNDO_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
-      SYNDO_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SYNDO_SOURCE_COMMIT:this.env.SOURCE_COMMIT, SYNDO_TURN_KEY_ID:this.env.TURN_KEY_ID ?? "", SYNDO_TURN_KEY_TOKEN:this.env.TURN_KEY_TOKEN ?? "",
+      SEND_PUBLIC_URL:"https://syndo.makz.space", SEND_COOKIE_SECURE:"1", SEND_TRUST_PROXY:"1",
+      SEND_AUTO_MIGRATE:"0", SEND_REQUIRE_DM_E2EE:"0", SEND_SFU_APP_ID:this.env.SFU_APP_ID, SEND_SFU_SECRET:this.env.SFU_APP_SECRET, SEND_MAX_UPLOAD_MB:"25", SEND_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
+      SEND_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SEND_SOURCE_COMMIT:this.env.SOURCE_COMMIT, SEND_TURN_KEY_ID:this.env.TURN_KEY_ID ?? "", SEND_TURN_KEY_TOKEN:this.env.TURN_KEY_TOKEN ?? "",
       ...optionalEnv(this.env as unknown as Record<string, unknown>),
     }});
     await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
@@ -268,7 +272,7 @@ export default {
       return await env.BACKEND.getByName("syndo-beta-weur-v5", { locationHint: "weur" }).fetch(forward);
     } catch (error) {
       console.error("backend_unavailable", error instanceof Error ? error.message : "Unknown error");
-      return Response.json({code:"backend_unavailable",message:"Syndo is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});
+      return Response.json({code:"backend_unavailable",message:"SEND is starting. Please try again shortly."},{status:503,headers:{"retry-after":"10"}});
     }
   },
 } satisfies ExportedHandler<Env>;

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { BarChart3, Check, CornerUpRight, Hash, MessageSquare, Play, ShieldAlert, Sparkles, Radio, X } from "lucide-react";
-import { MessageType, P, type Channel, type Embed, type Message, type MessageComponent } from "@syndo/shared";
+import { MessageType, P, type Channel, type Embed, type Message, type MessageComponent } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
 import { navigate } from "../router.ts";
@@ -194,7 +194,7 @@ export function extraSystemText(m: Message, channel: Channel, who: React.ReactNo
   try { j = m.content.startsWith("{") ? JSON.parse(m.content) : {}; } catch { /* */ }
   switch (m.type) {
     case MessageType.THREAD_CREATED:
-      return <>{who} started a thread: <button className="link" onClick={() => m.thread && navigate(`/channels/${channel.guild_id}/${m.thread.id}`)}><strong>{m.content}</strong></button>. <button className="link" onClick={() => window.dispatchEvent(new CustomEvent("syndo:panel", { detail: "threads" }))}>See all threads</button>.</>;
+      return <>{who} started a thread: <button className="link" onClick={() => m.thread && navigate(`/channels/${channel.guild_id}/${m.thread.id}`)}><strong>{m.content}</strong></button>. <button className="link" onClick={() => window.dispatchEvent(new CustomEvent("send:panel", { detail: "threads" }))}>See all threads</button>.</>;
     case MessageType.POLL_RESULT:
       return <><BarChart3 size={14} aria-hidden /> {who}'s poll <button className="link" onClick={() => navigate(`/channels/${channel.guild_id ?? "@me"}/${channel.id}/${j.poll_message_id}`)}><strong>{j.question}</strong></button> has closed. {j.winner ? <>The winner is <strong>{j.winner}</strong> with {j.winner_votes} of {j.total_votes} votes.</> : "Nobody voted."}</>;
     case MessageType.AUTOMOD_ACTION:

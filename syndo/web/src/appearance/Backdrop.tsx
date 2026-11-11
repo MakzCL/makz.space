@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import type { Background } from "@syndo/shared";
+import type { Background } from "@send/shared";
 import { activeBackground, assetUrl, rgba } from "./engine.ts";
 import { useAppearance } from "./store.ts";
 

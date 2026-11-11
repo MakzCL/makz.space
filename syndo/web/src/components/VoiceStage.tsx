@@ -8,7 +8,7 @@ import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { P, STREAM_FPS, STREAM_HEIGHTS, has, type Channel, type Guild, type SoundboardSound } from "@syndo/shared";
+import { P, STREAM_FPS, STREAM_HEIGHTS, has, type Channel, type Guild, type SoundboardSound } from "@send/shared";
 import { playSoundboard, soundsFor } from "../expressions.ts";
 import { setTitle } from "../router.ts";
 import { can, displayName, guildPerms, useStore } from "../store.ts";
@@ -21,7 +21,7 @@ import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { StageView } from "../features/Stage.tsx";
 import { ActivityButton, ActivityHost } from "../features/Activities.tsx";
 import { VoiceStatusEditor } from "../features/VoiceExtras.tsx";
-import { ChannelType } from "@syndo/shared";
+import { ChannelType } from "@send/shared";
 import { CameraGroup, ChatToggle, InviteCard, MessagePreviews, MicGroup, MoreButton } from "../features/CallControls.tsx";
 import { CallChat } from "./ChannelView.tsx";
 

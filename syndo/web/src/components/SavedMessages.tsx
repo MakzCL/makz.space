@@ -1,7 +1,7 @@
 import { MobileNavButton } from "./ui.tsx";
 import { Bookmark, BookmarkMinus, File, RotateCcw, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Message } from "@syndo/shared";
+import type { Message } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
 import { navigate, setTitle } from "../router.ts";

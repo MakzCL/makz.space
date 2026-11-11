@@ -1,6 +1,6 @@
 import { PROFILE_CATALOG } from "./catalog.ts";
 /**
- * Syndo theme engine — schema, validation, layering and safety rules.
+ * SEND theme engine — schema, validation, layering and safety rules.
  *
  * Everything appearance-related is plain data described by the specs below.
  * The same validator runs in the client (live editing, import) and on the
@@ -82,7 +82,7 @@ export interface ThemeColors {
   accent: string; accent2: string; mention: string; link: string; danger: string; success: string; warning: string;
 }
 export interface ThemeDoc {
-  schema: "syndo.theme"; version: 2;
+  schema: "send.theme"; version: 2;
   meta: { id: string; name: string; author?: string; description?: string; version?: string; license?: string; tags: string[]; scheme: "dark" | "light" };
   colors: ThemeColors;
   panels: Partial<Record<RegionId, PanelStyle>>;
@@ -118,8 +118,8 @@ export const DEFAULT_LAYOUT: Layout = {
   panelStyle: "flat", radius: 10, gap: 0, margin: 0, unreadStyle: "pill", mentionStyle: "tint", statusStyle: "dot", scale: 1,
 };
 export const DEFAULT_THEME: ThemeDoc = {
-  schema: "syndo.theme", version: 2,
-  meta: { id: "syndo-midnight", name: "Syndo Midnight", author: "Syndo", tags: ["dark", "default"], scheme: "dark" },
+  schema: "send.theme", version: 2,
+  meta: { id: "send-midnight", name: "SEND Midnight", author: "SEND", tags: ["dark", "default"], scheme: "dark" },
   colors: {
     bg0: "#0E1220", bg1: "#141A2B", bg2: "#1A2136", bg3: "#232C45", line: "#2E3858", text: "#EEF1F8", textMuted: "#A9B2C7", textFaint: "#7C8597",
     accent: "#3D6BFF", accent2: "#FFC93C", mention: "#FFC93C", link: "#7EA2FF", danger: "#E5484D", success: "#2FBF71", warning: "#F2B33D",
@@ -131,7 +131,29 @@ export const DEFAULT_THEME: ThemeDoc = {
   effects: { animatedBackground: false, glow: 0, blurScale: 1 },
   conversation: { bubbles: { mine: "#3D6BFF", theirs: "#232C45", radius: 16, spacing: 4 } },
 };
-export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "syndo-glass", lightThemeId: "syndo-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
+/**
+ * Names from before the app was renamed from Syndo to SEND. Saved settings, exported theme files and a
+ * backend that hasn't been redeployed since the rename still use them, so they are read everywhere and
+ * turned into the SEND names; `toLegacyThemeNames` goes the other way for such a backend.
+ */
+export const LEGACY_THEME_SCHEMA = "syndo.theme";
+const LEGACY_PRESET = /^syndo-([a-z]+)$/;
+const SEND_PRESET = /^send-([a-z]+)$/;
+export function normalizeThemeId<T extends string | null | undefined>(id: T): T {
+  return (typeof id === "string" ? id.replace(LEGACY_PRESET, "send-$1") : id) as T;
+}
+export function toLegacyThemeNames<T>(data: T): T {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  const d = { ...(data as Record<string, any>) };
+  const old = (x: unknown) => (typeof x === "string" ? x.replace(SEND_PRESET, "syndo-$1") : x);
+  if ("themeId" in d) d.themeId = old(d.themeId);
+  if ("lightThemeId" in d) d.lightThemeId = old(d.lightThemeId);
+  if (d.schema === "send.theme") d.schema = LEGACY_THEME_SCHEMA;
+  if (d.meta && typeof d.meta === "object" && typeof d.meta.id === "string") d.meta = { ...d.meta, id: old(d.meta.id) };
+  return d as T;
+}
+
+export const DEFAULT_GLOBAL: GlobalAppearance = { v: 2, themeId: "send-glass", lightThemeId: "send-paper", followSystem: false, overrides: {}, a11y: DEFAULT_A11Y, customCssEnabled: false };
 
 /* ----------------------------------------------------------- validation -- */
 type Spec =
@@ -165,7 +187,7 @@ const LAYOUT: Spec = obj({
   unreadStyle: en("pill", "dot", "bar"), mentionStyle: en("tint", "bar", "outline"), statusStyle: en("dot", "ring", "square"), scale: num(0.8, 1.3),
 });
 export const THEME_SPEC: Spec = obj({
-  schema: en("syndo.theme"), version: en(2),
+  schema: en("send.theme"), version: en(2),
   meta: obj({
     id: { t: "str", max: 64, re: /^[a-z0-9][a-z0-9-]{0,63}$/ }, name: { t: "str", max: 64 }, author: { t: "str", max: 64 }, description: { t: "str", max: 400 },
     version: { t: "str", max: 20 }, license: { t: "str", max: 64 }, tags: { t: "arr", of: { t: "str", max: 24 }, max: 12 }, scheme: en("dark", "light"),
@@ -252,7 +274,7 @@ export function validateGlobal(input: unknown): { value: GlobalAppearance; issue
   const ov = validateThemePartial(i.overrides ?? {});
   issues.push(...ov.issues.map((x) => ({ ...x, path: `overrides.${x.path}` })));
   const a11y = check(A11Y_SPEC, i.a11y ?? {}, "a11y", issues) as Partial<A11yPrefs>;
-  const id = (x: unknown, d: string | null) => (typeof x === "string" && /^(syndo-[a-z]+|preset:\d{1,20})$/.test(x) ? x : d);
+  const id = (x: unknown, d: string | null) => (typeof x === "string" && /^((send|syndo)-[a-z]+|preset:\d{1,20})$/.test(x) ? normalizeThemeId(x) : d);
   return {
     value: {
       v: 2, themeId: id(i.themeId, DEFAULT_GLOBAL.themeId)!, lightThemeId: id(i.lightThemeId, DEFAULT_GLOBAL.lightThemeId),
@@ -283,7 +305,7 @@ export function validateScope(input: unknown): { value: ScopeAppearance; issues:
 export function validateThemeDoc(input: unknown): { doc: ThemeDoc | null; issues: Issue[] } {
   if (!input || typeof input !== "object") return { doc: null, issues: [{ path: "", message: "Not a theme file (expected a JSON object).", level: "error" }] };
   const migrated = migrateThemeInput(input as Record<string, unknown>);
-  if (!migrated) return { doc: null, issues: [{ path: "schema", message: "Not a Syndo theme. Expected \"schema\": \"syndo.theme\". Themes made for other apps (for example BetterDiscord .theme.css files) can't be imported.", level: "error" }] };
+  if (!migrated) return { doc: null, issues: [{ path: "schema", message: "Not a SEND theme. Expected \"schema\": \"send.theme\". Themes made for other apps (for example BetterDiscord .theme.css files) can't be imported.", level: "error" }] };
   const { value, issues } = validateThemePartial(migrated);
   const doc = mergeDeep(DEFAULT_THEME, value) as ThemeDoc;
   if (!value.meta?.name) issues.push({ path: "meta.name", message: "missing a name — using \"Untitled theme\"", level: "warning" });
@@ -293,12 +315,17 @@ export function validateThemeDoc(input: unknown): { doc: ThemeDoc | null; issues
 
 /** Backward-compatible migrations: v1 export ({syndo_theme:1,…}) and v1 settings.appearance. */
 export function migrateThemeInput(i: Record<string, unknown>): Record<string, unknown> | null {
-  if (i.schema === "syndo.theme" && (i.version === 2 || i.version === undefined)) return { ...i, version: 2 };
-  if (i.syndo_theme === 1 || i.schema === "syndo.theme" && i.version === 1) {
+  const sendSchema = i.schema === "send.theme" || i.schema === LEGACY_THEME_SCHEMA;
+  if (sendSchema && (i.version === 2 || i.version === undefined)) {
+    const meta = i.meta && typeof i.meta === "object" ? { ...(i.meta as Record<string, unknown>) } : i.meta;
+    if (meta && typeof meta === "object" && typeof (meta as any).id === "string") (meta as any).id = normalizeThemeId((meta as any).id);
+    return { ...i, schema: "send.theme", version: 2, ...(meta ? { meta } : {}) };
+  }
+  if (i.syndo_theme === 1 || sendSchema && i.version === 1) {
     const custom = (i.custom ?? {}) as Record<string, string>;
     const base = i.theme === "light" ? "light" : "dark";
     return {
-      schema: "syndo.theme", version: 2,
+      schema: "send.theme", version: 2,
       meta: { id: "imported-v1", name: "Imported theme", tags: ["imported"], scheme: base },
       colors: { ...custom, ...(typeof i.accent === "string" ? { accent: i.accent } : {}) },
       ...(typeof i.chatBackground === "string" ? { panels: { chat: { bg: i.chatBackground, opacity: 100 } } } : {}),
@@ -309,7 +336,7 @@ export function migrateThemeInput(i: Record<string, unknown>): Record<string, un
 
 export function migrateV1Appearance(a: Record<string, any> | undefined | null): GlobalAppearance {
   if (!a) return DEFAULT_GLOBAL;
-  const themeId = a.theme === "light" ? "syndo-paper" : a.theme === "contrast" ? "syndo-oled" : a.theme ? "syndo-midnight" : DEFAULT_GLOBAL.themeId;
+  const themeId = a.theme === "light" ? "send-paper" : a.theme === "contrast" ? "send-oled" : a.theme ? "send-midnight" : DEFAULT_GLOBAL.themeId;
   const overrides: Record<string, any> = { colors: {}, typography: {}, layout: {}, panels: {} };
   if (typeof a.accent === "string") overrides.colors.accent = a.accent;
   if (a.theme === "custom" && a.custom) Object.assign(overrides.colors, a.custom);
@@ -462,7 +489,7 @@ export function mixHex(a: string, b: string, k: number) {
  *     so recovery controls can't be hidden;
  *   - values may not contain url(), image-set(), expression(), escapes,
  *     quotes-with-urls, or comment tricks.
- * Output is re-serialised from the parsed tokens and scoped under `.syndo-css`.
+ * Output is re-serialised from the parsed tokens and scoped under `.send-css`.
  */
 export const CSS_CLASSES = [
   "msg", "msg-content", "msg-name", "msg-head", "msg-tools", "reaction", "mention", "md-code", "md-pre", "spoiler", "reply-ref", "sys-msg",
@@ -505,7 +532,7 @@ export function validateCustomCss(src: string): { css: string; errors: string[] 
         return true;
       });
       if (!ok) { errors.push(`Unsupported selector "${sel.slice(0, 60)}". Use [data-region="…"], documented classes (e.g. .msg, .mention) and simple elements.`); continue; }
-      scoped.push(`.syndo-css ${sel}`);
+      scoped.push(`.send-css ${sel}`);
     }
     const decls: string[] = [];
     for (const d of m[2]!.split(";").map((s) => s.trim()).filter(Boolean)) {

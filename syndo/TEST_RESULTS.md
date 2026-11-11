@@ -1,4 +1,4 @@
-# Syndo — Test results
+# SEND — Test results
 
 Only tests that were actually run are reported as passed. Date of runs: 2026-11-03.
 
@@ -26,7 +26,7 @@ No changes to media code; real LiveKit calling, Windows desktop behaviour and br
 
 ### Server integration — `cd syndo && npm test` → **37 / 37 passed**
 
-Real Syndo server on a random port, fresh PostgreSQL schema, each test user is an independent client with its own cookie jar and WebSocket (as separate browsers would be).
+Real SEND server on a random port, fresh PostgreSQL schema, each test user is an independent client with its own cookie jar and WebSocket (as separate browsers would be).
 
 | Suite | Tests | Result |
 |---|---|---|
@@ -61,7 +61,7 @@ Screenshots: `docs/screenshots/`.
 
 `pg_dump -Fc` of the E2E database → `pg_restore` into a new database → identical row counts for users, guilds, channels, messages, relationships, invites, reactions, sessions → a server booted on the restored database and an existing user logged in (HTTP 200). Attachment files are on disk and must be backed up alongside (see OPERATIONS.md); file restore was not part of this run.
 
-## Customization extension (Syndo Studio)
+## Customization extension (SEND Studio)
 
 ### Server — `npm test` → **46 / 46 passed** (adds `appearance.test.ts`, 9 tests)
 Validation and conflict handling of appearance settings; per-DM backgrounds; privacy (nothing personal in profiles or other users' views); scope limits; rejection of URLs, scripts and invalid CSS; background library (content sniffing, owner-only access, reference-aware delete and cleanup); shared conversation themes (explicit acceptance; asset access only for participants, ends on withdrawal); server profiles (separate from global, visible to members, use-global, nobody else can edit). Found and fixed: member queries let user columns overwrite server-profile columns.

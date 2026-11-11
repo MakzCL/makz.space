@@ -1,6 +1,6 @@
 import { AtSign, Users } from "lucide-react";
 import { useEffect, useId, useMemo, useState, type RefObject } from "react";
-import { P, type Channel, type Member } from "@syndo/shared";
+import { P, type Channel, type Member } from "@send/shared";
 import { api } from "../api.ts";
 import { can, displayName, useStore } from "../store.ts";
 import { Avatar } from "./ui.tsx";

@@ -3,7 +3,7 @@ import { PREFIX, validateDmWire } from "./encryption.ts";
 import type { FastifyInstance } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
-import { ChannelType, boostPerks, MENTION_ROLE, MENTION_USER, MessageType, P, has, isTextLike, type Message } from "@syndo/shared";
+import { ChannelType, boostPerks, MENTION_ROLE, MENTION_USER, MessageType, P, has, isTextLike, type Message } from "@send/shared";
 import { config } from "../config.ts";
 import { pool, q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
@@ -717,18 +717,16 @@ export async function embedMediaRoute(app: FastifyInstance) {
     return reply.send(r.body);
   });
 
-  /** GIF search through the configured provider (Klipy or Tenor). The key stays on the server. */
+  /** GIF search through Klipy. The key stays on the server. */
   app.get<{ Querystring: { q?: string; pos?: string } }>("/api/gifs", { preHandler: requireUser, config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
-    const key = process.env.SYNDO_GIF_KEY, provider = config.gifProvider;
+    const key = process.env.SEND_GIF_KEY, provider = config.gifProvider;
     if (!key || !provider) throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up on this server yet.");
     const text = String(req.query.q ?? "").trim().slice(0, 100);
     const pos = String(req.query.pos ?? "").slice(0, 100);
     const { safeFetch: get } = await import("../unfurl.ts");
-    if (provider === "tenor") {
-      const url = text ? `https://tenor.googleapis.com/v2/search?key=${encodeURIComponent(key)}&client_key=send&q=${encodeURIComponent(text)}&limit=30&media_filter=tinygif,gif,mp4&contentfilter=medium${pos ? `&pos=${encodeURIComponent(pos)}` : ""}`
-        : `https://tenor.googleapis.com/v2/featured?key=${encodeURIComponent(key)}&client_key=send&limit=30&media_filter=tinygif,gif,mp4&contentfilter=medium${pos ? `&pos=${encodeURIComponent(pos)}` : ""}`;
-      const j = JSON.parse((await get(url, { accept: "application/json", maxBytes: 2_000_000 })).body.toString("utf8"));
-      return { next: j.next ?? null, results: (j.results ?? []).map((g: any) => ({ id: g.id, title: g.content_description ?? "", url: g.itemurl ?? g.url, preview: g.media_formats?.tinygif?.url, gif: g.media_formats?.gif?.url, mp4: g.media_formats?.mp4?.url, width: g.media_formats?.gif?.dims?.[0] ?? null, height: g.media_formats?.gif?.dims?.[1] ?? null })) };
+    if (provider !== "klipy") {
+      // Klipy is the only provider left: Google closed the public Tenor API on 30 June 2026.
+      throw new ApiError(503, "gifs_unavailable", "GIF search isn't set up correctly on this server (it needs a Klipy key).");
     }
     // Klipy
     const page = Math.max(1, Number(pos) || 1);

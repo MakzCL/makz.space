@@ -59,7 +59,7 @@ describe("Profile media and mutuals", () => {
     const fd = new FormData(); fd.append("file", new Blob([PNG], { type: "image/png" }), "a.png");
     const up = await p.req("POST", "/api/users/@me/avatar", fd);
     assert.equal(up.status, 200);
-    const img = await fetch(new URL(up.body.url, (await import("./helpers.ts")).ORIGIN.replace("http://syndo.test", "http://127.0.0.1")).toString()).catch(() => null);
+    const img = await fetch(new URL(up.body.url, (await import("./helpers.ts")).ORIGIN.replace("http://send.test", "http://127.0.0.1")).toString()).catch(() => null);
     void img;
     const me = (await p.get("/api/users/@me")).body;
     assert.ok(me.avatar?.startsWith("/api/media/avatars/"));

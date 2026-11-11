@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eraser, Gamepad2, Pause, Play, Rocket, X } from "lucide-react";
-import type { Application, Channel } from "@syndo/shared";
+import type { Application, Channel } from "@send/shared";
 import { api } from "../api.ts";
 import { gwSend } from "../gateway.ts";
 import { displayName, onEvent, useStore } from "../store.ts";
@@ -25,11 +25,11 @@ function useActivityEvents(fn: (d: any, from: string) => void) {
 }
 
 /** Open the activity picker from anywhere in the call (the bar button, the empty-call card). */
-export const openActivityPicker = () => window.dispatchEvent(new Event("syndo:activity-picker"));
+export const openActivityPicker = () => window.dispatchEvent(new Event("send:activity-picker"));
 
 export function ActivityButton({ channel, ctl }: { channel: Channel; ctl?: boolean }) {
   const [open, setOpen] = useState(false);
-  useEffect(() => { const on = () => setOpen(true); window.addEventListener("syndo:activity-picker", on); return () => window.removeEventListener("syndo:activity-picker", on); }, []);
+  useEffect(() => { const on = () => setOpen(true); window.addEventListener("send:activity-picker", on); return () => window.removeEventListener("send:activity-picker", on); }, []);
   const [list, setList] = useState(catalog);
   const btn = useRef<HTMLButtonElement>(null);
   const here = useVoice((v) => v.channelId === channel.id);

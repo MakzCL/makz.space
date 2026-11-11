@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_PERMISSIONS, P, basePermissions, channelPermissions, has, outranks } from "@syndo/shared";
+import { ALL_PERMISSIONS, P, basePermissions, channelPermissions, has, outranks } from "@send/shared";
 
 const guild = { id: "1", owner_id: "100" };
 const roles = [

@@ -7,7 +7,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { ZodError } from "zod";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { authRoutes, sessionHook } from "./auth.ts";
 import { config } from "./config.ts";
 import { dbTiming, pool } from "./db.ts";
@@ -35,12 +35,12 @@ import { signinRoutes } from "./routes/signin.ts";
 import { notificationRoutes } from "./notify.ts";
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
-  const app = Fastify({ logger: opts.logger ?? false, trustProxy: process.env.SYNDO_TRUST_PROXY === "1", bodyLimit: 1024 * 1024 });
+  const app = Fastify({ logger: opts.logger ?? false, trustProxy: process.env.SEND_TRUST_PROXY === "1", bodyLimit: 1024 * 1024 });
 
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: Math.max(config.limits.max_upload_bytes, 500 * 1024 * 1024), files: 1, fields: 10 } });
   await app.register(rateLimit, {
-    max: Number(process.env.SYNDO_RATE_LIMIT ?? 600), timeWindow: "1 minute",
+    max: Number(process.env.SEND_RATE_LIMIT ?? 600), timeWindow: "1 minute",
     keyGenerator: (req) => req.session?.user_id ?? req.ip,
     errorResponseBuilder: (_req, ctx) => ({ statusCode: 429, code: "rate_limited", message: `Slow down — try again in ${Math.ceil(ctx.ttl / 1000)}s.`, retry_after: Math.ceil(ctx.ttl / 1000) }),
   });

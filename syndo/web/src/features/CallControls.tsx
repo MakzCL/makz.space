@@ -1,6 +1,6 @@
 import { Camera, CameraOff, ChevronDown, ChevronUp, Headphones, HeadphoneOff, MessageCircle, Mic, MicOff, MoreHorizontal, Rocket, Settings, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { P, type Channel, type Guild, type Message } from "@syndo/shared";
+import { P, type Channel, type Guild, type Message } from "@send/shared";
 import { openContextMenu, type MenuItem } from "../components/overlay.tsx";
 import { Modal } from "../components/ui.tsx";
 import { openDialog } from "../components/Shell.tsx";

@@ -1,5 +1,5 @@
 import { guildExpressions } from "./routes/expressions.ts";
-import { P, basePermissions, channelPermissions, has, type Guild } from "@syndo/shared";
+import { P, basePermissions, channelPermissions, has, type Guild } from "@send/shared";
 import { config } from "./config.ts";
 import { q, q1 } from "./db.ts";
 import { USER_COLS, channelOut, mediaUrl, prefixedCols, prefixedUser, roleOut, selfOut, userOut } from "./serialize.ts";

@@ -384,7 +384,7 @@ export function pttRelease() {
   if (pttTimer) clearTimeout(pttTimer);
   pttTimer = window.setTimeout(() => { pttTimer = null; set({ pttActive: false }); cf?.mute(); micTrack?.mute(); reportState(); }, s.settings.pttReleaseDelay);
 }
-const globalPtt = () => !!(window as any).syndoDesktop?.capabilities?.globalPtt && get().settings.mode === "ptt";
+const globalPtt = () => !!(window as any).sendDesktop?.capabilities?.globalPtt && get().settings.mode === "ptt";
 window.addEventListener("keydown", (e) => {
   const s = get();
   if (e.code !== s.settings.pttKey || e.repeat || globalPtt()) return;
@@ -457,7 +457,7 @@ export async function startScreenShare() {
     const capH = settings.height ?? 1080;
     const capW = settings.width ?? Math.round(capH * 16 / 9);
     // Keep the captured aspect ratio; for fixed targets only scale DOWN to the target height (never up).
-    const maxBitrate = Math.min(streamBitrate(st, capH), (window as any).__syndoLimits?.max_stream_bitrate_kbps * 1000 || Infinity);
+    const maxBitrate = Math.min(streamBitrate(st, capH), (window as any).__sendLimits?.max_stream_bitrate_kbps * 1000 || Infinity);
     const codec: VideoCodec | undefined = st.codec === "auto" ? (supportsCodec("video/AV1") ? "av1" : supportsCodec("video/VP9") ? "vp9" : "h264") : (st.codec as VideoCodec);
     const lowH = Math.min(capH, 720);
     const pub = await room.localParticipant.publishTrack(video, {

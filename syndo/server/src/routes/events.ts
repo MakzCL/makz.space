@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ChannelType, EventStatus, P, has, type GuildEvent } from "@syndo/shared";
+import { ChannelType, EventStatus, P, has, type GuildEvent } from "@send/shared";
 import { q, q1 } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { bad, forbidden, notFound } from "../errors.ts";

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { P } from "@syndo/shared";
+import { P } from "@send/shared";
 import { requireUser, uid } from "../auth.ts";
 import { q, q1 } from "../db.ts";
 import { ApiError, bad, notFound } from "../errors.ts";
@@ -22,9 +22,9 @@ const ID = { "7tv": /^[0-9A-HJKMNP-TV-Z]{26}$|^[a-f0-9]{24}$/i, bttv: /^[a-f0-9]
 // 7TV content flags we leave out: sexual content and "disallowed on Twitch".
 const HIDDEN_7TV = 65536 | 16777216;
 
-/** JSON from a provider. Tests point SYNDO_EMOTE_FIXTURES at saved responses instead of the network. */
+/** JSON from a provider. Tests point SEND_EMOTE_FIXTURES at saved responses instead of the network. */
 async function getJson(url: string): Promise<any> {
-  const fx = process.env.SYNDO_EMOTE_FIXTURES;
+  const fx = process.env.SEND_EMOTE_FIXTURES;
   if (fx) {
     const name = url.replace(/^https:\/\//, "").replace(/[^a-z0-9]+/gi, "_");
     try { return JSON.parse(await readFile(`${fx}/${name}.json`, "utf8")); } catch { throw new ApiError(404, "not_found", "That emote set wasn't found."); }
@@ -124,7 +124,7 @@ export async function emoteRoutes(app: FastifyInstance) {
     let type = "image/webp";
     const known = await storage.size(key).catch(() => -1);
     if (known < 0) {
-      if (process.env.SYNDO_EMOTE_FIXTURES) throw notFound("Emote");
+      if (process.env.SEND_EMOTE_FIXTURES) throw notFound("Emote");
       const url = provider === "7tv" ? `https://cdn.7tv.app/emote/${id}/2x.webp` : `https://cdn.betterttv.net/emote/${id}/2x.webp`;
       const r = await safeFetch(url, { maxBytes: 4 * 1024 * 1024, accept: "image/webp,image/*" }).catch(() => null);
       if (!r || r.status !== 200 || !/^image\/(webp|png|gif|avif)/.test(r.type)) throw notFound("Emote");

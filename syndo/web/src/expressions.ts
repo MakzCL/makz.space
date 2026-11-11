@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EXPRESSION_LIMITS, type Channel, type Emoji, type SoundboardSound, type Sticker } from "@syndo/shared";
+import { EXPRESSION_LIMITS, type Channel, type Emoji, type SoundboardSound, type Sticker } from "@send/shared";
 import { api, errMsg } from "./api.ts";
 import { onEvent, toast, useStore } from "./store.ts";
 import { useVoice } from "./voice/session.ts";

@@ -1,4 +1,4 @@
-import { ALL_PERMISSIONS, DEFAULT_PRIVACY, type Channel, type Guild, type InstanceLimits, type Member, type Message, type SelfUser, type User } from "@syndo/shared";
+import { ALL_PERMISSIONS, DEFAULT_PRIVACY, type Channel, type Guild, type InstanceLimits, type Member, type Message, type SelfUser, type User } from "@send/shared";
 import { dispatch, useStore } from "./store.ts";
 
 /** Local, labelled sample data. Never opens a gateway or sends requests to the real API. */
@@ -28,7 +28,7 @@ let savedIds = ["4002"];
 let prefs: any[] = [];
 let counter = BigInt(Date.now()) * 1000n;
 const nextId = () => String(++counter);
-const KEY = "syndo.preview.data.v1";
+const KEY = "send.preview.data.v1";
 try {
   const old = JSON.parse(localStorage.getItem(KEY) ?? "null");
   if (old && Array.isArray(old.messages) && old.messages.every((m: any) => /^\d+$/.test(m.id) && /^\d+$/.test(m.channel_id) && typeof m.content === "string" && m.author?.id && Array.isArray(m.reactions) && Array.isArray(m.attachments))) {

@@ -25,7 +25,7 @@ test("production DMs fail closed, store only ciphertext and preserve key identit
   const stored=await q1<any>("select content from messages where id=$1",[sent.body.id]);assert.equal(stored.content,wire);assert.ok(!stored.content.includes("private hello"));
   const history=(await b.get(`/api/channels/${dm.id}/messages`)).body;assert.equal((await unseal(kb,b.user.id,dm.id,a.user.id,history[0].content,ka.publicKey)).content,"private hello");
   const decoded=await unseal(kb,b.user.id,dm.id,a.user.id,history[0].content,ka.publicKey);assert.equal(decoded.files[0].name,"private-notes.txt");
-  const download=await fetch(base+uploaded.body.url,{headers:{cookie:b.cookie,origin:"http://syndo.test"}});assert.equal(download.status,200);const bytes=new Uint8Array(await download.arrayBuffer());assert.deepEqual(bytes,file.bytes);assert.ok(!new TextDecoder().decode(bytes).includes("private attachment bytes"));assert.deepEqual(await decryptFile(bytes,decoded.files[0].key,decoded.files[0].nonce),plain);
+  const download=await fetch(base+uploaded.body.url,{headers:{cookie:b.cookie,origin:"http://send.test"}});assert.equal(download.status,200);const bytes=new Uint8Array(await download.arrayBuffer());assert.deepEqual(bytes,file.bytes);assert.ok(!new TextDecoder().decode(bytes).includes("private attachment bytes"));assert.deepEqual(await decryptFile(bytes,decoded.files[0].key,decoded.files[0].nonce),plain);
   assert.equal((await a.patch(`/api/channels/${dm.id}/messages/${sent.body.id}`,{content:"unencrypted edit"})).status,400);
  }finally{config.requireDmE2ee=previous;}
 });

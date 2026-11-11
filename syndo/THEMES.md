@@ -1,12 +1,12 @@
-# Syndo theme schema & appearance system
+# SEND theme schema & appearance system
 
-Everything visual in Syndo is data validated by one schema (`shared/src/theme.ts`), used by the client and the server. Themes can't contain HTML, script, remote URLs or unbounded values.
+Everything visual in SEND is data validated by one schema (`shared/src/theme.ts`), used by the client and the server. Themes can't contain HTML, script, remote URLs or unbounded values.
 
 ## Where every control lives
 
 | What | Where |
 |---|---|
-| Syndo Studio | Settings → Appearance → **Open Syndo Studio**; user menu (click your name) → **Edit appearance**; server menu → **Edit appearance** |
+| SEND Studio | Settings → Appearance → **Open SEND Studio**; user menu (click your name) → **Edit appearance**; server menu → **Edit appearance** |
 | Quick theme / accent | Settings → Appearance |
 | Accessibility & performance | Settings → Accessibility, or Studio → Accessibility & performance |
 | Panels & transparency (14 regions) | Studio → Panels & transparency (click a region in the live preview, or use the list) |
@@ -50,7 +50,7 @@ These stay separate and never overwrite each other: personal app appearance (pri
 
 ```json
 {
-  "schema": "syndo.theme",
+  "schema": "send.theme",
   "version": 2,
   "meta": { "id": "my-theme", "name": "My theme", "author": "me", "description": "…", "version": "1.0", "license": "CC-BY-4.0", "tags": ["dark", "glass"], "scheme": "dark" },
   "colors": { "bg0": "#0E1220", "bg1": "#141A2B", "bg2": "#1A2136", "bg3": "#232C45", "line": "#2E3858", "text": "#EEF1F8", "textMuted": "#A9B2C7", "textFaint": "#7C8597", "accent": "#3D6BFF", "accent2": "#FFC93C", "mention": "#FFC93C", "link": "#7EA2FF", "danger": "#E5484D", "success": "#2FBF71", "warning": "#F2B33D" },
@@ -76,7 +76,7 @@ Rules:
 
 ## Custom CSS (opt-in)
 
-Parsed, not string-filtered. Allowed: `selector { property: value; }` only, where selectors use `[data-region="…"]`, documented classes (`.msg, .msg-content, .msg-name, .mention, .reaction, .side-ch, .rail-item, .member, .btn, .composer, .ch-h, .profile-card, .tile, .ctl, .modal, .menu …`), simple elements and `:hover, :focus-visible, :focus-within, :active, :first-child, :last-child, ::placeholder, ::selection`. Properties are visual only (colours, borders, radii, shadows, fonts, letter-spacing, padding, opacity ≥ 0.4, backdrop-filter, CSS variables). Rejected: at-rules (`@import`, `@font-face`, `@media`…), `url()`, `image-set()`, `expression()`, escapes, HTML, and anything that hides or moves elements (`display, position, visibility, content, transform, width/height…`). Output is scoped under `.syndo-css`; safe mode ignores it.
+Parsed, not string-filtered. Allowed: `selector { property: value; }` only, where selectors use `[data-region="…"]`, documented classes (`.msg, .msg-content, .msg-name, .mention, .reaction, .side-ch, .rail-item, .member, .btn, .composer, .ch-h, .profile-card, .tile, .ctl, .modal, .menu …`), simple elements and `:hover, :focus-visible, :focus-within, :active, :first-child, :last-child, ::placeholder, ::selection`. Properties are visual only (colours, borders, radii, shadows, fonts, letter-spacing, padding, opacity ≥ 0.4, backdrop-filter, CSS variables). Rejected: at-rules (`@import`, `@font-face`, `@media`…), `url()`, `image-set()`, `expression()`, escapes, HTML, and anything that hides or moves elements (`display, position, visibility, content, transform, width/height…`). Output is scoped under `.send-css`; safe mode ignores it.
 
 ## Not supported
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { Wordmark } from "./ui.tsx";
 import { ApiError, api, errMsg } from "../api.ts";
 import { signedIn } from "../actions.ts";

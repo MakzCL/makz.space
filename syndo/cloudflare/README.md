@@ -16,7 +16,7 @@ use `sslmode=verify-full` and
 `sslrootcert=/app/syndo/server/certs/supabase-ca.crt`; the bundled public root CA
 was obtained from Supabase's official certificate download. Use the restricted
 `syndo_runtime` role with the private `syndo` schema, not a Supabase service key.
-Migrations are applied separately; `SYNDO_AUTO_MIGRATE=0` prevents the restricted
+Migrations are applied separately; `SEND_AUTO_MIGRATE=0` prevents the restricted
 runtime role from attempting schema changes.
 
 `SOURCE_COMMIT` pins the server source. Update it to a tested repository commit
@@ -24,7 +24,7 @@ when deploying backend changes. Container startup installs locked production
 dependencies and sleeps after an hour of inactivity. The first cold start may
 be slow; the health endpoint returns 503 with Retry-After while starting.
 
-Pages `SYNDO_API_ORIGIN` points to
+Pages `SEND_API_ORIGIN` points to
 `https://send-beta-api.kuklinskikarol04.workers.dev`.
 The superseded `syndo-beta-api` container application remains pending explicit
 cleanup approval; deleting it was blocked by automatic approval review.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Clock, MapPin, Plus, Radio, Share2, Star, Trash2, Users, Volume2 } from "lucide-react";
-import { ChannelType, P, type Guild, type GuildEvent } from "@syndo/shared";
+import { ChannelType, P, type Guild, type GuildEvent } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { navigate } from "../router.ts";
 import { can, guildPerms, toast, useStore } from "../store.ts";

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
-import { ChannelType, EXPRESSION_LIMITS, boostPerks, P, emojiUrl, has, stickerUrl, type Emoji, type SoundboardSound, type Sticker } from "@syndo/shared";
+import { ChannelType, EXPRESSION_LIMITS, boostPerks, P, emojiUrl, has, stickerUrl, type Emoji, type SoundboardSound, type Sticker } from "@send/shared";
 import { requireUser, uid } from "../auth.ts";
 import { q, q1 } from "../db.ts";
 import { bad, forbidden, notFound } from "../errors.ts";

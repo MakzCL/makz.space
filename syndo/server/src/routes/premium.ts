@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { MessageType, boostLevelFor } from "@syndo/shared";
+import { MessageType, boostLevelFor } from "@send/shared";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { config } from "../config.ts";
@@ -79,7 +79,7 @@ export async function expirePremium() {
 
 async function requireStaff(req: FastifyRequest) {
   const u = await q1<any>("select staff from users where id = $1", [uid(req)]);
-  const env = (process.env.SYNDO_STAFF_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const env = (process.env.SEND_STAFF_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!u?.staff && !env.includes(uid(req))) throw forbidden("Staff only.");
 }
 

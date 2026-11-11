@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy, Plus, RefreshCw, ShieldCheck, Trash2, Webhook as WebhookIcon } from "lucide-react";
-import { ChannelType, P, has, type Application, type AutomodRule, type Channel, type ForumTag, type Guild, type Onboarding, type Webhook } from "@syndo/shared";
+import { ChannelType, P, has, type Application, type AutomodRule, type Channel, type ForumTag, type Guild, type Onboarding, type Webhook } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { guildPerms, toast } from "../store.ts";
 import { Avatar, Field, Toggle } from "../components/ui.tsx";

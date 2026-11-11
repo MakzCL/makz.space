@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { BRAND_ART } from "../brand-art.ts";
 import { Backdrop } from "../appearance/Backdrop.tsx";
 import { activeBackground, snapshot } from "../appearance/engine.ts";

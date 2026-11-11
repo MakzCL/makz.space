@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { P,has } from "@syndo/shared";
+import { P,has } from "@send/shared";
 import { requireUser,uid } from "../auth.ts";
 import { requireChannel } from "../perms.ts";
 import { q1 } from "../db.ts";

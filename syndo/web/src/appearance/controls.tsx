@@ -2,7 +2,7 @@ import { Select } from "../components/Select.tsx";
 import { Range } from "../components/Range.tsx";
 import { RotateCcw } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
-import { getPath, setPath, unsetPath, type DeepPartial, type LayerName, type ThemeDoc } from "@syndo/shared";
+import { getPath, setPath, unsetPath, type DeepPartial, type LayerName, type ThemeDoc } from "@send/shared";
 import { editDraft, effective, resolveFor, scopeKey, useAppearance, type Draft } from "./store.ts";
 
 /** What Studio is editing: your global look, one server, or one channel/conversation. */

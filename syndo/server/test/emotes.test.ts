@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Client, startServer, stopServer } from "./helpers.ts";
 
 // Saved 7TV/BTTV responses instead of the network.
-process.env.SYNDO_EMOTE_FIXTURES = new URL("./fixtures/emotes", import.meta.url).pathname;
+process.env.SEND_EMOTE_FIXTURES = new URL("./fixtures/emotes", import.meta.url).pathname;
 const all: Client[] = [];
 before(async () => { await startServer(); });
 after(async () => { all.forEach((c) => c.close()); await stopServer(); });

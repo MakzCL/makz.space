@@ -18,7 +18,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
     return { c, p, errs, name };
   };
   const A = await mk('a'), B = await mk('b');
-  const api = (x, m, path, body) => x.p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-syndo-client': '1' } : { 'x-syndo-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
+  const api = (x, m, path, body) => x.p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-send-client': '1' } : { 'x-send-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
   for (const x of [A, B]) {
     await x.p.goto(BASE + '/login');
     const r = await api(x, 'POST', '/api/auth/register', { email: `kb_${x.name}_${SFX}@example.test`, username: `kb_${x.name}_${SFX}`, password: 'correct horse battery', display_name: x.name === 'a' ? 'Kai' : 'Lee' });

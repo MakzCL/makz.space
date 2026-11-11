@@ -171,7 +171,7 @@ Pages → `syndo-app` → Deployments → `4d241b0b` → Rollback to this deploy
 
 Accounts `makz` and `makztest` were marked `staff` (free boost grants and codes).
 
-Released: database migration `007_major_update.sql` (25 new tables, grants checked); Worker version `fc79e6d2-5146-4c81-b30a-747f23899755` with `SOURCE_COMMIT` `d967a3b` (it also passes optional secrets — push keys, `SYNDO_SECRET`, Stripe, GIFs, connections — to the backend once they exist); Pages deployment `4d241b0b-98dd-4746-996e-d7921926b533`. Push keys and `SYNDO_SECRET` aren't set yet: push is hidden until they are, and link-preview image URLs change when the backend restarts.
+Released: database migration `007_major_update.sql` (25 new tables, grants checked); Worker version `fc79e6d2-5146-4c81-b30a-747f23899755` with `SOURCE_COMMIT` `d967a3b` (it also passes optional secrets — push keys, `SEND_SECRET`, Stripe, GIFs, connections — to the backend once they exist); Pages deployment `4d241b0b-98dd-4746-996e-d7921926b533`. Push keys and `SEND_SECRET` aren't set yet: push is hidden until they are, and link-preview image URLs change when the backend restarts.
 
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → deploy `57def25c` at 100% (its `SOURCE_COMMIT` brings the container back to `77745ff`).
@@ -231,7 +231,7 @@ Roll back: backend → deploy `d9d4573d` at 100% (the backend object resets itse
 | Web (Pages `syndo-app`) | deployment `ee3160bb-a035-4c40-8263-5ee30587b3ce` |
 | Database | unchanged |
 
-Calls now connect people directly (WebRTC mesh, signalled over the gateway `call_signal` op, Cloudflare TURN relay when needed). The Cloudflare SFU path is still there: setting `SYNDO_VOICE_MODE=sfu` on the backend switches back without a web change.
+Calls now connect people directly (WebRTC mesh, signalled over the gateway `call_signal` op, Cloudflare TURN relay when needed). The Cloudflare SFU path is still there: setting `SEND_VOICE_MODE=sfu` on the backend switches back without a web change.
 Roll back: backend → deploy `e16f5e16` at 100% (then call any `/api/…` route); web → rollback to `ee3160bb`.
 Backend object renamed `syndo-beta-weur-v3` → `syndo-beta-weur-v4`: a Durable Object with a live container kept running the old code after deploys (so new commits never took effect). The Worker now also restarts the container whenever the pinned commit differs. Rolling back to `e16f5e16` uses the v3 object again.
 Then renamed again to `syndo-beta-weur-v5` with a self-reset: the Worker sends the current commit (`x-send-commit`) and an object running an older deploy calls `ctx.abort()`, restarting on the new code/settings/secrets (apps reconnect in seconds). From now on a normal deploy is enough.
@@ -259,7 +259,7 @@ Roll back: Pages → `syndo-app` → Deployments → `d2fb1a90-bd25-44cf-81ea-6e
 | Source | branch `backup/pre-channel-emoji-20261105` |
 | Backend (Worker `send-beta-api`) | version `e04307b4-0c5c-41bb-a340-d344874caf80`, `SOURCE_COMMIT` `dcbfdef` |
 | Web (Pages `syndo-app`) | deployment `6f7293a7-be14-40f8-8271-95705dde99c6` |
-| Database | migration `006_channel_emoji.sql` (additive: column `channels.icon_emoji`). To remove: `alter table syndo.channels drop column icon_emoji; delete from syndo.schema_migrations where name = '006_channel_emoji.sql';` |
+| Database | migration `006_channel_emoji.sql` (additive: column `channels.icon_emoji`). To remove: `alter table send.channels drop column icon_emoji; delete from send.schema_migrations where name = '006_channel_emoji.sql';` |
 
 Roll back: backend → deploy `e04307b4` at 100% (then call any `/api/…` route); web → rollback to `6f7293a7`.
 
@@ -275,7 +275,7 @@ Roll back: Pages → `syndo-app` → Deployments → `47490bc7-8001-4bdb-bb96-bc
 | Source | branch `backup/pre-stickers-20261105` → `ed64fa5` |
 | Backend (Worker `send-beta-api`) | version `c7b3bca7-9828-4210-8e5a-59a6f8b81c76`, `SOURCE_COMMIT` `ed64fa5` |
 | Web (Pages `syndo-app`) | deployment `e93b6b19-c203-46fb-a3c3-e5502117c63c` |
-| Database (Supabase `syndo-beta`) | migration `005_stickers.sql` applied (additive: table `guild_stickers`, column `messages.sticker_id`). Older code ignores both. To remove: `alter table syndo.messages drop column sticker_id; drop table syndo.guild_stickers; delete from syndo.schema_migrations where name = '005_stickers.sql';` |
+| Database (Supabase `syndo-beta`) | migration `005_stickers.sql` applied (additive: table `guild_stickers`, column `messages.sticker_id`). Older code ignores both. To remove: `alter table syndo.messages drop column sticker_id; drop table send.guild_stickers; delete from send.schema_migrations where name = '005_stickers.sql';` |
 
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → `c7b3bca7` at 100%, then call any `/api/…` route.
@@ -288,9 +288,9 @@ Roll back: Pages → `syndo-app` → Deployments → `47490bc7-8001-4bdb-bb96-bc
 | Source | branch `backup/pre-expressions-plain-dms-20261105` |
 | Backend (Worker `send-beta-api`) | version `52515a3a-4d09-4040-8da1-22f202aff1b8`, `SOURCE_COMMIT` `e4c68d7` |
 | Web (Pages `syndo-app`) | deployment `157f2b15-eb4a-483b-b58d-c6bfcd31e48c` |
-| Database (Supabase `syndo-beta`) | migration `004_expressions.sql` applied (additive: tables `guild_emojis`, `guild_sounds`, column `channels.banner_key`). Older code ignores them, so a backend rollback needs no database change. To remove them: `drop table syndo.guild_emojis, syndo.guild_sounds; alter table syndo.channels drop column banner_key; delete from syndo.schema_migrations where name = '004_expressions.sql';` |
+| Database (Supabase `syndo-beta`) | migration `004_expressions.sql` applied (additive: tables `guild_emojis`, `guild_sounds`, column `channels.banner_key`). Older code ignores them, so a backend rollback needs no database change. To remove them: `drop table send.guild_emojis, send.guild_sounds; alter table send.channels drop column banner_key; delete from send.schema_migrations where name = '004_expressions.sql';` |
 
-DMs: the server no longer requires end-to-end encryption (`SYNDO_REQUIRE_DM_E2EE` = "0"); clients send DMs as normal messages. Older encrypted messages decrypt where a device still has its key, otherwise show "Older encrypted message". Re-enable the old mode by setting it back to "1" (and rolling back the web app).
+DMs: the server no longer requires end-to-end encryption (`SEND_REQUIRE_DM_E2EE` = "0"); clients send DMs as normal messages. Older encrypted messages decrypt where a device still has its key, otherwise show "Older encrypted message". Re-enable the old mode by setting it back to "1" (and rolling back the web app).
 
 ### Roll back
 1. Backend: Workers → `send-beta-api` → Deployments → `52515a3a` at 100%, then call any `/api/…` route.

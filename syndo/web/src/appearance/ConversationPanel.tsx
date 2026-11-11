@@ -1,7 +1,7 @@
 import { Select } from "../components/Select.tsx";
 import { Range } from "../components/Range.tsx";
 import { X } from "lucide-react";
-import { ChannelType, type Background, type Channel, type ConversationPrefs, type ScopeAppearance } from "@syndo/shared";
+import { ChannelType, type Background, type Channel, type ConversationPrefs, type ScopeAppearance } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { displayName, dmTitle, toast, useStore } from "../store.ts";
 import { assetUrl } from "./engine.ts";

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: syndo-android-${{ github.ref }}
+  group: send-android-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: syndo } }
     env:
-      SYNDO_APP_URL: ${{ vars.SYNDO_APP_URL || 'https://syndo.makz.space' }}
-      SYNDO_R2_BUCKET: ${{ vars.SYNDO_R2_BUCKET || 'syndo-desktop' }}
+      SEND_APP_URL: ${{ vars.SEND_APP_URL || vars.SYNDO_APP_URL || 'https://syndo.makz.space' }}
+      SEND_R2_BUCKET: ${{ vars.SEND_R2_BUCKET || vars.SYNDO_R2_BUCKET || 'syndo-desktop' }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -44,7 +44,7 @@ jobs:
           cp -R web/dist/. android/app/src/main/assets/
       - name: Build installable preview APK
         working-directory: syndo/android
-        run: gradle --no-daemon assembleDebug -PsyndoAppUrl="$SYNDO_APP_URL"
+        run: gradle --no-daemon assembleDebug -PsendAppUrl="$SEND_APP_URL"
       - name: Name the download
         run: cp android/app/build/outputs/apk/debug/app-debug.apk SEND-beta.apk
       - uses: actions/upload-artifact@v4
@@ -55,7 +55,7 @@ jobs:
       - name: Publish APK to Cloudflare R2
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
-          npx --yes wrangler@4 r2 object put "$SYNDO_R2_BUCKET/android/SEND.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
+          npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/SEND.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
       - name: Explain missing Cloudflare connection
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."

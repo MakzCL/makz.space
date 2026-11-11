@@ -1,5 +1,5 @@
 import { Hash, Image, Megaphone, MessageSquare, Radio, Volume2, type LucideProps } from "lucide-react";
-import { ChannelType, type Channel } from "@syndo/shared";
+import { ChannelType, type Channel } from "@send/shared";
 import { CustomEmoji } from "../markdown.tsx";
 
 const DEFAULT_ICON: Record<number, typeof Hash> = { [ChannelType.TEXT]: Hash, [ChannelType.VOICE]: Volume2, [ChannelType.ANNOUNCEMENT]: Megaphone, [ChannelType.STAGE]: Radio, [ChannelType.FORUM]: MessageSquare, [ChannelType.MEDIA]: Image };

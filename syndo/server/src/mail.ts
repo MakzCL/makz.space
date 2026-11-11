@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { config } from "./config.ts";
 import { q } from "./db.ts";
 

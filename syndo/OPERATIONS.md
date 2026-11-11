@@ -1,4 +1,4 @@
-# Syndo — Operations
+# SEND — Operations
 
 ## Health and observability
 
@@ -18,11 +18,11 @@ Not built yet (tracked): server-side aggregation of client call-quality reports,
 What to back up: the PostgreSQL database **and** the storage directory (attachments, avatars, icons). LiveKit is stateless.
 
 ```bash
-docker compose exec -T db pg_dump -U syndo -Fc syndo > syndo-$(date +%F).dump
+docker compose exec -T db pg_dump -U syndo -Fc syndo > send-$(date +%F).dump
 ```
 
 ```bash
-docker run --rm -v deploy_storage:/data -v "$PWD":/out alpine tar czf /out/syndo-files-$(date +%F).tgz -C /data .
+docker run --rm -v deploy_storage:/data -v "$PWD":/out alpine tar czf /out/send-files-$(date +%F).tgz -C /data .
 ```
 
 Encrypt backups before they leave the host (e.g. `age` or `gpg`) and keep at least one copy off-site.
@@ -30,7 +30,7 @@ Encrypt backups before they leave the host (e.g. `age` or `gpg`) and keep at lea
 ### Restore (tested for the database — see TEST_RESULTS.md)
 
 ```bash
-docker compose stop syndo
+docker compose stop send
 ```
 
 ```bash
@@ -38,15 +38,15 @@ docker compose exec -T db psql -U syndo -c 'drop database syndo' -c 'create data
 ```
 
 ```bash
-docker compose exec -T db pg_restore -U syndo --no-owner -d syndo < syndo-YYYY-MM-DD.dump
+docker compose exec -T db pg_restore -U syndo --no-owner -d syndo < send-YYYY-MM-DD.dump
 ```
 
 ```bash
-docker run --rm -v deploy_storage:/data -v "$PWD":/in alpine sh -c 'cd /data && tar xzf /in/syndo-files-YYYY-MM-DD.tgz'
+docker run --rm -v deploy_storage:/data -v "$PWD":/in alpine sh -c 'cd /data && tar xzf /in/send-files-YYYY-MM-DD.tgz'
 ```
 
 ```bash
-docker compose start syndo
+docker compose start send
 ```
 
 Practise the restore into a separate database regularly; a backup that hasn't been restored isn't a backup.

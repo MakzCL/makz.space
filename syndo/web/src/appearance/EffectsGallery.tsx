@@ -1,7 +1,7 @@
 import { Select } from "../components/Select.tsx";
 import { useAppearance } from "./store.ts";
 import { useEffect, useState, type CSSProperties } from "react";
-import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@syndo/shared";
+import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { displayName, toast, useStore } from "../store.ts";
 import { Wordmark } from "../components/ui.tsx";

@@ -1,4 +1,4 @@
-# Syndo — Feature matrix
+# SEND — Feature matrix
 
 Status key — **Complete**: works end to end with persistent data and server-enforced permissions, verified by an automated test that drives the real server with independent clients (and the browser UI where noted). **Partial**: some of the feature works and is tested; the rest is listed under remaining work. **Unverified**: implemented, but not exercised against real infrastructure yet (almost always: needs a running LiveKit media server, which could not run in the build sandbox). **Missing**: not built. **Broken**: built but known not to work.
 
@@ -69,9 +69,9 @@ Last updated: customization extension + desktop/web distribution (2026-11-03).
 | MSG-08 | Typing, unread markers, mention counters, mark read | Complete | S/core typing, ack sync; unread divider + badges | — | — |
 | MSG-09 | Pins and saved messages | Partial | S/extra pins/saved (saved hide when access lost); private Saved messages inbox with search, jump, remove, gateway refresh and stale-response protection; W/messaging saved inbox tests | Cursor pagination beyond the existing 200-save API window; full-browser visual test | Save a message, find it in the inbox, jump to it; revoke channel access and the save disappears |
 | MSG-10 | Images/video/audio/files, drag-drop, paste | Partial | S/core upload + permission-checked download; content sniffing; SVG never rendered | Browser test of drag/drop/paste; image thumbnails | Paste a screenshot → uploads and renders |
-| MSG-11 | Progress, cancel, retry, large files | Partial | XHR progress/cancel/retry in UI; operator limit `SYNDO_MAX_UPLOAD_MB` | Resumable chunked uploads (tus/S3 multipart) for multi-GB files | 2 GB upload survives a network blip |
+| MSG-11 | Progress, cancel, retry, large files | Partial | XHR progress/cancel/retry in UI; operator limit `SEND_MAX_UPLOAD_MB` | Resumable chunked uploads (tus/S3 multipart) for multi-GB files | 2 GB upload survives a network blip |
 | MSG-12 | Safe link previews / embeds | Missing | — | Server-side fetcher with SSRF protection, image proxy | — |
-| MSG-13 | GIF search via configured provider | Missing | `SYNDO_GIF_PROVIDER` setting reserved | Provider adapter (opt-in, key configured by operator) | — |
+| MSG-13 | GIF search via configured provider | Missing | `SEND_GIF_PROVIDER` setting reserved | Provider adapter (opt-in, key configured by operator) | — |
 | MSG-14 | Custom static/animated emoji + stickers | Missing | — | Upload/manage, render `<:name:id>` | — |
 | MSG-15 | Cross-server emoji with access checks | Missing | `USE_EXTERNAL_EMOJIS` permission exists | Depends on MSG-14 | — |
 | MSG-16 | Voice messages with waveform | Unverified | Recorder, waveform capture, playback UI | Browser test with fake microphone | Record 5 s → recipient plays it, waveform shown |
@@ -80,7 +80,7 @@ Last updated: customization extension + desktop/web distribution (2026-11-03).
 | MSG-19 | Group DM create/name/icon/members/leave | Partial | S/extra "create, rename, add, remove, leave" | Group icon upload | — |
 | MSG-20 | Ordering, duplicate prevention, pending/failed | Complete | S/core nonce idempotency; time-ordered ids; UI pending/failed + retry | — | — |
 | MSG-21 | Cross-device sync (edits, deletes, read position) | Complete | S/core second-device MESSAGE_UPDATE/DELETE/ACK | — | — |
-| MSG-22 | Configurable long messages for everyone | Complete | `SYNDO_MAX_MESSAGE_LENGTH` (default 4,000), published in `/api/instance` | — | — |
+| MSG-22 | Configurable long messages for everyone | Complete | `SEND_MAX_MESSAGE_LENGTH` (default 4,000), published in `/api/instance` | — | — |
 
 ## Voice (high bitrate)
 
@@ -90,7 +90,7 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 |---|---|---|---|---|---|
 | VOICE-01 | 1:1, group DM, server voice | Unverified | `voice/session.ts`; S/core "mints tokens whose grants match SPEAK/VIDEO…" | Two-device call test on deployed stack | Two users on different networks hear each other |
 | VOICE-02 | Ring, accept, decline, cancel, missed, history | Unverified | `routes/voice.ts` call records (ongoing/ended/missed) | Automated ring/decline test; incoming-call sound | Unanswered ring → "Missed call" in DM |
-| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT in the browser while focused; global PTT in the desktop app (keyboard keys, mouse 4/5, Windows low-level hooks); `USE_VAD` forces PTT | Media test on deployed LiveKit; desktop PTT test on Windows | Hold PTT key while Syndo is in the background → others hear you |
+| VOICE-03 | Mute, deafen, PTT, VAD | Unverified | PTT in the browser while focused; global PTT in the desktop app (keyboard keys, mouse 4/5, Windows low-level hooks); `USE_VAD` forces PTT | Media test on deployed LiveKit; desktop PTT test on Windows | Hold PTT key while SEND is in the background → others hear you |
 | VOICE-04 | Device selection, gain, per-user volume | Unverified | WebAudio gain, `setSinkId`, per-user volume 0–200 % | — | — |
 | VOICE-05 | Speaking indicators, states, participants | Unverified | ActiveSpeakers, connection pill, sidebar participants (voice state tested) | — | — |
 | VOICE-06 | AEC / NS / AGC individually configurable | Unverified | Three independent toggles, re-publish on change | — | — |
@@ -200,14 +200,14 @@ All media code targets LiveKit's documented client/server APIs. **No media test 
 | CLIENT-10 | Game/activity presence, connected accounts | Missing | — | — | — |
 | CLIENT-11 | Game overlay | Missing | — | Separate native assessment | — |
 
-## Syndo Studio & appearance (customization extension)
+## SEND Studio & appearance (customization extension)
 
 Evidence: `A/e2e` = `e2e/appearance.cjs` (real Chromium contexts against a running server, 26 checks), `S/appearance` = `server/test/appearance.test.ts`.
 
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
-| STUDIO-01 | Studio workspace (Settings → Appearance → Open Syndo Studio; user menu & server menu “Edit appearance”; chat header palette) | Complete | A/e2e opens via Settings; preview/Apply/Cancel | — | Open from each entry point |
-| STUDIO-02 | Theme gallery with engine-rendered thumbnails, tags, light/dark, duplicate | Complete | A/e2e applies Syndo Glass; screenshots | — | — |
+| STUDIO-01 | Studio workspace (Settings → Appearance → Open SEND Studio; user menu & server menu “Edit appearance”; chat header palette) | Complete | A/e2e opens via Settings; preview/Apply/Cancel | — | Open from each entry point |
+| STUDIO-02 | Theme gallery with engine-rendered thumbnails, tags, light/dark, duplicate | Complete | A/e2e applies SEND Glass; screenshots | — | — |
 | STUDIO-03 | Visual editor with inherited/overridden indicator + reset to inherited per field | Complete | `controls.tsx` provenance from `resolveAppearance` | Browser test of per-field reset | — |
 | STUDIO-04 | Undo/Redo/Apply/Cancel/Reset section/Reset all; preview reversible until saved | Complete | A/e2e “Cancel reverts the preview”, undo/redo then Apply | — | — |
 | STUDIO-05 | Independent panel styling for 14 regions (colour, 0–100 % opacity, gradient, blur, border colour/opacity/width, radius, shadow, image, text/icon overrides) | Complete | A/e2e 1 (text/icons opaque at 30 % background), 2 (each panel keeps its own after refresh) | — | — |
@@ -233,7 +233,7 @@ Evidence: `A/e2e` = `e2e/appearance.cjs` (real Chromium contexts against a runni
 
 | ID | Feature | Status | Evidence | Remaining work | Acceptance test |
 |---|---|---|---|---|---|
-| DIST-01 | Hosted web app on Cloudflare Pages with same-origin API/gateway proxy | Complete (locally verified) | `web/functions` + `web/edge/proxy.ts`; messaging E2E 18/18 through `wrangler pages dev` (Cloudflare runtime) incl. WebSocket | Set `SYNDO_API_ORIGIN` in the Pages project; first production deploy | Open the Pages URL → sign in → chat works |
+| DIST-01 | Hosted web app on Cloudflare Pages with same-origin API/gateway proxy | Complete (locally verified) | `web/functions` + `web/edge/proxy.ts`; messaging E2E 18/18 through `wrangler pages dev` (Cloudflare runtime) incl. WebSocket | Set `SEND_API_ORIGIN` in the Pages project; first production deploy | Open the Pages URL → sign in → chat works |
 | DIST-02 | Windows installer (.exe) built in CI | Complete | `.github/workflows/syndo.yml` `desktop-lite` job (Tauri NSIS on windows-latest), artifact `send-windows-lite` | Code signing | Download artifact → install → app opens |
 | DIST-03 | Desktop updates from Cloudflare | Complete | Shell reads `latest.yml` on the public R2 bucket, verifies sha512, runs the silent installer when the user presses the green button; published by hand (see DESKTOP.md) | — | 0.4.4 → 0.5.0 updated on real Windows |
 | DIST-04 | Web interface updates reach desktop users instantly | Complete (by design) | The desktop window loads the hosted web app | — | — |

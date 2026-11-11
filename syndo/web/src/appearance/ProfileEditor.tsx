@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import {
   DECORATIONS, DEFAULT_PROFILE_THEME, EFFECT_KINDS, ENTRANCES, FRAMES, NAMEPLATES, NAME_STYLES, P, RING_STYLES, STATUS_SHAPES, has,
   type EffectLayer, type ProfileTheme, type User,
-} from "@syndo/shared";
+} from "@send/shared";
 import { api, errMsg, upload } from "../api.ts";
 import { displayName, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar } from "../components/ui.tsx";
@@ -183,7 +183,7 @@ function GlobalProfile() {
         <label className="field"><span className="field-l">About me</span><textarea value={f.bio} maxLength={400} rows={3} onChange={(e) => setF({ ...f, bio: e.target.value })} /></label>
         <label className="field"><span className="field-l">Status</span><input value={f.status} maxLength={128} onChange={(e) => setF({ ...f, status: e.target.value })} /></label>
         {pct !== null && <progress max={1} value={pct} />}
-        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects" } }))}>Explore profile effects</button>
+        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("send:studio", { detail: { section: "effects" } }))}>Explore profile effects</button>
         <button className="btn primary" onClick={save}>Save profile</button>
       </div>
       <UnsavedBar dirty={dirty} onReset={() => { const [bf, bt] = JSON.parse(base); setF(bf); setTheme(bt); }} onSave={save} />
@@ -244,7 +244,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
         <U k="pronouns" label="Pronouns"><input value={d.pronouns ?? ""} maxLength={40} onChange={(e) => setD({ ...d, pronouns: e.target.value })} /></U>
         <U k="bio" label="Bio"><textarea value={d.bio ?? ""} maxLength={400} rows={3} onChange={(e) => setD({ ...d, bio: e.target.value })} /></U>
         <U k="status" label="Status"><input value={d.status ?? ""} maxLength={128} onChange={(e) => setD({ ...d, status: e.target.value })} /></U>
-        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section: "effects", target: { kind: "guild", id: guildId, label: guild.name } } }))}>Explore server profile effects</button>
+        <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("send:studio", { detail: { section: "effects", target: { kind: "guild", id: guildId, label: guild.name } } }))}>Explore server profile effects</button>
         <div className="row"><button className="btn primary" onClick={save}>Save server profile</button>
           <UnsavedBar dirty={!!base && JSON.stringify(d) !== base} onReset={() => base && setD(JSON.parse(base))} onSave={save} />
           <button className="btn" onClick={async () => { if (!(await askConfirm({ title: "Reset server profile?", body: "Your server profile goes back to your global profile.", confirmLabel: "Reset", danger: true }))) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>

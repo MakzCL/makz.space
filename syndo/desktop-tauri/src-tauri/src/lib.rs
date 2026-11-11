@@ -2,7 +2,7 @@
 //!
 //! Same job as the Electron shell, without bundling a browser: the window loads the hosted SEND
 //! web app (so interface updates arrive with web deploys) and the shell adds what a browser
-//! can't do — global push-to-talk, tray and close-to-tray, syndo:// invite links, native toasts,
+//! can't do — global push-to-talk, tray and close-to-tray, send:// invite links, native toasts,
 //! Windows 11 Mica/Acrylic, launch on startup and manual updates from the R2 feed.
 //!
 //! Security: the page has no Node or file access, only the commands below; the hosted origin
@@ -491,10 +491,10 @@ async fn connect_set_server<R: Runtime>(app: AppHandle<R>, webview: tauri::Webvi
 fn connect_info<R: Runtime>(app: AppHandle<R>) -> Value { json!({ "baked": BAKED_URL, "current": shell(&app).cfg().server_url }) }
 
 /* ------------------------------------------------------------ lifecycle -- */
-/// syndo://invite/CODE → /invite/CODE
+/// send://invite/CODE → /invite/CODE (syndo:// links from before the rename work too)
 fn invite_path(link: &str) -> Option<String> {
   let u = Url::parse(link).ok()?;
-  if u.scheme() != "syndo" { return None; }
+  if !matches!(u.scheme(), "send" | "syndo") { return None; }
   let rest = format!("{}{}", u.host_str().unwrap_or(""), u.path());
   let code = rest.strip_prefix("invite/")?;
   let ok = (3..=32).contains(&code.len()) && code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
@@ -611,7 +611,9 @@ mod tests {
     assert_eq!(normalize_server("chat.example.com").as_deref(), Some("https://chat.example.com"));
     assert_eq!(normalize_server("http://localhost:3900/x").as_deref(), Some("http://localhost:3900"));
     assert_eq!(normalize_server("http://evil.example"), None);
+    assert_eq!(invite_path("send://invite/AbC-123").as_deref(), Some("/invite/AbC-123"));
     assert_eq!(invite_path("syndo://invite/AbC-123").as_deref(), Some("/invite/AbC-123"));
+    assert_eq!(invite_path("send://invite/../x"), None);
     assert_eq!(invite_path("syndo://invite/../x"), None);
     assert_eq!(invite_path("https://invite/abc"), None);
   }

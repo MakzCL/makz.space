@@ -19,7 +19,7 @@ function brand(): Plugin {
     ],
   };
   return {
-    name: "syndo-brand",
+    name: "send-brand",
     transformIndexHtml: (html) => html
       .replaceAll("%BRAND_NAME%", BRAND.name)
       .replaceAll("%BRAND_DESCRIPTION%", BRAND.description)
@@ -32,7 +32,7 @@ function brand(): Plugin {
   };
 }
 
-const api = process.env.SYNDO_API ?? "http://localhost:3900";
+const api = process.env.SEND_API ?? process.env.SYNDO_API ?? "http://localhost:3900";
 export default defineConfig({
   plugins: [react(), brand()],
   server: {

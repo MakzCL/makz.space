@@ -25,7 +25,7 @@ function makeGif(w, h, colors) {
   await c.addInitScript(() => { try { localStorage.setItem('send.desktop-prompt.dismissed.v1', '1'); localStorage.setItem('send.whatsNew.seen', 'skip'); localStorage.setItem('send.android-prompt.dismissed.v1', '1'); localStorage.setItem('send.ios-prompt.dismissed.v1', '1'); } catch {} });
   const p = await c.newPage(); const errs = [];
   p.on('pageerror', (e) => errs.push(e.message)); p.on('dialog', (d) => { errs.push('NATIVE ' + d.message()); d.dismiss(); });
-  const api = (m, path, body) => p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-syndo-client': '1' } : { 'x-syndo-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
+  const api = (m, path, body) => p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-send-client': '1' } : { 'x-send-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
   await p.goto(BASE + '/login');
   await api('POST', '/api/auth/register', { email: `crop_${SFX}@example.test`, username: `crop_${SFX}`, password: 'correct horse battery', display_name: 'Cropper' });
   await p.goto(BASE + '/channels/@me');

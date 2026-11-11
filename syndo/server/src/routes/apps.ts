@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
-import { MENTION_ROLE, MENTION_USER, P, has, type Application, type ApplicationCommand, type Webhook } from "@syndo/shared";
+import { MENTION_ROLE, MENTION_USER, P, has, type Application, type ApplicationCommand, type Webhook } from "@send/shared";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { randomToken, sha256 } from "../crypto.ts";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AtSign, CheckCheck, Inbox, MessageSquare, X } from "lucide-react";
-import { ChannelType, isVoiceType, type Message } from "@syndo/shared";
+import { ChannelType, isVoiceType, type Message } from "@send/shared";
 import { api } from "../api.ts";
 import { ackChannel } from "../actions.ts";
 import { Markdown } from "../markdown.tsx";
@@ -11,7 +11,7 @@ import { Avatar, Modal, fmtTime } from "../components/ui.tsx";
 /** Inbox (Ctrl/⌘+I): recent mentions across servers, and channels with unread messages. */
 export function InboxHost() {
   const [open, setOpen] = useState(false);
-  useEffect(() => { const on = () => setOpen((v) => !v); window.addEventListener("syndo:inbox", on); return () => window.removeEventListener("syndo:inbox", on); }, []);
+  useEffect(() => { const on = () => setOpen((v) => !v); window.addEventListener("send:inbox", on); return () => window.removeEventListener("send:inbox", on); }, []);
   return open ? <InboxDialog onClose={() => setOpen(false)} /> : null;
 }
 

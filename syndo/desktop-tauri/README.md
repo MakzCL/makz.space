@@ -7,7 +7,7 @@ Replaced the Electron shell (removed in 0.5.0; source on branch `backup/pre-desk
 | Browser engine | bundled Chromium (~120 MB installer) | Windows' own WebView2 (shared with Edge, kept up to date by Windows) |
 | Background process | Node.js main process + Chromium helpers | one small Rust process + WebView2's processes |
 
-What the shell adds to the hosted web app (`window.syndoDesktop`, same API as before, see `src-tauri/src/init.js`):
+What the shell adds to the hosted web app (`window.sendDesktop`, same API as before, see `src-tauri/src/init.js`):
 custom title bar (CSS `-webkit-app-region`), global push-to-talk (low-level keyboard/mouse hooks, `src/ptt.rs`),
 tray + close to tray, `syndo://invite/…` links, native toasts, Mica/Acrylic on Windows 11, launch on startup,
 manual updates (`src/updater.rs`). Screen sharing uses WebView2's own picker (screens, windows, system audio).

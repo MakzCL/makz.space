@@ -46,7 +46,7 @@ test("APK preview boots offline, renders the real shell and supports local messa
   const applied = await api.put<any>("/api/appearance/global", { data: theme });
   assert.equal(applied.rev, 1);
   assert.deepEqual((await api.get<any>("/api/appearance")).prefs[0].data, theme);
-  assert.ok(localStorage.getItem("syndo.preview.data.v1")?.includes("Hello from the APK preview"));
+  assert.ok(localStorage.getItem("send.preview.data.v1")?.includes("Hello from the APK preview"));
   assert.equal(networkCalls, 0);
 });
 
@@ -80,7 +80,7 @@ test("Studio keeps its SEND identity, toggles its preview and cancels without a 
 test("profile collections preview independently, filter, save and retain validated artwork", async () => {
   dom.window.HTMLCanvasElement.prototype.getContext = (() => null) as any;
   const { EffectsGallery } = await import("../src/appearance/EffectsGallery.tsx");
-  const { validateProfileTheme } = await import("@syndo/shared");
+  const { validateProfileTheme } = await import("@send/shared");
   const user = userEvent.setup(); const view = render(<EffectsGallery />);
   try {
     const before = useStore.getState().me!.profile_theme;

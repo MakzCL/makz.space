@@ -1,8 +1,8 @@
 // Injected into every page of the main window before the page's own scripts.
-// Gives the SEND web app the same `window.syndoDesktop` API the Electron shell had,
+// Gives the SEND web app the same `window.sendDesktop` API the Electron shell had,
 // backed by this shell's Rust commands. `__SEND_INFO__` is replaced at startup.
 (() => {
-  if (window.syndoDesktop || window.syndoLocal) return;
+  if (window.sendDesktop || window.sendLocal) return;
   const T = window.__TAURI_INTERNALS__;
   if (!T || typeof T.invoke !== "function") return;
   const inv = (cmd, args) => T.invoke(cmd, args || {});
@@ -16,7 +16,7 @@
   const local = location.hostname === "tauri.localhost" || location.protocol === "tauri:";
 
   if (local) {
-    window.syndoLocal = Object.freeze({
+    window.sendLocal = Object.freeze({
       windowControl: (action) => inv("window_control", { action }),
       setServer: (url) => inv("connect_set_server", { input: String(url) }),
       connectInfo: () => inv("connect_info"),
@@ -24,7 +24,7 @@
     return;
   }
 
-  window.syndoDesktop = Object.freeze({
+  window.sendDesktop = Object.freeze({
     version: String(info.version),
     platform: String(info.platform),
     shell: "tauri",

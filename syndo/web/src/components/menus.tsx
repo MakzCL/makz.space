@@ -1,5 +1,5 @@
 import { removeChannelBanner, setChannelBanner } from "../expressions.ts";
-import { ChannelType, P, has, isVoiceType, type Channel, type Guild, type User } from "@syndo/shared";
+import { ChannelType, P, has, isVoiceType, type Channel, type Guild, type User } from "@send/shared";
 import { audioMenuItems, selfCallMenuItems } from "./callMenus.tsx";
 import { useVoice } from "../voice/session.ts";
 import { api, errMsg } from "../api.ts";
@@ -65,7 +65,7 @@ export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
     sep,
     ...(textLike ? [{ label: "Mute channel", checked: muted, onSelect: () => setConversationMuted(c.id, !muted).catch((e) => toast(errMsg(e), "error")) } as MenuItem] : []),
     ...(can(c, P.MANAGE_CHANNELS) ? [sep,
-      ...(c.type !== ChannelType.CATEGORY ? [{ label: "Change icon", onSelect: () => window.dispatchEvent(new CustomEvent("syndo:channel-icon", { detail: c.id })) } as MenuItem] : []),
+      ...(c.type !== ChannelType.CATEGORY ? [{ label: "Change icon", onSelect: () => window.dispatchEvent(new CustomEvent("send:channel-icon", { detail: c.id })) } as MenuItem] : []),
       ...(c.type === ChannelType.CATEGORY ? [{ label: "Create channel", onSelect: () => openDialog({ kind: "createChannel", guildId: g.id, parentId: c.id }) } as MenuItem,
         ...(c.banner !== undefined ? [{ label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem] : []),
         ...(c.banner ? [{ label: "Remove banner", onSelect: () => removeChannelBanner(c) } as MenuItem] : [])] : []),

@@ -136,20 +136,20 @@ const seen = () => { try { return localStorage.getItem(KEY); } catch { return la
 const markSeen = () => { try { localStorage.setItem(KEY, latest.id); } catch { /* private mode */ } };
 
 /** Reopen the changelog from anywhere (Settings). */
-export const openWhatsNew = () => window.dispatchEvent(new Event("syndo:whatsnew"));
+export const openWhatsNew = () => window.dispatchEvent(new Event("send:whatsnew"));
 
 export function WhatsNewHost() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const on = () => setOpen(true);
-    window.addEventListener("syndo:whatsnew", on);
+    window.addEventListener("send:whatsnew", on);
     // First launch after an update: wait until nothing else (download prompt, onboarding…) is on screen.
     let timer: number | undefined;
     if (seen() !== latest.id && seen() !== "skip") { // "skip" is set by the browser tests
       const tryOpen = () => { if (document.querySelector('[aria-modal="true"]')) timer = window.setTimeout(tryOpen, 1500); else setOpen(true); };
       timer = window.setTimeout(tryOpen, 1200);
     }
-    return () => { window.removeEventListener("syndo:whatsnew", on); clearTimeout(timer); };
+    return () => { window.removeEventListener("send:whatsnew", on); clearTimeout(timer); };
   }, []);
   if (!open) return null;
   const close = () => { markSeen(); setOpen(false); };

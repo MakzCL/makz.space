@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChannelType, isVoiceType, type Channel } from "@syndo/shared";
+import { ChannelType, isVoiceType, type Channel } from "@send/shared";
 import { ackChannel } from "./actions.ts";
 import { hasBlockingLayers as hasLayers } from "./layers.ts";
 import { navigate } from "./router.ts";
@@ -121,7 +121,7 @@ export function initShortcuts() {
     // In a browser plain back/forward buttons already move through history; only act when a user bound them to something.
     if (shortcutActions().some((a) => overrides()[a.id]?.includes(combo))) { fire(combo, e, false, false); return; }
     // The desktop app's window doesn't do that by itself, so move through channel history here.
-    if ((window as any).syndoDesktop && parts.length === 0 && (name === "MouseBack" || name === "MouseForward")) {
+    if ((window as any).sendDesktop && parts.length === 0 && (name === "MouseBack" || name === "MouseForward")) {
       e.preventDefault();
       if (name === "MouseBack") history.back(); else history.forward();
     }

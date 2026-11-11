@@ -20,7 +20,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
     return { c, p, errs, name };
   };
   const A = await mk('a'), B = await mk('b');
-  const api = (x, m, path, body) => x.p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-syndo-client': '1' } : { 'x-syndo-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
+  const api = (x, m, path, body) => x.p.evaluate(async ([m, path, body]) => { const r = await fetch(path, { method: m, headers: body ? { 'content-type': 'application/json', 'x-send-client': '1' } : { 'x-send-client': '1' }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, [m, path, body]);
   for (const x of [A, B]) {
     await x.p.goto(BASE + '/login');
     const r = await api(x, 'POST', '/api/auth/register', { email: `ix_${x.name}_${SFX}@example.test`, username: `ix_${x.name}_${SFX}`, password: 'correct horse battery', display_name: x.name === 'a' ? 'Ada' : 'Bo' });
@@ -36,7 +36,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
   const ids = await A.p.evaluate(async (cid) => {
     const png = async (color) => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 320, 200); return new Promise((r) => c.toBlob(r, 'image/png')); };
     const out = [];
-    for (const [i, col] of [['one', '#c33'], ['two', '#3a3']]) { const f = new FormData(); f.append('file', new File([await png(col)], `${i}.png`, { type: 'image/png' })); const r = await fetch(`/api/channels/${cid}/attachments`, { method: 'POST', body: f, headers: { 'x-syndo-client': '1' } }); out.push((await r.json()).id); }
+    for (const [i, col] of [['one', '#c33'], ['two', '#3a3']]) { const f = new FormData(); f.append('file', new File([await png(col)], `${i}.png`, { type: 'image/png' })); const r = await fetch(`/api/channels/${cid}/attachments`, { method: 'POST', body: f, headers: { 'x-send-client': '1' } }); out.push((await r.json()).id); }
     return out;
   }, text.id);
   await api(A, 'POST', `/api/channels/${text.id}/messages`, { content: 'two pictures', attachment_ids: ids });

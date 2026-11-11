@@ -3,7 +3,7 @@ import * as storage from "./storage.ts";
 
 /**
  * Background maintenance. Runs in-process on an interval; with several API
- * nodes only one should run it (SYNDO_JOBS=0 on the others). Durable,
+ * nodes only one should run it (SEND_JOBS=0 on the others). Durable,
  * retryable work goes through the `jobs` table (claimed with SKIP LOCKED).
  */
 export async function runMaintenance() {
@@ -37,7 +37,7 @@ export async function runMaintenance() {
 }
 
 export function startJobs() {
-  if (process.env.SYNDO_JOBS === "0") return;
+  if (process.env.SEND_JOBS === "0") return;
   const t = setInterval(() => runMaintenance().catch((e) => console.error("[jobs]", e)), 60_000);
   t.unref();
 }

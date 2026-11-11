@@ -1,4 +1,4 @@
-import { AUDIO_PRESETS, suggestedStreamBitrate } from "@syndo/shared";
+import { AUDIO_PRESETS, suggestedStreamBitrate } from "@send/shared";
 
 /** Per-device media settings (kept in localStorage — devices differ per machine). */
 export interface VoiceSettings {
@@ -55,7 +55,7 @@ export const DEFAULT_VOICE: VoiceSettings = {
   suppressSoundEffects: false, soundVolume: .8, pttSounds: true, speakingColor: "#23a55a", soundboardVolume: .7, soundboardMuted: false, callShowSelf: true, callShowNonVideo: true, callMessagePreviews: true,
 };
 
-const KEY = "syndo.voice.v1";
+const KEY = "send.voice.v1";
 export function loadVoiceSettings(): VoiceSettings {
   try { return { ...DEFAULT_VOICE, ...JSON.parse(localStorage.getItem(KEY) ?? "{}"), stream: { ...DEFAULT_VOICE.stream, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}").stream ?? {}) } }; }
   catch { return DEFAULT_VOICE; }
@@ -81,7 +81,7 @@ export function captureCapabilities() {
   const mobile = /Android|iPhone|iPad|iPod/.test(ua);
   const isWin = /Windows/.test(ua), isMac = /Mac OS X/.test(ua) && !mobile, isLinux = /Linux/.test(ua) && !/Android/.test(ua);
   const canShare = !!navigator.mediaDevices?.getDisplayMedia && !mobile;
-  const desk = (window as any).syndoDesktop?.capabilities as { systemAudio?: boolean } | undefined;
+  const desk = (window as any).sendDesktop?.capabilities as { systemAudio?: boolean } | undefined;
   return {
     canShare,
     tabAudio: canShare && chromium,

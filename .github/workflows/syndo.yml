@@ -1,4 +1,4 @@
-name: Syndo — test, web app, Windows desktop app (Tauri)
+name: SEND — test, web app, Windows desktop app (Tauri)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: syndo-${{ github.ref }}
+  group: send-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -38,13 +38,13 @@ jobs:
 
   web:
     # Builds the web client and deploys it to Cloudflare Pages (project "syndo-app").
-    # The Syndo development branch also updates the stable app URL used by the APK.
+    # The SEND development branch also updates the stable app URL used by the APK.
     needs: test
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      SYNDO_PUBLISH_BRANCH: ${{ vars.SYNDO_PUBLISH_BRANCH || 'codex/syndo-messaging-tools' }}
+      SEND_PUBLISH_BRANCH: ${{ vars.SEND_PUBLISH_BRANCH || vars.SYNDO_PUBLISH_BRANCH || 'codex/syndo-messaging-tools' }}
     defaults: { run: { working-directory: syndo } }
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
         working-directory: syndo/web
         run: |
             DEPLOY_BRANCH="$GITHUB_REF_NAME"
-            if [ "$GITHUB_REF_NAME" = "$SYNDO_PUBLISH_BRANCH" ]; then DEPLOY_BRANCH=main; fi
+            if [ "$GITHUB_REF_NAME" = "$SEND_PUBLISH_BRANCH" ]; then DEPLOY_BRANCH=main; fi
             npx --yes wrangler@4 pages deploy dist --project-name=syndo-app --branch="$DEPLOY_BRANCH" --commit-dirty=true
       - name: Explain missing secrets
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''

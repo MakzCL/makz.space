@@ -1,8 +1,8 @@
-# Syndo
+# SEND
 
 **Talk together. Belong together.** A free, self-hostable place for friends and communities to chat, call, and share their screens — every feature for everyone, with no subscriptions, boosts or paid cosmetics.
 
-Syndo is an independent platform with its own accounts, servers and media infrastructure. It does not connect to or interoperate with other chat services.
+SEND is an independent platform with its own accounts, servers and media infrastructure. It does not connect to or interoperate with other chat services.
 
 | Document | What's in it |
 |---|---|
@@ -12,7 +12,7 @@ Syndo is an independent platform with its own accounts, servers and media infras
 | [TEST_RESULTS.md](TEST_RESULTS.md) | What was tested, how, and what hasn't been |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Local dev, production compose, configuration, costs |
 | [OPERATIONS.md](OPERATIONS.md) | Backups/restore, maintenance, scaling limits, capacity worksheet |
-| [THEMES.md](THEMES.md) | Syndo Studio, where every control lives, theme schema, custom CSS rules |
+| [THEMES.md](THEMES.md) | SEND Studio, where every control lives, theme schema, custom CSS rules |
 | [DESKTOP.md](DESKTOP.md) | Windows app, Cloudflare Pages web app, R2 auto-updates, releasing |
 | [ANDROID.md](ANDROID.md) | Android preview APK, local sample interface and Cloudflare updates |
 

@@ -1,6 +1,6 @@
-# Syndo — Platform capability matrix
+# SEND — Platform capability matrix
 
-What each client platform can actually do. These come from browser/OS capture APIs, not from Syndo choices. Rows marked **(untested)** are based on documented browser behaviour and Syndo's implementation, but have **not** been measured on that platform yet — see TEST_RESULTS.md. The in-app Settings → Voice & video shows a live version of this table for the current browser.
+What each client platform can actually do. These come from browser/OS capture APIs, not from SEND choices. Rows marked **(untested)** are based on documented browser behaviour and SEND's implementation, but have **not** been measured on that platform yet — see TEST_RESULTS.md. The in-app Settings → Voice & video shows a live version of this table for the current browser.
 
 ## Web clients
 
@@ -36,7 +36,7 @@ What each client platform can actually do. These come from browser/OS capture AP
 - Opus is variable-rate: a 320 kbps target with speech or silence can measure far lower. DTX makes silence nearly free. Stereo only survives end to end if capture is stereo, echo cancellation is off, the SDP negotiates `stereo=1`, and the listener's output is stereo.
 - Unsupported capture-audio modes are labelled "not supported in this browser" in the share menu and settings, and a share that comes back without audio produces an explanatory notice.
 
-## Syndo desktop app (Windows)
+## SEND desktop app (Windows)
 
 | Capability | Status |
 |---|---|

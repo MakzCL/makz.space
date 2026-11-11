@@ -8,7 +8,7 @@ import { pipeline } from "node:stream/promises";
 /** Private R2 bridge. The credential is scoped to this app's upload bucket. */
 export function remoteStorage(origin: string, token: string) {
   if (!origin.startsWith("https://") && !origin.startsWith("http://127.0.0.1:")) throw new Error("Storage requires HTTPS");
-  if (!token) throw new Error("SYNDO_STORAGE_TOKEN is required");
+  if (!token) throw new Error("SEND_STORAGE_TOKEN is required");
   const keyPath = (key: string) => {
     if (!/^[a-z0-9/_.-]+$/i.test(key) || key.includes("..")) throw new Error("bad storage key");
     return key;
@@ -35,7 +35,7 @@ export function remoteStorage(origin: string, token: string) {
       };
       // Stage streams on ephemeral disk only until a durable R2 PUT succeeds.
       // This gives R2 an exact content length without buffering large files in RAM.
-      const dir = await mkdtemp(join(tmpdir(), "syndo-upload-"));
+      const dir = await mkdtemp(join(tmpdir(), "send-upload-"));
       const file = join(dir, "body");
       try {
         if (Buffer.isBuffer(data)) {

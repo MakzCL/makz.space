@@ -1,5 +1,5 @@
 /**
- * Syndo permission model.
+ * SEND permission model.
  *
  * Permissions are a 64-bit bitfield (BigInt in code, decimal string on the
  * wire). The same functions run on the server — where they are authoritative

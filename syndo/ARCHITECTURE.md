@@ -1,13 +1,13 @@
-# Syndo — Architecture
+# SEND — Architecture
 
 ## Starting point (audit)
 
 This repository (`makz.space`) already held two unrelated applications: the personal site at the root (Next.js + Supabase) and `factory/` (Vite + React + Supabase, an internal factory-operations app with 1:1/group chat and **mesh** WebRTC calls). Neither has the tenancy, permission model or media architecture a public community platform needs:
 
-- Their accounts are single-tenant (a personal site; an invite-only workforce with fixed job roles). Syndo needs open registration, servers with per-channel role overwrites and bans.
+- Their accounts are single-tenant (a personal site; an invite-only workforce with fixed job roles). SEND needs open registration, servers with per-channel role overwrites and bans.
 - The factory call system is full-mesh peer-to-peer over Supabase Realtime signalling. Mesh does not scale to group video or high-quality screen sharing (each sender encodes once *per viewer*), so the brief explicitly requires an SFU.
 
-So Syndo is a **new, separate app in `syndo/`**, following the repo's existing conventions (a self-contained app folder, TypeScript, React, PostgreSQL with permission tests against a real database). What was reused from the factory app is *knowledge*, not code: its ICE/TURN handling notes and call-UX lessons (explicit camera-off state, ring timeouts, deterministic reconnect) informed `voice/session.ts` and `routes/voice.ts`. No authentication, messaging, permission or calling system is duplicated *within* Syndo.
+So SEND is a **new, separate app in `syndo/`**, following the repo's existing conventions (a self-contained app folder, TypeScript, React, PostgreSQL with permission tests against a real database). What was reused from the factory app is *knowledge*, not code: its ICE/TURN handling notes and call-UX lessons (explicit camera-off state, ring timeouts, deterministic reconnect) informed `voice/session.ts` and `routes/voice.ts`. No authentication, messaging, permission or calling system is duplicated *within* SEND.
 
 ## Components
 
@@ -16,7 +16,7 @@ browser / desktop / mobile client (web/, React + livekit-client)
         │  HTTPS  (REST /api/*, cookie or bearer auth)
         │  WSS    (/gateway — real-time events)
         ▼
-Syndo API (server/, Node 22 + Fastify + ws)            LiveKit SFU (self-hosted, Apache-2.0)
+SEND API (server/, Node 22 + Fastify + ws)            LiveKit SFU (self-hosted, Apache-2.0)
   • auth, sessions, MFA                                  • WebRTC media: Opus, VP8/VP9/AV1/H.264
   • permissions (shared/src/permissions.ts)              • simulcast / SVC, congestion control
   • messages, files, search, invites, moderation  ──JWT──▶ • embedded TURN (UDP/TCP/TLS)
@@ -87,7 +87,7 @@ The API never carries audio/video. `POST /api/voice/token` returns a 10-minute L
 | Browser ↔ API/gateway | TLS (terminated by Caddy in the reference deployment) |
 | Browser ↔ SFU | DTLS-SRTP (mandatory in WebRTC); signalling over WSS |
 | TURN relay | Relayed packets are still DTLS-SRTP; TURN/TLS on 5349 additionally hides the transport |
-| Database, files at rest | Not encrypted by Syndo. Use encrypted volumes/disks and encrypted backups |
+| Database, files at rest | Not encrypted by SEND. Use encrypted volumes/disks and encrypted backups |
 | Passwords | scrypt (N=32768, r=8, p=1) with per-user salt |
 | Session tokens, email tokens, recovery codes | Only SHA-256 hashes stored |
 

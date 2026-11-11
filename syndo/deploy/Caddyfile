@@ -1,14 +1,14 @@
-{$SYNDO_DOMAIN} {
+{$SEND_DOMAIN} {
 	encode zstd gzip
 	request_body { max_size 110MB }
-	reverse_proxy syndo:3900
+	reverse_proxy send:3900
 	header {
 		Strict-Transport-Security "max-age=31536000"
-		Content-Security-Policy "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss://{$SYNDO_MEDIA_DOMAIN} https://{$SYNDO_MEDIA_DOMAIN}; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss://{$SEND_MEDIA_DOMAIN} https://{$SEND_MEDIA_DOMAIN}; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
 		Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)"
 	}
 }
 # LiveKit signalling (WebSocket) — media itself flows over UDP/TCP directly to the host.
-{$SYNDO_MEDIA_DOMAIN} {
+{$SEND_MEDIA_DOMAIN} {
 	reverse_proxy host.docker.internal:7880
 }

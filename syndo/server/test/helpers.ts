@@ -1,17 +1,17 @@
 /**
- * Test harness: a real Syndo server on a random port against a throwaway
+ * Test harness: a real SEND server on a random port against a throwaway
  * PostgreSQL database, driven by independent clients (each with its own
  * cookie jar and WebSocket), exactly as separate browsers would.
  */
-export const ORIGIN = "http://syndo.test";
+export const ORIGIN = "http://send.test";
 process.env.DATABASE_URL ??= "postgres://syndo:syndo@localhost:5432/syndo_test";
-process.env.SYNDO_PUBLIC_URL = ORIGIN;
-process.env.SYNDO_DEV_MAIL = "1";
-process.env.SYNDO_AUTH_RATE_LIMIT = "10000";
-process.env.SYNDO_RATE_LIMIT = "100000";
-process.env.SYNDO_STORAGE_DIR = new URL("../../data/test-storage", import.meta.url).pathname;
-process.env.SYNDO_JOBS = "0";
-process.env.SYNDO_VOICE_MODE = "sfu"; // most tests exercise the token/SFU path; the mesh test switches it
+process.env.SEND_PUBLIC_URL = ORIGIN;
+process.env.SEND_DEV_MAIL = "1";
+process.env.SEND_AUTH_RATE_LIMIT = "10000";
+process.env.SEND_RATE_LIMIT = "100000";
+process.env.SEND_STORAGE_DIR = new URL("../../data/test-storage", import.meta.url).pathname;
+process.env.SEND_JOBS = "0";
+process.env.SEND_VOICE_MODE = "sfu"; // most tests exercise the token/SFU path; the mesh test switches it
 process.env.LIVEKIT_URL = "ws://127.0.0.1:1"; // unreachable on purpose: tokens are minted, enforcement calls fail softly
 process.env.LIVEKIT_API_KEY = "testkey";
 process.env.LIVEKIT_API_SECRET = "testsecret-testsecret-testsecret-0123";
@@ -55,7 +55,7 @@ export class Client {
     const set = r.headers.getSetCookie?.() ?? [];
     for (const c of set) {
       const [kv] = c.split(";");
-      if (kv!.startsWith("syndo_session=")) this.cookie = kv!.endsWith("=") ? "" : kv!;
+      if (kv!.startsWith("send_session=")) this.cookie = kv!.endsWith("=") ? "" : kv!;
     }
     const text = await r.text();
     let parsed: any = text;

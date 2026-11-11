@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { previewMode } from "./preview-mode.ts";
 
 /** Minimal history router. Routes: /login /register /forgot /reset /verify /invite/:code /channels/@me[/:cid] /channels/:gid[/:cid[/:mid]] */

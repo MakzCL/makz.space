@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ChannelType, MessageFlags, MessageType, P, has } from "@syndo/shared";
+import { ChannelType, MessageFlags, MessageType, P, has } from "@send/shared";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { bad, forbidden, notFound } from "../errors.ts";

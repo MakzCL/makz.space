@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { P } from "@syndo/shared";
+import { P } from "@send/shared";
 import { q, q1 } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { requireGuild } from "../perms.ts";

@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import {
-  DEFAULT_A11Y, DEFAULT_GLOBAL, PRESETS, migrateV1Appearance, presetById, resolveAppearance, validateCustomCss, validateGlobal, validateScope,
+  DEFAULT_A11Y, DEFAULT_GLOBAL, PRESETS, migrateV1Appearance, presetById, resolveAppearance, toLegacyThemeNames, validateCustomCss, validateGlobal, validateScope,
   type A11yPrefs, type ConversationPrefs, type DeepPartial, type GlobalAppearance, type Layout, type Resolved, type ScopeAppearance, type ThemeDoc,
-} from "@syndo/shared";
+} from "@send/shared";
 import { ApiError, api, errMsg } from "../api.ts";
 import { onEvent, toast, useStore } from "../store.ts";
 import { activeBackground, applyToDocument, clearSnapshot, defaultResolved, saveSnapshot, snapshot } from "./engine.ts";
@@ -36,8 +36,8 @@ interface AS {
   saveError: string | null;
 }
 
-const DEVICE_KEY = "syndo.device.v1";
-const SAFE_KEY = "syndo.safe-appearance";
+const DEVICE_KEY = "send.device.v1";
+const SAFE_KEY = "send.safe-appearance";
 const loadDevice = (): DeviceOverrides => { try { return JSON.parse(localStorage.getItem(DEVICE_KEY) ?? "{}"); } catch { return {}; } };
 const initialSafe = () => {
   try {
@@ -71,7 +71,7 @@ export function themeFor(id: string | null | undefined): ThemeDoc {
 export function resolveFor(ctx: { guildId: string | null; channelId: string | null }, d: Draft = effective()): { resolved: Resolved; conversation: ConversationPrefs; customCss: string | null } {
   const s = get();
   const sysReduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (s.safeMode) return { resolved: resolveAppearance({ theme: presetById("syndo-midnight")!, global: {}, a11y: { ...DEFAULT_A11Y, reducedMotion: "on" }, systemReducedMotion: true }), conversation: {}, customCss: null };
+  if (s.safeMode) return { resolved: resolveAppearance({ theme: presetById("send-midnight")!, global: {}, a11y: { ...DEFAULT_A11Y, reducedMotion: "on" }, systemReducedMotion: true }), conversation: {}, customCss: null };
   const g = d.global;
   const light = !matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = themeFor(g.followSystem && light && g.lightThemeId ? g.lightThemeId : g.themeId);
@@ -104,7 +104,7 @@ export function reapply() {
     const r = resolveFor(ctx);
     applyToDocument(r.resolved, r.conversation, r.customCss);
     set({ resolved: r.resolved, conversation: r.conversation });
-    (window as any).__syndoTheme = r.resolved.theme.meta.id; // test/diagnostics hook
+    (window as any).__sendTheme = r.resolved.theme.meta.id; // test/diagnostics hook
     if (!s.draft && !s.safeMode && !s.previewCtx && (s.loaded || !snapshot.restored)) saveSnapshot(activeBackground(r.resolved.theme));
   });
 }
@@ -155,6 +155,11 @@ onEvent("PRESETS_UPDATE", () => api.get<any>("/api/appearance").then((r) => set(
 onEvent("CONVERSATION_THEME_UPDATE", () => api.get<any>("/api/appearance").then((r) => set({ shared: r.shared })).catch(() => {}));
 
 /* ----------------------------------------------------------------- save -- */
+/**
+ * A backend that hasn't been redeployed since the Syndo → SEND rename only knows the old theme names
+ * (syndo-glass, "syndo.theme"); it would quietly drop a send-* id. Updated servers say so in READY.
+ */
+export const toServerNames = <T,>(data: T): T => (useStore.getState().limits?.send_names ? data : toLegacyThemeNames(data));
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
 async function putScope(key: string, data: unknown) {
   const s = get();
@@ -167,8 +172,8 @@ async function putScope(key: string, data: unknown) {
       set((st) => { const scopes = { ...st.scopes }; delete scopes[key]; return { scopes, saveState: "saved" }; });
       return;
     }
-    const r = await api.put<{ rev: number; data: any; warnings: { message: string; path: string }[] }>(path, { data, rev });
-    if (key === "global") set({ global: { data: r.data, rev: r.rev }, saveState: "saved" });
+    const r = await api.put<{ rev: number; data: any; warnings: { message: string; path: string }[] }>(path, { data: toServerNames(data), rev });
+    if (key === "global") set({ global: { data: validateGlobal(r.data).value, rev: r.rev }, saveState: "saved" });
     else set((st) => ({ scopes: { ...st.scopes, [key]: { data: r.data, rev: r.rev } }, saveState: "saved" }));
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) {

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
-import { ChannelType, P, validateGlobal, validateScope, validateThemeDoc, validateThemePartial } from "@syndo/shared";
+import { ChannelType, P, validateGlobal, validateScope, validateThemeDoc, validateThemePartial } from "@send/shared";
 import { config } from "../config.ts";
 import { q, q1 } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
@@ -17,8 +17,8 @@ import { imageSize, IMAGE_TYPES } from "../uploads.ts";
  * Everything here is private to its owner. Nothing in this module is ever
  * included in a public profile, member list or message payload.
  */
-const MAX_WALLPAPER = Number(process.env.SYNDO_MAX_WALLPAPER_MB ?? 25) * 1024 * 1024;
-const QUOTA = Number(process.env.SYNDO_APPEARANCE_QUOTA_MB ?? 300) * 1024 * 1024;
+const MAX_WALLPAPER = Number(process.env.SEND_MAX_WALLPAPER_MB ?? 25) * 1024 * 1024;
+const QUOTA = Number(process.env.SEND_APPEARANCE_QUOTA_MB ?? 300) * 1024 * 1024;
 const VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 const ID = z.string().regex(/^\d{1,20}$/);
 const issuesError = (issues: { path: string; message: string; level: string }[]) => {

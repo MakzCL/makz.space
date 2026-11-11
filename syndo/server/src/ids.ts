@@ -1,6 +1,6 @@
 /** 64-bit time-ordered IDs: 42 bits ms since 2026-01-01, 10 bits worker, 12 bits sequence. */
 const EPOCH = 1767225600000n;
-const WORKER = BigInt(Number(process.env.SYNDO_WORKER_ID ?? 1) & 0x3ff);
+const WORKER = BigInt(Number(process.env.SEND_WORKER_ID ?? 1) & 0x3ff);
 let lastMs = 0n;
 let seq = 0n;
 

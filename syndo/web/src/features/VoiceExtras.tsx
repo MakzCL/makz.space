@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { ChannelType, P, type Channel } from "@syndo/shared";
+import { ChannelType, P, type Channel } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { can, toast } from "../store.ts";
 import { useVoice } from "../voice/session.ts";

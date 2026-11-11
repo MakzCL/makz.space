@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
-import type { User } from "@syndo/shared";
+import type { User } from "@send/shared";
 import { navigate } from "../router.ts";
 import { Avatar } from "./ui.tsx";
 

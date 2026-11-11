@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { P, type Onboarding } from "@syndo/shared";
+import { P, type Onboarding } from "@send/shared";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
 import { bad, notFound } from "../errors.ts";

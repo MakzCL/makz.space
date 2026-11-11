@@ -1,4 +1,4 @@
-import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@syndo/shared";
+import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 const ORIGINAL_COLLECTIONS = [
   { id: "eclipse", name: "Lunar Eclipse", family: "Celestial", primary: "#B8DDF0", secondary: "#344F73", motif: "moon", description: "An eclipsed moon, silver craters and drifting celestial dust." },
   { id: "rosecourt", name: "Rose Court", family: "Botanical", primary: "#F3AFC7", secondary: "#965474", motif: "rose", description: "Pearlescent roses woven through an ornamental silver frame." },

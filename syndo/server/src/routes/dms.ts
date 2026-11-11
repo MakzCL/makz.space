@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { ChannelType, DEFAULT_PRIVACY, MessageType, RelationshipType } from "@syndo/shared";
+import { ChannelType, DEFAULT_PRIVACY, MessageType, RelationshipType } from "@send/shared";
 import { config } from "../config.ts";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";

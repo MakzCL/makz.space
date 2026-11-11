@@ -6,7 +6,7 @@ export const BRAND = {
     "SEND is a free place for friends and communities to chat, call, share their screens and hang out — every feature, for everyone.",
   /** Shown in email footers and the about panel. */
   publisher: "SEND",
-  supportEmail: "support@syndo.local",
+  supportEmail: "support@send.local",
 
   colors: {
     /** Primary brand blue — calm, trustworthy, the main interactive colour. */

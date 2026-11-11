@@ -5,7 +5,7 @@ import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Copy, Hash, Lock, MessageSquare, Volume2, Megaphone, FolderPlus, Radio, MessageSquareText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { BRAND, ChannelType, type Channel, type Guild, type Invite, type User } from "@syndo/shared";
+import { BRAND, ChannelType, type Channel, type Guild, type Invite, type User } from "@send/shared";
 import { ApiError, api, errMsg } from "../api.ts";
 import { openDm } from "../actions.ts";
 import { navigate, setTitle, useRoute } from "../router.ts";

@@ -1,6 +1,6 @@
 /**
  * Integration with the SEND desktop shell (when running inside it).
- * Everything here is optional: in a browser `window.syndoDesktop` is absent
+ * Everything here is optional: in a browser `window.sendDesktop` is absent
  * and nothing changes.
  */
 import { useEffect, useState } from "react";
@@ -33,7 +33,7 @@ export interface SENDDesktop {
   onActivity?(cb: (a: { type: number; name: string } | null) => void): () => void;
   flash(): Promise<void>;
 }
-export const desktop: SENDDesktop | null = (window as any).syndoDesktop ?? null;
+export const desktop: SENDDesktop | null = (window as any).sendDesktop ?? null;
 
 export let globalPttError: string | null = null;
 /** Keep the shell's global push-to-talk key in sync with Voice settings. */

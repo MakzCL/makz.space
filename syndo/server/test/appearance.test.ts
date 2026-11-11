@@ -20,11 +20,11 @@ describe("Personal appearance", () => {
   it("saves global settings, validates them, and syncs to the user's other devices", async () => {
     await a.register(); await b.register();
     const g2 = await a.connect();
-    const bad = await a.put("/api/appearance/global", { data: { themeId: "syndo-glass", overrides: { panels: { chat: { opacity: 250 } } } } });
+    const bad = await a.put("/api/appearance/global", { data: { themeId: "send-glass", overrides: { panels: { chat: { opacity: 250 } } } } });
     assert.equal(bad.status, 400, "out-of-range opacity rejected");
     assert.match(bad.body.message, /panels\.chat\.opacity/);
     const ev = g2.next("APPEARANCE_UPDATE", (d) => d.scope === "global");
-    const ok = await a.put("/api/appearance/global", { data: { themeId: "syndo-glass", overrides: { panels: { chat: { opacity: 40 }, rail: { opacity: 70, blur: 12 } } } } });
+    const ok = await a.put("/api/appearance/global", { data: { themeId: "send-glass", overrides: { panels: { chat: { opacity: 40 }, rail: { opacity: 70, blur: 12 } } } } });
     assert.equal(ok.status, 200);
     assert.equal((await ev).data.overrides.panels.chat.opacity, 40);
     const back = (await a.get("/api/appearance")).body.prefs.find((p: any) => p.scope === "global");
@@ -56,7 +56,7 @@ describe("Personal appearance", () => {
     const theirs = (await b.get("/api/appearance")).body;
     assert.equal(theirs.prefs.length, 0, "the other participant sees none of my appearance");
     const profile = JSON.stringify((await b.get(`/api/users/${a.user.id}/profile`)).body);
-    assert.ok(!profile.includes("Bestie") && !profile.includes("syndo-glass") && !profile.includes("#112233"), "nothing personal in public profile");
+    assert.ok(!profile.includes("Bestie") && !profile.includes("send-glass") && !profile.includes("#112233"), "nothing personal in public profile");
     const dmView = JSON.stringify((await b.get("/api/users/@me/channels")).body);
     assert.ok(!dmView.includes("Bestie"));
   });
@@ -77,13 +77,13 @@ describe("Personal appearance", () => {
   it("rejects remote URLs, scripts and invalid custom CSS in themes", async () => {
     const r1 = await a.put("/api/appearance/global", { data: { overrides: { background: { dark: { kind: "image", asset: "https://evil.example/track.png" } } } } });
     assert.equal(r1.status, 400);
-    const r2 = await a.post("/api/appearance/presets", { name: "Bad", data: { schema: "syndo.theme", version: 2, meta: { name: "x" }, customCss: "@import url(https://evil.example/x.css);" } });
+    const r2 = await a.post("/api/appearance/presets", { name: "Bad", data: { schema: "send.theme", version: 2, meta: { name: "x" }, customCss: "@import url(https://evil.example/x.css);" } });
     assert.equal(r2.status, 400);
-    const ok = await a.post("/api/appearance/presets", { name: "Mine", data: { schema: "syndo.theme", version: 2, meta: { name: "Mine", scheme: "dark" }, colors: { accent: "#FF7700" }, customCss: ".msg-name { letter-spacing: 1px; }" } });
+    const ok = await a.post("/api/appearance/presets", { name: "Mine", data: { schema: "send.theme", version: 2, meta: { name: "Mine", scheme: "dark" }, colors: { accent: "#FF7700" }, customCss: ".msg-name { letter-spacing: 1px; }" } });
     assert.equal(ok.status, 200);
     const v = await a.post("/api/appearance/validate", { data: { name: "BetterDiscord file", css: ":root{}" } });
     assert.equal(v.body.ok, false);
-    assert.match(v.body.issues[0].message, /Not a Syndo theme/);
+    assert.match(v.body.issues[0].message, /Not a SEND theme/);
     const v1 = await a.post("/api/appearance/validate", { data: { syndo_theme: 1, theme: "dark", accent: "#123456" } });
     assert.equal(v1.body.ok, true, "v1 exports still import");
     assert.equal(v1.body.doc.colors.accent, "#123456");

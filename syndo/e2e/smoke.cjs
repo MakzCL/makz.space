@@ -90,11 +90,11 @@ const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); cons
   await A.p.getByLabel('Channel name').fill('staff only');
   await A.p.getByRole('switch').check();
   await A.p.getByRole('button', { name: 'Create', exact: true }).click();
-  await A.p.getByRole('heading', { name: 'staff-only', exact: true }).waitFor({ timeout: 5000 });
-  await A.p.getByRole('textbox', { name: /Message #staff-only/ }).fill('top secret');
+  await A.p.getByRole('heading', { name: 'staff only', exact: true }).waitFor({ timeout: 5000 });
+  await A.p.getByRole('textbox', { name: /Message #staff only/ }).fill('top secret');
   await A.p.keyboard.press('Enter');
   await B.p.waitForTimeout(1500);
-  check('private channel hidden from B', (await B.p.getByRole('button', { name: /staff-only/ }).count()) === 0 && !(await B.p.getByText('top secret').count()));
+  check('private channel hidden from B', (await B.p.getByRole('button', { name: /staff only/ }).count()) === 0 && !(await B.p.getByText('top secret').count()));
 
   // Settings: theme persists across devices (second context for A logs in)
   await A.p.getByRole('button', { name: 'User settings' }).click();
@@ -110,7 +110,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok: !!ok }); cons
   await A2.p.goto(BASE + '/login');
   await A2.p.getByLabel('Email or username').fill(U('amara'));
   await A2.p.getByLabel('Password').fill('correct horse battery');
-  await A2.p.getByRole('button', { name: 'Sign in' }).click();
+  await A2.p.getByRole('button', { name: 'Sign in', exact: true }).click();
   await A2.p.waitForURL('**/channels/**', { timeout: 10000 });
   await A2.p.waitForTimeout(1000);
   check('theme synced to second device', (await A2.p.evaluate(() => document.documentElement.dataset.scheme)) === 'light');

@@ -1,5 +1,5 @@
 import type { ProfileTheme } from "./theme.ts";
-/** Wire types shared by the Syndo server and clients. IDs are decimal strings (64-bit, time-ordered). */
+/** Wire types shared by the SEND server and clients. IDs are decimal strings (64-bit, time-ordered). */
 
 export const ChannelType = {
   TEXT: 0,
@@ -375,6 +375,8 @@ export interface InstanceLimits {
   max_stream_bitrate_kbps: number;
   media_enabled: boolean;
   gif_provider: string | null;
+  /** Set by servers updated after the Syndo → SEND rename: they accept send-* theme ids and "send.theme" files. */
+  send_names?: boolean;
 }
 
 /** Gateway envelope. `s` is a per-connection sequence for gap detection. */

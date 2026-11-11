@@ -27,6 +27,6 @@
     }
   },
   "plugins": {
-    "deep-link": { "desktop": { "schemes": ["syndo"] } }
+    "deep-link": { "desktop": { "schemes": ["send", "syndo"] } }
   }
 }

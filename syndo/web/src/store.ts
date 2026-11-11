@@ -2,7 +2,7 @@ import { create } from "zustand";
 import {
   ChannelType, P, has, type Activity, type Channel, type Guild, type GuildEvent, type InstanceLimits, type Member, type Message, type NotificationSetting, type ReadState,
   type Relationship, type SelfUser, type StageInstance, type User, type VoiceState,
-} from "@syndo/shared";
+} from "@send/shared";
 
 export type SendState = "pending" | "failed";
 export type UIMessage = Message & { _state?: SendState; _error?: string };

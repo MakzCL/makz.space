@@ -1,4 +1,4 @@
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { plainText } from "./markdown.tsx";
 import { navigate } from "./router.ts";
 import { channelById, displayName, dmTitle, onEvent, useStore } from "./store.ts";

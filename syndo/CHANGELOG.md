@@ -1,5 +1,16 @@
 # SEND changelog
 
+## 2026-11-11 — Syndo → SEND in the code, voice status, GIF and payment setup
+
+- **Voice channel status** now sits inside the channel's own row, under the name, in smaller text.
+- **Renamed** every remaining "Syndo" in the code, text, packages (`@send/*`), events, storage keys and
+  settings (`SEND_*`). Old names are still accepted (cookie, header, settings, saved themes, browser
+  settings, desktop 0.6.x, `syndo://` links); see "Names from before the rename" in DEPLOYMENT.md.
+- **GIFs** use Klipy by default (Tenor's API shut down on 30 June 2026). Turning on GIFs and paid boosts
+  only needs keys: SETUP-GIFS-AND-PAYMENTS.md.
+- **Tests:** new checks for the old names (server 80/80, web 32/32); the smoke test follows channel names
+  kept as typed and the passkey button (18/18).
+
 ## 2026-11-11 — Message polish
 
 - **Replies** show the author's small avatar and a connector line; the name no longer wraps onto two lines.

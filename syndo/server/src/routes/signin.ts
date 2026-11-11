@@ -21,7 +21,7 @@ const origins = () => [...allowedOrigins()];
 /* -------------------------------------------------------------------------- connections -- */
 interface Provider { name: string; authorize: string; token: string; scope: string; env: string; profile: (token: string) => Promise<{ id: string; name: string; url: string | null }> }
 const getJson = async (url: string, token: string) => {
-  const r = await fetch(url, { headers: { authorization: `Bearer ${token}`, "user-agent": "SEND", accept: "application/json", "client-id": process.env.SYNDO_TWITCH_CLIENT_ID ?? "" }, signal: AbortSignal.timeout(10000) });
+  const r = await fetch(url, { headers: { authorization: `Bearer ${token}`, "user-agent": "SEND", accept: "application/json", "client-id": process.env.SEND_TWITCH_CLIENT_ID ?? "" }, signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw bad("The service didn't share your profile.");
   return r.json() as Promise<any>;
 };
@@ -39,8 +39,8 @@ export const PROVIDERS: Record<string, Provider> = {
   xbox: { name: "Xbox", authorize: "https://login.live.com/oauth20_authorize.srf", token: "https://login.live.com/oauth20_token.srf", scope: "XboxLive.signin offline_access", env: "XBOX",
     profile: async () => { throw bad("Xbox connections need Microsoft partner approval and aren't available yet."); } },
 };
-const creds = (p: Provider) => ({ id: process.env[`SYNDO_${p.env}_CLIENT_ID`] ?? "", secret: process.env[`SYNDO_${p.env}_CLIENT_SECRET`] ?? "" });
-const STATE_KEY = process.env.SYNDO_SECRET || randomToken(32);
+const creds = (p: Provider) => ({ id: process.env[`SEND_${p.env}_CLIENT_ID`] ?? "", secret: process.env[`SEND_${p.env}_CLIENT_SECRET`] ?? "" });
+const STATE_KEY = process.env.SEND_SECRET || randomToken(32);
 const signState = (userId: string, type: string) => { const exp = Date.now() + 600_000; const body = `${userId}.${type}.${exp}`; return `${body}.${createHmac("sha256", STATE_KEY).update(body).digest("base64url").slice(0, 24)}`; };
 const readState = (state: string) => {
   const [u, t, exp, sig] = state.split(".");

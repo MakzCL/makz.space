@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Bot, Code2, Copy, Eye, EyeOff, Fingerprint, Gamepad2, Link2, Music, Plus, PlaySquare, QrCode, RefreshCw, Search, Smartphone, Trash2, Tv, Radio } from "lucide-react";
 import QRCode from "qrcode";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
-import { P, type Application, type ApplicationCommand, type Connection } from "@syndo/shared";
+import { P, type Application, type ApplicationCommand, type Connection } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { updateSettings } from "../actions.ts";
 import { guildPerms, toast, useStore } from "../store.ts";

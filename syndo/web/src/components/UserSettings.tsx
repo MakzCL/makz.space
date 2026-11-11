@@ -8,14 +8,14 @@ import { Select } from "./Select.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { EffectsGallery } from "../appearance/EffectsGallery.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@syndo/shared";
+import { AUDIO_BITRATES_KBPS, AUDIO_PRESETS, BRAND, STREAM_FPS, STREAM_HEIGHTS, type SessionInfo } from "@send/shared";
 import { api, errMsg, upload } from "../api.ts";
 import { logout, updateSettings } from "../actions.ts";
 import { displayName, toast, useStore } from "../store.ts";
 import { applyPreset, captureCapabilities } from "../voice/settings.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
-import { PRESETS, type A11yPrefs } from "@syndo/shared";
+import { PRESETS, type A11yPrefs } from "@send/shared";
 import { desktop, globalPttError, setDesktopMaterial, type DesktopUpdate, type DesktopSettings, applyDesktopUpdate } from "../desktop.ts";
 import { ProfileEditor } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
@@ -130,7 +130,7 @@ function AppearanceTab({ onClose }: { onClose: () => void }) {
         <div className="grow"><strong>SEND Studio</strong><p className="muted small">Themes, panel transparency, backgrounds, layout, per-server and per-conversation looks, profile effects, presets and import/export.</p></div>
         <button className="btn primary" onClick={() => { onClose(); openStudio("gallery"); }}>Open SEND Studio</button>
       </div>
-      <Field label="Theme"><Select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("syndo-") && <option value={g.themeId}>My preset</option>}</Select></Field>
+      <Field label="Theme"><Select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("send-") && <option value={g.themeId}>My preset</option>}</Select></Field>
       <Field label="Accent colour"><input type="color" value={(g.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, colors: { ...(x.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></Field>
       <Toggle label="Follow system light/dark" checked={g.followSystem} onChange={(v) => updateGlobal((x) => ({ ...x, followSystem: v }))} />
       <p className="muted small" role="status">{saveState === "pending" || saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save — check your connection." : "Saved and synced to your devices."}</p>
@@ -298,7 +298,7 @@ function DesktopTab() {
       <ul className="small keys">
         <li>Push-to-talk works globally — set it in Voice &amp; video.</li>
         <li>Screen sharing can include whole-system audio{desktop.capabilities.systemAudio ? "" : " (Windows only)"}.</li>
-        <li><code>syndo://invite/CODE</code> links open invites in the app.</li>
+        <li><code>send://invite/CODE</code> links open invites in the app.</li>
       </ul>
     </div>
   );

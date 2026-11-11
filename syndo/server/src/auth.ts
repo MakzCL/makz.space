@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import * as OTPAuth from "otpauth";
 import { z } from "zod";
-import { BRAND } from "@syndo/shared";
+import { BRAND } from "@send/shared";
 import { config } from "./config.ts";
 import { q, q1, tx } from "./db.ts";
 import { hashPassword, randomCode, randomToken, sha256, verifyPassword } from "./crypto.ts";
@@ -10,7 +10,15 @@ import { newId } from "./ids.ts";
 import { sendMail } from "./mail.ts";
 import { selfOut } from "./serialize.ts";
 
-export const COOKIE = "syndo_session";
+export const COOKIE = "send_session";
+/** The cookie's name before the rename. Still read, so nobody is signed out by it, and cleared on sign-out. */
+export const LEGACY_COOKIE = "syndo_session";
+/** Header clients send when a browser leaves out Origin. The old name is still accepted from older clients. */
+const CLIENT_HEADERS = ["x-send-client", "x-syndo-client"] as const;
+export function clearSessionCookies(reply: FastifyReply) {
+  reply.clearCookie(COOKIE, { path: "/" });
+  reply.clearCookie(LEGACY_COOKIE, { path: "/" });
+}
 
 export interface Session { id: string; user_id: string; mfa_pending: boolean; status: string; email_verified: boolean }
 
@@ -20,11 +28,13 @@ declare module "fastify" {
 
 export function tokenFromCookieHeader(h: string | undefined): string | null {
   if (!h) return null;
+  let legacy: string | null = null;
   for (const part of h.split(";")) {
     const [k, ...v] = part.trim().split("=");
     if (k === COOKIE) return decodeURIComponent(v.join("="));
+    if (k === LEGACY_COOKIE) legacy = decodeURIComponent(v.join("="));
   }
-  return null;
+  return legacy;
 }
 
 /** Resolve a raw token to a live session, touching last_used_at at most once a minute. */
@@ -70,12 +80,12 @@ export async function sessionHook(req: FastifyRequest) {
   let token: string | null = null;
   let viaCookie = false;
   if (auth?.startsWith("Bearer ")) token = auth.slice(7).trim();
-  else { token = (req.cookies as Record<string, string | undefined>)[COOKIE] ?? null; viaCookie = !!token; }
+  else { const c = req.cookies as Record<string, string | undefined>; token = c[COOKIE] ?? c[LEGACY_COOKIE] ?? null; viaCookie = !!token; }
   if (viaCookie && req.method !== "GET" && req.method !== "HEAD") {
     const origin = req.headers.origin;
     const allowed = new Set([config.publicUrl, ...config.extraOrigins]);
     if (origin && !allowed.has(origin)) throw new ApiError(403, "bad_origin", "Request origin not allowed.");
-    if (!origin && req.headers["x-syndo-client"] !== "1") throw new ApiError(403, "bad_origin", "Missing origin.");
+    if (!origin && !CLIENT_HEADERS.some((h) => req.headers[h] === "1")) throw new ApiError(403, "bad_origin", "Missing origin.");
   }
   if (!token) return;
   req.sessionToken = token;
@@ -132,7 +142,7 @@ async function newRecoveryCodes(userId: string) {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  const strict = { config: { rateLimit: { max: Number(process.env.SYNDO_AUTH_RATE_LIMIT ?? 10), timeWindow: "1 minute" } } };
+  const strict = { config: { rateLimit: { max: Number(process.env.SEND_AUTH_RATE_LIMIT ?? 10), timeWindow: "1 minute" } } };
 
   app.post("/api/auth/register", strict, async (req, reply) => {
     const body = z.object({ email: EMAIL, username: USERNAME, password: PASSWORD, display_name: z.string().trim().max(32).optional() }).parse(req.body);
@@ -172,7 +182,7 @@ export async function authRoutes(app: FastifyInstance) {
       await q("update sessions set revoked_at = now() where id = $1", [req.session.id]);
       await (await import("./gateway.ts")).closeSession(req.session.id, "Signed out");
     }
-    reply.clearCookie(COOKIE, { path: "/" });
+    clearSessionCookies(reply);
     return { ok: true };
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
-import type { Guild } from "@syndo/shared";
+import type { Guild } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { toast } from "../store.ts";
 

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Bell, BellOff, Check } from "lucide-react";
-import type { Channel, Guild, NotificationSetting } from "@syndo/shared";
+import type { Channel, Guild, NotificationSetting } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { isMutedScope, notifLevel, toast, useStore } from "../store.ts";
 import { Popover } from "../components/overlay.tsx";

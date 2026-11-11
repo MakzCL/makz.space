@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   ALL_PERMISSIONS, ChannelType, DEFAULT_EVERYONE, MessageType, P, channelPermissions, has, isVoiceType, outranks, topPosition,
   type MemberLike, type RoleLike,
-} from "@syndo/shared";
+} from "@send/shared";
 import { config } from "../config.ts";
 import { q, q1, tx } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";
@@ -18,7 +18,7 @@ import { guildFor } from "../ready.ts";
 import { USER_COLS, channelOut, mediaUrl, roleOut, userOut } from "../serialize.ts";
 import * as storage from "../storage.ts";
 import { readImage } from "../uploads.ts";
-import { validateProfileTheme } from "@syndo/shared";
+import { validateProfileTheme } from "@send/shared";
 import { createSystemMessage } from "./messages.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);

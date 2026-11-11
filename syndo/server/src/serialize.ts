@@ -1,4 +1,4 @@
-import { DEFAULT_PRIVACY, type Channel, type Role, type SelfUser, type User } from "@syndo/shared";
+import { DEFAULT_PRIVACY, type Channel, type Role, type SelfUser, type User } from "@send/shared";
 
 export const mediaUrl = (key: string | null | undefined) => (key ? `/api/media/${key}` : null);
 

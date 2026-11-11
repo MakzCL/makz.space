@@ -10,7 +10,7 @@ import { FolderOpen, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
-import { BRAND, ChannelType, P, has, isVoiceType, type Channel, type Guild } from "@syndo/shared";
+import { BRAND, ChannelType, P, has, isVoiceType, type Channel, type Guild } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { updateSettings } from "../actions.ts";
 import { gwSend } from "../gateway.ts";
@@ -83,12 +83,12 @@ export function Shell() {
   }, [cid, gid]);
   useEffect(() => {
     const on = (e: Event) => { const open = (e as CustomEvent).detail?.open; setNavOpen((v) => (open === undefined ? !v : !!open)); };
-    window.addEventListener("syndo:nav", on); return () => window.removeEventListener("syndo:nav", on);
+    window.addEventListener("send:nav", on); return () => window.removeEventListener("send:nav", on);
   }, []);
   useEffect(() => {
     const open = (e: Event) => setDialog((e as CustomEvent).detail);
-    window.addEventListener("syndo:dialog", open);
-    return () => window.removeEventListener("syndo:dialog", open);
+    window.addEventListener("send:dialog", open);
+    return () => window.removeEventListener("send:dialog", open);
   }, []);
 
   const voiceChannel = useVoice((s) => s.channelId);
@@ -101,7 +101,7 @@ export function Shell() {
   useEffect(() => { const h = document.documentElement; if (bg) h.dataset.wallpaper = "1"; else delete h.dataset.wallpaper; return () => { delete h.dataset.wallpaper; }; }, [!!bg]);
 
   return (
-    <div className={`shell syndo-css ${navOpen ? "nav-open" : ""} ${showSidebar ? "" : "no-sidebar"}`} data-region="app">
+    <div className={`shell send-css ${navOpen ? "nav-open" : ""} ${showSidebar ? "" : "no-sidebar"}`} data-region="app">
       {bg && <Backdrop bg={bg} className={`app-bd ${target === "app" ? "" : "phone-only"}`} />}
       <a className="skip" href="#main">Skip to content</a>
       {conn === "reconnecting" && <div className="conn-banner" role="status">Reconnecting… messages will catch up automatically.</div>}
@@ -137,10 +137,10 @@ export function Shell() {
   );
 }
 
-export const openDialog = (d: Dialog) => window.dispatchEvent(new CustomEvent("syndo:dialog", { detail: d }));
+export const openDialog = (d: Dialog) => window.dispatchEvent(new CustomEvent("send:dialog", { detail: d }));
 
 function defaultChannel(g: Guild) {
-  const last = sessionStorage.getItem(`syndo.last.${g.id}`);
+  const last = sessionStorage.getItem(`send.last.${g.id}`);
   if (last && g.channels.some((c) => c.id === last)) return last;
   const { loose, cats } = channelTree(g);
   return [...loose, ...cats.flatMap((c) => c.children)].find((c) => c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT)?.id ?? "";
@@ -260,7 +260,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
         <button className={`side-link ${!current ? "active" : ""}`} onClick={() => navigate("/channels/@me")}>
           <Users size={20} /> <span>Friends</span>{pending > 0 && <span className="badge inline">{pending}</span>}
         </button>
-        <button className="side-link" onClick={() => window.dispatchEvent(new Event("syndo:inbox"))}><InboxIcon size={20} /><span>Inbox</span></button>
+        <button className="side-link" onClick={() => window.dispatchEvent(new Event("send:inbox"))}><InboxIcon size={20} /><span>Inbox</span></button>
         <button className={`side-link ${current === "saved" ? "active" : ""}`} aria-current={current === "saved" ? "page" : undefined} onClick={() => navigate("/channels/@me/saved")}><Bookmark size={20} /><span>Saved messages</span></button>
         <div className="side-sec"><span>Conversations</span><button className="icon-btn sm" aria-label="New group conversation" title="New group" onClick={() => onDialog({ kind: "groupDm" })}><Plus size={16} /></button></div>
         {list.map((c) => {
@@ -284,7 +284,7 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
 function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: string; onDialog: (d: Dialog) => void }) {
   const [menu, setMenu] = useState(false);
   const menuBtn = useRef<HTMLButtonElement>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(`syndo.collapsed.${guild.id}`) ?? "{}"); } catch { return {}; } });
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(`send.collapsed.${guild.id}`) ?? "{}"); } catch { return {}; } });
   const perms = guildPerms(guild);
   const { loose, cats } = channelTree(guild);
   useActiveThreads(guild.id);
@@ -303,8 +303,8 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
     api.patch(`/api/guilds/${guild.id}/channels`, siblings.map((c, i) => ({ id: c.id, position: i, ...(c.id === dragId ? { parent_id: parent ?? null } : {}) }))).catch((e) => toast(errMsg(e), "error"));
   };
   const drag = canArrange ? { onDragStart: (id: string) => (e: React.DragEvent) => { e.dataTransfer.setData("text/send-channel", id); e.dataTransfer.effectAllowed = "move"; }, onDrop: (c: Channel) => (e: React.DragEvent) => { const id = e.dataTransfer.getData("text/send-channel"); if (id) { e.preventDefault(); dropOn(id, c); } } } : null;
-  useEffect(() => { if (current) sessionStorage.setItem(`syndo.last.${guild.id}`, current); }, [current, guild.id]);
-  const toggle = (id: string) => { const n = { ...collapsed, [id]: !collapsed[id] }; setCollapsed(n); try { localStorage.setItem(`syndo.collapsed.${guild.id}`, JSON.stringify(n)); } catch { /* */ } };
+  useEffect(() => { if (current) sessionStorage.setItem(`send.last.${guild.id}`, current); }, [current, guild.id]);
+  const toggle = (id: string) => { const n = { ...collapsed, [id]: !collapsed[id] }; setCollapsed(n); try { localStorage.setItem(`send.collapsed.${guild.id}`, JSON.stringify(n)); } catch { /* */ } };
   const leave = async () => {
     if (!(await askConfirm({ title: `Leave ${guild.name}?`, body: "You won't be able to rejoin unless you are re-invited.", confirmLabel: "Leave server", danger: true }))) return;
     try { await api.del(`/api/guilds/${guild.id}/members/@me`); navigate("/channels/@me"); } catch (e) { toast(errMsg(e), "error"); }
@@ -335,7 +335,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
       </header>
       {/* Phones: search and invite under the server name, like Discord's app. */}
       <div className="guild-quick">
-        <button className="guild-search" onClick={() => window.dispatchEvent(new Event("syndo:quickswitcher"))}><Search size={16} aria-hidden /> Search</button>
+        <button className="guild-search" onClick={() => window.dispatchEvent(new Event("send:quickswitcher"))}><Search size={16} aria-hidden /> Search</button>
         {has(perms, P.CREATE_INVITE) && <button className="icon-btn" aria-label="Invite people" title="Invite people" onClick={() => onDialog({ kind: "invite", guildId: guild.id, channelId: current })}><UserPlus size={18} /></button>}
         <button className="icon-btn" aria-label="Events" title="Events" onClick={() => openEvents(guild)}><CalendarDays size={18} /></button>
       </div>
@@ -370,7 +370,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
   const [iconPicker, setIconPicker] = useState<HTMLElement | null>(null);
   const iconRef = useRef<HTMLSpanElement>(null);
   // "Change icon" in the channel menu opens the same picker.
-  useEffect(() => { const on = (e: Event) => { if ((e as CustomEvent).detail === c.id && iconRef.current) setIconPicker(iconRef.current); }; window.addEventListener("syndo:channel-icon", on); return () => window.removeEventListener("syndo:channel-icon", on); }, [c.id]);
+  useEffect(() => { const on = (e: Event) => { if ((e as CustomEvent).detail === c.id && iconRef.current) setIconPicker(iconRef.current); }; window.addEventListener("send:channel-icon", on); return () => window.removeEventListener("send:channel-icon", on); }, [c.id]);
   const setIcon = (icon_emoji: string | null) => { setIconPicker(null); api.patch(`/api/channels/${c.id}`, { icon_emoji }).catch((e) => toast(errMsg(e), "error")); };
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));

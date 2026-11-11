@@ -2,7 +2,7 @@ import { ApiError, api, errMsg, upload, uploadLarge } from "./api.ts";
 import { connectGateway, disconnectGateway } from "./gateway.ts";
 import { navigate } from "./router.ts";
 import { messagesApi, toast, useStore, type UIMessage } from "./store.ts";
-import type { Channel, Message , Sticker } from "@syndo/shared";
+import type { Channel, Message , Sticker } from "@send/shared";
 import { previewMode } from "./preview-mode.ts";
 
 const set = useStore.setState;

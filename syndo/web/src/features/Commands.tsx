@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { BarChart3, Clapperboard, Slash, X } from "lucide-react";
-import { CommandOptionType, P, type ApplicationCommand, type Channel } from "@syndo/shared";
+import { CommandOptionType, P, type ApplicationCommand, type Channel } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { can, toast, useStore } from "../store.ts";
 import { useLayer } from "../layers.ts";
@@ -22,7 +22,7 @@ const BUILTIN: BuiltIn[] = [
   { name: "spoiler", description: "Marks your message as a spoiler.", usage: "<message>", run: (r) => (r ? `||${r}||` : true) },
   { name: "silent", description: "Sends without notifying anyone.", usage: "<message>", run: (r) => (r ? `@silent ${r}` : true) },
   { name: "poll", description: "Create a poll.", run: (_r, ch) => { openPollComposer(ch); return true; }, available: (ch) => !ch.guild_id || can(ch, P.SEND_POLLS) },
-  { name: "gif", description: "Search for a GIF.", usage: "<search>", run: (r) => { window.dispatchEvent(new CustomEvent("syndo:gif", { detail: r })); return true; } },
+  { name: "gif", description: "Search for a GIF.", usage: "<search>", run: (r) => { window.dispatchEvent(new CustomEvent("send:gif", { detail: r })); return true; } },
   { name: "thread", description: "Start a thread in this channel.", usage: "<name>", run: async (r, ch) => {
     if (!r) { openCreateThread(ch); return true; }
     try { const t = await api.post<Channel>(`/api/channels/${ch.id}/threads`, { name: r.slice(0, 100) }); const { putThreads } = await import("../store.ts"); putThreads([t]); (await import("../router.ts")).navigate(`/channels/${ch.guild_id}/${t.id}`); } catch (e) { toast(errMsg(e), "error"); }
@@ -119,7 +119,7 @@ export function useSlashCommands(channel: Channel, text: string, setText: (v: st
 export function ComposerExtras({ channel, onSendGif }: { channel: Channel; onSendGif: (url: string) => void }) {
   const [gif, setGif] = useState<{ q: string } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
-  useEffect(() => { const on = (e: Event) => setGif({ q: String((e as CustomEvent).detail ?? "") }); window.addEventListener("syndo:gif", on); return () => window.removeEventListener("syndo:gif", on); }, []);
+  useEffect(() => { const on = (e: Event) => setGif({ q: String((e as CustomEvent).detail ?? "") }); window.addEventListener("send:gif", on); return () => window.removeEventListener("send:gif", on); }, []);
   const canPoll = !channel.guild_id || can(channel, P.SEND_POLLS);
   return <>
     <button ref={btn} className={`icon-btn ${gif ? "active" : ""}`} aria-label="GIFs" title="GIFs" aria-expanded={!!gif} onClick={() => setGif((g) => (g ? null : { q: "" }))}><Clapperboard size={20} /></button>

@@ -1,7 +1,7 @@
 import {
   ChannelType, DM_PERMISSIONS, P, basePermissions, channelPermissions, has, isDmType,
   type GuildLike, type MemberLike, type OverwriteLike, type RoleLike,
-} from "@syndo/shared";
+} from "@send/shared";
 import { q, q1 } from "./db.ts";
 import { forbidden, notFound } from "./errors.ts";
 

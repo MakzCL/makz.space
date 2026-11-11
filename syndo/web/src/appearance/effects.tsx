@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { validateProfileTheme, type EffectLayer, type ProfileTheme, type User } from "@syndo/shared";
+import { validateProfileTheme, type EffectLayer, type ProfileTheme, type User } from "@send/shared";
 import { useStore } from "../store.ts";
 import { useAppearance } from "./store.ts";
 

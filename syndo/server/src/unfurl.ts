@@ -3,7 +3,7 @@ import { lookup as dnsLookup } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { isIP } from "node:net";
-import type { Embed } from "@syndo/shared";
+import type { Embed } from "@send/shared";
 import { q, q1 } from "./db.ts";
 
 /**
@@ -17,7 +17,7 @@ import { q, q1 } from "./db.ts";
  * never reaches the linked site and the proxy can't be used for arbitrary URLs.
  */
 
-const SECRET = process.env.SYNDO_SECRET || randomBytes(32).toString("hex");
+const SECRET = process.env.SEND_SECRET || randomBytes(32).toString("hex");
 const UA = "Mozilla/5.0 (compatible; SENDbot/1.0; +https://syndo.makz.space)";
 
 export function privateAddress(ip: string): boolean {

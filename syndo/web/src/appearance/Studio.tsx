@@ -10,8 +10,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_A11Y, FONTS, PRESETS, REGIONS, CSS_CLASSES, mergeDeep, readabilityIssues, resolveAppearance, validateCustomCss, validateThemeDoc,
   validateThemePartial, type A11yPrefs, type Background, type Issue, type RegionId, type ThemeDoc,
-} from "@syndo/shared";
-import { api, errMsg, upload } from "../api.ts";
+} from "@send/shared";
+import { CLIENT_HEADERS, api, errMsg, upload } from "../api.ts";
 import { displayName, dmTitle, toast, useStore } from "../store.ts";
 import { Backdrop } from "./Backdrop.tsx";
 import { BoolField, ColorField, RangeField, SelectField, TargetCtx, ctxOf, resetSection, useField, useTarget, type Target } from "./controls.tsx";
@@ -19,7 +19,7 @@ import { assetUrl, themeCss } from "./engine.ts";
 import { ProfileEditor } from "./ProfileEditor.tsx";
 import { Wordmark } from "../components/ui.tsx";
 import {
-  applyDraft, beginDraft, cancelDraft, editDraft, effective, isDirty, loadAssets, redo, resetAppearance, resolveFor, scopeKey, setDevice, themeFor, undo,
+  applyDraft, beginDraft, cancelDraft, editDraft, effective, isDirty, loadAssets, redo, resetAppearance, resolveFor, scopeKey, setDevice, themeFor, toServerNames, undo,
   useAppearance, type Asset,
 } from "./store.ts";
 
@@ -31,7 +31,7 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number][0];
 const SECTION_KEYS: Partial<Record<Section, string[]>> = { colors: ["colors", "typography"], panels: ["panels"], backgrounds: ["background", "effects"], layout: ["layout"], advanced: ["customCss"] };
 
-export function openStudio(section?: Section, target?: Target) { window.dispatchEvent(new CustomEvent("syndo:studio", { detail: { section, target } })); }
+export function openStudio(section?: Section, target?: Target) { window.dispatchEvent(new CustomEvent("send:studio", { detail: { section, target } })); }
 
 export function Studio({ initial, initialTarget, onClose }: { initial?: Section; initialTarget?: Target; onClose: () => void }) {
   const [section, setSection] = useState<Section>(initial ?? "gallery");
@@ -93,7 +93,7 @@ export function Studio({ initial, initialTarget, onClose }: { initial?: Section;
               {section === "advanced" && <AdvancedSection />}
               {section !== "effects" && <footer className="studio-f">
                 {sectionKeys && <button className="btn sm" onClick={() => resetSection(target, sectionKeys)}><RefreshCcw size={14} /> Reset this section{target.kind !== "global" ? " for this scope" : ""}</button>}
-                <button className="btn sm danger" onClick={async () => { if (await askConfirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "syndo-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
+                <button className="btn sm danger" onClick={async () => { if (await askConfirm(target.kind === "global" ? "Reset your whole global look to the SEND default? (Accessibility settings are kept.)" : `Remove all overrides for ${target.label}?`)) editDraft((d) => target.kind === "global" ? { ...d, global: { ...d.global, themeId: "send-glass", overrides: {}, customCssEnabled: false } } : { ...d, scopes: { ...d.scopes, [scopeKey(target.kind, target.id)]: null } }); }}>Reset all{target.kind !== "global" ? " for this scope" : ""}</button>
               </footer>}
             </ScrollArea>
             {showPreview && <ScrollArea id="studio-live-preview" className="studio-preview-area" viewportClassName="studio-preview-wrap" role="complementary" aria-label="Live preview">
@@ -156,7 +156,7 @@ function Gallery() {
               <div className="chips">{doc.meta.tags.slice(0, 4).map((t) => <span key={t} className="chip sm">{t}</span>)}</div>
               <div className="row wrap">
                 <button className="btn primary sm" onClick={() => editDraft((d) => ({ ...d, global: { ...d.global, themeId: key, ...(doc.meta.scheme === "light" ? {} : {}) } }))} aria-pressed={themeId === key}>{themeId === key ? "Applied (preview)" : "Use"}</button>
-                <button className="btn sm" onClick={async () => { try { await api.post("/api/appearance/presets", { name: `${doc.meta.name} copy`, data: { ...doc, meta: { ...doc.meta, id: "custom" } } }); toast("Duplicated into your presets.", "success"); } catch (e) { toast(errMsg(e), "error"); } }}><Copy size={14} /> Duplicate</button>
+                <button className="btn sm" onClick={async () => { try { await api.post("/api/appearance/presets", { name: `${doc.meta.name} copy`, data: toServerNames({ ...doc, meta: { ...doc.meta, id: "custom" } }) }); toast("Duplicated into your presets.", "success"); } catch (e) { toast(errMsg(e), "error"); } }}><Copy size={14} /> Duplicate</button>
                 {mine && <button className="btn sm danger" onClick={async () => (await askConfirm(`Delete preset ${doc.meta.name}?`)) && api.del(`/api/appearance/presets/${key.slice(7)}`).catch((e) => toast(errMsg(e), "error"))}><Trash2 size={14} /></button>}
               </div>
             </div>
@@ -175,7 +175,7 @@ function FollowSystem() {
       <label className="toggle-row"><span><span className="toggle-l">Follow system light/dark</span><span className="field-h">Switch between two themes automatically.</span></span>
         <input type="checkbox" role="switch" className="toggle" checked={g.followSystem} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, followSystem: e.target.checked } }))} /></label>
       {g.followSystem && <label className="field"><span className="field-l">Light theme</span>
-        <Select value={g.lightThemeId ?? "syndo-paper"} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, lightThemeId: e.target.value } }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}</Select></label>}
+        <Select value={g.lightThemeId ?? "send-paper"} onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, lightThemeId: e.target.value } }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}</Select></label>}
     </div>
   );
 }
@@ -361,7 +361,7 @@ function Library({ onPick, video }: { onPick?: (ref: string) => void; video?: bo
   };
   const replace = async (a: Asset, file: File) => {
     const fd = new FormData(); fd.append("file", file);
-    try { const r = await fetch(`/api/appearance/assets/${a.id.slice(1)}`, { method: "PUT", body: fd, headers: { "x-syndo-client": "1" } }); if (!r.ok) throw new Error((await r.json()).message); toast("Replaced everywhere it's used.", "success"); refresh(); } catch (e) { toast(errMsg(e), "error"); }
+    try { const r = await fetch(`/api/appearance/assets/${a.id.slice(1)}`, { method: "PUT", body: fd, headers: CLIENT_HEADERS }); if (!r.ok) throw new Error((await r.json()).message); toast("Replaced everywhere it's used.", "success"); refresh(); } catch (e) { toast(errMsg(e), "error"); }
   };
   const del = async (a: Asset) => {
     try { await api.del(`/api/appearance/assets/${a.id.slice(1)}`); refresh(); }
@@ -492,7 +492,7 @@ function PresetsSection() {
     }
     // Only the global look is exported — never per-conversation settings, labels or conversation ids.
     const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${(doc.meta.name || "theme").replace(/[^\w-]+/g, "-")}.syndo-theme.json`; a.click(); URL.revokeObjectURL(a.href);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${(doc.meta.name || "theme").replace(/[^\w-]+/g, "-")}.send-theme.json`; a.click(); URL.revokeObjectURL(a.href);
   };
   const readImport = async (file: File) => {
     if (file.size > 40 * 1048576) return toast("Theme packages are limited to 40 MB.", "error");
@@ -516,7 +516,7 @@ function PresetsSection() {
         const up = await upload<{ id: string }>("/api/appearance/assets", fd, () => {}).promise;
         doc = JSON.parse(JSON.stringify(doc).replaceAll(`"${ref}"`, `"${up.id}"`));
       }
-      const saved = await api.post<{ id: string }>("/api/appearance/presets", { name: doc.meta.name, data: doc });
+      const saved = await api.post<{ id: string }>("/api/appearance/presets", { name: doc.meta.name, data: toServerNames(doc) });
       if (applyNow) editDraft((d) => ({ ...d, global: { ...d.global, themeId: `preset:${saved.id}` } }));
       toast(applyNow ? "Imported — previewing now. Press Apply to keep it." : "Imported into your presets.", "success");
       setImp(null); loadAssets();
@@ -526,10 +526,10 @@ function PresetsSection() {
     <div className="stack">
       <h3>Save current look as a preset</h3>
       <div className="add-row"><input placeholder="Preset name" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} aria-label="Preset name" />
-        <button className="btn primary" onClick={async () => { try { await api.post("/api/appearance/presets", { name: name || "My theme", data: currentDoc() }); toast("Preset saved.", "success"); } catch (e) { toast(errMsg(e), "error"); } }}>Save preset</button></div>
+        <button className="btn primary" onClick={async () => { try { await api.post("/api/appearance/presets", { name: name || "My theme", data: toServerNames(currentDoc()) }); toast("Preset saved.", "success"); } catch (e) { toast(errMsg(e), "error"); } }}>Save preset</button></div>
       <h3>Export</h3>
       <label className="row"><input type="checkbox" checked={includeAssets} onChange={(e) => setIncludeAssets(e.target.checked)} /> Include my images in the file (up to 8 MB each)</label>
-      <p className="muted small">Exports your global look as a versioned <code>.syndo-theme.json</code>. Per-conversation settings, labels and conversation ids are never exported.</p>
+      <p className="muted small">Exports your global look as a versioned <code>.send-theme.json</code>. Per-conversation settings, labels and conversation ids are never exported.</p>
       <button className="btn" onClick={exportDoc}><Download size={14} /> Export theme</button>
       <h3>Import</h3>
       <label className="btn"><Upload size={14} /> Choose a theme file<input type="file" hidden accept=".json,application/json,.css" onChange={(e) => { const f = e.target.files?.[0]; if (f) readImport(f); e.target.value = ""; }} /></label>

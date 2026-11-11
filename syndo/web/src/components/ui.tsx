@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BRAND_ART } from "../brand-art.ts";
-import { BRAND, type User } from "@syndo/shared";
+import { BRAND, type User } from "@send/shared";
 import { displayName, useStore } from "../store.ts";
 import { timeFormat } from "../appearance/engine.ts";
 import { decorClasses, decorVars, useCosmetics } from "../appearance/effects.tsx";
@@ -127,5 +127,5 @@ export const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(
 export function MobileNavButton() {
   // Back arrow with the number of mentions waiting elsewhere, like Discord's phone app.
   const mentions = useStore((s) => { let n = 0; for (const id in s.readStates) n += s.readStates[id]!.mention_count || 0; return n; });
-  return <button className="m-nav-btn" aria-label="Open channels and servers" onClick={() => window.dispatchEvent(new CustomEvent("syndo:nav", { detail: { open: true } }))}><ArrowLeft size={24} />{mentions > 0 && <span className="m-nav-badge">{mentions > 99 ? "99+" : mentions}</span>}</button>;
+  return <button className="m-nav-btn" aria-label="Open channels and servers" onClick={() => window.dispatchEvent(new CustomEvent("send:nav", { detail: { open: true } }))}><ArrowLeft size={24} />{mentions > 0 && <span className="m-nav-badge">{mentions > 99 ? "99+" : mentions}</span>}</button>;
 }

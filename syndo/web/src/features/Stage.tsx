@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Hand, Mic, MicOff, PhoneOff, Radio, Rss, UserMinus, UserPlus } from "lucide-react";
-import { ChannelType, P, has, type Channel, type Guild } from "@syndo/shared";
+import { ChannelType, P, has, type Channel, type Guild } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { can, displayName, guildPerms, toast, useStore } from "../store.ts";
 import { leaveVoice, setMuted, useVoice } from "../voice/session.ts";

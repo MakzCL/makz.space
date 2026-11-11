@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState } from "react";
 import { Archive, BarChart3, ChevronLeft, Hash, LayoutGrid, List, Lock, MessageSquare, Plus, Search, Tag, Trash2, Unlock, Users, X } from "lucide-react";
-import { ChannelType, P, type Channel, type ForumTag, type Message } from "@syndo/shared";
+import { ChannelType, P, type Channel, type ForumTag, type Message } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { sendMessage, startUpload, type PendingUpload } from "../actions.ts";
 import { Markdown, plainText } from "../markdown.tsx";

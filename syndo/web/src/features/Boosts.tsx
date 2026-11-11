@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Gift, KeyRound, Sparkles, Trash2 } from "lucide-react";
-import { BOOST_LEVELS, type Guild, type User } from "@syndo/shared";
+import { BOOST_LEVELS, type Guild, type User } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { onEvent, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal, Toggle } from "../components/ui.tsx";
@@ -48,7 +48,7 @@ function BoostServer({ guild, onClose }: { guild: Guild; onClose: () => void }) 
         <p className="muted">{count} boost{count === 1 ? "" : "s"} · {tier ? `Level ${tier}` : "No level yet"}{next ? ` · ${next.boosts - count} more to reach Level ${next.level}` : " · Max level"}</p>
         <div className="boost-bar" aria-hidden><i style={{ width: `${Math.min(100, (count / 14) * 100)}%` }} />{BOOST_LEVELS.slice(1).map((l) => <span key={l.level} style={{ left: `${(l.boosts / 14) * 100}%` }} className={count >= l.boosts ? "on" : ""}>{l.level}</span>)}</div>
         {free.length > 0 ? <div className="row"><button className="btn primary" onClick={() => apply(1)}>Boost with 1 of your {free.length} free boosts</button>{free.length > 1 && <button className="btn" onClick={() => apply(free.length)}>Use all {free.length}</button>}</div>
-          : <button className="btn primary" onClick={() => { onClose(); window.dispatchEvent(new CustomEvent("syndo:dialog", { detail: { kind: "userSettings", tab: "boosts" } })); }}>Get boosts</button>}
+          : <button className="btn primary" onClick={() => { onClose(); window.dispatchEvent(new CustomEvent("send:dialog", { detail: { kind: "userSettings", tab: "boosts" } })); }}>Get boosts</button>}
       </div>
       <BoostPerks tier={tier} />
       {boosters.length > 0 && <><h4>Boosting this server</h4><div className="boosters">{boosters.map((b) => <div key={b.user.id} className="member"><Avatar user={b.user} size={28} /><span className="ellipsis">{b.user.display_name || b.user.username}</span><small className="muted">{b.boosts}× · since {new Date(b.since).toLocaleDateString()}</small></div>)}</div></>}

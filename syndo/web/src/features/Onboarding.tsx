@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, ScrollText } from "lucide-react";
-import type { Guild, Onboarding as OB } from "@syndo/shared";
+import type { Guild, Onboarding as OB } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { navigate } from "../router.ts";
 import { toast } from "../store.ts";

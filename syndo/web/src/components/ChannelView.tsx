@@ -7,7 +7,7 @@ import { MoreHorizontal,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChannelType, MessageType, P, boostPerks, has, type Channel, type Message, type Sticker } from "@syndo/shared";
+import { ChannelType, MessageType, P, boostPerks, has, type Channel, type Message, type Sticker } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
@@ -30,7 +30,7 @@ import { isPhone } from "../mobile.ts";
 import { createContext, useContext } from "react";
 import { create } from "zustand";
 import { Smile, Sticker as StickerIcon } from "lucide-react";
-import { ChannelType as CT } from "@syndo/shared";
+import { ChannelType as CT } from "@send/shared";
 import { Palette } from "lucide-react";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { customReaction, emojiText, myEmojis, myStickers, reactionKey } from "../expressions.ts";
@@ -79,7 +79,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       setPanel((p) => (p === want && want !== "search" ? null : want));
       if (want === "search") requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".side-panel[role=search] input")?.focus());
     };
-    window.addEventListener("syndo:panel", on); return () => window.removeEventListener("syndo:panel", on);
+    window.addEventListener("send:panel", on); return () => window.removeEventListener("send:panel", on);
   }, [guildId, channel?.type]);
   useEffect(() => {
     if (!channel) return;
@@ -718,7 +718,7 @@ function Typing({ channelId, guildId }: { channelId: string; guildId: string | n
 
 /* ---------------------------------------------------------- composer -- */
 function Composer({ channel, title, reply, onClearReply }: { channel: Channel; title: string; reply: Message | null; onClearReply: () => void }) {
-  const [text, setText] = useState(() => sessionStorage.getItem(`syndo.draft.${channel.id}`) ?? "");
+  const [text, setText] = useState(() => sessionStorage.getItem(`send.draft.${channel.id}`) ?? "");
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
   const [recording, setRecording] = useState<null | { rec: MediaRecorder; started: number; levels: number[] }>(null);
   const limits = useStore((s) => s.limits);
@@ -748,7 +748,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   };
   useEffect(() => {
     const on = (e: Event) => { const what = (e as CustomEvent).detail; if (what === "emoji") setEmoji((v) => !v); if (what === "upload") fileIn.current?.click(); };
-    window.addEventListener("syndo:composer", on); return () => window.removeEventListener("syndo:composer", on);
+    window.addEventListener("send:composer", on); return () => window.removeEventListener("send:composer", on);
   }, []);
   /** ↑ in an empty box edits your most recent message (Discord behaviour). */
   const editLast = () => {
@@ -767,7 +767,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const canSend = isDm ? can(channel, P.SEND_MESSAGES) || !channel.my_permissions : can(channel, P.SEND_MESSAGES);
   const canAttach = isDm || can(channel, P.ATTACH_FILES);
   const slow = channel.rate_limit_per_user;
-  useEffect(() => { try { sessionStorage.setItem(`syndo.draft.${channel.id}`, text); } catch { /* */ } }, [text, channel.id]);
+  useEffect(() => { try { sessionStorage.setItem(`send.draft.${channel.id}`, text); } catch { /* */ } }, [text, channel.id]);
   useEffect(() => { if (reply) ta.current?.focus(); }, [reply]);
 
   const update = useCallback((u: PendingUpload) => setUploads((list) => { const i = list.findIndex((x) => x.key === u.key); if (i < 0) return [...list, u]; const n = [...list]; n[i] = u; return n; }), []);

@@ -21,8 +21,8 @@ export function registerDefaultShortcuts() {
   track();
 
   const nav = "Navigation", chat = "Chat", voice = "Voice & calls", app = "App";
-  registerShortcut({ id: "help.shortcuts", group: app, label: "Show keyboard shortcuts", defaults: ["Mod+/"], run: () => uiEvent("syndo:shortcut-help") });
-  registerShortcut({ id: "nav.quickSwitcher", group: nav, label: "Quick switcher (find a server, channel or DM)", defaults: ["Mod+K"], run: () => uiEvent("syndo:quickswitcher") });
+  registerShortcut({ id: "help.shortcuts", group: app, label: "Show keyboard shortcuts", defaults: ["Mod+/"], run: () => uiEvent("send:shortcut-help") });
+  registerShortcut({ id: "nav.quickSwitcher", group: nav, label: "Quick switcher (find a server, channel or DM)", defaults: ["Mod+K"], run: () => uiEvent("send:quickswitcher") });
   registerShortcut({ id: "nav.serverPrev", group: nav, label: "Previous server", defaults: ["Mod+Alt+ArrowUp"], repeat: true, run: () => stepServer(-1) });
   registerShortcut({ id: "nav.serverNext", group: nav, label: "Next server", defaults: ["Mod+Alt+ArrowDown"], repeat: true, run: () => stepServer(1) });
   registerShortcut({ id: "nav.channelPrev", group: nav, label: "Previous channel or DM", defaults: ["Alt+ArrowUp"], repeat: true, run: () => stepChannel(-1) });
@@ -37,15 +37,15 @@ export function registerDefaultShortcuts() {
   registerShortcut({ id: "read.channel", group: chat, label: "Mark channel as read", defaults: ["Escape"], inInput: true, run: () => (inChannel() ? markCurrentRead() : false) });
   registerShortcut({ id: "read.server", group: chat, label: "Mark server as read", defaults: ["Shift+Escape"], inInput: true, run: () => markServerRead() });
   registerShortcut({ id: "chat.oldestUnread", group: chat, label: "Jump to oldest unread message", defaults: ["Shift+PageUp"], inInput: true, run: () => { const el = document.querySelector(".new-div"); if (!el) return false; el.scrollIntoView({ block: "center" }); } });
-  registerShortcut({ id: "chat.inbox", group: chat, label: "Open the inbox (mentions and unreads)", defaults: ["Mod+I"], run: () => uiEvent("syndo:inbox") });
-  registerShortcut({ id: "chat.pins", group: chat, label: "Toggle pinned messages", defaults: ["Mod+P"], run: () => (inChannel() ? uiEvent("syndo:panel", "pins") : false) });
-  registerShortcut({ id: "chat.members", group: chat, label: "Toggle member list", defaults: ["Mod+U"], run: () => (inChannel() ? uiEvent("syndo:panel", "members") : false) });
-  registerShortcut({ id: "chat.search", group: chat, label: "Search", defaults: ["Mod+F"], run: () => (inChannel() ? uiEvent("syndo:panel", "search") : false) });
-  registerShortcut({ id: "chat.emoji", group: chat, label: "Toggle emoji picker", defaults: ["Mod+E"], run: () => (inChannel() ? uiEvent("syndo:composer", "emoji") : false) });
-  registerShortcut({ id: "chat.upload", group: chat, label: "Upload a file", defaults: ["Mod+Shift+U"], run: () => (inChannel() ? uiEvent("syndo:composer", "upload") : false) });
+  registerShortcut({ id: "chat.inbox", group: chat, label: "Open the inbox (mentions and unreads)", defaults: ["Mod+I"], run: () => uiEvent("send:inbox") });
+  registerShortcut({ id: "chat.pins", group: chat, label: "Toggle pinned messages", defaults: ["Mod+P"], run: () => (inChannel() ? uiEvent("send:panel", "pins") : false) });
+  registerShortcut({ id: "chat.members", group: chat, label: "Toggle member list", defaults: ["Mod+U"], run: () => (inChannel() ? uiEvent("send:panel", "members") : false) });
+  registerShortcut({ id: "chat.search", group: chat, label: "Search", defaults: ["Mod+F"], run: () => (inChannel() ? uiEvent("send:panel", "search") : false) });
+  registerShortcut({ id: "chat.emoji", group: chat, label: "Toggle emoji picker", defaults: ["Mod+E"], run: () => (inChannel() ? uiEvent("send:composer", "emoji") : false) });
+  registerShortcut({ id: "chat.upload", group: chat, label: "Upload a file", defaults: ["Mod+Shift+U"], run: () => (inChannel() ? uiEvent("send:composer", "upload") : false) });
   registerShortcut({ id: "chat.focus", group: chat, label: "Focus the message box", defaults: [], inInput: false, note: "Unbound by default: Tab is kept for keyboard navigation and the skip link. Typing any character already starts a message.", run: () => { const t = document.querySelector<HTMLTextAreaElement>(".composer textarea"); if (!t || (document.activeElement && document.activeElement !== document.body && document.activeElement.id !== "main")) return false; t.focus(); } });
-  registerShortcut({ id: "app.createServer", group: app, label: "Create or join a server", defaults: ["Mod+Shift+N"], browserReserved: true, run: () => uiEvent("syndo:dialog", { kind: "createServer" }) });
-  registerShortcut({ id: "app.createGroup", group: app, label: "Create a group DM", defaults: ["Mod+Shift+T"], browserReserved: true, run: () => uiEvent("syndo:dialog", { kind: "groupDm" }) });
+  registerShortcut({ id: "app.createServer", group: app, label: "Create or join a server", defaults: ["Mod+Shift+N"], browserReserved: true, run: () => uiEvent("send:dialog", { kind: "createServer" }) });
+  registerShortcut({ id: "app.createGroup", group: app, label: "Create a group DM", defaults: ["Mod+Shift+T"], browserReserved: true, run: () => uiEvent("send:dialog", { kind: "groupDm" }) });
   registerShortcut({ id: "voice.mute", group: voice, label: "Toggle mute", defaults: ["Mod+Shift+M"], whileLayers: true, run: () => { setMuted(!useVoice.getState().muted); } });
   registerShortcut({ id: "voice.deafen", group: voice, label: "Toggle deafen", defaults: ["Mod+Shift+D"], whileLayers: true, run: () => { setDeafened(!useVoice.getState().deafened); } });
   registerShortcut({ id: "call.start", group: voice, label: "Start a call in this DM", defaults: ["Mod+["], run: () => {

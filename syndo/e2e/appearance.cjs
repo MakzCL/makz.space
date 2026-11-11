@@ -1,4 +1,4 @@
-// Appearance acceptance tests in real browser contexts against a running Syndo server.
+// Appearance acceptance tests in real browser contexts against a running SEND server.
 // Usage: node e2e/appearance.cjs http://localhost:3900 <screenshot-dir>
 const { chromium } = require('playwright');
 const BASE = process.argv[2] ?? 'http://localhost:3900';
@@ -12,7 +12,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(page, method, path, body) {
   return page.evaluate(async ([m, p, b]) => {
-    const r = await fetch(p, { method: m, headers: b === undefined ? { 'x-syndo-client': '1' } : { 'content-type': 'application/json', 'x-syndo-client': '1' }, body: b === undefined ? undefined : JSON.stringify(b) });
+    const r = await fetch(p, { method: m, headers: b === undefined ? { 'x-send-client': '1' } : { 'content-type': 'application/json', 'x-send-client': '1' }, body: b === undefined ? undefined : JSON.stringify(b) });
     let j = null; try { j = await r.json(); } catch {}
     return { status: r.status, body: j };
   }, [method, path, body]);
@@ -51,7 +51,7 @@ async function setRange(loc, value) {
   await api(B.p, 'POST', `/api/invites/${inv.code}`);
   await api(A.p, 'POST', `/api/channels/${text.id}/messages`, { content: 'welcome to the club' });
 
-  // --- Studio: apply Syndo Glass through the UI
+  // --- Studio: apply SEND Glass through the UI
   await A.p.goto(`${BASE}/channels/${guild.id}/${text.id}`);
   await A.p.getByRole('button', { name: 'User settings' }).click();
   await A.p.getByRole('tab', { name: 'Appearance' }).click();
@@ -68,7 +68,7 @@ async function setRange(loc, value) {
   if (await discard.isVisible().catch(() => false) || await discard.waitFor({ timeout: 1500 }).then(() => true, () => false)) await discard.getByRole('button', { name: 'Discard' }).click();
   await sleep(400);
   check('Cancel reverts the preview', (await A.p.evaluate(() => document.documentElement.dataset.scheme)) === schemeBefore && alphaOf(await cssVar(A.p, '--r-chat-bg')) < 1);
-  await A.p.evaluate(() => window.dispatchEvent(new CustomEvent('syndo:studio', { detail: { section: 'gallery' } })));
+  await A.p.evaluate(() => window.dispatchEvent(new CustomEvent('send:studio', { detail: { section: 'gallery' } })));
   await A.p.getByRole('dialog', { name: 'SEND Studio' }).waitFor();
   await A.p.locator('.theme-card', { hasText: 'SEND Glass' }).getByRole('button', { name: /^(Use|Applied \(preview\))$/ }).first().click();
   // Panels: message area opacity 30 %, rail blur 6 px — independently.
@@ -118,7 +118,7 @@ async function setRange(loc, value) {
   check('local label is shown, distinguished from the real name', await seen(A.p.locator('.side-dm .local-label', { hasText: 'Bestie' }), 3000));
   // Acceptance 7: personal themes stay private.
   const bProfile = JSON.stringify((await api(B.p, 'GET', `/api/users/${A.id}/profile`)).body) + JSON.stringify((await api(B.p, 'GET', '/api/appearance')).body);
-  check('7. personal appearance and labels are invisible to others', !bProfile.includes('Bestie') && !bProfile.includes('syndo-glass'));
+  check('7. personal appearance and labels are invisible to others', !bProfile.includes('Bestie') && !bProfile.includes('send-glass'));
 
   // Acceptance 4: server and channel overrides inherit and reset.
   await api(A.p, 'PUT', `/api/appearance/guild/${guild.id}`, { data: { overrides: { colors: { accent: '#FF00AA' } } } });
@@ -159,7 +159,7 @@ async function setRange(loc, value) {
   const canvas = await R.p.locator('.profile-card canvas.fx-canvas').count();
   check('9. reduced motion stops rings and particle effects', rm === 'reduce' && ringRm === 'none' && canvas === 0, `${rm} ${ringRm} canvas=${canvas}`);
   // Viewer can hide other people's cosmetics.
-  await api(B.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-midnight', a11y: { disableOthersCosmetics: true } } });
+  await api(B.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-midnight', a11y: { disableOthersCosmetics: true } } });
   await B.p.reload(); await B.p.locator('.msg-name').first().waitFor(); await sleep(800);
   const plain = await B.p.locator('.msg', { hasText: 'welcome to the club' }).locator('.avatar').first().evaluate((el) => el.className);
   check('viewers can disable other people\'s cosmetics', !plain.includes('ring'), plain);
@@ -176,10 +176,10 @@ async function setRange(loc, value) {
   void prop;
 
   // Acceptance 10: import/export round trip; invalid packages rejected.
-  const exp = await api(A.p, 'POST', '/api/appearance/validate', { data: { schema: 'syndo.theme', version: 2, meta: { name: 'RT', scheme: 'dark' }, colors: { accent: '#123456' }, panels: { chat: { opacity: 40, blur: 8 } }, layout: { nav: 'horizontal' } } });
-  const bad = await api(A.p, 'POST', '/api/appearance/validate', { data: { schema: 'syndo.theme', version: 2, meta: { name: 'Bad' }, background: { dark: { kind: 'image', asset: 'https://x.example/a.png' } } } });
+  const exp = await api(A.p, 'POST', '/api/appearance/validate', { data: { schema: 'send.theme', version: 2, meta: { name: 'RT', scheme: 'dark' }, colors: { accent: '#123456' }, panels: { chat: { opacity: 40, blur: 8 } }, layout: { nav: 'horizontal' } } });
+  const bad = await api(A.p, 'POST', '/api/appearance/validate', { data: { schema: 'send.theme', version: 2, meta: { name: 'Bad' }, background: { dark: { kind: 'image', asset: 'https://x.example/a.png' } } } });
   check('10. import keeps supported settings and rejects invalid packages', exp.body.ok && exp.body.doc.panels.chat.opacity === 40 && exp.body.doc.layout.nav === 'horizontal' && !bad.body.ok);
-  await A.p.evaluate(() => window.dispatchEvent(new CustomEvent('syndo:studio', { detail: { section: 'presets' } })));
+  await A.p.evaluate(() => window.dispatchEvent(new CustomEvent('send:studio', { detail: { section: 'presets' } })));
   await A.p.locator('input[type=file][accept*=".css"]').setInputFiles({ name: 'midnight.theme.css', mimeType: 'text/css', buffer: Buffer.from(':root{--background-primary:#000}') });
   check('BetterDiscord-style .theme.css files are clearly rejected', await seen(A.p.getByText(/theme files made for other apps aren't compatible/), 3000));
   await A.p.getByRole('button', { name: 'Cancel' }).click();
@@ -188,14 +188,14 @@ async function setRange(loc, value) {
   const up = await A.p.evaluate(async () => {
     const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
     const fd = new FormData(); fd.append('file', new Blob([png], { type: 'image/png' }), 'w.png');
-    return (await fetch('/api/appearance/assets', { method: 'POST', body: fd, headers: { 'x-syndo-client': '1' } })).json();
+    return (await fetch('/api/appearance/assets', { method: 'POST', body: fd, headers: { 'x-send-client': '1' } })).json();
   });
   const peek = await B.p.evaluate(async (u) => (await fetch(u)).status, up.url);
   check('15. other users cannot fetch someone\'s private wallpaper', peek === 404);
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-canvas', overrides: { background: { dark: { kind: 'image', asset: up.id, color: '#334455' } } } } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-canvas', overrides: { background: { dark: { kind: 'image', asset: up.id, color: '#334455' } } } } });
   await api(A.p, 'DELETE', `/api/appearance/assets/${up.id.slice(1)}?force=1`);
   await A.p.goto(`${BASE}/channels/@me`);
-  await A.p.waitForFunction(() => window.__syndoTheme === 'syndo-canvas', null, { timeout: 8000 }).catch(() => {});
+  await A.p.waitForFunction(() => window.__sendTheme === 'send-canvas', null, { timeout: 8000 }).catch(() => {});
   await A.p.locator('.app-bd .bd-fill').first().waitFor({ timeout: 5000 }).catch(() => {});
   // The colour fallback appears once the deleted image's request fails; wait for it rather than a fixed delay.
   await A.p.waitForFunction(() => { const el = document.querySelector('.app-bd .bd-fill'); return el && getComputedStyle(el).backgroundColor === 'rgb(51, 68, 85)'; }, null, { timeout: 6000 }).catch(() => {});
@@ -203,7 +203,7 @@ async function setRange(loc, value) {
   check('11. a deleted wallpaper falls back to a usable colour', fb === 'rgb(51, 68, 85)' && await seen(A.p.getByRole('heading', { name: 'Friends' }), 2000), fb);
 
   // Acceptance 13: horizontal + multi-column rail keyboard access.
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-panorama' } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-panorama' } });
   await A.p.goto(`${BASE}/channels/@me`); await sleep(900);
   const railBox = await A.p.locator('.rail').boundingBox();
   await A.p.locator('.rail-item > button').first().focus();
@@ -211,7 +211,7 @@ async function setRange(loc, value) {
   const focused = await A.p.evaluate(() => document.activeElement?.getAttribute('aria-label'));
   await A.p.screenshot({ path: `${OUT}/panorama-horizontal.png` });
   check('13a. horizontal server bar is keyboard navigable', railBox.height <= 70 && railBox.width > 600 && /Looks Club/.test(focused ?? ''), focused);
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-midnight', overrides: { layout: { railColumns: 2 } } } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-midnight', overrides: { layout: { railColumns: 2 } } } });
   await A.p.reload(); await sleep(900);
   await A.p.locator('.rail-item > button').first().focus();
   await A.p.keyboard.press('ArrowDown');
@@ -219,7 +219,7 @@ async function setRange(loc, value) {
   check('13b. multi-column rail is keyboard navigable', /Looks Club/.test(f2 ?? ''), f2);
 
   // Acceptance 14: small window + large text keep critical controls reachable.
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-midnight', overrides: { typography: { size: 22 }, layout: { scale: 1.3, showSidebar: false } } } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-midnight', overrides: { typography: { size: 22 }, layout: { scale: 1.3, showSidebar: false } } } });
   await A.p.setViewportSize({ width: 820, height: 560 });
   await A.p.goto(`${BASE}/channels/${guild.id}/${text.id}`); await sleep(1000);
   const inView = async (loc) => { const bx = await loc.boundingBox().catch(() => null); return !!bx && bx.x >= 0 && bx.y >= 0 && bx.x + bx.width <= 820 && bx.y + bx.height <= 560; };
@@ -230,13 +230,13 @@ async function setRange(loc, value) {
   await A.p.setViewportSize({ width: 1360, height: 860 });
 
   // Acceptance 17: recovery from deliberately problematic customization.
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-midnight', customCssEnabled: true, a11y: { minContrast: false }, overrides: { colors: { text: '#1A2136', textMuted: '#1A2136' }, customCss: '.msg-content { color: #1A2136; } .btn { color: #1A2136; }' } } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-midnight', customCssEnabled: true, a11y: { minContrast: false }, overrides: { colors: { text: '#1A2136', textMuted: '#1A2136' }, customCss: '.msg-content { color: #1A2136; } .btn { color: #1A2136; }' } } });
   await A.p.reload(); await sleep(1000);
   const broken = await A.p.locator('.ch-h h1').evaluate((el) => getComputedStyle(el).color);
   await A.p.keyboard.press('Control+Shift+Alt+KeyR');
   await sleep(500);
   const banner = await seen(A.p.getByText('Safe appearance mode'), 3000);
-  const custom = await A.p.evaluate(() => document.getElementById('syndo-custom-css')?.textContent ?? '');
+  const custom = await A.p.evaluate(() => document.getElementById('send-custom-css')?.textContent ?? '');
   const readable = await A.p.locator('.ch-h h1').evaluate((el) => getComputedStyle(el).color);
   await A.p.screenshot({ path: `${OUT}/recovery-safe-mode.png` });
   await A.p.getByRole('button', { name: 'Reset appearance' }).first().click();
@@ -249,9 +249,9 @@ async function setRange(loc, value) {
   // Acceptance 18: cross-device sync respects device-specific overrides.
   const A2 = await mk({ storageState: await A.c.storageState() });
   await A2.p.goto(`${BASE}/channels/@me`); await sleep(1000);
-  await A2.p.evaluate(() => localStorage.setItem('syndo.device.v1', JSON.stringify({ layout: { nav: 'horizontal' } })));
+  await A2.p.evaluate(() => localStorage.setItem('send.device.v1', JSON.stringify({ layout: { nav: 'horizontal' } })));
   await A2.p.reload(); await sleep(1000);
-  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'syndo-neon' } });
+  await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: 'send-neon' } });
   await sleep(1500);
   const a2Theme = await cssVar(A2.p, '--accent');
   const a2Nav = await A2.p.evaluate(() => document.documentElement.dataset.nav);
@@ -260,14 +260,14 @@ async function setRange(loc, value) {
   check('18. synced theme reaches the other device live; device-only layout stays local', a2Theme === '#FF3FD8' && a2Nav === 'horizontal' && a1Nav === 'vertical', `${a2Theme} ${a2Nav}/${a1Nav}`);
 
   // Acceptance 16: every built-in theme styles the real app incl. dialogs, profiles and call screen.
-  const ids = ['syndo-glass', 'syndo-frost', 'syndo-midnight', 'syndo-oled', 'syndo-aurora', 'syndo-neon', 'syndo-soft', 'syndo-paper', 'syndo-terminal', 'syndo-compact', 'syndo-panorama', 'syndo-canvas'];
+  const ids = ['send-glass', 'send-frost', 'send-midnight', 'send-oled', 'send-aurora', 'send-neon', 'send-soft', 'send-paper', 'send-terminal', 'send-compact', 'send-panorama', 'send-canvas'];
   const vc = guild.channels.find((c) => c.type === 2);
   let allStyled = true; const seenBg = new Set();
   for (const id of ids) {
     await api(A.p, 'PUT', '/api/appearance/global', { data: { themeId: id } });
     await A.p.goto(`${BASE}/channels/${guild.id}/${text.id}`);
     // Wait until this theme's preferences have loaded and been applied (layout may shift once).
-    await A.p.waitForFunction((tid) => document.getElementById('syndo-theme')?.textContent?.length > 0 && window.__syndoTheme === tid, id, { timeout: 8000 }).catch(() => {});
+    await A.p.waitForFunction((tid) => document.getElementById('send-theme')?.textContent?.length > 0 && window.__sendTheme === tid, id, { timeout: 8000 }).catch(() => {});
     await sleep(500);
     for (let attempt = 0; attempt < 3; attempt++) {
       await A.p.locator('.msg-name').first().click();

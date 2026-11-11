@@ -2,7 +2,7 @@ import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import React, { useRef, useState } from "react";
-import { P, type Channel, type Message } from "@syndo/shared";
+import { P, type Channel, type Message } from "@send/shared";
 
 // Render real React controls without needing media devices or a browser installation.
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/channels/@me/saved", pretendToBeVisual: true });
@@ -33,7 +33,7 @@ let saveError = false;
 function seed() {
   requests = []; saveError = false;
   useStore.setState({ conn: "ready", me: { ...alice, settings: {}, status: "online" } as any,
-    guilds: { "300": { id: "300", name: "Syndo friends", owner_id: "100", channels: [channel], me: { user: alice, roles: [] }, roles: [
+    guilds: { "300": { id: "300", name: "SEND friends", owner_id: "100", channels: [channel], me: { user: alice, roles: [] }, roles: [
       { id: "300", name: "@everyone" }, { id: "400", name: "Team", mentionable: true }, { id: "401", name: "Secret", mentionable: false },
     ] } as any }, members: { "300": members as any }, dms: { "201": dm }, messages: { "200": { list: [], loaded: true, loading: false, hasMore: false } }, notice: [], calls: {}, readStates: {}, typing: {} });
   saved = [{ id: "500", channel_id: channel.id, guild_id: channel.guild_id, author: bob, content: "Remember **Friday**", created_at: new Date().toISOString(), attachments: [], mentions: [], mention_roles: [], reactions: [] } as unknown as Message];

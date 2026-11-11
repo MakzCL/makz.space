@@ -1,12 +1,20 @@
 /** Thin fetch wrapper: JSON in/out, cookie session, readable errors. */
 import { previewMode } from "./preview-mode.ts";
+/**
+ * Marks requests as coming from the SEND app (the server checks it when a browser leaves out Origin).
+ * x-syndo-client is the header's name before the rename; the live backend still checks that one until it
+ * is redeployed with this release, so both go out. Drop the old one once every backend is updated.
+ */
+export const CLIENT_HEADERS: Readonly<Record<string, string>> = { "x-send-client": "1", "x-syndo-client": "1" };
+const setClientHeaders = (xhr: XMLHttpRequest) => { for (const [k, v] of Object.entries(CLIENT_HEADERS)) xhr.setRequestHeader(k, v); };
+
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public retryAfter?: number) { super(message); }
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   if (previewMode) return (await import("./preview.ts")).previewRequest<T>(method, path, body);
-  const headers: Record<string, string> = { "x-syndo-client": "1" };
+  const headers: Record<string, string> = { ...CLIENT_HEADERS };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["content-type"] = "application/json"; payload = JSON.stringify(body); }
@@ -41,7 +49,7 @@ export function upload<T = any>(path: string, form: FormData, onProgress: (f: nu
     let meta: any;
     if (cancelled) { rej(new ApiError(0,"aborted","Upload cancelled.")); return; }
     xhr.open("POST", path);
-    xhr.setRequestHeader("x-syndo-client", "1");
+    setClientHeaders(xhr);
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
     xhr.onload = () => {
       let d: any = null; try { d = JSON.parse(xhr.responseText); } catch { /* */ }
@@ -62,7 +70,7 @@ export function uploadLarge<T = any>(channelId: string, file: File, fields: Reco
   if (previewMode) return { promise: Promise.reject(new ApiError(0, "preview", "Uploads need the live server. No sample files were sent.")), cancel() {} };
   let cancelled = false, xhr: XMLHttpRequest | null = null, abortUrl: string | null = null;
   const json = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { "x-syndo-client": "1" };
+    const headers: Record<string, string> = { ...CLIENT_HEADERS };
     if (body !== undefined) headers["content-type"] = "application/json";
     const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "same-origin" });
     const d = await r.json().catch(() => null);
@@ -73,7 +81,7 @@ export function uploadLarge<T = any>(channelId: string, file: File, fields: Reco
     xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     xhr.setRequestHeader("content-type", "application/octet-stream");
-    xhr.setRequestHeader("x-syndo-client", "1");
+    setClientHeaders(xhr!);
     xhr.upload.onprogress = (e) => onBytes(e.loaded);
     xhr.onload = () => { let d: any = null; try { d = JSON.parse(xhr!.responseText); } catch { /* */ } if (xhr!.status >= 200 && xhr!.status < 300) res(d); else rej(new ApiError(xhr!.status, d?.code ?? "error", d?.message ?? "Upload failed.")); };
     xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed — check your connection."));
@@ -100,7 +108,7 @@ export function uploadLarge<T = any>(channelId: string, file: File, fields: Reco
     const done = await json("POST", `/api/channels/${channelId}/attachments/large/finish`, { ticket: t.ticket, filename: file.name, width: num("width"), height: num("height"), duration: num("duration"), waveform: fields.waveform || undefined });
     onProgress(1);
     return done as T;
-  })().catch((e) => { if (abortUrl) fetch(abortUrl, { method: "DELETE", headers: { "x-syndo-client": "1" } }).catch(() => {}); throw e; });
+  })().catch((e) => { if (abortUrl) fetch(abortUrl, { method: "DELETE", headers: CLIENT_HEADERS }).catch(() => {}); throw e; });
   return { promise, cancel: () => { cancelled = true; (xhr as XMLHttpRequest | null)?.abort(); } };
 }
 

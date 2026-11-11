@@ -1,8 +1,8 @@
-import { presetById, DEFAULT_GLOBAL } from "@syndo/shared";
+import { presetById, DEFAULT_GLOBAL } from "@send/shared";
 import {
   DEFAULT_THEME, FONTS, REGION_IDS, mixHex, readableOn, resolveAppearance,
   type Background, type ConversationPrefs, type DeepPartial, type PanelStyle, type RegionId, type Resolved, type ThemeDoc,
-} from "@syndo/shared";
+} from "@send/shared";
 
 /**
  * Turns a resolved theme into CSS custom properties and data attributes on
@@ -96,11 +96,11 @@ export function themeCss(sel: string, r: Resolved, conv: ConversationPrefs = {})
 export function applyToDocument(r: Resolved, conv: ConversationPrefs, customCss: string | null) {
   const t = r.theme;
   const root = document.documentElement;
-  let style = document.getElementById("syndo-theme") as HTMLStyleElement | null;
-  if (!style) { style = document.createElement("style"); style.id = "syndo-theme"; document.head.appendChild(style); }
+  let style = document.getElementById("send-theme") as HTMLStyleElement | null;
+  if (!style) { style = document.createElement("style"); style.id = "send-theme"; document.head.appendChild(style); }
   style.textContent = themeCss(":root", r, conv);
-  let custom = document.getElementById("syndo-custom-css") as HTMLStyleElement | null;
-  if (!custom) { custom = document.createElement("style"); custom.id = "syndo-custom-css"; document.head.appendChild(custom); }
+  let custom = document.getElementById("send-custom-css") as HTMLStyleElement | null;
+  if (!custom) { custom = document.createElement("style"); custom.id = "send-custom-css"; document.head.appendChild(custom); }
   custom.textContent = customCss ?? ""; // already validated + scoped by validateCustomCss
   const L = t.layout;
   Object.assign(root.dataset, {
@@ -117,7 +117,7 @@ export function applyToDocument(r: Resolved, conv: ConversationPrefs, customCss:
 export let timeFormat: "12h" | "24h" | "relative" = "12h";
 
 /* ---------------------------------------------------- startup snapshot -- */
-const SNAP = "syndo.appearance.snapshot.v2";
+const SNAP = "send.appearance.snapshot.v2";
 /** Last applied CSS, so the next start paints with the user's look before preferences load (no flash). */
 /** The wallpaper a theme shows for its scheme, or null. */
 export function activeBackground(t: ThemeDoc): Background | null {
@@ -129,7 +129,7 @@ export function activeBackground(t: ThemeDoc): Background | null {
 export const snapshot: { restored: boolean; bg: Background | null | undefined } = { restored: false, bg: undefined };
 export function saveSnapshot(bg?: Background | null) {
   try {
-    const css = document.getElementById("syndo-theme")?.textContent ?? "";
+    const css = document.getElementById("send-theme")?.textContent ?? "";
     localStorage.setItem(SNAP, JSON.stringify({ css, data: { ...document.documentElement.dataset }, bg: bg ?? null }));
   } catch { /* storage unavailable */ }
 }
@@ -139,7 +139,7 @@ export function restoreSnapshot(): boolean {
     if (!raw) return false;
     const { css, data, bg } = JSON.parse(raw);
     if (typeof css !== "string" || css.length > 200_000) return false;
-    const style = document.createElement("style"); style.id = "syndo-theme"; style.textContent = css; document.head.appendChild(style);
+    const style = document.createElement("style"); style.id = "send-theme"; style.textContent = css; document.head.appendChild(style);
     for (const [k, v] of Object.entries(data ?? {})) if (typeof v === "string" && /^[a-zA-Z]+$/.test(k)) document.documentElement.dataset[k] = v;
     if (typeof data?.scheme === "string") document.documentElement.style.colorScheme = data.scheme;
     snapshot.restored = true;

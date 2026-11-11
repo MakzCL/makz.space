@@ -1,5 +1,5 @@
 {
-  "name": "@syndo/web",
+  "name": "@send/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
-    "@syndo/shared": "0.1.0",
+    "@send/shared": "0.1.0",
     "gifenc": "^1.0.3",
     "gifuct-js": "^2.1.2",
     "libsodium-wrappers": "0.8.4",

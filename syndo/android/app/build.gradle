@@ -1,7 +1,7 @@
 plugins { id 'com.android.application' }
 
-def hosted = providers.gradleProperty('syndoAppUrl').getOrElse('https://syndo.makz.space')
-if (!(hosted ==~ /https:\/\/[A-Za-z0-9.-]+(:443)?\/?/)) throw new GradleException('syndoAppUrl must be an HTTPS origin')
+def hosted = providers.gradleProperty('sendAppUrl').orElse(providers.gradleProperty('syndoAppUrl')).getOrElse('https://syndo.makz.space')
+if (!(hosted ==~ /https:\/\/[A-Za-z0-9.-]+(:443)?\/?/)) throw new GradleException('sendAppUrl must be an HTTPS origin')
 
 android {
     namespace 'space.makz.syndo.preview'

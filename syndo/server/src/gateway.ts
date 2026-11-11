@@ -2,7 +2,7 @@ import { closeSfuSession, closeSfuAccount } from "./sfu.ts";
 import { removeFromRoom } from "./media.ts";
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
-import { ChannelType, P, has, isDmType, isVoiceType, type VoiceState } from "@syndo/shared";
+import { ChannelType, P, has, isDmType, isVoiceType, type VoiceState } from "@send/shared";
 import { allowedOrigins } from "./config.ts";
 import { q } from "./db.ts";
 import { sessionFromToken, tokenFromCookieHeader } from "./auth.ts";

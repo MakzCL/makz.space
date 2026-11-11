@@ -1,7 +1,7 @@
 import { askConfirm, askText } from "./components/overlay.tsx";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { channelById, memberName, useStore } from "./store.ts";
-import { emojiUrl } from "@syndo/shared";
+import { emojiUrl } from "@send/shared";
 import { ThirdPartyEmote } from "./features/Emotes.tsx";
 
 /**

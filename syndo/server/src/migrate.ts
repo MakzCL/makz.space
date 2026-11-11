@@ -1,3 +1,4 @@
+import "./env-compat.ts";
 import { readdir, readFile } from "node:fs/promises";
 import { pool } from "./db.ts";
 

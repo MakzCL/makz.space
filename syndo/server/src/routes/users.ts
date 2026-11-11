@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { DEFAULT_PRIVACY, RelationshipType, validateProfileTheme } from "@syndo/shared";
+import { DEFAULT_PRIVACY, RelationshipType, validateProfileTheme } from "@send/shared";
 import { config } from "../config.ts";
 import { q, q1, tx } from "../db.ts";
-import { requireUser, revokeSessions, uid } from "../auth.ts";
+import { clearSessionCookies, requireUser, revokeSessions, uid } from "../auth.ts";
 import { verifyPassword } from "../crypto.ts";
 import { ApiError, bad, conflict, forbidden, notFound } from "../errors.ts";
 import { newId } from "../ids.ts";
@@ -265,7 +265,7 @@ export async function userRoutes(app: FastifyInstance) {
       attachments: await q("select id::text, filename, content_type, size, created_at from attachments where uploader_id = $1", [me]),
       reactions: await q("select message_id::text, emoji, created_at from reactions where user_id = $1", [me]),
     };
-    reply.header("content-disposition", `attachment; filename="syndo-export-${me}.json"`);
+    reply.header("content-disposition", `attachment; filename="send-export-${me}.json"`);
     return data;
   });
 
@@ -293,7 +293,7 @@ export async function userRoutes(app: FastifyInstance) {
     await revokeSessions(me, null);
     await closeUser(me, "Account deleted");
     await broadcastPresence(me);
-    reply.clearCookie("syndo_session", { path: "/" });
+    clearSessionCookies(reply);
     return { ok: true };
   });
 }

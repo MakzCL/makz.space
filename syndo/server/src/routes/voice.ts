@@ -1,7 +1,7 @@
 import { sfuConfigured, openSfu, iceServers } from "../sfu.ts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ChannelType, MessageType, P, has, isDmType, isVoiceType } from "@syndo/shared";
+import { ChannelType, MessageType, P, has, isDmType, isVoiceType } from "@send/shared";
 import { config } from "../config.ts";
 import { q, q1 } from "../db.ts";
 import { requireUser, uid } from "../auth.ts";

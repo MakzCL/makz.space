@@ -2,7 +2,7 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ChannelType, EXPRESSION_LIMITS, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@syndo/shared";
+import { ChannelType, EXPRESSION_LIMITS, P, PERMISSION_INFO, has, isVoiceType, type Channel, type Guild, type Invite, type Member, type Role } from "@send/shared";
 import { emojiNameFrom, pickFile, playClip, uploadEmoji, uploadSound, uploadSticker } from "../expressions.ts";
 import { Range } from "./Range.tsx";
 import { api, errMsg, upload } from "../api.ts";

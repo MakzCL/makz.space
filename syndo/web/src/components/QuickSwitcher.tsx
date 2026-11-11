@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChannelType, isVoiceType } from "@syndo/shared";
+import { ChannelType, isVoiceType } from "@send/shared";
 import { navigate } from "../router.ts";
 import { displayName, dmTitle, useStore } from "../store.ts";
 import { Modal } from "./ui.tsx";

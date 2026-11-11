@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import webpush from "web-push";
 import { z } from "zod";
-import { MessageType, type Message } from "@syndo/shared";
+import { MessageType, type Message } from "@send/shared";
 import { q, q1 } from "./db.ts";
 import { requireUser, uid } from "./auth.ts";
 import { bad } from "./errors.ts";
@@ -19,9 +19,9 @@ import { PREFIX } from "./routes/encryption.ts";
  * Push goes to people with no open SEND window (or idle), never to Do Not Disturb, never to the author.
  */
 
-const VAPID_PUBLIC = process.env.SYNDO_VAPID_PUBLIC ?? "";
-const VAPID_PRIVATE = process.env.SYNDO_VAPID_PRIVATE ?? "";
-const VAPID_SUBJECT = process.env.SYNDO_VAPID_SUBJECT ?? "mailto:admin@syndo.makz.space";
+const VAPID_PUBLIC = process.env.SEND_VAPID_PUBLIC ?? "";
+const VAPID_PRIVATE = process.env.SEND_VAPID_PRIVATE ?? "";
+const VAPID_SUBJECT = process.env.SEND_VAPID_SUBJECT ?? "mailto:admin@syndo.makz.space";
 const pushReady = !!(VAPID_PUBLIC && VAPID_PRIVATE);
 if (pushReady) webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 

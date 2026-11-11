@@ -9,7 +9,7 @@ import { hasLayers } from "./layers.ts";
  */
 export const phoneQuery = typeof window !== "undefined" ? window.matchMedia("(max-width: 760px)") : null;
 export const isPhone = () => !!phoneQuery?.matches;
-export const setNav = (open?: boolean) => window.dispatchEvent(new CustomEvent("syndo:nav", { detail: { open } }));
+export const setNav = (open?: boolean) => window.dispatchEvent(new CustomEvent("send:nav", { detail: { open } }));
 export const inAndroidApp = typeof navigator !== "undefined" && /SENDAndroid\//.test(navigator.userAgent);
 
 let installed = false;
