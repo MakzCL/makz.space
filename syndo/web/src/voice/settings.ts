@@ -94,3 +94,22 @@ export function captureCapabilities() {
     setSinkId: typeof (HTMLMediaElement.prototype as any).setSinkId === "function",
   };
 }
+
+/**
+ * Audio constraints for screen sharing. Sound is captured untouched (no echo cancellation etc.), and
+ * `restrictOwnAudio` asks the browser to leave SEND's own sound — the call you're in, notification
+ * sounds — out of a shared screen's system audio, so the people watching don't hear themselves back.
+ * Supported by Chromium browsers and the desktop app on Windows/macOS.
+ */
+export function screenAudioConstraints(): MediaTrackConstraints {
+  const supported = !!(navigator.mediaDevices?.getSupportedConstraints?.() as Record<string, boolean> | undefined)?.restrictOwnAudio;
+  return { echoCancellation: false, noiseSuppression: false, autoGainControl: false, ...(supported ? { restrictOwnAudio: true } : {}) } as MediaTrackConstraints;
+}
+/** True when a captured screen-audio track may still include SEND's own sound. */
+export function screenAudioMayEcho(track: MediaStreamTrack | null | undefined) {
+  if (!track) return false;
+  const st = track.getSettings() as MediaTrackSettings & { restrictOwnAudio?: boolean; displaySurface?: string };
+  // A browser tab only carries that tab's sound; whole screens and windows carry the system's.
+  return st.displaySurface !== "browser" && st.restrictOwnAudio !== true;
+}
+export const SCREEN_ECHO_NOTE = "This browser can't keep SEND's own sound out of a shared screen, so people may hear the call echo. Share a tab, or use Chrome, Edge or the SEND desktop app.";

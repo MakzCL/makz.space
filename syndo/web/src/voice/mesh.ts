@@ -2,7 +2,7 @@ import { gwSend } from "../gateway.ts";
 import { onEvent, toast, useStore } from "../store.ts";
 import { primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
-import { streamBitrate, type VoiceSettings } from "./settings.ts";
+import { SCREEN_ECHO_NOTE, screenAudioMayEcho, screenAudioConstraints, streamBitrate, type VoiceSettings } from "./settings.ts";
 
 /**
  * Direct (peer-to-peer) calls — the SK Factory call model, adapted to SEND:
@@ -10,15 +10,18 @@ import { streamBitrate, type VoiceSettings } from "./settings.ts";
  *   device ↔ device, through Cloudflare's TURN relay only when a network needs it.
  * - Who's in the call comes from SEND's voice states; offers/answers/ICE travel over the SEND gateway
  *   (`call_signal`, only relayed between two people in the same voice channel).
- * - Deterministic negotiation: of each pair, the smaller user id is the OFFERER and creates the audio +
- *   video transceivers (always both, so camera/screen switch with replaceTrack, no renegotiation). The
- *   ANSWERER attaches its mic/camera to the slots the offer created.
+ * - Deterministic negotiation: of each pair, the smaller user id is the OFFERER and creates every slot up
+ *   front — mic, camera, screen sound, screen video — so media switches with replaceTrack and never needs
+ *   renegotiation. The ANSWERER attaches its tracks to the slots the offer created.
+ * - Camera and screen use separate video slots, so both can be on at once. Versions before that had one
+ *   video slot (screen, else camera); they don't send `v: 2` in their state, and get that old layout.
  * - Camera/mic/screen state is sent as a "state" message. A failed connection is restarted by the
  *   offerer; the answerer "knocks" to ask for a fresh offer. Peers drop on "bye" or when they leave.
  * - Remote audio plays straight through <audio> elements; WebAudio (if running) only measures levels.
  */
 const CAM = { maxBitrate: 1_500_000, maxFramerate: 30 };
-interface PState { cam: boolean; mic: boolean; share: boolean; shareAudio?: boolean }
+/** `v: 2` = sends camera and screen on separate video slots. */
+interface PState { cam: boolean; mic: boolean; share: boolean; shareAudio?: boolean; v?: number }
 interface MPeer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[]; offerer: boolean; audio: HTMLAudioElement; screenAudio: HTMLAudioElement; state: PState; analyser?: AnalyserNode }
 
 export class MeshCall {
@@ -29,7 +32,7 @@ export class MeshCall {
   local: MediaStream | null = null;
   cam: MediaStreamTrack | null = null;
   screenTrack: MediaStreamTrack | null = null;
-  /** Sound of the shared screen/tab/window (third slot: mic, video, screen audio). */
+  /** Sound of the shared screen/tab/window (slots: mic, camera, screen sound, screen video). */
   screenSound: MediaStreamTrack | null = null;
   preMic: Promise<MediaStream> | null = null;
   stopped = false;
@@ -86,9 +89,24 @@ export class MeshCall {
 
   /* -------------------------------------------------------- signalling -- */
   private signal(to: string, type: string, data?: unknown) { gwSend("call_signal", { to, type, data }); }
-  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack, shareAudio: !!this.screenSound }; }
+  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack, shareAudio: !!this.screenSound, v: 2 }; }
   sendState(to?: string) { const st = this.myState(); if (to) this.signal(to, "state", st); else for (const uid of this.peers.keys()) this.signal(uid, "state", st); }
+  /** What a single-video-slot (older) peer gets: the screen while sharing, else the camera. */
   private outgoingVideo() { return this.screenTrack ?? this.cam ?? null; }
+  private slots(pc: RTCPeerConnection, kind: "audio" | "video") { return pc.getTransceivers().filter((t) => t.receiver.track.kind === kind); }
+  /** Both ends send camera and screen on their own slots (otherwise: the older one-slot layout). */
+  private dual(p: MPeer) { return p.state.v === 2 && this.slots(p.pc, "video").length >= 2; }
+  /** Put my camera, screen and screen sound on this connection's slots. */
+  private async attach(p: MPeer) {
+    const [first, second] = this.dual(p) ? [this.cam, this.screenTrack] : [this.outgoingVideo(), null];
+    for (const [i, tr] of this.slots(p.pc, "video").entries()) {
+      const track = i === 0 ? first : i === 1 ? second : null;
+      if (tr.sender.track !== track) await tr.sender.replaceTrack(track).catch(() => {});
+      this.tuneVideo(tr.sender);
+    }
+    const sound = this.slots(p.pc, "audio")[1];
+    if (sound && sound.sender.track !== this.screenSound) await sound.sender.replaceTrack(this.screenSound).catch(() => {});
+  }
 
   private makePeer(uid: string, offerer: boolean): MPeer {
     const pc = new RTCPeerConnection({ iceServers: this.ice as RTCIceServer[], bundlePolicy: "max-bundle" });
@@ -104,9 +122,11 @@ export class MeshCall {
     if (offerer) {
       const streams = this.local ? [this.local] : [];
       pc.addTransceiver(this.mic ?? "audio", { direction: "sendrecv", streams });
+      // Until their state says otherwise, assume the one-video-slot layout of older versions.
       const v = pc.addTransceiver(this.outgoingVideo() ?? "video", { direction: "sendrecv", streams });
       this.tuneVideo(v.sender);
       pc.addTransceiver(this.screenSound ?? "audio", { direction: "sendrecv", streams });
+      pc.addTransceiver("video", { direction: "sendrecv", streams });
     }
     pc.onicecandidate = (e) => { if (e.candidate) this.signal(uid, "ice", e.candidate.toJSON()); };
     pc.ontrack = (e) => {
@@ -164,16 +184,11 @@ export class MeshCall {
         if (p && p.offerer) { this.drop(from); p = undefined; }
         if (!p) p = this.makePeer(from, false);
         await p.pc.setRemoteDescription(data);
-        // Attach my mic / camera to the slots the offer created.
-        let audioSlot = 0;
-        for (const tr of p.pc.getTransceivers()) {
-          const kind = tr.receiver.track.kind;
-          tr.direction = "sendrecv";
-          const track = kind === "audio" ? (audioSlot++ === 0 ? this.mic : this.screenSound) : this.outgoingVideo();
-          if (tr.sender.track !== track) await tr.sender.replaceTrack(track).catch(() => {});
-          if (this.local) tr.sender.setStreams?.(this.local);
-          if (kind === "video") this.tuneVideo(tr.sender);
-        }
+        // Attach my mic, camera and screen to the slots the offer created.
+        for (const tr of p.pc.getTransceivers()) { tr.direction = "sendrecv"; if (this.local) tr.sender.setStreams?.(this.local); }
+        const mic = this.slots(p.pc, "audio")[0];
+        if (mic && mic.sender.track !== this.mic) await mic.sender.replaceTrack(this.mic).catch(() => {});
+        await this.attach(p);
         for (const q of p.queued.splice(0)) await p.pc.addIceCandidate(q).catch(() => {});
         const ans = await p.pc.createAnswer();
         await p.pc.setLocalDescription(ans);
@@ -191,7 +206,13 @@ export class MeshCall {
         else if (p) p.queued.push(data);
         else this.pendingIce.set(from, [...(this.pendingIce.get(from) ?? []), data]);
       } else if (type === "state") {
-        const p = this.peers.get(from); if (p) { p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share, shareAudio: !!data?.shareAudio }; this.sync(); }
+        const p = this.peers.get(from);
+        if (p) {
+          const was = this.dual(p);
+          p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share, shareAudio: !!data?.shareAudio, v: Number(data?.v) || 1 };
+          if (this.dual(p) !== was) await this.attach(p);
+          this.sync();
+        }
       } else if (type === "knock") {
         if (this.me < from) this.call(from);
       } else if (type === "bye") {
@@ -206,11 +227,21 @@ export class MeshCall {
     const users = useStore.getState().users, prev = useVoice.getState().peers;
     const out: Record<string, Peer> = {};
     for (const [uid, p] of this.peers) {
-      const video = p.stream.getVideoTracks().find((t) => t.readyState === "live" && !t.muted) ?? null;
-      const showVideo = video && (p.state.cam || p.state.share) ? video : null;
+      const live = (t?: MediaStreamTrack | null) => (t && t.readyState === "live" && !t.muted ? t : null);
+      let camera: MediaStreamTrack | null, screen: MediaStreamTrack | null;
+      if (this.dual(p)) {
+        const [first, second] = this.slots(p.pc, "video").map((t) => live(t.receiver.track));
+        camera = p.state.cam ? first ?? null : null;
+        screen = p.state.share ? second ?? null : null;
+      } else {
+        // Older version: one video slot carrying their screen while sharing, else their camera.
+        const video = live(p.stream.getVideoTracks().find((t) => live(t)));
+        const showVideo = video && (p.state.cam || p.state.share) ? video : null;
+        camera = p.state.share ? null : showVideo; screen = p.state.share ? showVideo : null;
+      }
       out[uid] = {
         id: uid, name: users[uid]?.display_name ?? users[uid]?.username ?? uid, speaking: prev[uid]?.speaking ?? false, micMuted: !p.state.mic,
-        camera: p.state.share ? null : showVideo, screen: p.state.share ? showVideo : null, screenAudio: !!p.state.share && !!p.state.shareAudio,
+        camera, screen, screenAudio: !!p.state.share && !!p.state.shareAudio,
         quality: p.pc.connectionState === "connected" ? "good" : p.pc.connectionState,
       };
     }
@@ -286,20 +317,14 @@ export class MeshCall {
   private tuneVideo(sender: RTCRtpSender) {
     try {
       const p = sender.getParameters(); if (!p.encodings?.length) p.encodings = [{}];
-      const screen = !!this.screenTrack, st = useVoice.getState().settings.stream;
+      const screen = !!this.screenTrack && sender.track === this.screenTrack, st = useVoice.getState().settings.stream;
       p.encodings[0]!.maxBitrate = screen ? streamBitrate(st, this.screenTrack?.getSettings().height ?? 1080) : CAM.maxBitrate;
       p.encodings[0]!.maxFramerate = screen ? st.fps : CAM.maxFramerate;
       sender.setParameters(p).catch(() => {});
     } catch { /* not ready yet */ }
   }
   private async replaceVideo() {
-    const track = this.outgoingVideo();
-    for (const p of this.peers.values()) {
-      const tr = p.pc.getTransceivers().find((x) => x.receiver.track.kind === "video");
-      if (tr) { await tr.sender.replaceTrack(track).catch(() => {}); this.tuneVideo(tr.sender); }
-      const sound = p.pc.getTransceivers().filter((x) => x.receiver.track.kind === "audio")[1];
-      if (sound && sound.sender.track !== this.screenSound) await sound.sender.replaceTrack(this.screenSound).catch(() => {});
-    }
+    for (const p of this.peers.values()) await this.attach(p);
     this.sendState();
   }
 
@@ -319,9 +344,10 @@ export class MeshCall {
     const st = useVoice.getState().settings.stream;
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: { height: st.height === "source" ? undefined : { ideal: st.height }, frameRate: { ideal: st.fps } },
-        audio: st.audio ? ({ echoCancellation: false, noiseSuppression: false, autoGainControl: false } as MediaTrackConstraints) : false, ...(st.audio ? { systemAudio: "include" } : {}) } as DisplayMediaStreamOptions);
+        audio: st.audio ? screenAudioConstraints() : false, ...(st.audio ? { systemAudio: "include" } : {}) } as DisplayMediaStreamOptions);
       this.screenTrack = stream.getVideoTracks()[0]!;
       this.screenSound = stream.getAudioTracks()[0] ?? null;
+      if (screenAudioMayEcho(this.screenSound)) toast(SCREEN_ECHO_NOTE, "info");
       if (st.audio && !this.screenSound) toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
       this.screenTrack.contentHint = st.contentHint;
       this.screenTrack.onended = () => { this.stopScreen().catch(() => {}); };

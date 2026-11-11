@@ -10,6 +10,19 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-calls",
+    title: "Camera and screen together",
+    date: "2026-11-11",
+    intro: "Show your face and your screen at the same time.",
+    sections: [
+      { title: "Calls", items: [
+        "Your camera stays on while you share your screen, and people see both.",
+        "Shared screens no longer play the call back to the people watching.",
+        "A voice channel's status now sits under its name in the channel list.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-drawer",
     title: "A tidier phone menu",
     date: "2026-11-11",

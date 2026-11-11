@@ -1,5 +1,14 @@
 # SEND changelog
 
+## 2026-11-11 — Camera and screen together, no call echo in screen shares
+
+- **Camera + screen at once** in direct (peer-to-peer) calls: each connection now has a separate video
+  slot for the screen, so turning on one no longer replaces the other. People on an older cached version
+  still get the old layout (the screen while sharing, else the camera) until they reload.
+- **Screen shares leave SEND's own sound out** (`restrictOwnAudio`), so people watching don't hear the
+  call echoed back through your shared screen or window. Works in Chrome, Edge and the desktop app on
+  Windows and macOS; where the browser can't do it, SEND says so and suggests sharing a tab instead.
+
 ## 2026-11-11 — Syndo → SEND in the code, voice status, GIF and payment setup
 
 - **Voice channel status** now sits inside the channel's own row, under the name, in smaller text.

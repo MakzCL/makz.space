@@ -15,7 +15,7 @@ async function loadLiveKit() { LK ??= await import("livekit-client"); return LK;
 import { api, errMsg } from "../api.ts";
 import { gwSend } from "../gateway.ts";
 import { toast, useStore } from "../store.ts";
-import { DEFAULT_VOICE, loadVoiceSettings, saveVoiceSettings, streamBitrate, type VoiceSettings } from "./settings.ts";
+import { DEFAULT_VOICE, SCREEN_ECHO_NOTE, loadVoiceSettings, saveVoiceSettings, screenAudioConstraints, screenAudioMayEcho, streamBitrate, type VoiceSettings } from "./settings.ts";
 
 /**
  * Voice / video / screen sharing over a LiveKit SFU.
@@ -441,7 +441,7 @@ export async function startScreenShare() {
   const source = st.height === "source";
   try {
     const tracks = await LK.createLocalScreenTracks({
-      audio: st.audio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } as any : false,
+      audio: st.audio ? screenAudioConstraints() as any : false,
       // Source: no resolution constraint → the browser captures at the surface's native size.
       resolution: source ? undefined : { width: Math.round((st.height as number) * 16 / 9), height: st.height as number, frameRate: st.fps },
       contentHint: st.contentHint,
@@ -472,6 +472,7 @@ export async function startScreenShare() {
     } as any);
     screenPubs = [pub];
     const audio = tracks.find((t) => t.kind === LK.Track.Kind.Audio);
+    if (screenAudioMayEcho(audio?.mediaStreamTrack)) toast(SCREEN_ECHO_NOTE, "info");
     if (audio) screenPubs.push(await room.localParticipant.publishTrack(audio, { source: LK.Track.Source.ScreenShareAudio, dtx: false, red: false, audioPreset: { maxBitrate: 128_000 }, forceStereo: true } as any));
     else if (st.audio) toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
     video.mediaStreamTrack.addEventListener("ended", () => stopScreenShare());
