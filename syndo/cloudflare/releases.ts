@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-const installer = "SEND-Setup-0.6.1.exe";
+const installer = "SEND-Setup-0.6.2.exe";
 const allowed = new Set([installer, `${installer}.blockmap`, "latest.yml"]);
 
 /** Android APK, published to the same public bucket as the Windows installer. */
