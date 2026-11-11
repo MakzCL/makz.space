@@ -10,6 +10,37 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-polish",
+    title: "Polish and phones",
+    date: "2026-11-11",
+    intro: "A tidier phone layout, big uploads, 7TV and BTTV emotes and a nicer call screen.",
+    sections: [
+      { title: "On your phone", items: [
+        "A back arrow with your waiting mentions, and the online count under the channel name.",
+        "Chat fills the whole screen, edge to edge.",
+        "The message box is one rounded bar.",
+        "A round button jumps back to the newest message.",
+        "Threads, members, pins and notification settings moved into the menu.",
+      ] },
+      { title: "Calls", items: [
+        "Arrow menus on the mic and camera buttons to switch devices.",
+        "Chat beside the call, with message previews.",
+        "Invite people or start an activity when you're alone in a call.",
+      ] },
+      { title: "Files and emotes", items: [
+        "Upload files up to 500 MB in boosted servers.",
+        "7TV and BTTV emotes, typed as :name: or picked from the emoji menu.",
+      ] },
+      { title: "Little things", items: [
+        "Headings come in three sizes and numbered lists keep their numbers.",
+        "The edited mark sits next to the message.",
+        "Date lines are shorter.",
+        "Menus open next to their button and stay on screen.",
+        "SEND for Windows 0.6.1 fixes the window buttons and push-to-talk.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-major",
     title: "The big update",
     date: "2026-11-10",

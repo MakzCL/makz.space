@@ -1,5 +1,18 @@
 # SEND restore points
 
+## 2026-11-11 — polish pass (Discord-like phone layout, text details, changelog entry)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `2975a97d-a008-4f41-a35e-05590f89a3dc` (commit `47f2382`) |
+| Backend | unchanged (Worker version `5b680e1c-71f4-41b6-b0f7-784b2c4fb499`) |
+| Source | branch `backup/pre-polish-20261111`; database unchanged |
+
+Web only. Phones: back arrow with mention badge, online count under the channel name (tap for members), search + menu only, edge-to-edge chat, one-pill message box, round jump-to-present button. Everywhere: heading sizes, numbered lists, inline "(edited)", shorter date lines, shorter mutual-server list, a second "What's new" entry.
+
+### Roll back
+Pages → `syndo-app` → Deployments → `2975a97d` → Rollback to this deployment.
+
 ## 2026-11-10 — desktop 0.6.1 (window buttons, push-to-talk and in-app updates work again)
 
 | Layer | Restore point (before this release) |

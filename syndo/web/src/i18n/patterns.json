@@ -23,6 +23,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Dobrze cię znowu widzieć w $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
 ]
 ],
 "fr": [
@@ -49,6 +53,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Ravi de vous revoir sur $1."
+],
+[
+"^(\\d+) Online$",
+"$1 en ligne"
 ]
 ],
 "es": [
@@ -75,6 +83,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Qué bien verte de nuevo en $1."
+],
+[
+"^(\\d+) Online$",
+"$1 en línea"
 ]
 ],
 "de": [
@@ -101,6 +113,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Schön, dich wieder auf $1 zu sehen."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
 ]
 ],
 "pt": [
@@ -127,6 +143,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Que bom ver você de novo no $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
 ]
 ],
 "it": [
@@ -153,6 +173,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Che bello rivederti su $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
 ]
 ],
 "nl": [
@@ -179,6 +203,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Fijn je weer te zien op $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
 ]
 ],
 "ru": [
@@ -205,6 +233,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Рады снова видеть вас в $1."
+],
+[
+"^(\\d+) Online$",
+"$1 в сети"
 ]
 ],
 "uk": [
@@ -231,6 +263,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Раді знову бачити вас у $1."
+],
+[
+"^(\\d+) Online$",
+"$1 у мережі"
 ]
 ],
 "ar": [
@@ -257,6 +293,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "سعداء برؤيتك مجددًا على $1."
+],
+[
+"^(\\d+) Online$",
+"$1 متصل"
 ]
 ],
 "tr": [
@@ -283,6 +323,10 @@
 [
 "^Good to see you again on (.+)\\.$",
 "Seni $1'de yeniden görmek güzel."
+],
+[
+"^(\\d+) Online$",
+"$1 çevrimiçi"
 ]
 ]
 }

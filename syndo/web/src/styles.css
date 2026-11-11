@@ -1821,3 +1821,37 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .menu.guild-menu { min-width: 220px; }
 .menu.guild-menu [role=menuitem] { white-space: nowrap; }
 .activity-menu { max-width: calc(100vw - 16px); }
+
+/* ------------------------------------------------------------- polish pass -- */
+.md-h1 { font-size: 1.5em; line-height: 1.25; } .md-h2 { font-size: 1.25em; } .md-h3 { font-size: 1.05em; }
+.edited-tag { font-size: .68rem; user-select: none; }
+.msg-content > .md-p:has(+ .edited-tag) { display: inline; }
+.ch-title { display: flex; align-items: center; min-width: 0; gap: 8px; }
+.ch-sub { align-items: center; gap: 5px; color: var(--textMuted); font-size: .72rem; font-weight: 600; }
+.dot-online { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-online); display: inline-block; }
+.m-nav-badge { position: absolute; left: 14px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: var(--brand-danger); color: #fff; font-size: .68rem; font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--bg1); }
+
+@media (max-width: 760px) {
+  /* Header like Discord's phone app: back arrow, name with the online count under it, search. */
+  .m-nav-btn { position: relative; }
+  .ch-h .ch-title { flex-direction: column; align-items: flex-start; gap: 0; flex: 1; cursor: pointer; }
+  .ch-h .ch-title h1 { max-width: 100%; }
+  .ch-sub.m-only { display: inline-flex !important; }
+  .ch-h .topic { display: none; }
+  /* Chat fills the screen edge to edge. */
+  .channel .ch-main { border-radius: 0 !important; border: 0 !important; box-shadow: none !important; margin: 0 !important; }
+  .channel .ch-body { gap: 0 !important; padding: 0 !important; }
+  /* "Jump to present" is a round button above the message box. */
+  .jump-present { position: fixed; top: auto; right: 14px; bottom: calc(var(--composer-h, 64px) + 14px); width: 46px; height: 46px; padding: 0; margin: 0; border-radius: 14px; justify-content: center; box-shadow: 0 6px 18px #0007; z-index: 6; }
+  .jump-present > span { display: none; }
+  .jump-present button { font-size: 0; gap: 0; width: 100%; height: 100%; justify-content: center; color: var(--text); }
+  .jump-present button svg { width: 22px; height: 22px; }
+  /* One pill for the message box: + on the left, emoji and mic inside. */
+  .composer { background: var(--r-composer-bg, color-mix(in srgb, var(--bg3) 92%, #000)) !important; backdrop-filter: var(--r-composer-blur, none) !important; -webkit-backdrop-filter: var(--r-composer-blur, none) !important;
+    border: var(--r-composer-border, 1px solid color-mix(in srgb, var(--text) 8%, transparent)) !important; border-radius: 26px !important; padding: 3px 5px !important; gap: 0 !important; align-items: flex-end; }
+  .composer-plus, .composer-field, .composer > .icon-btn[aria-label="Record a voice message"], .composer > .icon-btn[aria-label="Stop recording"] { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  .composer-plus { width: 42px !important; height: 42px !important; }
+  .composer-field { padding: 0 2px 0 4px; min-height: 42px; border-radius: 0; }
+  .composer > .icon-btn[aria-label="Record a voice message"], .composer > .icon-btn[aria-label="Stop recording"] { width: 42px !important; height: 42px !important; }
+  .composer-send.ready { width: 38px !important; height: 38px !important; margin: 2px; }
+}

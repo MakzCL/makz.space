@@ -187,7 +187,7 @@ export function ProfileCard({ userId, guildId, anchor, onClose }: { userId: stri
               {m && guild && m.roles.length > 0 && <section><h3>Roles</h3><div className="role-chips">{guild.roles.filter((r) => m.roles.includes(r.id)).sort((a, b) => b.position - a.position).map((r) => <span key={r.id} className="role-chip"><i style={{ background: r.color ?? "var(--textFaint)" }} />{r.name}</span>)}</div></section>}
               {userId !== meId && (p.mutual_guilds.length > 0 || p.mutual_friends.length > 0) && (
                 <section><h3>Mutuals</h3><p className="small muted">{p.mutual_guilds.length} mutual server{p.mutual_guilds.length === 1 ? "" : "s"} · {p.mutual_friends.length} mutual friend{p.mutual_friends.length === 1 ? "" : "s"}</p>
-                  <p className="small">{p.mutual_guilds.map((g) => g.name).join(", ")}</p></section>
+                  <p className="small">{p.mutual_guilds.slice(0, 3).map((g) => g.name).join(", ")}{p.mutual_guilds.length > 3 ? ` +${p.mutual_guilds.length - 3}` : ""}</p></section>
               )}
               {userId !== meId && (
                 <div className="pc-actions">

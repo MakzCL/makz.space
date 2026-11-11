@@ -21,7 +21,7 @@ import { joinVoice, useVoice } from "../voice/session.ts";
 import { primeCallAudio } from "../voice/cloudflare.ts";
 import { openDialog } from "./Shell.tsx";
 import { Avatar, fmtBytes, fmtTime, MobileNavButton } from "./ui.tsx";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, ChevronRight } from "lucide-react";
 import { ProfileCard } from "./Dialogs.tsx";
 import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuItem } from "./overlay.tsx";
 import { copy, developerMode, userMenuItems } from "./menus.tsx";
@@ -107,13 +107,16 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       <header className="ch-h" data-region="header">
         <MobileNavButton />
         {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <ChannelGlyph c={channel} size={22} className="muted" />}
+        <div className="ch-title" onClick={() => { if (isPhone() && (guildId || channel.type === ChannelType.GROUP_DM)) setPanel(panel === "members" ? null : "members"); }}>
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
+        {guildId && <OnlineCount guildId={guildId} />}
+        </div>
         {isThreadType(channel.type) && <ThreadHeader channel={channel} />}
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
         <div className="ch-actions">
           {channel.type === ChannelType.ANNOUNCEMENT && <FollowButton channel={channel} />}
-          {(channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && <button className={`icon-btn ${panel === "threads" ? "active" : ""}`} aria-pressed={panel === "threads"} aria-label="Threads" title="Threads" onClick={() => setPanel(panel === "threads" ? null : "threads")}><MessageSquare size={20} /></button>}
-          {!isDm && <ChannelBell channel={channel} />}
+          {(channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && <button className={`icon-btn d-only ${panel === "threads" ? "active" : ""}`} aria-pressed={panel === "threads"} aria-label="Threads" title="Threads" onClick={() => setPanel(panel === "threads" ? null : "threads")}><MessageSquare size={20} /></button>}
+          {!isDm && <span className="d-only"><ChannelBell channel={channel} /></span>}
           <button className={`icon-btn d-only ${muted ? "active" : ""} ${isDm ? "" : "hidden"}`} disabled={muteBusy} aria-pressed={muted} aria-label={muted ? "Unmute conversation" : "Mute conversation"} title={muted ? "Unmute notifications" : "Mute notifications"} onClick={async () => {
             setMuteBusy(true);
             try { await setConversationMuted(channelId, !muted); toast(muted ? "Notifications unmuted." : "Conversation muted. You can still read and send messages.", "success"); }
@@ -124,11 +127,14 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           {isDm && <button className="icon-btn" aria-label="Start video call" title="Video call" onClick={() => startCall(true)}><Video size={20} /></button>}
           {isDm && channel.type === ChannelType.GROUP_DM && <button className="icon-btn" aria-label="Add friends" onClick={() => openDialog({ kind: "groupDm" })}><UserPlus size={20} /></button>}
           <button className={`icon-btn d-only ${panel === "pins" ? "active" : ""}`} aria-pressed={panel === "pins"} aria-label="Pinned messages" onClick={() => setPanel(panel === "pins" ? null : "pins")}><Pin size={20} /></button>
-          {(guildId || channel.type === ChannelType.GROUP_DM) && <button className={`icon-btn ${panel === "members" ? "active" : ""}`} aria-pressed={panel === "members"} aria-label="Member list" onClick={() => setPanel(panel === "members" ? null : "members")}><Users size={20} /></button>}
+          {(guildId || channel.type === ChannelType.GROUP_DM) && <button className={`icon-btn d-only ${panel === "members" ? "active" : ""}`} aria-pressed={panel === "members"} aria-label="Member list" onClick={() => setPanel(panel === "members" ? null : "members")}><Users size={20} /></button>}
           <button className={`icon-btn ${panel === "search" ? "active" : ""}`} aria-pressed={panel === "search"} aria-label="Search" onClick={() => setPanel(panel === "search" ? null : "search")}><Search size={20} /></button>
           <button className={`icon-btn d-only ${panel === "appearance" ? "active" : ""}`} aria-pressed={panel === "appearance"} aria-label="Edit appearance for this conversation" title="Edit appearance" onClick={() => setPanel(panel === "appearance" ? null : "appearance")}><Palette size={20} /></button>
           <button className="icon-btn m-only" aria-label="More options" onClick={(e) => openContextMenu({ clientX: 1, clientY: 1, preventDefault: () => e.preventDefault() }, [
+            ...(guildId || channel.type === ChannelType.GROUP_DM ? [{ label: "Members", onSelect: () => setPanel("members") }] : []),
+            ...(channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT ? [{ label: "Threads", onSelect: () => setPanel("threads") }] : []),
             { label: "Pinned messages", onSelect: () => setPanel("pins") },
+            ...(guild ? [{ label: "Notification settings", onSelect: () => { void import("../features/Notifications.tsx").then((m) => m.openServerNotifications(guild)); } }] : []),
             { label: muted ? "Unmute notifications" : "Mute notifications", onSelect: () => setConversationMuted(channelId, !muted).catch((x) => toast(errMsg(x), "error")) },
             { label: "Conversation appearance", onSelect: () => setPanel("appearance") },
           ])}><MoreVertical size={20} /></button>
@@ -158,6 +164,13 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
       {profile && <ProfileCard userId={profile.id} guildId={guildId} anchor={profile.el} onClose={() => setProfile(null)} />}
     </div>
   );
+}
+
+/** "5 Online" under the channel name on phones, like Discord. */
+function OnlineCount({ guildId }: { guildId: string }) {
+  const n = useStore((s) => { const m = s.members[guildId]; if (!m) return -1; let c = 0; for (const id in m) { const p = s.presences[id]; if (p && p !== "offline" && p !== "invisible") c++; } return c; });
+  if (n < 0) return null;
+  return <small className="ch-sub m-only"><i className="dot-online" aria-hidden />{n} Online <ChevronRight size={12} aria-hidden /></small>;
 }
 
 /** The text chat beside a voice call (voice channels have their own messages, like Discord). */
@@ -303,7 +316,7 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
         const newLine = m.id === unread.firstId;
         return (
           <div key={m.id}>
-            {day && <div className="day-div" role="separator"><span>{new Date(m.created_at).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span></div>}
+            {day && <div className="day-div" role="separator"><span>{new Date(m.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</span></div>}
             {newLine && <div className="new-div" role="separator" aria-label="New messages"><span>New</span></div>}
             <MessageRow m={m} channel={channel} grouped={grouped} onReply={onReply} mdCtx={mdCtx} />
           </div>
@@ -411,7 +424,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
             <div className="msg-content">
               {m.content && !(m.embeds?.length === 1 && (m.embeds[0]!.type === "gifv" || m.embeds[0]!.type === "image") && m.embeds[0]!.url === m.content.trim()) && <Markdown text={m.content} ctx={mdCtx} />}
               {!m.content && (m.interaction as any)?.deferred && !m.embeds?.length && <em className="muted">{m.author.display_name || m.author.username} is thinking…</em>}
-              {m.edited_at && <span className="muted small" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
+              {m.edited_at && <span className="muted edited-tag" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
           )}
           {(m.stickers?.length ?? 0) > 0 && <div className="msg-stickers">{m.stickers!.map((st) => <img key={st.id} className="msg-sticker" src={st.url} alt={`Sticker: ${st.name}`} title={st.name} draggable={false} loading="lazy" />)}</div>}

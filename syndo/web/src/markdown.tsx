@@ -59,14 +59,15 @@ function blocks(text: string, ctx: MdCtx): ReactNode[] {
       continue;
     }
     const h = line.match(/^(#{1,3}) (.+)$/);
-    if (h) { flush(); const Tag = (["h3", "h4", "h5"] as const)[h[1]!.length - 1]!; out.push(<Tag key={k++} className="md-h">{inline(h[2]!, ctx)}</Tag>); i++; continue; }
+    if (h) { flush(); const Tag = (["h3", "h4", "h5"] as const)[h[1]!.length - 1]!; out.push(<Tag key={k++} className={`md-h md-h${h[1]!.length}`}>{inline(h[2]!, ctx)}</Tag>); i++; continue; }
     const sub = line.match(/^-# (.+)$/);
     if (sub) { flush(); out.push(<small key={k++} className="md-sub">{inline(sub[1]!, ctx)}</small>); i++; continue; }
     if (/^\s*([-*]|\d{1,3}\.) /.test(line)) {
       flush();
       const ordered = /^\s*\d/.test(line);
       const items: string[] = [];
-      while (i < lines.length && /^\s*([-*]|\d{1,3}\.) /.test(lines[i]!)) items.push(lines[i++]!.replace(/^\s*([-*]|\d{1,3}\.) /, ""));
+      // A bulleted list followed by a numbered one (or the reverse) is two lists.
+      while (i < lines.length && /^\s*([-*]|\d{1,3}\.) /.test(lines[i]!) && /^\s*\d/.test(lines[i]!) === ordered) items.push(lines[i++]!.replace(/^\s*([-*]|\d{1,3}\.) /, ""));
       const L = ordered ? "ol" : "ul";
       out.push(<L key={k++}>{items.map((it, j) => <li key={j}>{inline(it, ctx)}</li>)}</L>);
       continue;
