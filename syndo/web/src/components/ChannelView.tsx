@@ -963,7 +963,7 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
               <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)} onContextMenu={(e) => { const el = e.currentTarget; openContextMenu(e, userMenuItems(m.user, { guildId, onProfile: () => onProfile(m.user.id, el) })); }}>
                 <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} serverTheme={m.guild_profile_theme ?? undefined} />
                 <span className="member-txt"><span className="ellipsis block" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}{m.premium_since && <span title="Server Booster" aria-label="Server Booster"> ✨</span>}{m.user.bot && <span className="tag">APP</span>}</span>
-                  <MemberActivity id={m.user.id} /></span>
+                  <MemberActivity id={m.user.id} status={status === "offline" ? null : (m as any).guild_status ?? null} /></span>
               </button>
             );
           })}
@@ -973,8 +973,12 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
   );
 }
 
-function MemberActivity({ id }: { id: string }) {
+/** Under a member's name: their custom status (server profile first), else what they're doing. */
+function MemberActivity({ id, status }: { id: string; status?: { text: string; emoji?: string | null } | null }) {
   const a = useStore((s) => s.activities[id]);
+  const global = useStore((s) => (s.me?.id === id ? s.me.custom_status : s.customStatuses[id]));
+  const cs = status?.text ? status : global;
+  if (cs?.text) return <small className="ellipsis block member-act member-status" title={cs.text}>{cs.emoji ? `${cs.emoji} ` : ""}{cs.text}</small>;
   if (!a) return null;
   return <small className="muted ellipsis block member-act">{["Playing", "Streaming", "Listening to", "Watching", "", "Competing in"][a.type] ?? "Playing"} <strong>{a.name}</strong></small>;
 }

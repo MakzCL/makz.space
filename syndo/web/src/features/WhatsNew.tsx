@@ -18,6 +18,7 @@ export const CHANGELOG: Release[] = [
       { title: "Messages", items: [
         "Emotes show as pictures while you type, not as codes.",
         "Backspace removes a whole emote at once.",
+        "People's statuses show under their names in the member list.",
         "\"Jump to present\" disappears once you're back at the newest messages.",
       ] },
     ],

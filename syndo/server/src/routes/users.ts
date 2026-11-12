@@ -99,6 +99,7 @@ export async function userRoutes(app: FastifyInstance) {
     if (b.status) set("status", b.status);
     if (sets.length) await q(`update users set ${sets.join(", ")} where id = $1`, vals);
     if (b.status) { const { setStatus } = await import("../gateway.ts"); await setStatus(uid(req), b.status); }
+    if (b.custom_status !== undefined) { const { setCustomStatus } = await import("../gateway.ts"); await setCustomStatus(uid(req), b.custom_status ?? null); }
     await publishUser(uid(req));
     return selfOut(await q1("select * from users where id = $1", [uid(req)]));
   });

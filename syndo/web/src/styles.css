@@ -2056,3 +2056,6 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .ta-mirror { position: absolute; inset: 0; overflow: hidden; white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; pointer-events: none; margin: 0; color: inherit; }
 .ta-emote { position: relative; color: transparent; }
 .ta-emote img { position: absolute; left: 50%; top: 50%; translate: -50% -50%; height: 1.45em; max-width: 3.2em; object-fit: contain; }
+/* Custom status under a member's name (same look as a voice channel's status) */
+.member-status { font-size: .72rem; font-weight: 500; color: var(--textMuted); margin-top: 1px; line-height: 1.25; }
+.member:hover .member-status { color: color-mix(in srgb, var(--text) 70%, transparent); }

@@ -36,6 +36,15 @@ const voice = new Map<string, VoiceState & { session_id: string }>();
 /** "Playing …" / listening / watching, per user (in memory, cleared on disconnect). */
 const activities = new Map<string, { type: number; name: string; details: string | null; state: string | null; started_at: number; url: string | null }>();
 export const activityOf = (uid: string) => activities.get(uid) ?? null;
+/** Custom statuses ("text under the name") of people who are online, kept in memory for presence updates. */
+type CustomStatus = { text: string; emoji?: string | null; expires_at?: string | null };
+const customStatuses = new Map<string, CustomStatus>();
+const liveStatus = (cs: CustomStatus | null | undefined) =>
+  cs && cs.text && !(cs.expires_at && Date.parse(cs.expires_at) < Date.now()) ? { text: cs.text, emoji: cs.emoji ?? null } : null;
+export async function setCustomStatus(uid: string, cs: CustomStatus | null) {
+  if (cs) customStatuses.set(uid, cs); else customStatuses.delete(uid);
+  if (byUser.has(uid)) await broadcastPresence(uid);
+}
 
 export const onlineUserIds = () => [...byUser.keys()];
 export const isOnline = (uid: string) => byUser.has(uid);
@@ -99,7 +108,7 @@ async function presenceAudience(uid: string): Promise<string[]> {
 
 export async function broadcastPresence(uid: string) {
   const st = presenceOf(uid);
-  const d = { user_id: uid, status: st, activity: st === "offline" ? null : activities.get(uid) ?? null };
+  const d = { user_id: uid, status: st, activity: st === "offline" ? null : activities.get(uid) ?? null, custom_status: st === "offline" ? null : liveStatus(customStatuses.get(uid)) };
   toUsers(await presenceAudience(uid), "PRESENCE_UPDATE", d);
   toUser(uid, "PRESENCE_UPDATE", { ...d, self_status: status.get(uid) ?? "offline" });
 }
@@ -236,10 +245,18 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
     byUser.get(conn.userId)!.add(conn);
     if (!bySession.has(conn.sessionId)) bySession.set(conn.sessionId, new Set());
     bySession.get(conn.sessionId)!.add(conn);
-    if (first) status.set(conn.userId, sess.status);
+    if (first) {
+      status.set(conn.userId, sess.status);
+      const own = (await q<{ custom_status: CustomStatus | null }>("select custom_status from users where id = $1", [conn.userId]))[0];
+      if (own?.custom_status) customStatuses.set(conn.userId, own.custom_status); else customStatuses.delete(conn.userId);
+    }
     const presences: Record<string, string> = {};
     const acts: Record<string, unknown> = {};
-    for (const uid of await presenceAudience(conn.userId)) { presences[uid] = presenceOf(uid); const a = activities.get(uid); if (a && presences[uid] !== "offline") acts[uid] = a; }
+    const statuses: Record<string, unknown> = {};
+    for (const uid of await presenceAudience(conn.userId)) {
+      presences[uid] = presenceOf(uid); const a = activities.get(uid); if (a && presences[uid] !== "offline") acts[uid] = a;
+      const cs = presences[uid] !== "offline" ? liveStatus(customStatuses.get(uid)) : null; if (cs) statuses[uid] = cs;
+    }
     const vs = voiceStates().filter(Boolean);
     // Only voice states in channels this user can see.
     const visible: VoiceState[] = [];
@@ -247,7 +264,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
       const ch = await getChannel(v.channel_id);
       if (ch && has(await permsFor(conn.userId, ch), P.VIEW_CHANNEL)) visible.push({ ...v, user: await voiceUser(v.user_id) } as VoiceState);
     }
-    sendRaw(conn, "READY", { ...(await buildReady(conn.userId, conn.sessionId, presences, visible)), activities: acts });
+    sendRaw(conn, "READY", { ...(await buildReady(conn.userId, conn.sessionId, presences, visible)), activities: acts, custom_statuses: statuses });
     if (first) await broadcastPresence(conn.userId);
   };
 
@@ -342,7 +359,7 @@ async function onConnection(ws: WebSocket, req: IncomingMessage) {
     if (!byUser.get(c.userId)?.size) {
       byUser.delete(c.userId);
       status.delete(c.userId);
-      activities.delete(c.userId);
+      activities.delete(c.userId); customStatuses.delete(c.userId);
       await broadcastPresence(c.userId).catch(() => {});
     }
   });

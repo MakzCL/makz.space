@@ -34,6 +34,7 @@ interface S {
   notif: Record<string, NotificationSetting>;
   /** "Playing …" etc. by user id. */
   activities: Record<string, Activity>;
+  customStatuses: Record<string, { text: string; emoji?: string | null }>;
   events: Record<string, GuildEvent[]>;
   stages: Record<string, StageInstance>;
 }
@@ -41,7 +42,7 @@ interface S {
 export const useStore = create<S>(() => ({
   conn: "booting", me: null, guilds: {}, dms: {}, relationships: {}, presences: {}, users: {}, members: {},
   messages: {}, readStates: {}, typing: {}, voice: {}, calls: {}, limits: null, sessionId: null, notice: [],
-  threads: {}, joinedThreads: [], notif: {}, activities: {}, events: {}, stages: {},
+  threads: {}, joinedThreads: [], notif: {}, activities: {}, customStatuses: {}, events: {}, stages: {},
 }));
 const set = useStore.setState;
 const get = useStore.getState;
@@ -172,7 +173,7 @@ export function dispatch(t: string, d: any) {
       const stages: Record<string, StageInstance> = {};
       for (const g of d.guilds) for (const st of g.stage_instances ?? []) stages[st.channel_id] = st;
       set({ conn: "ready", me: { ...d.user, has_passkey: d.has_passkey }, guilds, dms, relationships, readStates, voice, presences: d.presences, limits: d.limits, sessionId: d.session_id,
-        notif, stages, activities: d.activities ?? {}, joinedThreads: d.joined_threads ?? [] });
+        notif, stages, activities: d.activities ?? {}, customStatuses: d.custom_statuses ?? {}, joinedThreads: d.joined_threads ?? [] });
       remember([d.user, ...d.relationships.map((r: Relationship) => r.user), ...d.private_channels.flatMap((c: Channel) => c.recipients ?? []), ...d.voice_states.map((v: VoiceState) => v.user).filter(Boolean)]);
       break;
     }
@@ -186,7 +187,9 @@ export function dispatch(t: string, d: any) {
     case "PRESENCE_UPDATE": set((st) => {
       const activities = { ...st.activities };
       if (d.activity) activities[d.user_id] = d.activity; else delete activities[d.user_id];
-      return { presences: { ...st.presences, [d.user_id]: d.status }, activities, me: d.self_status && st.me ? { ...st.me, status: d.self_status } : st.me };
+      const customStatuses = { ...st.customStatuses };
+      if (d.custom_status) customStatuses[d.user_id] = d.custom_status; else if ("custom_status" in d || d.status === "offline") delete customStatuses[d.user_id];
+      return { presences: { ...st.presences, [d.user_id]: d.status }, activities, customStatuses, me: d.self_status && st.me ? { ...st.me, status: d.self_status } : st.me };
     }); break;
     case "THREAD_CREATE": case "THREAD_UPDATE": putThreads([d]); break;
     case "THREAD_DELETE": set((st) => { const threads = { ...st.threads }; delete threads[d.id]; return { threads }; }); break;

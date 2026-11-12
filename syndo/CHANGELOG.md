@@ -1,5 +1,11 @@
 # SEND changelog
 
+## 2026-11-12 — Statuses under names
+
+- **Custom statuses show under people's names in the member list**, small, like a voice channel's status (a
+  server-profile status wins over the global one). They arrive with presence (READY `custom_statuses`, and
+  `custom_status` on PRESENCE_UPDATE) and update live; offline people show none.
+
 ## 2026-11-12 — Emotes in the message box, jump to present
 
 - **Emotes show as pictures while you type** (custom emoji and 7TV/BTTV): the box holds `:name:` with the picture
