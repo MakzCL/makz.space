@@ -3,7 +3,7 @@ export const BRAND = {
   name: "SEND",
   tagline: "Talk together. Belong together.",
   description:
-    "SEND is a free place for friends and communities to chat, call, share their screens and hang out — every feature, for everyone.",
+    "SEND is a free place for friends and communities to chat, call, share their screens and hang out: every feature, for everyone.",
   /** Shown in email footers and the about panel. */
   publisher: "SEND",
   supportEmail: "support@send.local",

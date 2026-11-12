@@ -75,7 +75,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
           {nat && tab !== "device" && natList === null && <p className="muted share-note">Looking for {tab === "window" ? "windows" : "screens"}…</p>}
           {nat && tab !== "device" && natList !== null && natOf(tab === "window" ? "window" : "screen").length === 0 && <p className="muted share-note">{tab === "window" ? "No windows to share. Open the app you want to show, then come back." : "No screens found."}</p>}
           {nat && tab !== "device" && natOf(tab === "window" ? "window" : "screen").map((x) => (
-            <button key={x.id} className={`share-card ${natSel?.id === x.id ? "on" : ""}`} aria-pressed={natSel?.id === x.id} title={x.app ? `${x.name} — ${x.app}` : x.name}
+            <button key={x.id} className={`share-card ${natSel?.id === x.id ? "on" : ""}`} aria-pressed={natSel?.id === x.id} title={x.app ? `${x.name}: ${x.app}` : x.name}
               onClick={() => setNatPick(x.id)} onDoubleClick={() => go({ kind: "native", id: x.id })}>
               <span className="share-thumb native">{x.thumb ? <img src={x.thumb} alt="" draggable={false} /> : <span className="share-thumb-icon">{x.kind === "screen" ? <Monitor size={40} /> : <AppWindow size={40} />}</span>}</span>
               <span className="share-name">{x.name}</span>

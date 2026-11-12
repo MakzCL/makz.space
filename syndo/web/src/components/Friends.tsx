@@ -41,8 +41,8 @@ export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
       <div className="friends-body">
         {tab === "add" ? <AddFriend /> : (
           <>
-            <h2 className="side-sec">{tab === "online" ? "Online" : tab === "all" ? "All friends" : tab === "pending" ? "Pending" : "Blocked"} — {list.length}</h2>
-            {!list.length && <p className="muted pad list-empty">{tab === "online" ? "No friends are online right now." : tab === "pending" ? "No pending requests." : tab === "blocked" ? "You haven't blocked anyone." : "No friends yet — add someone by their username."}</p>}
+            <h2 className="side-sec">{tab === "online" ? "Online" : tab === "all" ? "All friends" : tab === "pending" ? "Pending" : "Blocked"}: {list.length}</h2>
+            {!list.length && <p className="muted pad list-empty">{tab === "online" ? "No friends are online right now." : tab === "pending" ? "No pending requests." : tab === "blocked" ? "You haven't blocked anyone." : "No friends yet: add someone by their username."}</p>}
             <ul className="friend-list">
               {list.map((r) => (
                 <li key={r.id} className="friend">

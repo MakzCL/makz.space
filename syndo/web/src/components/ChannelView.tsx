@@ -109,7 +109,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         <MobileNavButton />
         {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <ChannelGlyph c={channel} size={22} className="muted" />}
         <div className="ch-title" onClick={() => { if (isPhone() && (guildId || channel.type === ChannelType.GROUP_DM)) setPanel(panel === "members" ? null : "members"); }}>
-        <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
+        <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label: only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {guildId && <OnlineCount guildId={guildId} />}
         {isDm && <DmVoiceBadge channelId={channel.id} />}
         </div>
@@ -991,7 +991,7 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
       {!members && <p className="muted pad">Loading…</p>}
       {groups.map((g) => (
         <section key={g.label}>
-          <h3 className="side-sec">{g.label} — {g.items.length}</h3>
+          <h3 className="side-sec">{g.label}: {g.items.length}</h3>
           {g.items.map((m) => {
             const status = presences[m.user.id] ?? "offline";
             const role = guild.roles.filter((r) => m.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
@@ -1024,7 +1024,7 @@ function Recipients({ channel, onClose }: { channel: Channel; onClose: () => voi
   return (
     <aside className="side-panel members" data-region="members" aria-label="Members">
       <header className="panel-h m-only"><h3>Members</h3><button className="icon-btn sm" data-panel-close onClick={onClose} aria-label="Close"><X size={18} /></button></header>
-      <h3 className="side-sec">Members — {(channel.recipients?.length ?? 0) + 1}</h3>
+      <h3 className="side-sec">Members: {(channel.recipients?.length ?? 0) + 1}</h3>
       {[me, ...(channel.recipients ?? [])].map((u) => (
         <div key={u.id} className="member">
           <Avatar user={u} size={32} status="" /><span className="ellipsis">{displayName(u)}{channel.owner_id === u.id && " 👑"}</span>

@@ -248,20 +248,20 @@ function DiagPanel() {
             <table className="caps small"><caption>Your microphone</caption><tbody>
               <tr><td>Codec</td><td>{d.audio.codec} {d.audio.clockRate ? `${d.audio.clockRate / 1000} kHz` : ""}</td></tr>
               <tr><td>Requested</td><td>{d.audio.requestedKbps} kbps · {s.stereo ? "stereo" : "mono"} · DTX {s.dtx ? "on" : "off"}</td></tr>
-              <tr><td>Negotiated</td><td>{op ? `${op.stereo ? "stereo" : "mono"} · DTX ${op.dtx ? "on" : "off"} · FEC ${op.fec ? "on" : "off"}${op.maxAvgBitrate ? ` · cap ${Math.round(op.maxAvgBitrate / 1000)} kbps` : ""}` : "—"}</td></tr>
+              <tr><td>Negotiated</td><td>{op ? `${op.stereo ? "stereo" : "mono"} · DTX ${op.dtx ? "on" : "off"} · FEC ${op.fec ? "on" : "off"}${op.maxAvgBitrate ? ` · cap ${Math.round(op.maxAvgBitrate / 1000)} kbps` : ""}` : "-"}</td></tr>
               <tr><td>Measured send</td><td>{d.audio.sendKbps ?? "…"} kbps</td></tr>
-              <tr><td>Loss / jitter / RTT</td><td>{d.audio.packetLossPct ?? "—"}% / {d.audio.jitterMs ?? "—"} ms / {d.audio.rttMs ?? "—"} ms</td></tr>
+              <tr><td>Loss / jitter / RTT</td><td>{d.audio.packetLossPct ?? "-"}% / {d.audio.jitterMs ?? "-"} ms / {d.audio.rttMs ?? "-"} ms</td></tr>
             </tbody></table>
           )}
           {d.screen && (
             <table className="caps small"><caption>Your screen share ({d.screen.codec})</caption><tbody>
-              <tr><td>Captured</td><td>{d.screen.capture ? `${d.screen.capture.width}×${d.screen.capture.height} @ ${d.screen.capture.fps} fps` : "—"}</td></tr>
-              {d.screen.layers.map((l) => <tr key={l.rid}><td>Layer {l.rid}</td><td>{l.width}×{l.height} @ {l.fps ?? "—"} fps · {l.kbps ?? "…"} kbps{l.limitation && l.limitation !== "none" ? ` · limited by ${l.limitation}` : ""}{!l.active ? " · paused (no viewers)" : ""}</td></tr>)}
+              <tr><td>Captured</td><td>{d.screen.capture ? `${d.screen.capture.width}×${d.screen.capture.height} @ ${d.screen.capture.fps} fps` : "-"}</td></tr>
+              {d.screen.layers.map((l) => <tr key={l.rid}><td>Layer {l.rid}</td><td>{l.width}×{l.height} @ {l.fps ?? "-"} fps · {l.kbps ?? "…"} kbps{l.limitation && l.limitation !== "none" ? ` · limited by ${l.limitation}` : ""}{!l.active ? " · paused (no viewers)" : ""}</td></tr>)}
             </tbody></table>
           )}
           {d.inbound.length > 0 && (
             <table className="caps small"><caption>Receiving</caption><thead><tr><th>From</th><th>What</th><th>Quality</th><th>Loss</th></tr></thead><tbody>
-              {d.inbound.map((i, k) => <tr key={k}><td>{i.identity}</td><td>{i.source} ({i.codec}{i.channels ? `, ${i.channels}ch` : ""})</td><td>{i.kind === "video" ? `${i.width}×${i.height} @ ${i.fps ?? "—"} fps, ` : ""}{i.kbps ?? "…"} kbps{i.dropped ? `, ${i.dropped} dropped` : ""}</td><td>{i.lossPct ?? "—"}% / {i.jitterMs ?? "—"} ms</td></tr>)}
+              {d.inbound.map((i, k) => <tr key={k}><td>{i.identity}</td><td>{i.source} ({i.codec}{i.channels ? `, ${i.channels}ch` : ""})</td><td>{i.kind === "video" ? `${i.width}×${i.height} @ ${i.fps ?? "-"} fps, ` : ""}{i.kbps ?? "…"} kbps{i.dropped ? `, ${i.dropped} dropped` : ""}</td><td>{i.lossPct ?? "-"}% / {i.jitterMs ?? "-"} ms</td></tr>)}
             </tbody></table>
           )}
           <p className="muted small">Requested settings are targets. Opus varies its rate with the sound; congestion control and the other side's capabilities can lower video and audio quality.</p>

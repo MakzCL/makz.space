@@ -116,7 +116,7 @@ export function Reset() {
   const token = useRoute().query.get("token") ?? "";
   const [pw, setPw] = useState(""); const [done, setDone] = useState(false); const [err, setErr] = useState<string | null>(null);
   return (
-    <Card title="Choose a new password" sub={done ? "Done. You've been signed out everywhere — sign in with your new password." : undefined}>
+    <Card title="Choose a new password" sub={done ? "Done. You've been signed out everywhere: sign in with your new password." : undefined}>
       {!done ? (
         <form className="stack" onSubmit={async (e) => { e.preventDefault(); try { await api.post("/api/auth/reset-password", { token, password: pw }); setDone(true); } catch (x) { setErr(errMsg(x)); } }}>
           <Field label="New password" error={err}><input autoFocus type="password" minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} required autoComplete="new-password" /></Field>

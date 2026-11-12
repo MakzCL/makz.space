@@ -12,7 +12,7 @@ export function DesktopTitlebar() {
   const control = async (action: "minimize" | "maximize" | "close") => {
     try { const result = await d.windowControl!(action); if (result) setMaximized(result.maximized); }
     // SEND for Windows 0.5.0–0.6.0 refused its own commands from the hosted app; 0.6.1 fixes it.
-    catch { toast("These buttons need SEND for Windows 0.6.1 or newer. Download it from the website once — later updates install from the app.", "error"); }
+    catch { toast("These buttons need SEND for Windows 0.6.1 or newer. Download it from the website once: later updates install from the app.", "error"); }
   };
   return <header className="desktop-titlebar" onDoubleClick={e => { if (!(e.target as HTMLElement).closest("button")) control("maximize"); }}>
     <nav aria-label="Navigation history"><button aria-label="Go back" onClick={() => history.back()}><ArrowLeft size={14}/></button><button aria-label="Go forward" onClick={() => history.forward()}><ArrowRight size={14}/></button></nav>
@@ -27,7 +27,7 @@ function UpdateButton({ u }: { u: DesktopUpdate | null }) {
   if (!desktop) return null;
   // A new desktop app wins (it brings the newest web app too); otherwise a new web build is an update as well.
   const desktopPending = !!u && (u.state === "ready" || u.state === "downloading" || (!!desktop.downloadUpdate && (u.state === "available" || (u.state === "error" && !!u.version))));
-  if (!desktopPending && web) return <button className="desktop-update" aria-label="Update ready — click to restart SEND" title="Update ready — click to restart SEND" onClick={applyWebUpdate}><Download size={15} strokeWidth={2.4} /></button>;
+  if (!desktopPending && web) return <button className="desktop-update" aria-label="Update ready: click to restart SEND" title="Update ready: click to restart SEND" onClick={applyWebUpdate}><Download size={15} strokeWidth={2.4} /></button>;
   if (!u) return null;
   const canDownload = !!desktop.downloadUpdate;
   const show = u.state === "ready" || u.state === "downloading" || (canDownload && (u.state === "available" || (u.state === "error" && !!u.version)));
@@ -37,6 +37,6 @@ function UpdateButton({ u }: { u: DesktopUpdate | null }) {
     const label = `Downloading update${v}… ${u.percent ?? 0}%`;
     return <button className="desktop-update busy" aria-label={label} title={label} disabled><LoaderCircle size={15} className="spin" /></button>;
   }
-  const label = u.state === "ready" ? `Update${v} ready — restart to install` : u.state === "error" ? `Update${v} failed — click to try again` : `Update${v} available — click to download and install`;
+  const label = u.state === "ready" ? `Update${v} ready: restart to install` : u.state === "error" ? `Update${v} failed: click to try again` : `Update${v} available: click to download and install`;
   return <button className="desktop-update" aria-label={label} title={label} onClick={() => applyDesktopUpdate(u)}><Download size={15} strokeWidth={2.4} /></button>;
 }

@@ -58,7 +58,7 @@ export function EmotesTab({ guild }: { guild: Guild }) {
     try {
       const r = await api.patch<{ settings: Settings; emotes: Emote[] }>(`/api/guilds/${guild.id}/emotes`, body);
       useEmotes.setState((s) => ({ guild: { ...s.guild, [guild.id]: r } }));
-      if (body.source) { setSource(""); toast(`Linked ${r.settings.label ?? "the emote set"} — ${r.emotes.length} emotes.`, "success"); }
+      if (body.source) { setSource(""); toast(`Linked ${r.settings.label ?? "the emote set"}: ${r.emotes.length} emotes.`, "success"); }
     } catch (e) { toast(errMsg(e), "error"); }
     finally { setBusy(false); }
   };

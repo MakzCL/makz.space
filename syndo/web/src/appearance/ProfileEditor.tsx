@@ -147,7 +147,7 @@ export function ProfileEditor({ embedded }: { embedded?: boolean }) {
   const [tab, setTab] = useState<string>("global");
   return (
     <div className="stack">
-      <h3>Profile {embedded && <small className="muted">— public, saved immediately with “Save profile”</small>}</h3>
+      <h3>Profile {embedded && <small className="muted">:  public, saved immediately with “Save profile”</small>}</h3>
       <div className="tabs" role="tablist" aria-label="Which profile">
         <button role="tab" aria-selected={tab === "global"} className={tab === "global" ? "active" : ""} onClick={() => setTab("global")}>Global profile</button>
         <Select value={tab === "global" ? "" : tab} onChange={(e) => setTab(e.target.value || "global")} aria-label="Edit a server profile">
@@ -190,7 +190,7 @@ function GlobalProfile() {
       </div>
       <UnsavedBar dirty={dirty} onReset={() => { const [bf, bt] = JSON.parse(base); setF(bf); setTheme(bt); }} onSave={save} />
       <div className="stack">
-        <small className="muted">Preview — how others see you</small>
+        <small className="muted">Preview: how others see you</small>
         <ProfileMediaEdit onUpload={file}><ProfileCardView d={{ user: { ...me, profile_theme: theme }, name: f.display_name || me.username, username: me.username, pronouns: f.pronouns, bio: f.bio, avatar: me.avatar, banner: me.banner, theme, status: f.status }} /></ProfileMediaEdit>
       </div>
     </div>
@@ -252,7 +252,7 @@ function ServerProfile({ guildId }: { guildId: string }) {
           <button className="btn" onClick={async () => { if (!(await askConfirm({ title: "Reset server profile?", body: "Your server profile goes back to your global profile.", confirmLabel: "Reset", danger: true }))) return; await api.patch(`/api/guilds/${guildId}/members/@me`, { bio: null, pronouns: null, custom_status: null, profile_theme: null, ...(canNick ? { nick: null } : {}) }); await api.del(`/api/guilds/${guildId}/members/@me/avatar`); await api.del(`/api/guilds/${guildId}/members/@me/banner`); load(); }}>Reset server profile</button></div>
       </div>
       <div className="stack">
-        <small className="muted">Preview — how members of {guild.name} see you</small>
+        <small className="muted">Preview: how members of {guild.name} see you</small>
         <ProfileMediaEdit onUpload={async (kind, x) => { const fd = new FormData(); fd.append("file", x); await upload(`/api/guilds/${guildId}/members/@me/${kind}`, fd, () => {}).promise; await load(); }}><ProfileCardView d={{ user: me, name: d.nick || displayName(me), username: me.username, pronouns: d.pronouns ?? me.pronouns, bio: d.bio ?? me.bio, avatar: server.avatar ?? me.avatar, banner: server.banner ?? me.banner, theme, status: d.status ?? me.custom_status?.text }} serverTheme={theme} /></ProfileMediaEdit>
       </div>
     </div>

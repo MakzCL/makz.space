@@ -248,7 +248,7 @@ function check(spec: Spec, v: unknown, path: string, issues: Issue[]): unknown {
       for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
         const p = path ? `${path}.${k}` : k;
         const sub = spec.t === "obj" ? spec.fields[k] : (spec.keys.includes(k) ? spec.of : undefined);
-        if (!sub) { issues.push({ path: p, message: "unknown setting — ignored", level: "warning" }); continue; }
+        if (!sub) { issues.push({ path: p, message: "unknown setting: ignored", level: "warning" }); continue; }
         const c = x === null && sub.t !== "nullable" ? undefined : check(sub, x, p, issues);
         if (c !== undefined) out[k] = c;
       }
@@ -308,7 +308,7 @@ export function validateThemeDoc(input: unknown): { doc: ThemeDoc | null; issues
   if (!migrated) return { doc: null, issues: [{ path: "schema", message: "Not a SEND theme. Expected \"schema\": \"send.theme\". Themes made for other apps (for example BetterDiscord .theme.css files) can't be imported.", level: "error" }] };
   const { value, issues } = validateThemePartial(migrated);
   const doc = mergeDeep(DEFAULT_THEME, value) as ThemeDoc;
-  if (!value.meta?.name) issues.push({ path: "meta.name", message: "missing a name — using \"Untitled theme\"", level: "warning" });
+  if (!value.meta?.name) issues.push({ path: "meta.name", message: "missing a name: using \"Untitled theme\"", level: "warning" });
   doc.meta = { ...doc.meta, name: value.meta?.name || "Untitled theme" };
   return { doc, issues };
 }
@@ -452,7 +452,7 @@ export function readabilityIssues(t: ThemeDoc): Issue[] {
   ];
   for (const [path, fg, bg, min] of pairs) {
     const c = contrast(fg, bg);
-    if (c < min) out.push({ path, message: `contrast ${c.toFixed(1)}:1 is below ${min}:1 — text may be hard to read`, level: "warning" });
+    if (c < min) out.push({ path, message: `contrast ${c.toFixed(1)}:1 is below ${min}:1: text may be hard to read`, level: "warning" });
   }
   return out;
 }
@@ -512,7 +512,7 @@ export function validateCustomCss(src: string): { css: string; errors: string[] 
   if (/\/\*/.test(text)) errors.push("Unclosed comment.");
   if (/[\\<]/.test(text)) errors.push("Escapes and HTML characters aren't allowed.");
   if (/@/.test(text)) errors.push("At-rules (@import, @font-face, @media, …) aren't allowed.");
-  if (/url\s*\(|image-set\s*\(|expression\s*\(|javascript:|behavior\s*:|-moz-binding/i.test(text)) errors.push("url(), image-set(), expression(), javascript: and bindings aren't allowed — use the Background manager for images.");
+  if (/url\s*\(|image-set\s*\(|expression\s*\(|javascript:|behavior\s*:|-moz-binding/i.test(text)) errors.push("url(), image-set(), expression(), javascript: and bindings aren't allowed: use the Background manager for images.");
   const out: string[] = [];
   const re = /([^{}]+)\{([^{}]*)\}/g;
   let m: RegExpExecArray | null;
@@ -542,7 +542,7 @@ export function validateCustomCss(src: string): { css: string; errors: string[] 
       const val = d.slice(i + 1).trim();
       if (!CSS_PROPS.has(prop) && !/^--[a-z0-9-]+$/.test(prop)) { errors.push(`Property "${prop}" isn't allowed (layout-changing properties are blocked so controls can't be hidden).`); continue; }
       if (!/^[#a-zA-Z0-9.,%()\s\-+/!'"*]*$/.test(val) || /url|expression|javascript|attr\s*\(/i.test(val) || val.length > 300) { errors.push(`Value for "${prop}" isn't allowed.`); continue; }
-      if (prop === "opacity" && parseFloat(val) < 0.4) { errors.push("opacity below 0.4 isn't allowed (it would make text unreadable — use panel opacity instead)."); continue; }
+      if (prop === "opacity" && parseFloat(val) < 0.4) { errors.push("opacity below 0.4 isn't allowed (it would make text unreadable: use panel opacity instead)."); continue; }
       decls.push(`${prop}: ${val}`);
     }
     if (scoped.length && decls.length) out.push(`${scoped.join(", ")} { ${decls.join("; ")}; }`);

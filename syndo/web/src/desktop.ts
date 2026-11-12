@@ -102,7 +102,7 @@ export function applyDesktopUpdate(u: DesktopUpdate | null) {
   // For them, fetch the installer from the website instead: it updates SEND in place, and 0.6.4+ updates itself.
   if (olderThan(desktop.version, "0.6.4")) {
     window.open("https://syndo.makz.space/api/downloads/windows", "_blank", "noopener");
-    import("./store.ts").then(({ toast }) => toast("Downloading the new SEND installer — run it to update. After this, updates install from the app.", "info")).catch(() => {});
+    import("./store.ts").then(({ toast }) => toast("Downloading the new SEND installer: run it to update. After this, updates install from the app.", "info")).catch(() => {});
     return;
   }
   if (u.state === "ready") return desktop.restartToUpdate();

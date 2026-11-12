@@ -179,7 +179,7 @@ async function putScope(key: string, data: unknown) {
     if (e instanceof ApiError && e.status === 409) {
       // Two devices edited the same scope: keep the newer server copy, tell the user.
       await loadAppearance();
-      set({ saveState: "error", saveError: "Changed on another device — loaded the latest version. Re-apply your edit if you still want it." });
+      set({ saveState: "error", saveError: "Changed on another device: loaded the latest version. Re-apply your edit if you still want it." });
       return;
     }
     set({ saveState: "error", saveError: errMsg(e) });

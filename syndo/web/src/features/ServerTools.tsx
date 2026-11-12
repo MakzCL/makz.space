@@ -18,7 +18,7 @@ export function UnsavedBar({ dirty, onReset, onSave, busy }: { dirty: boolean; o
     window.addEventListener("beforeunload", on); return () => window.removeEventListener("beforeunload", on);
   }, [dirty]);
   if (!dirty) return null;
-  return <div className="unsaved-bar" role="status"><span>Careful — you have unsaved changes!</span><button className="link" onClick={onReset}>Reset</button><button className="btn primary sm" disabled={busy} onClick={onSave}>Save changes</button></div>;
+  return <div className="unsaved-bar" role="status"><span>Careful: you have unsaved changes!</span><button className="link" onClick={onReset}>Reset</button><button className="btn primary sm" disabled={busy} onClick={onSave}>Save changes</button></div>;
 }
 
 /* ----------------------------------------------------------------------------- AutoMod -- */
@@ -153,7 +153,7 @@ export function InsightsTab({ guild }: { guild: Guild }) {
           <div className="stat"><strong>{d.members}</strong><span>Members</span></div>
           <div className="stat"><strong>{d.new_members}</strong><span>New members</span></div>
           <div className="stat"><strong>{d.totals.messages}</strong><span>Messages</span></div>
-          <div className="stat"><strong>{d.retention ?? "—"}{d.retention != null ? "%" : ""}</strong><span>New members still active after a week</span></div>
+          <div className="stat"><strong>{d.retention ?? "-"}{d.retention != null ? "%" : ""}</strong><span>New members still active after a week</span></div>
         </div>
         {chart("messages", "Messages")}
         {chart("active", "Members who talked")}
@@ -186,7 +186,7 @@ export function IntegrationsTab({ guild }: { guild: Guild }) {
       <div className="card"><h3><WebhookIcon size={18} /> Webhooks</h3>
         <p className="muted small">Webhooks let other services post messages into a channel with a secret URL.</p>
         <button className="btn primary sm" onClick={create}><Plus size={14} /> New webhook</button>
-        {newUrl && <div className="secret-box"><p className="small">Copy the URL now — it's shown only once.</p><code>{newUrl}</code><button className="btn sm" onClick={() => { navigator.clipboard.writeText(newUrl); toast("Copied.", "success"); }}><Copy size={14} /> Copy</button></div>}
+        {newUrl && <div className="secret-box"><p className="small">Copy the URL now: it's shown only once.</p><code>{newUrl}</code><button className="btn sm" onClick={() => { navigator.clipboard.writeText(newUrl); toast("Copied.", "success"); }}><Copy size={14} /> Copy</button></div>}
         {hooks?.map((w) => <WebhookRow key={w.id} w={w} guild={guild} onChange={load} onUrl={setNewUrl} />)}
       </div>
     </div>

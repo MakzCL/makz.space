@@ -11,13 +11,13 @@ export async function sendMail(to: string, subject: string, lines: string[], act
     ...lines,
     ...(action ? ["", `${action.label}: ${action.url}`] : []),
     "",
-    `— ${BRAND.name} · ${BRAND.tagline}`,
+    `:  ${BRAND.name} · ${BRAND.tagline}`,
     `If you didn't expect this email, you can ignore it.`,
   ].join("\n");
   const fullSubject = `${subject} · ${BRAND.name}`;
   const [row] = await q<{ id: string }>("insert into mail_outbox(to_address, subject, body) values ($1,$2,$3) returning id", [to, fullSubject, body]);
   if (!transport) {
-    if (!config.devMail) console.warn(`[mail] SMTP_URL not set — email to ${to} recorded in mail_outbox only`);
+    if (!config.devMail) console.warn(`[mail] SMTP_URL not set: email to ${to} recorded in mail_outbox only`);
     return;
   }
   try {

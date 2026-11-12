@@ -183,7 +183,7 @@ export async function userRoutes(app: FastifyInstance) {
     const { username } = z.object({ username: z.string().trim().toLowerCase().max(32) }).parse(req.body);
     const me = uid(req);
     const target = await q1<any>("select id, privacy from users where username = $1 and deleted_at is null and bot = false", [username]);
-    const generic = () => new ApiError(400, "request_failed", "Couldn't send a friend request. Check the username — it's case-insensitive.");
+    const generic = () => new ApiError(400, "request_failed", "Couldn't send a friend request. Check the username: it's case-insensitive.");
     if (!target || target.id === me) throw generic();
     const mine = await rel(me, target.id), theirs = await rel(target.id, me);
     if (mine === RelationshipType.BLOCKED) throw bad("You've blocked this person. Unblock them first.", "blocked");

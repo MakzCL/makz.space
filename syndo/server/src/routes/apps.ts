@@ -51,7 +51,7 @@ async function ownedApp(req: FastifyRequest, appId: string) {
 
 const OPTION: z.ZodType<any> = z.lazy(() => z.object({
   type: z.number().int().min(1).max(11),
-  name: z.string().regex(/^[-_\p{Ll}\p{N}]{1,32}$/u, "Option names are lowercase, 1–32 characters."),
+  name: z.string().regex(/^[-_\p{Ll}\p{N}]{1,32}$/u, "Option names are lowercase, 1 to 32 characters."),
   description: z.string().min(1).max(100),
   required: z.boolean().optional(),
   choices: z.array(z.object({ name: z.string().min(1).max(100), value: z.union([z.string().max(100), z.number()]) })).max(25).optional(),

@@ -16,7 +16,7 @@ export const CHANGELOG: Release[] = [
     intro: "Calls you can shape the way you like.",
     sections: [
       { title: "Calls", items: [
-        "Drag anyone's box to a new spot — the others slide out of the way, like apps on your phone.",
+        "Drag anyone's box to a new spot: the others slide out of the way, like apps on your phone.",
         "Pop the whole call out into its own window with the button at the top.",
         "Click the speaker on someone's box to mute them for you; hover it for the volume.",
         "Group calls stop ringing after 30 seconds.",
@@ -28,7 +28,7 @@ export const CHANGELOG: Release[] = [
     id: "2026-11-desktop-share",
     title: "Screen sharing, built into the app",
     date: "2026-11-12",
-    intro: "SEND for Windows 0.7 picks what to share itself — no more system pop-up.",
+    intro: "SEND for Windows 0.7 picks what to share itself: no more system pop-up.",
     sections: [
       { title: "Go Live", items: [
         "See your open windows and screens with live previews, right in SEND.",
@@ -73,7 +73,7 @@ export const CHANGELOG: Release[] = [
     intro: "Little animations everywhere, and voice messages that look the part.",
     sections: [
       { title: "Voice messages", items: [
-        "Recording shows a live waveform, a timer and a pulsing dot — tap send when you're done, or the bin to throw it away.",
+        "Recording shows a live waveform, a timer and a pulsing dot: tap send when you're done, or the bin to throw it away.",
         "Sent voice messages play in a SEND player with a waveform, never the plain browser one.",
       ] },
       { title: "Feel", items: [
@@ -96,7 +96,7 @@ export const CHANGELOG: Release[] = [
         "In the desktop app, SEND keeps itself out of your screen share.",
       ] },
       { title: "Everywhere", items: [
-        "Your messages show up instantly — no more \"Sending…\".",
+        "Your messages show up instantly: no more \"Sending…\".",
         "When there's a new version of SEND, you get an update button.",
       ] },
     ],

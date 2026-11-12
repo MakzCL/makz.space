@@ -61,8 +61,8 @@ export function KeybindsTab() {
         <h3>Voice</h3>
         <div className="kb-row">
           <div className="kb-label"><strong>Push to talk</strong>
-            <small className="muted">{v.mode === "ptt" ? "Active (Voice & video → Input mode)" : "Turned off — switch Input mode to Push to talk to use it"}{grants && !grants.vad ? " · Required in this channel: voice activity isn't allowed here" : ""}</small>
-            <span className={`kb-scope ${desktop?.capabilities.globalPtt ? "global" : ""}`}>{desktop?.capabilities.globalPtt ? <><Globe size={12} /> Global — works while SEND is in the background</> : <><AppWindow size={12} /> In SEND only{desktop ? "" : " (browsers can't see keys while another app is focused; use the desktop app for global push to talk)"}</>}</span>
+            <small className="muted">{v.mode === "ptt" ? "Active (Voice & video → Input mode)" : "Turned off: switch Input mode to Push to talk to use it"}{grants && !grants.vad ? " · Required in this channel: voice activity isn't allowed here" : ""}</small>
+            <span className={`kb-scope ${desktop?.capabilities.globalPtt ? "global" : ""}`}>{desktop?.capabilities.globalPtt ? <><Globe size={12} /> Global: works while SEND is in the background</> : <><AppWindow size={12} /> In SEND only{desktop ? "" : " (browsers can't see keys while another app is focused; use the desktop app for global push to talk)"}</>}</span>
             {globalPttError && <small className="danger-text">{globalPttError}</small>}
           </div>
           <div className="kb-binds">

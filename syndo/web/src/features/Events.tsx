@@ -28,7 +28,7 @@ export function EventsButton({ guild }: { guild: Guild }) {
   const live = (list ?? []).filter((e) => e.status === 2);
   if (!list?.length) return null;
   return <button className={`side-link events-link ${live.length ? "live" : ""}`} onClick={() => openEvents(guild)}>
-    <CalendarDays size={18} /><span>{live.length ? `${live[0]!.name} — live now` : `${list.length} Event${list.length === 1 ? "" : "s"}`}</span>
+    <CalendarDays size={18} /><span>{live.length ? `${live[0]!.name}: live now` : `${list.length} Event${list.length === 1 ? "" : "s"}`}</span>
   </button>;
 }
 

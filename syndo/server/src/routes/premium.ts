@@ -148,7 +148,7 @@ export async function premiumRoutes(app: FastifyInstance) {
       let coupon: string | null = null, codeRow: any = null;
       if (b.code) {
         codeRow = await validCode(b.code, me);
-        if (codeRow.kind === "free") throw bad("That code gives free boosts — use Redeem instead.");
+        if (codeRow.kind === "free") throw bad("That code gives free boosts: use Redeem instead.");
       }
       if (!stripeReady()) throw new ApiError(503, "payments_unavailable", "Paid boosts aren't set up on this server yet. A free code from the team works without payment.");
       if (codeRow) {
@@ -185,7 +185,7 @@ export async function premiumRoutes(app: FastifyInstance) {
       const me = uid(req);
       const { code } = z.object({ code: z.string().trim().min(4).max(40) }).parse(req.body);
       const c = await validCode(code, me);
-      if (c.kind !== "free") throw bad("That's a discount code — use it at checkout.");
+      if (c.kind !== "free") throw bad("That's a discount code: use it at checkout.");
       const id = newId();
       await tx(async (cx) => {
         const u = await cx.query("update premium_codes set uses = uses + 1 where code = $1 and (max_uses = 0 or uses < max_uses) returning 1", [c.code]);

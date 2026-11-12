@@ -101,7 +101,7 @@ function Account() {
             <button className="btn primary" onClick={() => run(async () => { setCodes((await api.post("/api/auth/mfa/enable", { code })).recovery_codes); setMfa(null); })}>Enable</button></div>
         </div>
       ) : <button className="btn" onClick={() => run(async () => { const r = await api.post("/api/auth/mfa/setup"); setMfa({ secret: r.secret, url: r.otpauth_url }); })}>Set up two-factor</button>}
-      {codes && <div className="card"><strong>Recovery codes — save these now.</strong><p className="small muted">Each works once if you lose your authenticator.</p><pre className="selectable">{codes.join("\n")}</pre></div>}
+      {codes && <div className="card"><strong>Recovery codes: save these now.</strong><p className="small muted">Each works once if you lose your authenticator.</p><pre className="selectable">{codes.join("\n")}</pre></div>}
       <h3>Devices & sessions</h3>
       <ul className="sessions">
         {sessions.map((s) => (
@@ -134,7 +134,7 @@ function AppearanceTab({ onClose }: { onClose: () => void }) {
       <Field label="Theme"><Select value={g.themeId} onChange={(e) => updateGlobal((x) => ({ ...x, themeId: e.target.value }))}>{PRESETS.map((p) => <option key={p.meta.id} value={p.meta.id}>{p.meta.name}</option>)}{!g.themeId.startsWith("send-") && <option value={g.themeId}>My preset</option>}</Select></Field>
       <Field label="Accent colour"><input type="color" value={(g.overrides.colors as any)?.accent ?? "#3D6BFF"} onChange={(e) => updateGlobal((x) => ({ ...x, overrides: { ...x.overrides, colors: { ...(x.overrides.colors ?? {}), accent: e.target.value.toUpperCase() } } }))} /></Field>
       <Toggle label="Follow system light/dark" checked={g.followSystem} onChange={(v) => updateGlobal((x) => ({ ...x, followSystem: v }))} />
-      <p className="muted small" role="status">{saveState === "pending" || saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save — check your connection." : "Saved and synced to your devices."}</p>
+      <p className="muted small" role="status">{saveState === "pending" || saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save: check your connection." : "Saved and synced to your devices."}</p>
     </div>
   );
 }
@@ -218,19 +218,19 @@ function VoiceTab() {
         <Field label="Camera"><Select value={s.videoDeviceId} onChange={(e) => switchDevice("videoinput", e.target.value)}><option value="">Default</option>{list("videoinput").map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}</Select></Field>
       </div>
       {!caps.setSinkId && <p className="muted small">This browser can't choose a speaker; it uses the system default.</p>}
-      <Field label={`Input gain — ${Math.round(s.inputGain * 100)}%`}><Range min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
+      <Field label={`Input gain: ${Math.round(s.inputGain * 100)}%`}><Range min={0} max={2} step={0.05} value={s.inputGain} onChange={(e) => updateVoiceSettings({ inputGain: +e.target.value })} /></Field>
       <div className="row"><button className="btn sm" onClick={test} disabled={level !== null}>Mic test</button>{level !== null && <meter min={0} max={1} value={level} aria-label="Input level" />}</div>
       <Field label="Input mode"><Select value={s.mode} onChange={(e) => setMode(e.target.value as any)}><option value="vad">Voice activity</option><option value="ptt">Push to talk</option></Select></Field>
       {s.mode === "ptt" && <Field label="Push-to-talk key" hint={desktop?.capabilities.globalPtt ? (globalPttError ?? "Works everywhere, even when SEND is in the background (desktop app). Mouse buttons 4/5 work too.") : desktop ? "Works while this window is focused." : "Works while this window is focused. The Windows desktop app makes it work everywhere."}><input readOnly value={s.pttKey} onKeyDown={(e) => { e.preventDefault(); updateVoiceSettings({ pttKey: e.code }); }} onMouseDown={(e) => { if (e.button === 3 || e.button === 4) { e.preventDefault(); updateVoiceSettings({ pttKey: e.button === 3 ? "Mouse4" : "Mouse5" }); } }} aria-label="Press a key to set push-to-talk" /></Field>}
       <h3>Sounds and speaking</h3>
-      <Field label={`Sound effects volume — ${Math.round((s.soundVolume ?? 1) * 100)}%`}><div className="row"><Range min={0} max={1} step={0.05} value={s.soundVolume ?? 1} onChange={(e) => updateVoiceSettings({ soundVolume: +e.target.value })} /><button className="btn sm" onClick={() => playSound("join")}>Preview</button></div></Field>
+      <Field label={`Sound effects volume: ${Math.round((s.soundVolume ?? 1) * 100)}%`}><div className="row"><Range min={0} max={1} step={0.05} value={s.soundVolume ?? 1} onChange={(e) => updateVoiceSettings({ soundVolume: +e.target.value })} /><button className="btn sm" onClick={() => playSound("join")}>Preview</button></div></Field>
       <Toggle label="Mute all sound effects" hint="Join, leave, mute and message sounds. Ringtones still play." checked={s.suppressSoundEffects} onChange={(v) => updateVoiceSettings({ suppressSoundEffects: v })} />
       {s.mode === "ptt" && <Toggle label="Push-to-talk sounds" hint="A soft tick when your mic opens and closes." checked={s.pttSounds !== false} onChange={(v) => updateVoiceSettings({ pttSounds: v })} />}
       <Field label="Speaking ring colour" hint="The ring around people's pictures while they talk, in the channel list and the call.">
         <div className="row wrap speaking-swatches">{SPEAKING_COLORS.map(([c, name]) => <button key={c} type="button" className={`swatch ${s.speakingColor === c ? "on" : ""}`} style={{ background: c }} aria-label={name} aria-pressed={s.speakingColor === c} onClick={() => updateVoiceSettings({ speakingColor: c })} />)}
           <input type="color" aria-label="Custom speaking colour" value={s.speakingColor || "#23a55a"} onChange={(e) => updateVoiceSettings({ speakingColor: e.target.value })} /></div>
       </Field>
-      <h3>Audio quality — free for everyone</h3>
+      <h3>Audio quality: free for everyone</h3>
       <Field label="Preset"><Select value={s.presetId} onChange={(e) => e.target.value !== "custom" && updateVoiceSettings(applyPreset(s, e.target.value))}>{AUDIO_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}<option value="custom">Custom</option></Select></Field>
       <Field label="Target Opus bitrate" hint="A request to the encoder. Opus is variable-rate: silence and simple sounds use less, and congestion control can lower it. Diagnostics in a call show the measured rate.">
         <Select value={Math.round(s.bitrate / 1000)} onChange={(e) => updateVoiceSettings({ bitrate: +e.target.value * 1000, presetId: "custom" })}>
@@ -262,12 +262,12 @@ function VoiceTab() {
         <tr><td>Screen sharing</td><td>{caps.canShare ? "Yes" : "No (mobile browsers can't share screens)"}</td></tr>
         <tr><td>Tab audio</td><td>{caps.tabAudio ? "Yes" : "No"}</td></tr>
         <tr><td>Whole-system audio</td><td>{caps.systemAudio ? "Yes (Windows, Chromium)" : "No"}</td></tr>
-        <tr><td>Single app window audio</td><td>No — not supported by browsers; the desktop app shares whole-system audio on Windows</td></tr>
-        <tr><td>Desktop app</td><td>{desktop ? `Yes (v${desktop.version})` : "No — running in a browser"}</td></tr>
+        <tr><td>Single app window audio</td><td>No: not supported by browsers; the desktop app shares whole-system audio on Windows</td></tr>
+        <tr><td>Desktop app</td><td>{desktop ? `Yes (v${desktop.version})` : "No: running in a browser"}</td></tr>
         <tr><td>Choose speaker</td><td>{caps.setSinkId ? "Yes" : "No"}</td></tr>
       </tbody></table>
       {(caps.linuxNote || caps.macNote) && <p className="muted small">{caps.linuxNote ?? caps.macNote}</p>}
-      <p className="muted small">"Source" requests the captured surface at its native size. It's still compressed video, and very large sources are limited by your encoder, upload speed and viewers' devices — the in-call diagnostics show what was actually sent.</p>
+      <p className="muted small">"Source" requests the captured surface at its native size. It's still compressed video, and very large sources are limited by your encoder, upload speed and viewers' devices: the in-call diagnostics show what was actually sent.</p>
     </div>
   );
 }
@@ -282,7 +282,7 @@ function DesktopTab() {
   }, []);
   if (!desktop) return null;
   const d = desktop;
-  const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: d.downloadUpdate ? `Update ${u.version} available` : `Update ${u.version} found — downloading`, downloading: `Downloading ${u.version ?? ""} — ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
+  const label = !u ? "" : { idle: "Not checked yet", checking: "Checking…", available: d.downloadUpdate ? `Update ${u.version} available` : `Update ${u.version} found: downloading`, downloading: `Downloading ${u.version ?? ""}: ${u.percent ?? 0}%`, ready: `Update ${u.version} ready`, none: "You're up to date", error: `Update check failed: ${u.message ?? ""}`, disabled: u.message ?? "Updates unavailable in this build" }[u.state];
   return (
     <div className="stack">
       <h2>System</h2>
@@ -307,7 +307,7 @@ function DesktopTab() {
       ) : <p className="muted small">See-through window materials need Windows 11 (22H2 or newer).</p>}
       <Field label="Server"><div className="row"><code>{cfg?.serverUrl}</code><button className="btn sm" onClick={async () => (await askConfirm({ title: "Switch server?", body: "You'll need to sign in on the other SEND server." })) && d.changeServer()}>Change server</button></div></Field>
       <ul className="small keys">
-        <li>Push-to-talk works globally — set it in Voice &amp; video.</li>
+        <li>Push-to-talk works globally: set it in Voice &amp; video.</li>
         <li>Screen sharing can include whole-system audio{desktop.capabilities.systemAudio ? "" : " (Windows only)"}.</li>
         <li><code>send://invite/CODE</code> links open invites in the app.</li>
       </ul>
@@ -322,7 +322,7 @@ function NotificationsTab() {
   return (
     <div className="stack">
       <h2>Notifications</h2>
-      <Toggle label="Desktop notifications" hint={perm === "denied" ? "Blocked by the browser — allow notifications for this site in its settings." : "Mentions, DMs and calls while this tab is in the background."} checked={!!n.desktop && perm === "granted"} disabled={perm === "denied"}
+      <Toggle label="Desktop notifications" hint={perm === "denied" ? "Blocked by the browser: allow notifications for this site in its settings." : "Mentions, DMs and calls while this tab is in the background."} checked={!!n.desktop && perm === "granted"} disabled={perm === "denied"}
         onChange={async (v) => { if (v && perm !== "granted") { const r = await Notification.requestPermission(); setPerm(r); if (r !== "granted") return; } set({ desktop: v }); }} />
       <Toggle label="Notification sounds" checked={n.sounds !== false} onChange={(v) => set({ sounds: v })} />
       <Toggle label="In-app banners on phones" hint="A card slides down from the top for DMs and mentions in other conversations." checked={n.inApp !== false} onChange={(v) => set({ inApp: v })} />

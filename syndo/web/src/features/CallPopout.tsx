@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { ArrowDownLeft, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, MessageCircle, Mic, MicOff, Monitor, MonitorOff, PhoneOff, UserPlus } from "lucide-react";
+import { ArrowDownLeft, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, MessageCircle, Mic, MicOff, Monitor, MonitorOff, PhoneOff, UserPlus, Users, AtSign } from "lucide-react";
 import { ChannelType } from "@send/shared";
 import { ChannelGlyph } from "../components/ChannelGlyph.tsx";
 import { openDialog } from "../components/Shell.tsx";
@@ -53,7 +53,7 @@ export function openCallPopout(channelId: string) {
   if (!w) { toast("SEND couldn't open the call window. Allow pop-ups for this site, then try again.", "error"); return; }
   win = w;
   const d = w.document;
-  d.open(); d.write("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>SEND call</title></head><body></body></html>"); d.close();
+  d.open(); d.write("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>SEND</title></head><body></body></html>"); d.close();
   mirrorStyles(d);
   const host = d.createElement("div"); host.className = "popout-root"; d.body.appendChild(host);
   root = createRoot(host);
@@ -81,7 +81,6 @@ function PopoutCall({ channelId, win: w }: { channelId: string; win: Window }) {
   const saved = useTileOrder((s) => s.order[channelId]);
   const keysRef = useRef<string[]>([]);
   const drag = useTileDrag(keysRef, (keys) => setTileOrder(channelId, keys));
-  useEffect(() => { w.document.title = `${channel?.name ?? "Call"} — SEND`; }, [channel?.name]);
 
   type Tile = Parameters<typeof VideoTile>[0]["t"];
   let tiles: Tile[] = [{ key: `${me.id}:camera`, uid: me.id, name: displayName(me), track: v.localCamera, kind: "camera", speaking: v.localSpeaking, muted: v.muted, local: true }];
@@ -110,13 +109,14 @@ function PopoutCall({ channelId, win: w }: { channelId: string; win: Window }) {
   const wake = () => { setIdle(false); clearTimeout(idleT.current); idleT.current = setTimeout(() => setIdle(true), 2500); };
   useEffect(() => { wake(); return () => clearTimeout(idleT.current); }, []);
   const title = channel ? (channel.guild_id ? channel.name : dmTitle(channel)) : "Call";
+  useEffect(() => { w.document.title = title || "SEND"; }, [title]);
   const openChat = () => { window.focus(); navigate(`/channels/${guildId ?? "@me"}/${channelId}`); };
   const fullscreen = () => { const d = w.document; if (d.fullscreenElement) d.exitFullscreen().catch(() => {}); else d.documentElement.requestFullscreen?.().catch(() => {}); };
 
   return (
     <div className={`popout-call ${idle ? "idle" : ""}`} data-region="call" onMouseMove={wake} onMouseDown={wake}>
       <header className="popout-h">
-        {channel && <ChannelGlyph c={channel} size={20} />}<span className="ellipsis">{title}</span>
+        {channel && (channel.guild_id ? <ChannelGlyph c={channel} size={20} /> : channel.type === ChannelType.GROUP_DM ? <Users size={20} aria-hidden /> : <AtSign size={20} aria-hidden />)}<span className="ellipsis">{title}</span>
         <button className="icon-btn popout-chat" onClick={openChat} aria-label="Show chat" title="Show Chat"><MessageCircle size={20} /></button>
       </header>
       <div className={`popout-tiles ${focused ? "focused" : ""}`}>

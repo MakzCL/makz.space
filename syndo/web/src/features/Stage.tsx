@@ -39,7 +39,7 @@ export function StageView({ channel, guild }: { channel: Channel; guild: Guild |
         {mod && stage && <button className="btn sm" onClick={async () => { const { askText } = await import("../components/overlay.tsx"); const t = await askText({ title: "Stage topic", label: "Topic", initial: stage.topic }); if (t) api.patch(`/api/stage-instances/${channel.id}`, { topic: t }).catch((e) => toast(errMsg(e), "error")); }}>Edit topic</button>}
         {mod && stage && <button className="btn danger sm" onClick={() => api.del(`/api/stage-instances/${channel.id}`).catch((e) => toast(errMsg(e), "error"))}>End stage</button>}
       </div>
-      <section aria-label="Speakers"><h3 className="side-sec">Speakers — {speakers.length}</h3>
+      <section aria-label="Speakers"><h3 className="side-sec">Speakers: {speakers.length}</h3>
         <div className="stage-speakers">{speakers.map((s) => (
           <div key={s.user_id} className={`stage-person ${speaking(s.user_id) ? "speaking" : ""}`}>
             <Avatar user={users[s.user_id] ?? (s.user_id === me.id ? me : null)} size={72} />
@@ -50,12 +50,12 @@ export function StageView({ channel, guild }: { channel: Channel; guild: Guild |
           {!speakers.length && <p className="muted">No one is speaking yet.</p>}
         </div>
       </section>
-      {mod && hands.length > 0 && <section aria-label="Requests to speak"><h3 className="side-sec"><Hand size={14} /> Raised hands — {hands.length}</h3>
+      {mod && hands.length > 0 && <section aria-label="Requests to speak"><h3 className="side-sec"><Hand size={14} /> Raised hands: {hands.length}</h3>
         {hands.map((s) => <div key={s.user_id} className="stage-req"><Avatar user={users[s.user_id]} size={28} /><span className="ellipsis grow">{displayName(users[s.user_id])}</span>
           <button className="btn primary sm" onClick={() => setSpeaker(s.user_id, true)}><UserPlus size={14} /> Invite to speak</button>
           <button className="btn sm" onClick={() => setSpeaker(s.user_id, false)}>Dismiss</button></div>)}
       </section>}
-      <section aria-label="Audience"><h3 className="side-sec">In the audience — {audience.length}</h3>
+      <section aria-label="Audience"><h3 className="side-sec">In the audience: {audience.length}</h3>
         <div className="stage-audience">{audience.map((s) => <div key={s.user_id} className="stage-person sm" title={displayName(users[s.user_id])}><Avatar user={users[s.user_id] ?? (s.user_id === me.id ? me : null)} size={40} />{s.request_to_speak_at && <Hand size={14} className="hand" aria-label="hand raised" />}</div>)}</div>
       </section>
       <div className="call-controls stage-controls" role="toolbar" aria-label="Stage controls">

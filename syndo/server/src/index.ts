@@ -9,4 +9,4 @@ if (process.env.SEND_AUTO_MIGRATE !== "0") await migrate();
 const app = await buildApp({ logger: process.env.NODE_ENV === "production" });
 await app.listen({ port: config.port, host: config.host });
 startJobs();
-console.log(`${BRAND.name} API listening on :${config.port} — media ${config.limits.media_enabled ? "enabled" : "NOT configured (set LIVEKIT_URL/KEY/SECRET)"}`);
+console.log(`${BRAND.name} API listening on :${config.port}: media ${config.limits.media_enabled ? "enabled" : "NOT configured (set LIVEKIT_URL/KEY/SECRET)"}`);

@@ -21,7 +21,7 @@ import { audit, resyncGuild } from "./guilds.ts";
  * Sounds are played by each listener's client (not mixed into anyone's microphone), so deafened
  * people never hear them and everyone can turn the soundboard down locally.
  */
-const EMOJI_NAME = z.string().regex(/^[A-Za-z0-9_]{2,32}$/, "Emoji names are 2–32 letters, numbers or underscores.");
+const EMOJI_NAME = z.string().regex(/^[A-Za-z0-9_]{2,32}$/, "Emoji names are 2 to 32 letters, numbers or underscores.");
 const AUDIO: Record<string, string> = { "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/x-wav": "wav", "audio/vnd.wave": "wav", "audio/webm": "webm", "video/webm": "webm", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "m4a" };
 
 export const emojiOut = (r: any): Emoji => ({ id: String(r.id), guild_id: String(r.guild_id), name: r.name, animated: !!r.animated, url: emojiUrl(String(r.id)), creator_id: r.creator_id ? String(r.creator_id) : null });
@@ -128,7 +128,7 @@ export async function expressionRoutes(app: FastifyInstance) {
   });
 
   const StickerMeta = z.object({
-    name: z.string().trim().min(2, "Sticker names are 2–30 characters.").max(30),
+    name: z.string().trim().min(2, "Sticker names are 2 to 30 characters.").max(30),
     description: z.string().trim().max(100).optional().transform((v) => v || null),
     tags: z.string().trim().max(64).optional().transform((v) => v || null),
   });

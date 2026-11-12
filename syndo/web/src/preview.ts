@@ -10,7 +10,7 @@ const sam = person("1003", "sam_preview", "Sam · sample");
 const people = [karol, alex, sam];
 const me: SelfUser = { ...karol, email: "preview@example.invalid", email_verified: true, mfa_enabled: false, status: "online", custom_status: { text: "Exploring SEND" }, privacy: DEFAULT_PRIVACY, settings: {}, created_at: now };
 const member = (user: User): Member => ({ guild_id: "2001", user, nick: null, roles: [], joined_at: now, communication_disabled_until: null, mute: false, deaf: false, guild_avatar: null, guild_bio: null });
-const makeChannel = (id: string, name: string, type = 0): Channel => ({ id, name, type, guild_id: "2001", topic: "Local interface preview — sample data only", position: Number(id), parent_id: null, nsfw: false, rate_limit_per_user: 0, bitrate: 128000, user_limit: 0, permission_overwrites: [], permission_synced: false, last_message_id: null, my_permissions: String(ALL_PERMISSIONS) });
+const makeChannel = (id: string, name: string, type = 0): Channel => ({ id, name, type, guild_id: "2001", topic: "Local interface preview: sample data only", position: Number(id), parent_id: null, nsfw: false, rate_limit_per_user: 0, bitrate: 128000, user_limit: 0, permission_overwrites: [], permission_synced: false, last_message_id: null, my_permissions: String(ALL_PERMISSIONS) });
 const channels = [makeChannel("3001", "general"), makeChannel("3002", "ideas"), makeChannel("3003", "Lounge", 2)];
 const dm: Channel = { ...makeChannel("3004", "", 1), name: null, guild_id: null, recipients: [alex] };
 const guild: Guild = { id: "2001", name: "SEND Preview", icon: null, banner: null, description: "Sample community, stored on this device", owner_id: me.id, system_channel_id: null, afk_channel_id: null, afk_timeout: 300, vanity_code: null, tag: "TRY", rules_channel_id: null, verification_level: 0, discoverable: false, created_at: now, member_count: people.length, me: member(me), channels, roles: [
@@ -19,7 +19,7 @@ const guild: Guild = { id: "2001", name: "SEND Preview", icon: null, banner: nul
 ] };
 const message = (id: string, cid: string, author: User, content: string): Message => ({ id, channel_id: cid, guild_id: cid === dm.id ? null : guild.id, author, content, type: 0, created_at: now, edited_at: null, pinned: false, reply_to: null, mentions: [], mention_roles: [], mention_everyone: false, attachments: [], reactions: [], nonce: null });
 let messages: Message[] = [
-  message("4001", "3001", alex, "Welcome to the **SEND interface preview**. These are sample conversations stored on your device — no real messages are sent."),
+  message("4001", "3001", alex, "Welcome to the **SEND interface preview**. These are sample conversations stored on your device: no real messages are sent."),
   message("4002", "3001", sam, "Try sending a message, typing @, reacting, pinning, or saving. Open **Saved messages** from Home to find your saves again."),
   message("4003", "3002", alex, "Explore **SEND Studio** from your profile menu to try colours, layouts and themes."),
   message("4004", "3004", alex, "This is a sample DM. Calls, uploads and real accounts need the live server."),

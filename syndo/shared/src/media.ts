@@ -26,9 +26,9 @@ export interface AudioPreset {
 export const AUDIO_BITRATES_KBPS = [32, 64, 96, 128, 192, 256, 320, 384, 510] as const;
 
 export const AUDIO_PRESETS: AudioPreset[] = [
-  { id: "speech", label: "Speech — clear voice", bitrate: 64_000, stereo: false, dtx: true, fec: true, red: true, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  { id: "speech", label: "Speech: clear voice", bitrate: 64_000, stereo: false, dtx: true, fec: true, red: true, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   { id: "speech-hq", label: "Speech HQ", bitrate: 128_000, stereo: false, dtx: true, fec: true, red: true, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-  { id: "music", label: "Music — stereo fidelity", bitrate: 256_000, stereo: true, dtx: false, fec: true, red: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  { id: "music", label: "Music: stereo fidelity", bitrate: 256_000, stereo: true, dtx: false, fec: true, red: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   { id: "music-max", label: "Music max", bitrate: 384_000, stereo: true, dtx: false, fec: false, red: false, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
 ];
 

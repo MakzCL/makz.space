@@ -35,7 +35,7 @@ export function ServerSettings({ guildId, tab: initial, onClose }: { guildId: st
     ["profile", "My server profile", true], ["danger", owner ? "Transfer / delete" : "", owner],
   ];
   return (
-    <Modal title={`${guild.name} — settings`} onClose={onClose} wide>
+    <Modal title={`${guild.name}: settings`} onClose={onClose} wide>
       <div className="settings" data-pane={pane}>
         <nav className="settings-nav" role="tablist" aria-orientation="vertical">
           {tabs.filter(([, , ok]) => ok).map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setPane("detail"); }}>{label}</button>)}
@@ -97,7 +97,7 @@ function Overview({ guild }: { guild: Guild }) {
       <Field label="Description" hint="Shown on invites."><textarea value={f.description} maxLength={300} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
       <div className="row wrap">
         <Field label="Custom invite link" hint={f.vanity_code ? `${location.origin}/invite/${f.vanity_code}` : "Free for every server, first come first served."}><input value={f.vanity_code} maxLength={32} onChange={(e) => setF({ ...f, vanity_code: e.target.value.toLowerCase() })} placeholder="my-community" /></Field>
-        <Field label="Server tag" hint="2–4 letters/numbers, shown next to the name."><input value={f.tag} maxLength={4} onChange={(e) => setF({ ...f, tag: e.target.value })} /></Field>
+        <Field label="Server tag" hint="2 to 4 letters/numbers, shown next to the name."><input value={f.tag} maxLength={4} onChange={(e) => setF({ ...f, tag: e.target.value })} /></Field>
       </div>
       <div className="row wrap">
         <Field label="System messages channel" hint="Join messages go here."><Select value={f.system_channel_id} onChange={(e) => setF({ ...f, system_channel_id: e.target.value })}><option value="">None</option>{text.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select></Field>
@@ -166,7 +166,7 @@ function Roles({ guild }: { guild: Guild }) {
         ))}
       </div>
       <div className="stack">
-        <h2>{role.id === guild.id ? "@everyone — default permissions" : `Edit role — ${role.name}`}</h2>
+        <h2>{role.id === guild.id ? "@everyone: default permissions" : `Edit role: ${role.name}`}</h2>
         {role.id !== guild.id && (
           <>
             <Field label="Role name"><input value={edit.name} maxLength={100} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
@@ -230,7 +230,7 @@ function Members({ guild }: { guild: Guild }) {
   const toggleRole = (m: Member, rid: string) => run(() => api.patch(`/api/guilds/${guild.id}/members/${m.user.id}`, { roles: m.roles.includes(rid) ? m.roles.filter((x) => x !== rid) : [...m.roles, rid] }));
   return (
     <div className="stack">
-      <h2>Members — {guild.member_count}</h2>
+      <h2>Members: {guild.member_count}</h2>
       <input placeholder="Search members" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />
       <ul className="member-admin">
         {list.map((m) => (
@@ -302,7 +302,7 @@ function EmojiTab({ guild }: { guild: Guild }) {
       <p className="muted">Add up to {EXPRESSION_LIMITS.emojis} custom emoji that everyone here can use (animated GIF/WebP too). Up to {EXPRESSION_LIMITS.emojiBytes / 1024} KB each; 128×128 looks best. Type <code>:name</code> in a message, or pick them from the emoji menu.</p>
       <div className="row"><button className="btn primary" disabled={busy || emojis.length >= EXPRESSION_LIMITS.emojis} onClick={add}>{busy ? "Uploading…" : "Upload emoji"}</button><span className="muted small">{emojis.length} / {EXPRESSION_LIMITS.emojis}</span></div>
       {emojis.length > 0 && <table className="caps expr-table"><thead><tr><th>Image</th><th>Name</th><th>Uploaded by</th><th /></tr></thead><tbody>
-        {emojis.map((e) => <tr key={e.id}><td><img className="expr-emoji" src={e.url} alt="" /></td><td><code>:{e.name}:</code>{e.animated && <span className="tag">GIF</span>}</td><td>{e.creator_id ? displayName(useStore.getState().users[e.creator_id]) || "—" : "—"}</td>
+        {emojis.map((e) => <tr key={e.id}><td><img className="expr-emoji" src={e.url} alt="" /></td><td><code>:{e.name}:</code>{e.animated && <span className="tag">GIF</span>}</td><td>{e.creator_id ? displayName(useStore.getState().users[e.creator_id]) || "-" : "-"}</td>
           <td className="row"><button className="btn sm" onClick={async () => { const n = await askText({ title: "Rename emoji", label: "Name", initial: e.name }); if (n && n !== e.name) run(() => api.patch(`/api/guilds/${guild.id}/emojis/${e.id}`, { name: n.trim() })); }}>Rename</button>
             <button className="btn danger sm" aria-label={`Delete :${e.name}:`} onClick={async () => { if (await askConfirm({ title: `Delete :${e.name}:?`, body: "It disappears from messages and reactions that use it.", confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/guilds/${guild.id}/emojis/${e.id}`)); }}><Trash2 size={14} /></button></td></tr>)}
       </tbody></table>}
@@ -318,7 +318,7 @@ function StickersTab({ guild }: { guild: Guild }) {
   const save = async () => { if (!draft) return; setBusy(true); if (await run(() => uploadSticker(guild.id, draft.file, { name: draft.name.trim(), tags: draft.tags.trim() || null }), "Sticker added")) setDraft(null); setBusy(false); };
   return (
     <div className="stack"><h2>Stickers</h2>
-      <p className="muted">Stickers are big images people can send on their own, like a reaction you post. PNG, APNG, GIF or WebP up to {EXPRESSION_LIMITS.stickerBytes / 1024} KB — 320×320 looks best. Up to {EXPRESSION_LIMITS.stickers} per server.</p>
+      <p className="muted">Stickers are big images people can send on their own, like a reaction you post. PNG, APNG, GIF or WebP up to {EXPRESSION_LIMITS.stickerBytes / 1024} KB: 320×320 looks best. Up to {EXPRESSION_LIMITS.stickers} per server.</p>
       {!draft ? <div className="row"><button className="btn primary" disabled={stickers.length >= EXPRESSION_LIMITS.stickers} onClick={choose}>Upload sticker</button><span className="muted small">{stickers.length} / {EXPRESSION_LIMITS.stickers}</span></div>
         : <div className="card row wrap" style={{ alignItems: "flex-start" }}>
           <img className="sticker-preview" src={draft.preview} alt="" />
@@ -353,7 +353,7 @@ function SoundboardTab({ guild }: { guild: Guild }) {
           <div className="row wrap">
             <Field label="Name"><input value={draft.name} maxLength={32} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
             <Field label="Emoji (optional)"><input value={draft.emoji} maxLength={8} placeholder="📯" onChange={(e) => setDraft({ ...draft, emoji: e.target.value })} style={{ width: 80 }} /></Field>
-            <Field label={`Volume — ${Math.round(draft.volume * 100)}%`}><Range min={0} max={1} step={0.05} value={draft.volume} onChange={(e) => setDraft({ ...draft, volume: +e.target.value })} /></Field>
+            <Field label={`Volume: ${Math.round(draft.volume * 100)}%`}><Range min={0} max={1} step={0.05} value={draft.volume} onChange={(e) => setDraft({ ...draft, volume: +e.target.value })} /></Field>
           </div>
           <div className="row"><button className="btn" onClick={() => playClip(URL.createObjectURL(draft.file), draft.volume)}>Preview</button><span className="grow" /><button className="btn" onClick={() => setDraft(null)}>Cancel</button><button className="btn primary" disabled={busy || !draft.name.trim()} onClick={save}>{busy ? "Uploading…" : "Add sound"}</button></div>
         </div>}
@@ -384,7 +384,7 @@ function Audit({ guild }: { guild: Guild }) {
   return (
     <div className="stack"><h2>Audit log</h2>
       {!list ? <p className="muted">Loading…</p> : <ul className="audit">{list.map((e) => (
-        <li key={e.id}><Avatar user={e.user} size={24} /><span><strong>{displayName(e.user)}</strong> {ACTION_LABEL[e.action] ?? e.action} {e.target_id && <em>{name(e.target_id)}</em>}{e.reason && <span className="muted"> — “{e.reason}”</span>}<small className="block muted">{new Date(e.created_at).toLocaleString()}</small></span></li>
+        <li key={e.id}><Avatar user={e.user} size={24} /><span><strong>{displayName(e.user)}</strong> {ACTION_LABEL[e.action] ?? e.action} {e.target_id && <em>{name(e.target_id)}</em>}{e.reason && <span className="muted">: “{e.reason}”</span>}<small className="block muted">{new Date(e.created_at).toLocaleString()}</small></span></li>
       ))}</ul>}
     </div>
   );

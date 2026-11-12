@@ -57,7 +57,7 @@ async function saveScope(userId: string, scope: string, scopeId: string, data: u
   // Conflict handling: a client that edited an older revision is told, and receives the current one to merge.
   if (rev !== undefined && cur && cur.rev !== rev) {
     const now = await q1<any>("select data, rev, updated_at from appearance_prefs where user_id = $1 and scope = $2 and scope_id = $3", [userId, scope, scopeId]);
-    throw Object.assign(conflict("These settings were changed on another device. Your view has been refreshed — review and save again.", "rev_conflict"), { current: now });
+    throw Object.assign(conflict("These settings were changed on another device. Your view has been refreshed: review and save again.", "rev_conflict"), { current: now });
   }
   const r = await q1<any>(
     `insert into appearance_prefs(user_id, scope, scope_id, data) values ($1,$2,$3,$4)

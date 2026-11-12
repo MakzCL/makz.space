@@ -42,7 +42,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(rateLimit, {
     max: Number(process.env.SEND_RATE_LIMIT ?? 600), timeWindow: "1 minute",
     keyGenerator: (req) => req.session?.user_id ?? req.ip,
-    errorResponseBuilder: (_req, ctx) => ({ statusCode: 429, code: "rate_limited", message: `Slow down — try again in ${Math.ceil(ctx.ttl / 1000)}s.`, retry_after: Math.ceil(ctx.ttl / 1000) }),
+    errorResponseBuilder: (_req, ctx) => ({ statusCode: 429, code: "rate_limited", message: `Slow down: try again in ${Math.ceil(ctx.ttl / 1000)}s.`, retry_after: Math.ceil(ctx.ttl / 1000) }),
   });
 
   app.addHook("onRequest", (req, _reply, done) => { (req as any).__t0 = performance.now(); const t = { n: 0, ms: 0 }; (req as any).__db = t; dbTiming.run(t, done); });

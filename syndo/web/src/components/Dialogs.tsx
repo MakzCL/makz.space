@@ -36,7 +36,7 @@ export function CreateServer({ onClose }: { onClose: () => void }) {
   };
   return (
     <Modal title="Create a server" onClose={onClose} footer={<button className="btn primary" disabled={busy || name.trim().length < 2} onClick={create}>{busy ? "Creating…" : "Create"}</button>}>
-      <p className="muted">A home for your friends or community. Every feature is included — no boosts, no upgrades.</p>
+      <p className="muted">A home for your friends or community. Every feature is included: no boosts, no upgrades.</p>
       <Field label="Server name" error={err}><input autoFocus value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></Field>
       <fieldset className="tpl-grid"><legend className="field-l">Template</legend>
         {TEMPLATES.map((t) => (
@@ -143,7 +143,7 @@ export function NewGroupDm({ onClose }: { onClose: () => void }) {
           <li key={f.id}><label><Avatar user={f.user} size={28} /><span className="ellipsis">{displayName(f.user)} <small className="muted">@{f.user.username}</small></span>
             <input type="checkbox" checked={picked.includes(f.id)} disabled={!picked.includes(f.id) && picked.length >= max} onChange={(e) => setPicked(e.target.checked ? [...picked, f.id] : picked.filter((x) => x !== f.id))} /></label></li>
         ))}
-        {!friends.length && <li className="muted">Add friends first — group conversations are friends-only.</li>}
+        {!friends.length && <li className="muted">Add friends first: group conversations are friends-only.</li>}
       </ul>
     </Modal>
   );

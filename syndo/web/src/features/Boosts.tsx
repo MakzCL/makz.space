@@ -23,7 +23,7 @@ const PERK_ROWS: [keyof (typeof BOOST_LEVELS)[number], string][] = [["upload_mb"
 export function BoostPerks({ tier }: { tier: number }) {
   return <table className="perk-table"><thead><tr><th />{BOOST_LEVELS.map((l) => <th key={l.level} className={l.level === tier ? "cur" : ""}>{l.level ? `Level ${l.level}` : "Free"}<small className="muted block">{l.boosts} boosts</small></th>)}</tr></thead>
     <tbody>{PERK_ROWS.map(([k, label]) => <tr key={k}><td>{label}</td>{BOOST_LEVELS.map((l) => <td key={l.level} className={l.level === tier ? "cur" : ""}>{String(l[k])}</td>)}</tr>)}
-      <tr><td>Animated banner & server badge</td>{BOOST_LEVELS.map((l) => <td key={l.level} className={l.level === tier ? "cur" : ""}>{l.animated_banner ? "✓" : "—"}</td>)}</tr></tbody></table>;
+      <tr><td>Animated banner & server badge</td>{BOOST_LEVELS.map((l) => <td key={l.level} className={l.level === tier ? "cur" : ""}>{l.animated_banner ? "✓" : "-"}</td>)}</tr></tbody></table>;
 }
 
 export function openBoostServer(guild: Guild) { openModal((close) => <BoostServer guild={guild} onClose={close} />); }

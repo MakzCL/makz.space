@@ -15,7 +15,7 @@ export function RecoveryBanner() {
   if (!safe) return null;
   return (
     <div role="alert" style={box}>
-      <span>Safe appearance mode — your themes are paused.</span>
+      <span>Safe appearance mode: your themes are paused.</span>
       <button style={btn} onClick={() => resetAppearance("all")}>Reset appearance</button>
       <button style={{ ...btn, background: "#FFFFFF", color: "#141A2B", border: "2px solid #141A2B" }} onClick={() => setSafeMode(false)}>Exit safe mode</button>
     </div>

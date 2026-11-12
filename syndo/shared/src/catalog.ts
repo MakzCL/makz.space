@@ -1371,7 +1371,7 @@ export const PROFILE_CATALOG = [
     "motif": "flame",
     "motion": "ember",
     "art": "/collections/bundle-94.jpg",
-    "artTitle": "The Witcher 3: Wild Hunt — Remastered",
+    "artTitle": "The Witcher 3: Wild Hunt: Remastered",
     "source": "https://store.steampowered.com/app/292030/",
     "provider": "Steam / game publisher",
     "kind": "cover",

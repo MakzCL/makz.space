@@ -32,7 +32,7 @@ export const PRESETS: ThemeDoc[] = [
     meta: { id: "send-midnight", name: "SEND Midnight", description: "Clean dark surfaces with subtle contrast.", tags: ["dark", "clean"], scheme: "dark" },
   }),
   p({
-    meta: { id: "send-oled", name: "SEND OLED", description: "Near-black surfaces with minimal visual noise — easy on OLED screens and batteries.", tags: ["amoled", "black", "minimal", "dark"], scheme: "dark" },
+    meta: { id: "send-oled", name: "SEND OLED", description: "Near-black surfaces with minimal visual noise: easy on OLED screens and batteries.", tags: ["amoled", "black", "minimal", "dark"], scheme: "dark" },
     colors: { bg0: "#000000", bg1: "#000000", bg2: "#000000", bg3: "#0F0F12", line: "#1C1C22", text: "#ECECEC", textMuted: "#9C9CA4", textFaint: "#74747C", accent: "#5B7CFF" },
     panels: { header: { border: "#1C1C22", borderWidth: 1, borderOpacity: 100 }, composer: { bg: "#0F0F12", opacity: 100, radius: 12 } },
   }),

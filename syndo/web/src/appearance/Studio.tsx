@@ -233,7 +233,7 @@ function PanelsSection({ region, setRegion }: { region: RegionId; setRegion: (r:
   return (
     <div className="stack">
       <h3>Panels & transparency</h3>
-      <p className="muted small">Pick a region in the live preview (it doubles as an interface map) or from this list. Opacity only affects a panel's <em>background layer</em> — text, icons and controls stay fully opaque. Lower opacity reveals what's underneath inside {""}SEND (the wallpaper and lower panels). Seeing through to your desktop is a separate native option, available only in the Windows desktop app.</p>
+      <p className="muted small">Pick a region in the live preview (it doubles as an interface map) or from this list. Opacity only affects a panel's <em>background layer</em>: text, icons and controls stay fully opaque. Lower opacity reveals what's underneath inside {""}SEND (the wallpaper and lower panels). Seeing through to your desktop is a separate native option, available only in the Windows desktop app.</p>
       <div className="region-list" role="listbox" aria-label="Interface regions">
         {REGIONS.map((r) => <button key={r.id} role="option" aria-selected={r.id === region} className={r.id === region ? "active" : ""} onClick={() => setRegion(r.id)}>{r.label}<small className="muted block">{r.hint}</small></button>)}
       </div>
@@ -276,7 +276,7 @@ function BackgroundsSection() {
   const [variant, setVariant] = useState<"dark" | "light">("dark");
   return (
     <div className="stack">
-      <h3>Background {target.kind !== "global" && <small className="muted">for {target.label} — only you see this</small>}</h3>
+      <h3>Background {target.kind !== "global" && <small className="muted">for {target.label}: only you see this</small>}</h3>
       <SelectField path="background.target" label="Wallpaper sits behind" options={[["app", "The whole app (panels reveal it)"], ["chat", "Only the message area"]]} />
       <div className="tabs" role="tablist">{(["dark", "light"] as const).map((v) => <button key={v} role="tab" aria-selected={variant === v} className={variant === v ? "active" : ""} onClick={() => setVariant(v)}>{v === "dark" ? "For dark themes" : "For light themes"}</button>)}</div>
       <BackgroundEditor path={`background.${variant}`} />
@@ -370,7 +370,7 @@ function Library({ onPick, video }: { onPick?: (ref: string) => void; video?: bo
   const list = (assets ?? []).filter((a) => (video === undefined ? true : video ? a.kind === "video" : a.kind === "image"));
   return (
     <div className="stack">
-      <h4>Your background library <small className="muted">private — only you can load these</small></h4>
+      <h4>Your background library <small className="muted">private: only you can load these</small></h4>
       {storage && <div className="usage"><progress max={storage.quota} value={storage.used} aria-label="Storage used" /><small className="muted">{(storage.used / 1048576).toFixed(1)} MB of {Math.round(storage.quota / 1048576)} MB · {storage.count} items</small></div>}
       <div className="row wrap">
         <label className="btn sm"><Upload size={14} /> Upload image, GIF or video<input type="file" hidden accept="image/png,image/jpeg,image/gif,image/webp,image/avif,video/mp4,video/webm" onChange={(e) => { const f = e.target.files?.[0]; if (f) send(f); e.target.value = ""; }} /></label>
@@ -453,7 +453,7 @@ function ScopeList({ kind, onPick }: { kind: "guild" | "channel"; onPick: (t: Ta
   return (
     <div className="stack">
       <h3>{kind === "guild" ? "Per-server appearance" : "Per-conversation appearance"}</h3>
-      <p className="muted small">{kind === "guild" ? "Your personal look inside a server. Server icons and banners chosen by its admins are separate and never replace your accessibility settings." : "Personal wallpaper, transparency, accent and message style for one DM, group or channel. Only you see it. To suggest a shared look, use the conversation's Appearance panel — others must accept it."}</p>
+      <p className="muted small">{kind === "guild" ? "Your personal look inside a server. Server icons and banners chosen by its admins are separate and never replace your accessibility settings." : "Personal wallpaper, transparency, accent and message style for one DM, group or channel. Only you see it. To suggest a shared look, use the conversation's Appearance panel: others must accept it."}</p>
       <ul className="scope-list">
         {kind === "guild" ? Object.values(guilds).map((g) => (
           <li key={g.id}><button onClick={() => onPick({ kind: "guild", id: g.id, label: g.name })}>{g.name}</button>{has(scopeKey("guild", g.id)) && <span className="tag">customised</span>}</li>
@@ -481,7 +481,7 @@ function PresetsSection() {
       const assets: Record<string, unknown> = {};
       for (const ref of refs) {
         const blob = await (await fetch(assetUrl(ref)!)).blob();
-        if (blob.size > 8 * 1048576) { toast(`Skipped a large asset (${(blob.size / 1048576).toFixed(1)} MB) — packages include files up to 8 MB.`, "info"); continue; }
+        if (blob.size > 8 * 1048576) { toast(`Skipped a large asset (${(blob.size / 1048576).toFixed(1)} MB): packages include files up to 8 MB.`, "info"); continue; }
         assets[ref] = { mime: blob.type, name: ref, data: await new Promise<string>((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]!); fr.readAsDataURL(blob); }) };
       }
       doc.assets = assets;
@@ -518,7 +518,7 @@ function PresetsSection() {
       }
       const saved = await api.post<{ id: string }>("/api/appearance/presets", { name: doc.meta.name, data: toServerNames(doc) });
       if (applyNow) editDraft((d) => ({ ...d, global: { ...d.global, themeId: `preset:${saved.id}` } }));
-      toast(applyNow ? "Imported — previewing now. Press Apply to keep it." : "Imported into your presets.", "success");
+      toast(applyNow ? "Imported: previewing now. Press Apply to keep it." : "Imported into your presets.", "success");
       setImp(null); loadAssets();
     } catch (e) { toast(errMsg(e), "error"); }
   };
@@ -533,7 +533,7 @@ function PresetsSection() {
       <button className="btn" onClick={exportDoc}><Download size={14} /> Export theme</button>
       <h3>Import</h3>
       <label className="btn"><Upload size={14} /> Choose a theme file<input type="file" hidden accept=".json,application/json,.css" onChange={(e) => { const f = e.target.files?.[0]; if (f) readImport(f); e.target.value = ""; }} /></label>
-      <p className="muted small">Supported: SEND theme packages (v2) and v1 exports. Not supported: BetterDiscord or other apps' <code>.theme.css</code> files — they target another app's structure and are rejected rather than half-applied.</p>
+      <p className="muted small">Supported: SEND theme packages (v2) and v1 exports. Not supported: BetterDiscord or other apps' <code>.theme.css</code> files: they target another app's structure and are rejected rather than half-applied.</p>
       {imp && (
         <div className="card stack">
           <strong>{imp.doc ? `“${imp.doc.meta.name}”` : "Can't import this file"}</strong>
@@ -557,7 +557,7 @@ function AccessSection() {
   );
   return (
     <div className="stack">
-      <h3>Accessibility — always wins over any theme</h3>
+      <h3>Accessibility: always wins over any theme</h3>
       <label className="field"><span className="field-l">Reduced motion</span><Select value={g.a11y.reducedMotion} onChange={(e) => setA({ reducedMotion: e.target.value as A11yPrefs["reducedMotion"] })}><option value="system">Follow my system</option><option value="on">Always reduce</option><option value="off">Allow motion</option></Select></label>
       <T k="highContrast" label="High contrast" />
       <T k="minContrast" label="Keep text readable" hint="Automatically adjusts text colour when a theme's contrast is too low." />
@@ -568,7 +568,7 @@ function AccessSection() {
       <label className="field"><span className="field-l">Blur</span><Select value={g.a11y.blur} onChange={(e) => setA({ blur: e.target.value as A11yPrefs["blur"] })}><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></Select></label>
       <T k="lowPower" label="Low-power mode" hint="Turns off blur, animation and video backgrounds everywhere." />
       <h3>This device only</h3>
-      <p className="muted small">Not synced — useful for a laptop on battery or a small screen. Overrides your synced settings on this device.</p>
+      <p className="muted small">Not synced: useful for a laptop on battery or a small screen. Overrides your synced settings on this device.</p>
       <label className="toggle-row"><span className="toggle-l">Low power on this device</span><input type="checkbox" role="switch" className="toggle" checked={!!device.a11y?.lowPower} onChange={(e) => setDevice({ ...device, a11y: { ...device.a11y, lowPower: e.target.checked } })} /></label>
       <label className="toggle-row"><span className="toggle-l">No animated backgrounds on this device</span><input type="checkbox" role="switch" className="toggle" checked={!!device.a11y?.disableAnimatedBackgrounds} onChange={(e) => setDevice({ ...device, a11y: { ...device.a11y, disableAnimatedBackgrounds: e.target.checked } })} /></label>
       <label className="field"><span className="field-l">Server navigation on this device</span><Select value={device.layout?.nav ?? ""} onChange={(e) => setDevice({ ...device, layout: { ...device.layout, nav: (e.target.value || undefined) as any } })}><option value="">Use synced setting</option><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option></Select></label>
@@ -612,7 +612,7 @@ function AdvancedSection() {
         {g.customCssEnabled && (<>
           <textarea className="code-area" rows={10} value={css} spellCheck={false} aria-label="Custom CSS" placeholder={`[data-region="chat"] .msg-name { letter-spacing: 0.5px; }\n.mention { border-radius: 8px; }`}
             onChange={(e) => editDraft((d) => ({ ...d, global: { ...d.global, overrides: { ...d.global.overrides, customCss: e.target.value } } }))} />
-          {cssCheck.errors.length ? <ul className="issues">{cssCheck.errors.map((e, k) => <li key={k} className="error">{e}</li>)}</ul> : css && <p className="ok-text small">Valid — applied in the preview.</p>}
+          {cssCheck.errors.length ? <ul className="issues">{cssCheck.errors.map((e, k) => <li key={k} className="error">{e}</li>)}</ul> : css && <p className="ok-text small">Valid: applied in the preview.</p>}
           <details><summary className="small">Documented hooks</summary><p className="small">Regions: {REGIONS.map((r) => <code key={r.id}>[data-region="{r.id}"] </code>)}</p><p className="small">Classes: {CSS_CLASSES.map((c) => <code key={c}>.{c} </code>)}</p></details>
         </>)}
       </>)}
@@ -639,11 +639,11 @@ function Preview({ onRegion, selected }: { onRegion: (r: RegionId) => void; sele
         <R id="chat" className="pv-chat msgs">
           <div className="msg"><div className="msg-row"><i className="pv-av" style={{ background: "#FF8A6B" }} /><div className="msg-body"><div className="msg-head"><span className="msg-name">Amara</span><time className="muted small">Today at 9:41</time></div><div className="msg-content">Movie night at 8? 🍿</div></div></div></div>
           <div className="msg mine"><div className="msg-row"><i className="pv-av" style={{ background: "var(--accent)" }} /><div className="msg-body"><div className="msg-head"><span className="msg-name">{me ? displayName(me) : "You"}</span></div><div className="msg-content">Yes! I'll bring snacks <span className="mention">@Amara</span></div></div></div></div>
-          <div className="msg mentioned"><div className="msg-row"><i className="pv-av" style={{ background: "#2FBF71" }} /><div className="msg-body"><div className="msg-head"><span className="msg-name">Bodhi</span></div><div className="msg-content">Count me in — <a href="#preview" onClick={(e) => e.preventDefault()}>trailer</a> <code className="md-code">8pm</code></div><div className="reactions"><span className="reaction me">🎉 3</span></div></div></div></div>
+          <div className="msg mentioned"><div className="msg-row"><i className="pv-av" style={{ background: "#2FBF71" }} /><div className="msg-body"><div className="msg-head"><span className="msg-name">Bodhi</span></div><div className="msg-content">Count me in: <a href="#preview" onClick={(e) => e.preventDefault()}>trailer</a> <code className="md-code">8pm</code></div><div className="reactions"><span className="reaction me">🎉 3</span></div></div></div></div>
         </R>
         <R id="composer" className="pv-comp composer"><span className="muted">Message #general</span></R>
       </div>
-      <R id="members" className="pv-members"><small className="side-sec">Online — 3</small>{["Amara", "Bodhi", "Cy"].map((n) => <span key={n} className="member"><i className="pv-av sm" />{n}</span>)}</R>
+      <R id="members" className="pv-members"><small className="side-sec">Online: 3</small>{["Amara", "Bodhi", "Cy"].map((n) => <span key={n} className="member"><i className="pv-av sm" />{n}</span>)}</R>
       <div className="pv-float">
         <R id="profileCard" className="pv-card"><div className="pv-banner" /><b>Amara</b><small className="muted">@amara · she/her</small></R>
         <R id="call" className="pv-call"><span className="ctl sm" /><span className="ctl sm" /><span className="ctl sm danger" /></R>

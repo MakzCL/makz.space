@@ -93,7 +93,7 @@ export async function sessionHook(req: FastifyRequest) {
 }
 
 const PASSWORD = z.string().min(8, "Use at least 8 characters.").max(256);
-const USERNAME = z.string().trim().toLowerCase().regex(/^[a-z0-9_.]{2,32}$/, "Usernames use 2–32 letters, numbers, dots or underscores.")
+const USERNAME = z.string().trim().toLowerCase().regex(/^[a-z0-9_.]{2,32}$/, "Usernames use 2 to 32 letters, numbers, dots or underscores.")
   .refine((s) => !/\.\./.test(s), "No double dots.");
 const EMAIL = z.string().trim().toLowerCase().email("That email doesn't look right.").max(254);
 

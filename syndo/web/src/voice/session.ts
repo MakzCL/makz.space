@@ -521,7 +521,7 @@ navigator.mediaDevices?.addEventListener?.("devicechange", async () => {
   const s = get().settings;
   const list = await navigator.mediaDevices.enumerateDevices().catch(() => []);
   if (s.inputDeviceId !== "default" && !list.some((d) => d.deviceId === s.inputDeviceId)) {
-    toast("Your microphone was disconnected — switched to the default device.", "info");
+    toast("Your microphone was disconnected: switched to the default device.", "info");
     await updateVoiceSettings({ inputDeviceId: "default" });
   }
 });

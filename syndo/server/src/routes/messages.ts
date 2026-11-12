@@ -406,7 +406,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const { content } = z.object({ content: z.string().max(500000) }).parse(req.body);
     await validateDmWire(content, channel, me);
     const hasAtt = await q1("select 1 from attachments where message_id = $1", [m.id]);
-    if (!content.trim() && !hasAtt) throw bad("Messages can't be empty — delete it instead.");
+    if (!content.trim() && !hasAtt) throw bad("Messages can't be empty: delete it instead.");
     const mentions = parseMentions(content);
     await q("update messages set content = $2, edited_at = now(), mentions = $3, mention_everyone = mention_everyone and $4 where id = $1", [m.id, content, mentions.users, mentions.everyone]);
     const msg = (await messageById(m.id, me))!;

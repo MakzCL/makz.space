@@ -20,7 +20,7 @@ export async function checkForWebUpdate(force = false) {
   try {
     const r = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
     if (r.ok) { const j = await r.json(); if (j?.build && j.build !== current) set(true); }
-  } catch { /* offline — try again later */ } finally { checking = false; }
+  } catch { /* offline: try again later */ } finally { checking = false; }
   return available;
 }
 

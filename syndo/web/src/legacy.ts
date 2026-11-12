@@ -29,6 +29,6 @@ for (const pick of [() => localStorage, () => sessionStorage]) {
       if (value !== null && store.getItem(target) === null) store.setItem(target, value);
     }
     store.setItem(DONE, "1");
-  } catch { /* storage blocked (private mode) — nothing to move */ }
+  } catch { /* storage blocked (private mode): nothing to move */ }
 }
 export {};

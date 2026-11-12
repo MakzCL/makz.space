@@ -48,7 +48,7 @@ function Flow({ guild, ob, needsRules, onDone }: { guild: Guild; ob: OB; needsRu
   };
   const close = () => { if (needsRules && step === "rules") return; onDone(); };
   return (
-    <Modal title={step === "rules" ? <><ScrollText size={20} /> {guild.name} — rules</> : step === "welcome" ? `Welcome to ${guild.name}!` : prompt?.title} label="Server onboarding" onClose={close}
+    <Modal title={step === "rules" ? <><ScrollText size={20} /> {guild.name}: rules</> : step === "welcome" ? `Welcome to ${guild.name}!` : prompt?.title} label="Server onboarding" onClose={close}
       footer={<><span className="muted small grow">{steps.length > 1 ? `${i + 1} of ${steps.length}` : ""}</span>
         {step !== "rules" && step !== "welcome" && !prompt?.required && <button className="btn" onClick={next}>Skip</button>}
         <button className="btn primary" disabled={busy || (step === "rules" && !agree) || (!!prompt?.required && !(answers[prompt.id]?.length))} onClick={next}>{i + 1 >= steps.length ? "Finish" : "Next"}</button></>}>

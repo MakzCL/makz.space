@@ -55,7 +55,7 @@ export function upload<T = any>(path: string, form: FormData, onProgress: (f: nu
       let d: any = null; try { d = JSON.parse(xhr.responseText); } catch { /* */ }
       if (xhr.status >= 200 && xhr.status < 300) { if (meta) import("./crypto/dm.ts").then(m => { m.rememberUpload(d.id, meta); res(d); }).catch(rej); else res(d); } else rej(new ApiError(xhr.status, d?.code ?? "error", d?.message ?? "Upload failed."));
     };
-    xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed — check your connection."));
+    xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed: check your connection."));
     xhr.onabort = () => rej(new ApiError(0, "aborted", "Upload cancelled."));
     xhr.send(form);
   });
@@ -84,7 +84,7 @@ export function uploadLarge<T = any>(channelId: string, file: File, fields: Reco
     setClientHeaders(xhr!);
     xhr.upload.onprogress = (e) => onBytes(e.loaded);
     xhr.onload = () => { let d: any = null; try { d = JSON.parse(xhr!.responseText); } catch { /* */ } if (xhr!.status >= 200 && xhr!.status < 300) res(d); else rej(new ApiError(xhr!.status, d?.code ?? "error", d?.message ?? "Upload failed.")); };
-    xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed — check your connection."));
+    xhr.onerror = () => rej(new ApiError(0, "network", "Upload failed: check your connection."));
     xhr.onabort = () => rej(new ApiError(0, "aborted", "Upload cancelled."));
     xhr.send(blob);
   });

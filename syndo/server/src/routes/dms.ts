@@ -78,7 +78,7 @@ export async function dmRoutes(app: FastifyInstance) {
     const me = uid(req);
     if (b.recipient_id) {
       const other = b.recipient_id;
-      if (other === me) throw bad("You can't message yourself here — try saved messages.");
+      if (other === me) throw bad("You can't message yourself here: try saved messages.");
       const [low, high] = BigInt(me) < BigInt(other) ? [me, other] : [other, me];
       const existing = await q1<any>("select channel_id::text from dm_pairs where low_id = $1 and high_id = $2", [low, high]);
       if (existing) {

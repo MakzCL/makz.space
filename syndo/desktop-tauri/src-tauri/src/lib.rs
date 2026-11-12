@@ -183,6 +183,7 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
 
   let nav_app = app.clone();
   let perm_app = app.clone();
+  let popup_app = app.clone();
   let win = WebviewWindowBuilder::new(app, "main", start_url(&c, link))
     .title("SEND")
     .inner_size(1280.0, 820.0)
@@ -200,8 +201,23 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
       open_external(url);
       false
     })
-    // The web app's "pop out call" window is a blank page it draws into itself; everything else opens in the browser.
-    .on_new_window(|url, _features| { if url.scheme() == "about" { return NewWindowResponse::Allow; } open_external(&url); NewWindowResponse::Deny })
+    // The web app's "pop out call" window is a blank page it draws into itself. It opens as a proper SEND window
+    // (dark title bar, SEND icon, no address bar), sharing the main window's WebView2 environment so the page can
+    // still draw into it. Everything else opens in the browser.
+    .on_new_window(move |url, features| {
+      if url.scheme() != "about" { open_external(&url); return NewWindowResponse::Deny; }
+      static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+      let label = format!("popout-{}", N.fetch_add(1, Ordering::SeqCst));
+      let built = WebviewWindowBuilder::new(&popup_app, label, WebviewUrl::External(url.clone()))
+        .window_features(features)
+        .title("SEND")
+        .theme(Some(tauri::Theme::Dark))
+        .background_color(tauri::window::Color(0, 0, 0, 255))
+        .min_inner_size(480.0, 320.0)
+        .on_document_title_changed(|w, title| { let _ = w.set_title(if title.is_empty() { "SEND" } else { &title }); })
+        .build();
+      match built { Ok(window) => NewWindowResponse::Create { window }, Err(_) => NewWindowResponse::Allow }
+    })
     .on_permission_request(move |webview, kind| {
       let o = origin_of(&shell(&perm_app).cfg().server_url);
       let from_app = webview.url().ok().map(|u| u.origin().ascii_serialization()) == o && o.is_some();

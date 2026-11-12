@@ -175,7 +175,7 @@ function TicTacToe() {
     n.b[i] = side; n.turn = side === "x" ? "o" : "x";
     share(n);
   };
-  const name = (id: string | null) => (id ? displayName(users[id] ?? (id === me ? useStore.getState().me : null)) : "open seat — make a move to join");
+  const name = (id: string | null) => (id ? displayName(users[id] ?? (id === me ? useStore.getState().me : null)) : "open seat: make a move to join");
   return <div className="ttt">
     <p className="muted small">✕ {name(st.x)} · ◯ {name(st.o)}</p>
     <div className="ttt-board">{st.b.map((c, i) => <button key={i} className={`ttt-c ${c ?? ""}`} onClick={() => play(i)} aria-label={`Square ${i + 1}${c ? `, ${c}` : ""}`}>{c === "x" ? "✕" : c === "o" ? "◯" : ""}</button>)}</div>

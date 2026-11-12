@@ -73,7 +73,7 @@ export function QrLogin({ onSignedIn }: { onSignedIn: () => void }) {
   }, [n]); // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="qr-login">
     {state === "expired" ? <button className="btn" onClick={() => { setState("loading"); setN((x) => x + 1); }}><RefreshCw size={14} /> New code</button>
-      : state === "scanned" ? <p><Smartphone size={18} /> Check your phone{who ? `, ${who}` : ""} — tap <strong>Yes, sign in</strong>.</p>
+      : state === "scanned" ? <p><Smartphone size={18} /> Check your phone{who ? `, ${who}` : ""}: tap <strong>Yes, sign in</strong>.</p>
       : img ? <img src={img} alt="QR code to sign in with your phone" width={180} height={180} /> : <p className="muted">Loading…</p>}
     <strong>Sign in with QR code</strong>
     <p className="muted small">Open SEND on a phone where you're signed in, then scan this with the phone's camera.</p>
@@ -191,7 +191,7 @@ function AppEditor({ app, onChange }: { app: Application; onChange: () => void }
       <button className="btn sm" onClick={() => api.post<{ interaction_secret: string }>(`/api/applications/${app.id}/reset-secret`).then((r) => setSecret(r.interaction_secret))}>Signing secret</button>
       <button className="btn sm" onClick={() => openInstall(app)}>Add to a server</button>
       <button className="btn danger sm" onClick={async () => { if (await askConfirm({ title: `Delete ${app.name}?`, body: "Its bot leaves every server.", confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/applications/${app.id}`)).then(onChange); }}><Trash2 size={14} /> Delete</button></div>
-    {token && <div className="secret-box"><p className="small">Bot token — copy it now, it's shown once. Never share it.</p><code>{show ? token : "•".repeat(32)}</code><button className="icon-btn sm" aria-label={show ? "Hide" : "Show"} onClick={() => setShow(!show)}>{show ? <EyeOff size={14} /> : <Eye size={14} />}</button><button className="btn sm" onClick={() => { navigator.clipboard.writeText(token); toast("Copied.", "success"); }}><Copy size={14} /> Copy</button></div>}
+    {token && <div className="secret-box"><p className="small">Bot token: copy it now, it's shown once. Never share it.</p><code>{show ? token : "•".repeat(32)}</code><button className="icon-btn sm" aria-label={show ? "Hide" : "Show"} onClick={() => setShow(!show)}>{show ? <EyeOff size={14} /> : <Eye size={14} />}</button><button className="btn sm" onClick={() => { navigator.clipboard.writeText(token); toast("Copied.", "success"); }}><Copy size={14} /> Copy</button></div>}
     {secret && <div className="secret-box"><p className="small">Interaction signing secret</p><code>{secret}</code></div>}
   </div>;
 }
@@ -200,10 +200,10 @@ function AppEditor({ app, onChange }: { app: Application; onChange: () => void }
 export function PushCard() {
   const [st, setSt] = useState<string>("…");
   useEffect(() => { pushState().then(setSt); }, []);
-  const text: Record<string, string> = { unsupported: "This browser can't receive push notifications.", unavailable: "Push notifications aren't set up on this server yet.", denied: "Notifications are blocked for SEND in your browser settings.", off: "Off", on: "On — you'll get notified even when SEND is closed." };
+  const text: Record<string, string> = { unsupported: "This browser can't receive push notifications.", unavailable: "Push notifications aren't set up on this server yet.", denied: "Notifications are blocked for SEND in your browser settings.", off: "Off", on: "On: you'll get notified even when SEND is closed." };
   return <div className="card"><h3>Push notifications</h3><p className="muted small">{text[st] ?? "Checking…"}</p>
     {st === "off" && <button className="btn primary sm" onClick={() => enablePush().then(() => setSt("on")).catch((e) => toast(errMsg(e), "error"))}>Turn on</button>}
-    {st === "on" && <div className="row"><button className="btn sm" onClick={() => api.post("/api/push/test").then(() => toast("Sent a test — close or minimise SEND to see it.", "info"))}>Send a test</button><button className="btn sm" onClick={() => disablePush().then(() => setSt("off"))}>Turn off</button></div>}
+    {st === "on" && <div className="row"><button className="btn sm" onClick={() => api.post("/api/push/test").then(() => toast("Sent a test: close or minimise SEND to see it.", "info"))}>Send a test</button><button className="btn sm" onClick={() => disablePush().then(() => setSt("off"))}>Turn off</button></div>}
   </div>;
 }
 
