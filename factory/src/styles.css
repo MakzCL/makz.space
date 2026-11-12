@@ -1240,3 +1240,11 @@ ul.trace li svg { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.8; }
 .dev-btn:disabled { opacity: 0.5; cursor: default; }
 .devices-ok { margin: 0; color: var(--ok); font-size: 0.85rem; } .devices-err { margin: 0; color: var(--red); font-size: 0.85rem; }
 .status-card .row > .btn { flex: none; } /* the Set button never gets squeezed into clipped text */
+
+/* app download in progress (main.tsx Loading): replaces the old blank fallback */
+.app-loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; color: var(--muted, #8a91c4); font-size: 0.95rem; text-align: center; padding: 1.5rem; }
+.app-loading-bar { width: 160px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent, #e3342f, transparent); background-size: 200% 100%; animation: app-loading 1.2s linear infinite; }
+.app-loading-hint { max-width: 22rem; }
+.app-loading button { margin-top: 0.25rem; padding: 0.6rem 1.2rem; border-radius: 10px; border: 0; background: #e3342f; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+@keyframes app-loading { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .app-loading-bar { animation: none; background: #e3342f; } }

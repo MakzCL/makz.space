@@ -48,7 +48,7 @@ export function TrotanProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async (k: Key) => {
     const [t, cols] = TABLES[k];
     let q = sb.from(t).select(cols);
-    if (k === "jobs" || k === "runs") q = q.order("created_at", { ascending: false }).limit(2000);
+    if (k === "jobs" || k === "runs") q = q.order(k === "runs" ? "started_at" : "created_at", { ascending: false }).limit(2000); // trotan_runs has no created_at
     const { data, error } = await q;
     if (error) throw error;
     setSt((s) => ({ ...s, [k]: data ?? [] }));
