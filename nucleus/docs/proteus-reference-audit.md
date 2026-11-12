@@ -1,13 +1,16 @@
 # Proteus reference audit
 
-**Status of this audit:** written without direct access to the reference material. `www.labcenter.com` is blocked by this development environment's network policy, so none of the pages listed in the directive could be fetched, including the 212-page tutorial PDF. No Proteus installation was available either.
+**Status of this audit (updated 2026-11-12):** these Labcenter pages were downloaded and read on 2026-11-12:
+- whatsnew/9.2, schematic, pcb-layout, router, highspeed, simulation, instruments, microprocessors, proteus9, pcb, tutorials.
 
-Everything below therefore comes from general, long-standing knowledge of how Proteus works (ISIS schematic capture, ARES PCB layout, VSM simulation). Each item is marked:
+The feature-by-feature result is in `PROTEUS_FEATURE_PARITY.md`. Items below marked **[unverified 9.2]** were written before those pages could be reached. Where they disagree with the parity matrix, the matrix wins.
 
-- **[known]** — long-standing behaviour, stable over many versions.
-- **[unverified 9.2]** — believed current, but not checked against 9.2 documentation or a demo installation.
-
-Before any item is treated as a parity target, re-check it once labcenter.com is allowed (environment settings → network).
+Notes from the 9.2 pages:
+- **New in 9.2:** Measure and Move, the Output Job Manager (`.poprof` profiles), HDI micro-vias (1+n+1 stackup), persistent object groups, DRC room via-style override and "Exclude Foreign", offset holes and slots in padstacks, configurable pick-and-place columns.
+- **Also new in 9.2:** AI library parts (ProPilot, beta), the System Meter, BLE and RFID models, and GDB remote for Cortex-M.
+- **Autorouter:** shape-based with multi-pass cost-based conflict reduction; automatic, batch (SPECCTRA-like script) and interactive modes.
+- **Instruments:** system scope 4 channels with X-Y, 20 V/div to 2 mV/div, 200 ms/div to 0.5 µs/div; logic analyser 24 channels with a 40 000-sample buffer; SPI/I²C/CAN analysers; signal generator 0–12 MHz; virtual terminal 300–57 600 baud; counter/timer; voltmeters, ammeters and a wattmeter.
+- **MCU families listed:** ARM7, Cortex-M0/M0+/M3/M4, Arduino boards, PIC10–PIC24, dsPIC33, 8051, AVR, MSP430, Piccolo, MicroPython (Pico, ESP32).
 
 ## Application layout
 - **[known]** One application window with document tabs: Schematic Capture, PCB Layout, 3D Visualiser, Bill of Materials, Design Explorer, Source Code (VSM Studio) and Visual Designer.
@@ -39,8 +42,8 @@ Before any item is treated as a parity target, re-check it once labcenter.com is
 - F6/F7 zoom in/out, F8 zoom to all, F5 centre at cursor (in older versions), G toggles the grid, and M toggles metric/imperial (ARES).
 - PCB routing: Shift+P push/follow mode, Shift+N neck-down, Escape cancels.
 
-## What NUCLEUS uses from this audit
-NUCLEUS takes only the familiar *workflow*:
+## What NUCLUES uses from this audit
+NUCLUES takes only the familiar *workflow*:
 - pick devices with P
 - the object selector on the left
 - the transport at the bottom

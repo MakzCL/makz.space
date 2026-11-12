@@ -1,4 +1,5 @@
 {
- "0.3.0": "New: CADRA 2D CAD drafting, bundled and offline. NUCLEUS updates.",
+ "0.3.1": "NUCLUES (renamed from NUCLEUS): 555 timer and 7805 regulator models, faster DRC. CADRA: extend, fillet, chamfer, arrays, angular dimensions, blocks.",
+ "0.3.0": "New: CADRA 2D CAD drafting, bundled and offline. NUCLUES updates.",
  "0.2.0": "One-click updates from Settings, sign out of this computer, matching app icons, solid TROTAN T."
 }

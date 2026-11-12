@@ -63,9 +63,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const text = await saveFile(prRef.current);
     const w = window as unknown as { showSaveFilePicker?: (o: unknown) => Promise<FSHandle> };
     try {
-      if (w.showSaveFilePicker && (as || !handle.current)) handle.current = await w.showSaveFilePicker({ suggestedName: `${prRef.current.name}.nucleus`, types: [{ description: "NUCLEUS project", accept: { "application/json": [".nucleus"] } }] });
+      if (w.showSaveFilePicker && (as || !handle.current)) handle.current = await w.showSaveFilePicker({ suggestedName: `${prRef.current.name}.nuclues`, types: [{ description: "NUCLUES project", accept: { "application/json": [".nuclues", ".nucleus"] } }] });
       if (handle.current) { const s = await handle.current.createWritable(); await s.write(text); await s.close(); setFileName(handle.current.name); }
-      else { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = `${prRef.current.name}.nucleus`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); setFileName(a.download); }
+      else { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = `${prRef.current.name}.nuclues`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); setFileName(a.download); }
       setDirty(false); say(`Saved ${prRef.current.name}`, "ok");
     } catch (e) { if ((e as Error).name !== "AbortError") say(`Not saved: ${(e as Error).message}`, "error"); }
   }, [say]);
@@ -75,8 +75,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let text: string, name: string;
       const w = window as unknown as { showOpenFilePicker?: (o: unknown) => Promise<(FSHandle & { getFile: () => Promise<File> })[]> };
       if (file) { text = await file.text(); name = file.name; handle.current = null; }
-      else if (w.showOpenFilePicker) { const [h] = await w.showOpenFilePicker({ types: [{ description: "NUCLEUS project", accept: { "application/json": [".nucleus"] } }] }); const f = await h.getFile(); text = await f.text(); name = f.name; handle.current = h; }
-      else { const f = await new Promise<File | null>((res) => { const i = document.createElement("input"); i.type = "file"; i.accept = ".nucleus,application/json"; i.onchange = () => res(i.files?.[0] ?? null); i.click(); }); if (!f) return; text = await f.text(); name = f.name; }
+      else if (w.showOpenFilePicker) { const [h] = await w.showOpenFilePicker({ types: [{ description: "NUCLUES project", accept: { "application/json": [".nuclues", ".nucleus"] } }] }); const f = await h.getFile(); text = await f.text(); name = f.name; handle.current = h; }
+      else { const f = await new Promise<File | null>((res) => { const i = document.createElement("input"); i.type = "file"; i.accept = ".nuclues,.nucleus,application/json"; i.onchange = () => res(i.files?.[0] ?? null); i.click(); }); if (!f) return; text = await f.text(); name = f.name; }
       try { const { project, warnings } = await openFile(text); load(project, name); say(warnings.length ? warnings.join(" ") : `Opened ${name}`, warnings.length ? "info" : "ok"); }
       catch (e) {
         if (e instanceof FileError && e.recoverable && window.confirm(`${e.message}\n\nOpen it anyway? The design may not be what was saved.`)) { const { project, warnings } = await openFile(text, { acceptChecksumMismatch: true }); load(project, name); say(warnings.join(" "), "info"); }

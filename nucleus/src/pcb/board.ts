@@ -166,3 +166,33 @@ export function courtyardOf(p: PcbPart): [Nm, Nm, Nm, Nm] | null {
   const c = [place(p, x0, y0), place(p, x1, y1)];
   return [Math.min(c[0][0], c[1][0]), Math.min(c[0][1], c[1][1]), Math.max(c[0][0], c[1][0]), Math.max(c[0][1], c[1][1])];
 }
+
+// ---------- spatial index ----------
+/** Uniform-grid index over axis-aligned boxes [x0, y0, x1, y1]: the broad phase for DRC, so each object is only
+ * compared with its neighbours instead of every other object. Query results are ascending and unique. */
+export class BoxGrid {
+  private cells = new Map<number, number[]>(); private stamp: Int32Array; private q = 0; private ox: number; private oy: number; private n: number; private brute: boolean;
+  /** cell = 0 makes a brute-force index (every query returns every box): the reference the tests compare against. */
+  constructor(boxes: readonly (readonly number[] | null)[], private cell: number) {
+    this.n = boxes.length; this.brute = cell === 0;
+    this.stamp = new Int32Array(boxes.length); if (this.brute) { this.ox = this.oy = 0; return; } let ox = Infinity, oy = Infinity; for (const b of boxes) if (b) { ox = Math.min(ox, b[0]); oy = Math.min(oy, b[1]); }
+    this.ox = Number.isFinite(ox) ? ox : 0; this.oy = Number.isFinite(oy) ? oy : 0; if (!(cell > 0)) this.cell = 1;
+    boxes.forEach((b, i) => { if (b) this.cover(b, (k) => { const c = this.cells.get(k); if (c) c.push(i); else this.cells.set(k, [i]); }); });
+  }
+  private cover(b: readonly number[], f: (k: number) => void) {
+    const c = this.cell, i0 = Math.floor((b[0] - this.ox) / c), i1 = Math.floor((b[2] - this.ox) / c), j0 = Math.floor((b[1] - this.oy) / c), j1 = Math.floor((b[3] - this.oy) / c);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) f(i * 2097152 + j); // 2^21 cells per axis
+  }
+  /** Indices of boxes whose cells overlap box b (a superset of the boxes that intersect b), ascending. */
+  query(b: readonly number[]): number[] {
+    if (this.brute) return Array.from({ length: this.n }, (_, i) => i);
+    const out: number[] = []; const id = ++this.q;
+    this.cover(b, (k) => { const c = this.cells.get(k); if (c) for (const i of c) if (this.stamp[i] !== id) { this.stamp[i] = id; out.push(i); } });
+    return out.sort((a, c) => a - c);
+  }
+}
+/** A sensible cell size: twice the median box size, never below `min`. */
+export function gridCell(boxes: readonly (readonly number[] | null)[], min: number): number {
+  const s = boxes.filter((b): b is readonly number[] => !!b).map((b) => Math.max(b[2] - b[0], b[3] - b[1])).sort((a, c) => a - c);
+  return Math.max(min, 2 * (s[s.length >> 1] ?? min));
+}

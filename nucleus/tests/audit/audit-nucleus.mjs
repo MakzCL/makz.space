@@ -1,10 +1,10 @@
-// Audit NUCLEUS: every screen and every menu, desktop (1440) clicks + static checks at 1440 and 1024.
+// Audit NUCLUES: every screen and every menu, desktop (1440) clicks + static checks at 1440 and 1024.
 // Run: npm run build ; npm run preview   then   node tests/audit/audit-nucleus.mjs <outDir>
 import { createRequire } from "node:module"; import fs from "node:fs";
 import { crawlScreen, report } from "../../../factory/tests/audit/crawl.mjs";
 const require = createRequire(import.meta.url);
 let chromium; try { ({ chromium } = require("playwright")); } catch { ({ chromium } = require(require("node:child_process").execSync("npm root -g").toString().trim() + "/playwright")); }
-const URL = process.env.NUCLEUS_URL ?? "http://localhost:4280/"; const OUT = process.argv[2] ?? "."; fs.mkdirSync(OUT, { recursive: true });
+const URL = process.env.NUCLUES_URL ?? "http://localhost:4280/"; const OUT = process.argv[2] ?? "."; fs.mkdirSync(OUT, { recursive: true });
 const example = (id) => async (p) => { await p.getByTestId(`example-${id}`).click(); await p.getByTestId("sim-state").filter({ hasText: /Solved|Error|failed/i }).waitFor({ timeout: 60000 }).catch(() => {}); };
 const menu = (m) => async (p) => { await p.getByTestId(`menu-${m}`).click(); };
 const pcb = async (p) => { await p.getByTestId("menu-PCB").click(); await p.getByRole("menuitem", { name: "Open PCB layout" }).click(); await p.getByTestId("pcb").waitFor(); };

@@ -1,4 +1,4 @@
-// NUCLEUS main window: header + menus, document tabs, toolbox, browser, canvas, inspector, docks, status bar.
+// NUCLUES main window: header + menus, document tabs, toolbox, browser, canvas, inspector, docks, status bar.
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { StoreProvider, useStore, type DocKind } from "./store";
 import { SchematicCanvas, type Tool } from "./schematic/SchematicCanvas";
@@ -46,7 +46,7 @@ function Shell() {
   useEffect(() => { keep("palette", palette); document.documentElement.dataset.theme = palette; }, [palette]);
   useEffect(() => keep("paper", paper), [paper]); useEffect(() => keep("picked", picked), [picked]);
   useEffect(() => keep("left", left), [left]); useEffect(() => keep("right", right), [right]); useEffect(() => keep("bottom", bottom), [bottom]);
-  useEffect(() => { document.title = `${S.dirty ? "• " : ""}${S.pr.name} — NUCLEUS`; }, [S.pr.name, S.dirty]);
+  useEffect(() => { document.title = `${S.dirty ? "• " : ""}${S.pr.name} — NUCLUES`; }, [S.pr.name, S.dirty]);
   const doc = S.docs.find((d) => d.id === S.active) ?? S.docs[0];
   const openExample = useCallback((id: string) => {
     const e = EXAMPLES.find((x) => x.id === id); if (!e) return;
@@ -109,7 +109,7 @@ function Shell() {
     Manufacturing: [{ label: "Bill of materials", onClick: () => S.openDoc("bom") }, { label: "Export BOM CSV", onClick: () => dl(`${S.pr.name}-BOM.csv`, bomCsv(bomLines(S.pr))) }, { label: "Gerber, drill and pick-and-place (zip)…", onClick: () => pcbDo("export") }],
     Tools: [{ label: "Keyboard shortcuts…", key: k("help.keys"), onClick: () => setModal("keys") }],
     Window: S.docs.map((d) => ({ label: d.title, checked: d.id === S.active, onClick: () => S.setActive(d.id) })),
-    Help: [{ label: "Keyboard shortcuts", onClick: () => setModal("keys") }, { label: "About NUCLEUS", onClick: () => setModal("about") }],
+    Help: [{ label: "Keyboard shortcuts", onClick: () => setModal("keys") }, { label: "About NUCLUES", onClick: () => setModal("about") }],
   };
   const fmt = (v: number) => (mm ? `${thToMm(v).toFixed(2)}` : `${Math.round(v)}`);
   const errs = S.findings?.filter((f) => f.severity === "error").length ?? 0, warns = S.findings?.filter((f) => f.severity === "warning").length ?? 0;
@@ -125,7 +125,7 @@ function Shell() {
   return (
     <div className={`n-app ${palette}`}>
       <header className="n-head">
-        <div className="n-brand"><Logo size={20} /><b>NUCLEUS</b></div>
+        <div className="n-brand"><Logo size={20} /><b>NUCLUES</b></div>
         <nav className="n-menubar">{Object.keys(MENUS).map((m) => <button key={m} type="button" onClick={(e) => { const r = (e.target as HTMLElement).getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 2, items: MENUS[m] }); }} data-testid={`menu-${m}`}>{m}</button>)}</nav>
         <div className="n-proj" title={`${S.pr.name}: revision ${S.pr.revision}, ${S.fileName ?? "not saved yet"}`}><b>{S.pr.name}</b><span className="n-dim">rev {S.pr.revision} · {S.fileName ?? "not saved yet"}</span><span className={`n-save ${S.dirty ? "dirty" : ""}`}>{S.dirty ? "● unsaved" : "saved"}</span></div>
         <div className="n-themes" role="group" aria-label="Colours">{(["light", "granat", "dark"] as Palette[]).map((x) => <button key={x} type="button" className={palette === x ? "on" : ""} onClick={() => setPalette(x)} title={{ light: "Light", granat: "Granat", dark: "Dark" }[x]} data-testid={`theme-${x}`}>{{ light: "L", granat: "G", dark: "D" }[x]}</button>)}</div>
@@ -147,7 +147,7 @@ function Shell() {
       </div>
       <div className="n-body" style={{ gridTemplateColumns: `38px ${left}px 1fr ${right}px` }}>
         <div className="n-toolbox" role="toolbar" aria-label="Tools">{TOOLS.map((x) => { const on = tool.k === x.t.k && (x.t.k !== "label" || (tool.k === "label" && tool.kind === (x.t as { kind: string }).kind)); return <button key={x.label} type="button" className={`n-tool ${on ? "on" : ""}`} title={`${x.label}${x.key ? ` (${x.key})` : ""}`} aria-label={x.label} onClick={() => (x.t.k === "place" ? setPicker(true) : setTool(x.t))} data-testid={`tool-${x.label.split(" ")[0].toLowerCase()}`} disabled={doc.kind !== "schematic"}>{x.icon}</button>; })}</div>
-        <aside className="n-left" style={{ display: left ? undefined : "none" }}><Browser picked={picked} dark={dark} onPick={() => setPicker(true)} onPlace={(id) => setTool({ k: "place", device: id })} /><Split side="left" size={left} setSize={setLeft} /></aside>
+        <aside className="n-left" style={{ display: left ? undefined : "none" }}><Browser picked={[...new Set([...S.pr.parts.map((p) => p.device), ...picked])]} dark={dark} onPick={() => setPicker(true)} onPlace={(id) => setTool({ k: "place", device: id })} /><Split side="left" size={left} setSize={setLeft} /></aside>
         <main className="n-center">
           <div className="n-doc">
             {doc.kind === "schematic" && <SchematicCanvas tool={tool} setTool={setTool} theme={sheetTheme(palette, paper)} grid={grid} showGrid={showGrid} onCursor={setCursor} onZoom={setZoom} interactive={interactive} onInteract={onInteract} fitSignal={fitSig} onMenu={(x, y, items) => setMenu({ x, y, items })} />}
@@ -173,7 +173,7 @@ function Shell() {
       {menu && <Menu at={menu} items={menu.items} onClose={() => setMenu(null)} />}
       {picker && <DevicePicker dark={dark} onClose={() => setPicker(false)} onPick={placeDevice} />}
       {modal === "keys" && <Keys keys={keys} setKeys={(n) => { setKeys(n); saveKeys(n); }} onClose={() => setModal(null)} />}
-      {modal === "about" && <Modal title="About NUCLEUS" onClose={() => setModal(null)}><div className="n-about"><Logo size={40} /><div><b>NUCLEUS {APP_VERSION}</b><p>Electronics design, simulation and PCB engineering.</p><p className="n-dim">Simulation: ngspice 45 (BSD licence) compiled to WebAssembly via EEcircuit-engine (MIT). Runs entirely on this computer.</p></div></div></Modal>}
+      {modal === "about" && <Modal title="About NUCLUES" onClose={() => setModal(null)}><div className="n-about"><Logo size={40} /><div><b>NUCLUES {APP_VERSION}</b><p>Electronics design, simulation and PCB engineering.</p><p className="n-dim">Simulation: ngspice 45 (BSD licence) compiled to WebAssembly via EEcircuit-engine (MIT). Runs entirely on this computer.</p></div></div></Modal>}
       {modal === "new" && <NewProject onClose={() => setModal(null)} onCreate={(n) => { S.newFile(n); setModal(null); }} />}
     </div>
   );

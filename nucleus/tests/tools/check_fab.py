@@ -1,4 +1,4 @@
-# Independent check of NUCLEUS fabrication files with gerbonara: prints a JSON summary per file.
+# Independent check of NUCLUES fabrication files with gerbonara: prints a JSON summary per file.
 import json, sys, os
 from gerbonara import GerberFile, ExcellonFile
 from gerbonara.graphic_objects import Flash, Line, Region

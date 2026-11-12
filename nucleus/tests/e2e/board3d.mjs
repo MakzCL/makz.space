@@ -2,7 +2,7 @@
 // component toggle change the picture → Esc closes. Run: npm run build ; npm run preview   then   node tests/e2e/board3d.mjs [shotsDir]
 import { createRequire } from "node:module"; import assert from "node:assert/strict";
 const require = createRequire(import.meta.url); const { chromium } = require("playwright");
-const URL = process.env.NUCLEUS_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2];
+const URL = process.env.NUCLUES_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2];
 let n = 0; const step = (s) => console.log(`✓ ${++n}. ${s}`);
 const b = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 try {

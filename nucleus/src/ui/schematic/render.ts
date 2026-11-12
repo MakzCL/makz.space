@@ -62,7 +62,7 @@ export function drawSheet(ctx: CanvasRenderingContext2D, pr: Project, sheetId: s
   ctx.lineWidth = 5; ctx.strokeRect(tb[0], tb[1], 4000, 900);
   ctx.beginPath(); ctx.moveTo(tb[0], tb[1] + 450); ctx.lineTo(tb[0] + 4000, tb[1] + 450); ctx.moveTo(tb[0] + 2800, tb[1] + 450); ctx.lineTo(tb[0] + 2800, tb[1] + 900); ctx.stroke();
   upright(ctx, v, [tb[0] + 80, tb[1] + 150], "TITLE", 60, t.border); upright(ctx, v, [tb[0] + 80, tb[1] + 320], sheet.title || pr.name, 130, t.text, "left", FONT, "600");
-  upright(ctx, v, [tb[0] + 80, tb[1] + 560], `${pr.name}  ·  ${sheet.name}`, 80, t.text); upright(ctx, v, [tb[0] + 80, tb[1] + 760], sheet.author ? `By ${sheet.author}` : "NUCLEUS", 70, t.border);
+  upright(ctx, v, [tb[0] + 80, tb[1] + 560], `${pr.name}  ·  ${sheet.name}`, 80, t.text); upright(ctx, v, [tb[0] + 80, tb[1] + 760], sheet.author ? `By ${sheet.author}` : "NUCLUES", 70, t.border);
   upright(ctx, v, [tb[0] + 2880, tb[1] + 560], `REV ${sheet.revision}`, 80, t.text); upright(ctx, v, [tb[0] + 2880, tb[1] + 760], `Project rev ${pr.revision}`, 70, t.border);
   w();
   // wires

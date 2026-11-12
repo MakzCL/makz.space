@@ -1,4 +1,4 @@
-# NUCLEUS
+# NUCLUES
 
 Electronics design, simulation and PCB engineering suite. **Milestone 1:** schematic capture, ERC and SPICE simulation (ngspice, compiled to WebAssembly) with instruments and graphs. PCB layout is the next milestone and is not built yet.
 
@@ -19,7 +19,7 @@ Open http://localhost:5173. To run it as a desktop window instead:
 npm run desktop
 ```
 
-To build the portable Windows package (`release\NUCLEUS-0.1.0-win-x64.zip`, run `NUCLEUS.exe` from the unzipped folder; not code-signed, so SmartScreen may ask for confirmation):
+To build the portable Windows package (`release\NUCLUES-0.1.0-win-x64.zip`, run `NUCLUES.exe` from the unzipped folder; not code-signed, so SmartScreen may ask for confirmation):
 
 ```powershell
 npm run package:win
@@ -38,4 +38,4 @@ node tests/e2e/desktop.mjs        # the same in the desktop (Electron) app
 
 The e2e scripts need Playwright with Chromium (`npm i -g playwright`, then `npx playwright install chromium`). The beta test also cross-checks against a native `ngspice` on the PATH.
 
-Simulation runs locally; no internet connection is needed. Documentation is in `docs/`; the status of every feature is in `docs/feature-parity-matrix.md`.
+Simulation runs locally; no internet connection is needed. Documentation is in `docs/`; the status of every feature is in `docs/PROTEUS_FEATURE_PARITY.md`, progress by phase in `docs/IMPLEMENTATION_STATUS.md`.

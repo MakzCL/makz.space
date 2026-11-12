@@ -26,7 +26,7 @@ class Gerber {
   }
   get empty() { return this.body.length === 0; }
   text(): string {
-    return [`G04 NUCLEUS ${APP_VERSION} Gerber RS-274X*`, `%TF.GenerationSoftware,NUCLEUS,NUCLEUS,${APP_VERSION}*%`, `%TF.FileFunction,${this.func}*%`, "%TF.FilePolarity,Positive*%",
+    return [`G04 NUCLUES ${APP_VERSION} Gerber RS-274X*`, `%TF.GenerationSoftware,NUCLUES,NUCLUES,${APP_VERSION}*%`, `%TF.FileFunction,${this.func}*%`, "%TF.FilePolarity,Positive*%",
       "%FSLAX46Y46*%", "%MOMM*%", "%LPD*%", ...[...this.ap].map(([def, d]) => `%ADD${d}${def}*%`), "G01*", ...this.body, "M02*", ""].join("\n");
   }
 }
@@ -89,7 +89,7 @@ export function fabFiles(b: Board, pr: Project, base = "board"): FabFile[] {
 export function excellon(b: Board, holes: { at: P; d: number }[], top: number): string {
   void b; const tools = [...new Set(holes.map((h) => h.d))].sort((a, c) => a - c);
   const xy = (p: P) => `X${(p[0] / 1e6).toFixed(3)}Y${((top - p[1]) / 1e6).toFixed(3)}`;
-  return ["M48", `; NUCLEUS ${APP_VERSION} drill file, plated through holes`, "FMAT,2", "METRIC", ...tools.map((d, i) => `T${i + 1}C${(d / 1e6).toFixed(3)}`), "G90", "%", "G05",
+  return ["M48", `; NUCLUES ${APP_VERSION} drill file, plated through holes`, "FMAT,2", "METRIC", ...tools.map((d, i) => `T${i + 1}C${(d / 1e6).toFixed(3)}`), "G90", "%", "G05",
     ...tools.flatMap((d, i) => [`T${i + 1}`, ...holes.filter((h) => h.d === d).map((h) => xy(h.at))]), "M30", ""].join("\n");
 }
 

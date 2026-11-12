@@ -1,6 +1,6 @@
-// Builds the portable Windows x64 package: release/NUCLEUS-<version>-win-x64.zip
+// Builds the portable Windows x64 package: release/NUCLUES-<version>-win-x64.zip
 // Uses the official Electron Windows runtime (checksum-verified against the release's SHASUMS256.txt),
-// renames electron.exe to NUCLEUS.exe and places the app in resources/app. Nothing is code-signed.
+// renames electron.exe to NUCLUES.exe and places the app in resources/app. Nothing is code-signed.
 // Needs: dist/ (vite build), network access to github.com, and the zip/unzip commands (Linux/macOS) or
 // PowerShell's Expand-Archive/Compress-Archive (Windows).
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import { execFileSync } from "node:child_process";
@@ -19,21 +19,21 @@ const got = crypto.createHash("sha256").update(fs.readFileSync(zipPath)).digest(
 if (got !== want) throw new Error(`Checksum mismatch for ${name}`); console.log(`electron ${ev} win32-x64 runtime: sha256 ${got} (matches SHASUMS256.txt)`);
 if (!fs.existsSync(path.join(root, "dist/index.html"))) throw new Error("Run `npm run build` first (dist/ missing)");
 
-const outName = `NUCLEUS-${pkg.version}-win-x64`, rel = path.join(root, "release"), dir = path.join(rel, outName);
+const outName = `NUCLUES-${pkg.version}-win-x64`, rel = path.join(root, "release"), dir = path.join(rel, outName);
 fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
 const win = process.platform === "win32";
 if (win) execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${dir}' -Force`]);
 else execFileSync("unzip", ["-q", zipPath, "-d", dir]);
-fs.renameSync(path.join(dir, "electron.exe"), path.join(dir, "NUCLEUS.exe"));
+fs.renameSync(path.join(dir, "electron.exe"), path.join(dir, "NUCLUES.exe"));
 const { stampExe } = await import("./winexe.mjs");
-stampExe(path.join(dir, "NUCLEUS.exe"), { icon: path.join(root, "desktop/nucleus.ico"), product: "NUCLEUS", description: "NUCLEUS electronics design and simulation", version: pkg.version, company: "NUCLEUS", fileName: "NUCLEUS.exe" });
+stampExe(path.join(dir, "NUCLUES.exe"), { icon: path.join(root, "desktop/nucleus.ico"), product: "NUCLUES", description: "NUCLUES electronics design and simulation", version: pkg.version, company: "NUCLUES", fileName: "NUCLUES.exe" });
 fs.rmSync(path.join(dir, "resources", "default_app.asar"), { force: true });
 const app = path.join(dir, "resources", "app"); fs.mkdirSync(path.join(app, "desktop"), { recursive: true });
-fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "nucleus", productName: "NUCLEUS", version: pkg.version, main: "desktop/main.cjs", private: true }, null, 2));
+fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "nucleus", productName: "NUCLUES", version: pkg.version, main: "desktop/main.cjs", private: true }, null, 2));
 fs.copyFileSync(path.join(root, "desktop/main.cjs"), path.join(app, "desktop/main.cjs"));
 fs.cpSync(path.join(root, "dist"), path.join(app, "dist"), { recursive: true });
-fs.writeFileSync(path.join(dir, "README.txt"), [`NUCLEUS ${pkg.version} - portable Windows x64 build`, "",
-  "Run NUCLEUS.exe. No installation is needed and nothing is written outside your user profile.",
+fs.writeFileSync(path.join(dir, "README.txt"), [`NUCLUES ${pkg.version} - portable Windows x64 build`, "",
+  "Run NUCLUES.exe. No installation is needed and nothing is written outside your user profile.",
   "The build is not code-signed, so Windows SmartScreen may warn the first time: More info > Run anyway.",
   "Projects are saved as .nucleus files wherever you choose.", "",
   `Runtime: Electron ${ev} (MIT, LICENSE and LICENSES.chromium.html in this folder). Simulation: ngspice (BSD) compiled to WebAssembly.`, ""].join("\r\n"));

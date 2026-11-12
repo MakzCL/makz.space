@@ -1,4 +1,4 @@
-// The NUCLEUS project model. The model is the source of truth; rendering only reads it.
+// The NUCLUES project model. The model is the source of truth; rendering only reads it.
 // Schematic coordinates: integer thou. Rotations: 0/90/180/270 degrees counter-clockwise (y down).
 
 export type Pt = [number, number];

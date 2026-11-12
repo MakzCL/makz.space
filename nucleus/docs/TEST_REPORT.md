@@ -1,3 +1,34 @@
+# NUCLUES test report
+
+Newest cycle first. Earlier milestone reports follow.
+
+## Cycle 2026-11-12
+
+Environment: Linux container, 4 cores, Node 22.23.4, Chromium (Playwright), ngspice 45 (WASM and native), gerbv and gerbonara.
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 7 files) | **45 / 45 pass**: core 11, sim 6, examples 7, pcb 11, model3d 5, timer-regulator 3, drc-index 2 |
+| Test B: NE555 astable (`timer-regulator.test.ts`) | Frequency measured from the ngspice waveform is within 3 % of 1.44/((RA+2RB)·C) = 6 857 Hz. Timing capacitor swings 3.0 to 6.0 V at 9 V supply. Output high 7.23 V (= 7.3 V through 10 Ω into 1 kΩ). Duty ≈ 52 %. Doubling C halves the frequency |
+| Native ngspice cross-check of the same 555 deck | 6 819 Hz (−0.6 % from the formula), consistent with the WASM run |
+| LM7805 | 5.00 V into 100 Ω from 12 V; input current 55 mA = 50 mA load + 5 mA quiescent; 4.00 V at 6 V input (2 V dropout) |
+| DRC index equivalence (`drc-index.test.ts`) | Grid DRC = brute-force DRC (same findings, same order) on the routed LED board, a 120-part board and a dense board with >50 shorts |
+| `tests/e2e/beta.mjs` | Steps 1–12 pass; the saved file is now `.nuclues` |
+| `tests/e2e/examples.mjs` | 8 / 8 pass, including the new 555 step. The first run after a rebuild failed once while the preview server restarted, and passed on every re-run. The 555 step needs 0.8 s after the solve for the graph to draw; the test waits for it |
+| `tests/e2e/pcb.mjs` | 9 / 9 pass |
+| `tests/e2e/board3d.mjs` | 7 / 7 pass |
+| `tests/e2e/desktop.mjs` (Electron, Linux) | 9 / 9 pass, including the 555 example |
+| SK Suite `tests/e2e.mjs` | 16 / 16 pass; hub lists NUCLUES and CADRA; both open offline |
+| Windows zip `NUCLUES-0.1.0-win-x64.zip` | Built; Electron runtime sha256 matches the official SHASUMS256.txt; not run on real Windows |
+| Benchmark | See `PERFORMANCE.md` |
+
+**Defect found and fixed:** the first LM7805 and NE555 models used a behavioural voltage source for the output that drew no current from the supply pin. The 7805 test showed input current 5 mA instead of 55 mA. Both models now sense the output current and draw it from the supply pin.
+
+**Not verified:**
+- `NUCLUES.exe` on real Windows.
+- Canvas frame rates on real hardware.
+- Mixed-mode or digital simulation (not built).
+
 # Verification report — milestone 1 (phases 1–3)
 
 Date: 2026-11-03. Environment: Linux, Node 22, Chromium (Playwright), ngspice 45 (WASM) and native ngspice (Ubuntu package), gerbv and gerbonara installed for later Gerber validation.
@@ -55,7 +86,7 @@ Date: 2026-11-03. Environment: Linux, Node 22, Chromium (Playwright), ngspice 45
 | `tests/e2e/examples.mjs` against https://nucleus-eda.pages.dev | 7 / 7 pass |
 | `tests/e2e/desktop.mjs` (Electron 45.2.1, Linux, from source) | 8 / 8 pass |
 | `tests/e2e/desktop.mjs` on the packaged `resources/app` of the Windows zip | 8 / 8 pass |
-| Windows zip | `unzip -t` clean; `NUCLEUS.exe` is PE32+ x86-64 GUI; Electron runtime sha256 matches the official SHASUMS256.txt |
-| `NUCLEUS.exe` started on real Windows | **not verified** (no Windows machine available to the build) |
+| Windows zip | `unzip -t` clean; `NUCLUES.exe` is PE32+ x86-64 GUI; Electron runtime sha256 matches the official SHASUMS256.txt |
+| `NUCLUES.exe` started on real Windows | **not verified** (no Windows machine available to the build) |
 
 Built-in examples are checked against hand calculations: divider 2.5 V, LED ≈ 10 mA, RC 63.2 % at τ, RC −3 dB at 1/(2πRC), potentiometer 7.5 V at 25 %.

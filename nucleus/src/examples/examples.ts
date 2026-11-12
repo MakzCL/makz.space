@@ -39,6 +39,16 @@ export const EXAMPLES: Example[] = [
       b.label(b.pin("B", "1"), "OUT"); b.pr.sim.analysis = "ac"; b.pr.sim.ac = { type: "dec", points: 50, fstart: "10", fstop: "100k" }; return b.pr; } },
   { id: "led-pcb", title: "LED board: schematic to PCB", summary: "LED, button and decoupling on a 40 × 30 mm board, parts placed. Open the PCB tab: Autoroute, DRC, then Gerber.", expect: "LED ≈ 10 mA when SW1 is pressed",
     build: () => { const { b, board } = ledBoardPlaced(); b.part("V1", "VSOURCE", [-1200, 200], 0, { value: "5" }).label(b.pin("V1", "1"), "VCC").gnd(b.pin("V1", "2")); b.state("SW1", { closed: true }); b.pr.pcb = board; b.pr.sim.analysis = "op"; return b.pr; } },
+  { id: "ne555-astable", title: "555 timer oscillator (astable)", summary: "NE555 with RA 1 kΩ, RB 10 kΩ, C 10 nF from 9 V. Transient, 3 ms.", expect: "OUT ≈ 6.9 kHz square wave (1.44 / ((RA + 2RB)·C)), high ≈ 7.3 V",
+    build: () => { const b = new B("555 astable").part("V1", "VSOURCE", [-1600, 0], 0, { value: "9" }).part("U1", "NE555", [0, 0])
+      .part("RA", "RES", [-1000, -900], 270, { value: "1k" }).part("RB", "RES", [-1000, 100], 270, { value: "10k" }).part("C1", "CAP", [-1000, 1100], 270, { value: "10n" })
+      .part("C2", "CAP", [600, 1100], 270, { value: "10n" }).part("RL", "RES", [1300, 600], 270, { value: "1k" });
+      b.label(b.pin("V1", "1"), "VCC").label(b.pin("U1", "8"), "VCC").label(b.pin("U1", "4"), "VCC").label(b.pin("RA", "1"), "VCC")
+        .label(b.pin("RA", "2"), "DIS").label(b.pin("U1", "7"), "DIS").label(b.pin("RB", "1"), "DIS")
+        .label(b.pin("RB", "2"), "TIM").label(b.pin("U1", "2"), "TIM").label(b.pin("U1", "6"), "TIM").label(b.pin("C1", "1"), "TIM")
+        .label(b.pin("U1", "5"), "CV").label(b.pin("C2", "1"), "CV").label(b.pin("U1", "3"), "OUT").label(b.pin("RL", "1"), "OUT")
+        .gnd(b.pin("V1", "2")).gnd(b.pin("U1", "1")).gnd(b.pin("C1", "2")).gnd(b.pin("C2", "2")).gnd(b.pin("RL", "2"));
+      b.pr.sim.analysis = "tran"; b.pr.sim.tran = { stop: "3m", step: "1u", start: "0", uic: false }; return b.pr; } },
   { id: "pot", title: "Potentiometer (interactive)", summary: "10 V across a 10 kΩ potentiometer; drag the wiper with interactive simulation on.", expect: "WIPER = 7.5 V at 25 %",
     build: () => { const b = new B("Potentiometer").part("V1", "VSOURCE", [0, 0], 0, { value: "10" }).part("RV1", "POT", [600, -400], 270, { value: "10k" }).part("R1", "RES", [1400, 0], 270, { value: "1meg" });
       b.connect("V1", "1", "RV1", "1", true).connect("RV1", "3", "V1", "2", true).connect("RV1", "2", "R1", "1").gnd(b.pin("V1", "2")).gnd(b.pin("R1", "2"));

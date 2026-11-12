@@ -1,6 +1,6 @@
 // SK Suite: one desktop home for the apps. The hub window lists the apps; each app opens in its own window
 // (one per app, remembered size and position). Web apps load their live sites in a shared, persistent session,
-// so a sign-in survives restarts. NUCLEUS and CADRA are bundled and run offline from a private app:// scheme.
+// so a sign-in survives restarts. NUCLUES and CADRA are bundled and run offline from a private app:// scheme.
 const { app, BrowserWindow, protocol, net, shell, ipcMain, session, desktopCapturer, Menu, dialog, nativeTheme } = require("electron");
 const path = require("node:path"); const fs = require("node:fs"); const crypto = require("node:crypto"); const { pathToFileURL } = require("node:url");
 const BOOT = global.__suite ?? { root: __dirname, version: JSON.parse(fs.readFileSync(path.join(__dirname, "version.json"), "utf8")).version, updated: false, stateFile: null };

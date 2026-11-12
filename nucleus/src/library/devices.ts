@@ -1,4 +1,4 @@
-// Built-in device library (NUCLEUS original symbols). Every simulated device carries an explicit SPICE
+// Built-in device library (NUCLUES original symbols). Every simulated device carries an explicit SPICE
 // definition; models are either standard published parameter sets (credited in modelNote) or clearly
 // labelled generic/behavioural models. Devices without `spice` are refused by the simulator.
 import type { DeviceDef, Gfx, PinDef, PinType, Pt, PropDef } from "../core/types";
@@ -75,6 +75,38 @@ Rout o1 out 75
 Rsup vp vn 100k
 .ends` },
     footprints: ["SOIC-8_3.9x4.9mm_P1.27mm", "DIP-8_W7.62mm"], props: [FP, ...MPN], defaults: { footprint: "SOIC-8_3.9x4.9mm_P1.27mm" }, libVersion: 1, modelNote: "Behavioural model: no bandwidth limit, no slew rate, output clamps exactly to the supply rails. Pin numbers follow the common single op-amp SO-8 pinout." },
+  { id: "NE555", name: "NE555", category: "Analog IC", description: "555 timer (behavioural model: comparators at 1/3 and 2/3 VCC, SR latch, discharge switch)", prefix: "U", mpn: "NE555",
+    symbol: { gfx: [{ k: "rect", x: -300, y: -400, w: 600, h: 800 }, { k: "text", x: 0, y: -440, text: "555", size: 60, anchor: "middle" }],
+      pins: [pin("2", "TRIG", [-500, -200], 0, 200, "input", false), pin("6", "THR", [-500, 0], 0, 200, "input", false), pin("7", "DIS", [-500, 200], 0, 200, "open_collector", false),
+        pin("3", "OUT", [500, 0], 180, 200, "output", false), pin("8", "VCC", [100, -600], 90, 200, "power_in", false), pin("4", "RST", [-100, -600], 90, 200, "input", false),
+        pin("1", "GND", [-100, 600], 270, 200, "power_in", false), pin("5", "CV", [100, 600], 270, 200, "passive", false)], refAt: [380, -330], valueAt: [380, 380] },
+    spice: { kind: "subckt", order: ["1", "2", "3", "4", "5", "6", "7", "8"], name: "NUC_NE555", body: `.subckt NUC_NE555 gnd trg out rst ctl thr dis vcc
+R1 vcc ctl 5k
+R2 ctl lo 5k
+R3 lo gnd 5k
+Bq qx 0 V = V(rst,gnd) < 0.7 ? 0 : (V(trg,gnd) < V(lo,gnd) ? 1 : (V(thr,gnd) > V(ctl,gnd) ? 0 : (V(q) > 0.5 ? 1 : 0)))
+Rq qx q 1
+Cq q 0 1n
+Bo ob gnd V = V(q) > 0.5 ? max(V(vcc,gnd) - 1.7, 0) : 0.1
+Vs ob ob2 0
+Ro ob2 out 10
+Bi vcc gnd I = max(I(Vs), 0)
+Bd dis gnd I = V(q) > 0.5 ? 0 : V(dis,gnd) / 10
+Rs vcc gnd 2k
+.ends` },
+    footprints: ["DIP-8_W7.62mm", "SOIC-8_3.9x4.9mm_P1.27mm"], props: [FP, ...MPN], defaults: { footprint: "DIP-8_W7.62mm" }, libVersion: 1,
+    modelNote: "Behavioural model, not a manufacturer's macro-model: ideal comparators and latch (no propagation delay), output high = VCC − 1.7 V through 10 Ω (sourced current drawn from VCC), discharge 10 Ω. Astable timing follows the textbook 0.693·(RA + 2RB)·C." },
+  { id: "LM7805", name: "LM7805", category: "Analog IC", description: "+5 V linear regulator, 1 A class (behavioural model)", prefix: "U", mpn: "LM7805",
+    symbol: { gfx: [{ k: "rect", x: -300, y: -150, w: 600, h: 300 }, { k: "text", x: 0, y: 20, text: "7805", size: 60, anchor: "middle" }],
+      pins: [pin("1", "IN", [-500, 0], 0, 200, "power_in", false), pin("3", "OUT", [500, 0], 180, 200, "power_out", false), pin("2", "GND", [0, 350], 270, 200, "power_in", false)], refAt: [0, -200], valueAt: [0, 220] },
+    spice: { kind: "subckt", order: ["1", "2", "3"], name: "NUC_LM7805", body: `.subckt NUC_LM7805 in gnd out
+Bg o gnd V = max(min(5, V(in,gnd) - 2), 0)
+Vs o o2 0
+Ro o2 out 0.01
+Bi in gnd I = max(I(Vs), 0) + (V(in,gnd) > 0.5 ? 0.005 : 0)
+.ends` },
+    footprints: ["TO-220-3_Vertical"], props: [FP, ...MPN], defaults: { footprint: "TO-220-3_Vertical" }, libVersion: 1,
+    modelNote: "Behavioural model: 5.00 V output, 2 V dropout, 10 mΩ output resistance, 5 mA quiescent current. Load current is drawn from the input pin. No current limit, thermal shutdown, ripple rejection or start-up dynamics." },
   { id: "VSOURCE", name: "VSOURCE", category: "Source", description: "DC voltage source (simulation only)", prefix: "V",
     symbol: { gfx: [{ k: "circle", x: 0, y: 0, r: 100 }, { k: "text", x: 0, y: -25, text: "+", size: 60, anchor: "middle" }, { k: "text", x: 0, y: 65, text: "−", size: 60, anchor: "middle" }], pins: [pin("1", "+", [0, -200], 90, 100, "power_out"), pin("2", "-", [0, 200], 270, 100, "power_out")], refAt: [130, -40], valueAt: [130, 60] },
     spice: { kind: "element", letter: "V", order: ["1", "2"], value: "source" }, footprints: [],

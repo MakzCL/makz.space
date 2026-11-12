@@ -34,6 +34,7 @@ function shapeFor(f: FootprintDef): Shape | null {
   if (/^LED_D3/.test(n)) return { kind: "dome", size: [3.0, 3.0, 5.3], lift: 1, color: "#e8432f", pins: { h: 1, color: "#c7c9cf" } };
   if (/^D_DO-35/.test(n)) return { kind: "cylX", size: [3.8, 1.8, 1.8], lift: 0.4, color: "#d96b3b", pins: { h: 1.3, color: "#c7c9cf" } };
   if (/^D_DO-41/.test(n)) return { kind: "cylX", size: [5.2, 2.7, 2.7], lift: 0.4, color: "#1b1b1f", pins: { h: 1.7, color: "#c7c9cf" } };
+  if (/^TO-220/.test(n)) return { kind: "box", size: [10.0, 4.6, 15.5], lift: 3, color: "#1b1b1f", top: "#c7c9cf", pins: { h: 3, color: "#c7c9cf" } };
   if (/^TO-92/.test(n)) return { kind: "box", size: [4.8, 3.8, 4.5], lift: 2, color: "#1b1b1f", pins: { h: 2, color: "#c7c9cf" } };
   if (/^PinHeader_1x(\d+)/.test(n)) return { kind: "box", size: [2.54 * f.pads.length, 2.54, 2.5], color: "#1b1b1f", pins: { h: 8.5, color: "#d8b45a" } };
   if (/^Potentiometer/.test(n)) return { kind: "box", size: [9.5, 4.8, 10], color: "#2b56b8", top: "#d8d0b0" };

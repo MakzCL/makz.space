@@ -19,4 +19,6 @@ export async function runExamples(p, SHOTS, step) {
   await open("RC low-pass"); assert.ok(await p.locator(".n-plot canvas").count() >= 2); if (SHOTS) await p.screenshot({ path: `${SHOTS}/nucleus-rc-ac.png` });
   step("RC low-pass: AC sweep solved; magnitude and phase plots shown");
   await open("Potentiometer"); await p.getByText("Schematic").first().click(); r = await dmm("WIPER"); assert.ok(Math.abs(r.v - 7.5) < 0.05, r.t); step(`Potentiometer: WIPER = ${r.t}`);
+  await open("555 timer oscillator"); await p.getByText("Analysis").first().waitFor(); await p.waitForTimeout(800); if (SHOTS) await p.screenshot({ path: `${SHOTS}/nucleus-555-pre.png` }); assert.ok(await p.locator(".n-plot canvas").count()); if (SHOTS) await p.screenshot({ path: `${SHOTS}/nucleus-555.png` });
+  step("555 timer oscillator: NE555 transient solved by ngspice and the Analysis graph opened");
 }

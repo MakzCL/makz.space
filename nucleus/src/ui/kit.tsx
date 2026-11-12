@@ -1,4 +1,4 @@
-// Small, dense controls for NUCLEUS.
+// Small, dense controls for NUCLUES.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 export function Modal({ title, children, onClose, foot, wide }: { title: string; children: ReactNode; onClose: () => void; foot?: ReactNode; wide?: boolean }) {

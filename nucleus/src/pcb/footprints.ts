@@ -76,6 +76,7 @@ const LIST: FootprintDef[] = [
   tht2("LED_D3.0mm", "LED 3 mm, 2.54 mm pitch; pad 1 anode, square pad 2 cathode", 2.54, 0.9, 1.8, [3.8, 3.8], "2"),
   tht2("D_DO-35_SOD27_P7.62mm_Horizontal", "Diode DO-35, 7.62 mm pitch; pad 1 anode, square pad 2 cathode", 7.62, 0.8, 1.6, [4.0, 2.0], "2"),
   tht2("D_DO-41_SOD81_P10.16mm_Horizontal", "Diode DO-41, 10.16 mm pitch; pad 1 anode, square pad 2 cathode", 10.16, 1.1, 2.2, [5.2, 2.7], "2"),
+  inline("TO-220-3_Vertical", "TO-220, three leads in line, 2.54 mm pitch, vertical", 3, 2.54, 1.0, 1.8, 1.8, true, [10.0, 4.6]),
   inline("TO-92_Inline", "TO-92, three leads in line, 1.27 mm pitch", 3, 1.27, 0.75, 1.05, 1.5, true, [4.8, 3.6]),
   inline("PinHeader_1x02_P2.54mm_Vertical", "Pin header 1×2, 2.54 mm", 2, 2.54, 1.0, 1.7, 1.7, true, [5.08, 2.54]),
   inline("PinHeader_1x03_P2.54mm_Vertical", "Pin header 1×3, 2.54 mm", 3, 2.54, 1.0, 1.7, 1.7, true, [7.62, 2.54]),
