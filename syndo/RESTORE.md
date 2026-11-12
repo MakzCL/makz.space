@@ -7,6 +7,7 @@
 | Web (Pages `syndo-app`) | deployment `464f7ba6-9e88-4edd-988c-9f535a1f24cb` (commit `e828048`) |
 | Backend, desktop feed | unchanged |
 
+Web: deployment `02fa8049-f231-4472-8949-6899d069b5af` (commit `28ad2d0`, build id `xi17ah`).
 Roll back: Pages → `syndo-app` → Deployments → `464f7ba6` → *Rollback to this deployment*.
 
 ## 2026-11-12 — motion, voice messages, centred + (web only)
