@@ -16,7 +16,7 @@
   timer, live waveform scaled to your voice, and a send button that sends straight away (no confirm dialog).
 - **Sent voice messages** always use the SEND player in an accent-tinted pill with a waveform. Voice notes the
   server had stored as `video/webm` (WebM sniffs as video) are shown as voice notes too; the server now keeps
-  them as audio (takes effect with the next backend deploy).
+  them as audio (live since backend deploy `84d905e8`).
 - **Motion** (all off with reduced motion): icons lift on hover and squish on press, message-box icons have their
   own wiggle/hop, the server rail morphs with a spring, menus/pickers/popovers/dialogs fade and scale in, badges and
   call tiles pop in, people joining a voice channel slide in, reactions lift.

@@ -1,5 +1,16 @@
 # SEND restore points
 
+## 2026-11-12 — backend to `e564c62` (voice notes stored as audio)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Backend (Worker `send-beta-api`) | version `19016c5c-8e2f-4433-b480-8c39ca62ff23` (`SOURCE_COMMIT` `cf5ca73`) |
+| Web (Pages `syndo-app`) | deployment `02fa8049` (before the compact share dialog); live: `1ffcd2b3` (commit `e564c62`, build `173qawm`) |
+
+Backend: deployment `84d905e8`, same Worker code and secrets, only `SOURCE_COMMIT` → `e564c62dc4ca104aa4c307184af9c1365e98627b`
+(server restarted in ~30 s). No database migrations.
+Roll back: Workers → `send-beta-api` → Deployments → deploy version `19016c5c` at 100% (server restarts on `cf5ca73`).
+
 ## 2026-11-12 — Go Live dialog (web only)
 
 | Layer | Restore point (before this release) |
