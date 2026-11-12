@@ -9,8 +9,8 @@ import { createBackend, type Backend } from "./lib/backend";
 import { useMine } from "./lib/actions";
 import { t } from "./lib/i18n";
 import { buzz, getPrefs, usePrefs } from "./lib/prefs";
-import { KIMERA_URL, TROTAN_URL, can, tabsFor, type Tab } from "./lib/roles";
-import { KLogo, TLogo } from "./components/Logo";
+import { KIMERA_URL, can, tabsFor, type Tab } from "./lib/roles";
+import { KLogo } from "./components/Logo";
 import { useDesktop } from "./lib/media";
 import { StoreProvider, useHasStore, useStore } from "./lib/store";
 import type { Job } from "./lib/types";
@@ -84,11 +84,11 @@ function Member({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCod
   return <OnlineProvider><CallProvider><Main signOut={signOut} /></CallProvider></OnlineProvider>;
 }
 
+/** Permanent link to the latest SK Suite Windows build (served by the sk-suite site from its update feed). */
+const SK_SUITE_DOWNLOAD = "https://sk-suite.pages.dev/download/SK-Suite-win-x64.zip";
+
 function Main({ signOut }: { signOut: () => void }) {
-  const { db, me, ready, backend } = useStore();
-  // TROTAN link only for people who have access to it (Kortana → Settings → TROTAN)
-  const [trotan, setTrotan] = useState(false);
-  useEffect(() => { backend.rpc<string[]>("trotan_my_sections", {}).then((s) => setTrotan((s ?? []).length > 0)).catch(() => setTrotan(false)); }, [backend, me.role, me.active]);
+  const { db, me, ready } = useStore();
   const desktop = useDesktop();
   const tabs = tabsFor(me.role, desktop);
   const [tab, setTab] = useState<Tab>(() => (tabs.includes(getPrefs().startTab) ? getPrefs().startTab : "home"));
@@ -230,7 +230,7 @@ function Main({ signOut }: { signOut: () => void }) {
       <BottomNav tabs={tabs} tab={profile ? ("" as Tab) : tab} onTab={go} badges={badges}
         foot={desktop ? <>
           {can.editStock(me.role) && <a className="nav-kimera" href={KIMERA_URL}><KLogo size={20} /><span><b>Kortana</b><small>{t("Inventory")}</small></span></a>}
-          {trotan && <a className="nav-kimera nav-trotan" href={TROTAN_URL}><TLogo size={20} /><span><b>TROTAN</b><small>{t("Laser cutting")}</small></span></a>}
+          <a className="nav-kimera nav-suite" href={SK_SUITE_DOWNLOAD} download title={t("Download SK Suite for Windows")}><img src="/sk-suite.png" alt="" width={34} height={34} /><span><b>SK Suite</b><small>{t("Desktop app · Windows")}</small></span></a>
         </> : undefined} />
 
       <JobSheet job={job} onClose={() => setJob(null)}

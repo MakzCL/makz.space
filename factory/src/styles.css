@@ -1135,6 +1135,9 @@ p { margin: 0; }
   .nav-trotan { background: color-mix(in srgb, #ff5a3c 12%, transparent); }
   .nav-trotan:hover { background: color-mix(in srgb, #ff5a3c 22%, transparent); }
   .nav-kimera .t-logo { flex: none; width: 34px; display: block; }
+  .nav-suite { background: color-mix(in srgb, #e3342f 10%, transparent); }
+  .nav-suite:hover { background: color-mix(in srgb, #e3342f 20%, transparent); }
+  .nav-suite img { flex: none; width: 34px; height: 34px; border-radius: 9px; display: block; }
 }
 .k-lockup .k-logo { display: block; flex: none; }
 .login-brand .k-logo, .login-brand .t-logo { display: block; }

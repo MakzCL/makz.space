@@ -1,7 +1,8 @@
 // Shared Windows packaging helpers: fetch the official Electron win32-x64 runtime (checksum-verified),
 // and stamp the executable's icon and version information with resedit (pure JavaScript; no Wine needed).
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import { execFileSync } from "node:child_process";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto";
 import * as ResEdit from "resedit";
+import { unzipTo, zipFolder } from "./zipjs.mjs";
 const sha256 = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(`${u}: HTTP ${r.status}`); return Buffer.from(await r.arrayBuffer()); };
 
@@ -15,11 +16,9 @@ export async function electronWin(version, cacheDir) {
   console.log(`Electron ${version} win32-x64 runtime: sha256 matches SHASUMS256.txt`);
   return zip;
 }
-export function unzip(zip, dir) { if (process.platform === "win32") execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${zip}' -DestinationPath '${dir}' -Force`]); else execFileSync("unzip", ["-q", zip, "-d", dir]); }
+export function unzip(zip, dir) { unzipTo(zip, dir); }
 export function zipDir(parent, folder, out) {
-  fs.rmSync(out, { force: true });
-  if (process.platform === "win32") execFileSync("powershell", ["-NoProfile", "-Command", `Compress-Archive -Path '${path.join(parent, folder)}' -DestinationPath '${out}'`]);
-  else execFileSync("zip", ["-qr9", out, folder], { cwd: parent });
+  fs.rmSync(out, { force: true }); zipFolder(parent, folder, out);
   const s = sha256(fs.readFileSync(out)); fs.writeFileSync(`${out}.sha256`, `${s}  ${path.basename(out)}\n`); return s;
 }
 /** Sets icon, product name, description, version and company on a Windows PE executable. */

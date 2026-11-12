@@ -279,6 +279,8 @@ export const PL: Record<string, string> = {
   "In stock": "Na stanie",
   "Inventory": "Magazyn",
   "Laser cutting": "Cięcie laserowe",
+  "Desktop app · Windows": "Aplikacja na komputer · Windows",
+  "Download SK Suite for Windows": "Pobierz SK Suite dla Windows",
   "TROTAN is the laser cutting app. Choose which roles and which people may use each part of it. Owner and Developer always have everything. A person's own setting replaces their role's.": "TROTAN to aplikacja do cięcia laserowego. Wybierz, które role i które osoby mogą korzystać z każdej jej części. Właściciel i Developer zawsze mają wszystko. Ustawienie osoby zastępuje ustawienie jej roli.",
   "Open TROTAN": "Otwórz TROTAN",
   "By role": "Według roli",
