@@ -476,6 +476,10 @@ function VoiceBar() {
   const ch = useStore(useShallow((s) => { for (const g of Object.values(s.guilds)) { const c = g.channels.find((x) => x.id === v.channelId); if (c) return { name: c.name, guild: g.name, gid: g.id }; } const d = v.channelId ? s.dms[v.channelId] : null; return d ? { name: dmTitle(d), guild: "Call", gid: "@me" } : null; }));
   const label = { idle: "Disconnected", connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…", error: "Connection failed" }[v.status];
   const title = v.status === "error" ? (v.error ?? label) : label;
+  // The quick toggle switches AI suppression (Advanced or AI, whichever you used last) on and off.
+  const aiNs = v.settings.suppression === "rnnoise" || v.settings.suppression === "deepfilter";
+  if (aiNs) { try { localStorage.setItem("send.lastAiNs", v.settings.suppression); } catch { /* */ } }
+  const lastAiNs = (): "rnnoise" | "deepfilter" => { try { return localStorage.getItem("send.lastAiNs") === "deepfilter" ? "deepfilter" : "rnnoise"; } catch { return "rnnoise"; } };
   return (
     <section className={`voice-bar vs-${v.status}`} data-region="userPanel" aria-label="Voice connection">
       <div className="vb-top">
@@ -483,9 +487,9 @@ function VoiceBar() {
         <button className="link vb-where" onClick={() => v.channelId && navigate(`/channels/${ch?.gid ?? "@me"}/${v.channelId}`)} title={title}>
           <span className="sr-only">{label}: </span><strong className="ellipsis">{ch ? ch.name : ""}</strong><small className="block muted ellipsis">{ch ? ch.guild : ""}</small>
         </button>
-        <button className={`icon-btn vb-ns ${v.settings.suppression === "rnnoise" ? "on" : ""}`} aria-pressed={v.settings.suppression === "rnnoise"}
-          onClick={() => void updateVoiceSettings({ ...suppressionFor(v.settings.suppression === "rnnoise" ? "standard" : "rnnoise"), presetId: "custom" })}
-          aria-label="AI noise suppression" title={v.settings.suppression === "rnnoise" ? "AI noise suppression is on" : "AI noise suppression is off"}><AudioLines size={18} /></button>
+        <button className={`icon-btn vb-ns ${aiNs ? "on" : ""}`} aria-pressed={aiNs}
+          onClick={() => void updateVoiceSettings({ ...suppressionFor(aiNs ? "standard" : lastAiNs()), presetId: "custom" })}
+          aria-label="AI noise suppression" title={aiNs ? "AI noise suppression is on" : "AI noise suppression is off"}><AudioLines size={18} /></button>
         <button className="icon-btn danger" onClick={() => leaveVoice()} aria-label="Disconnect"><PhoneOff size={18} /></button>
       </div>
       {v.sharing && <div className="sharing-ind" role="status"><Monitor size={14} /> You're sharing your screen</div>}

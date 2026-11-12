@@ -173,7 +173,7 @@ async function buildMic(s: VoiceSettings): Promise<LocalAudioTrack> {
     echoCancellation: s.echoCancellation, noiseSuppression: s.suppression === "standard", autoGainControl: s.autoGainControl,
     channelCount: s.stereo ? 2 : 1, sampleRate: 48000, sampleSize: 16,
   };
-  if (s.inputGain === 1 && s.suppression !== "rnnoise") return LK.createLocalAudioTrack(constraints as any);
+  if (s.inputGain === 1 && s.suppression !== "rnnoise" && s.suppression !== "deepfilter") return LK.createLocalAudioTrack(constraints as any);
   // AI noise suppression and input gain via WebAudio; the processed track is what gets published.
   const raw = await denoiseTrack((await navigator.mediaDevices.getUserMedia({ audio: constraints })).getAudioTracks()[0]!, s);
   if (s.inputGain === 1) return new LK.LocalAudioTrack(raw, constraints, true);

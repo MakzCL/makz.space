@@ -1,0 +1,21 @@
+[package]
+name = "send-df3"
+version = "0.1.0"
+edition = "2021"
+description = "SEND's DeepFilterNet3 noise suppression for the browser (AudioWorklet), built from deep-filter-rt"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+deep-filter-rt = "0.2"
+ndarray = "0.17"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

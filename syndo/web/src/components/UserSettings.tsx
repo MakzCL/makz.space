@@ -13,7 +13,7 @@ import { api, errMsg, upload } from "../api.ts";
 import { logout, updateSettings } from "../actions.ts";
 import { displayName, toast, useStore } from "../store.ts";
 import { applyPreset, captureCapabilities, suppressionFor } from "../voice/settings.ts";
-import { SUPPRESSION_LABEL, denoiseSupported, denoiseTrack, type Suppression } from "../voice/denoise.ts";
+import { SUPPRESSION_LABEL, denoiseSupported, denoiseTrack, preloadDeepFilter, type Suppression } from "../voice/denoise.ts";
 import { setMode, switchDevice, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { PRESETS, type A11yPrefs } from "@send/shared";
@@ -182,6 +182,7 @@ function Privacy() {
 }
 
 const NS_HINT: Record<Suppression, string> = {
+  deepfilter: "Our strongest noise removal (DeepFilterNet): cuts fans, typing, traffic and background chatter while keeping your voice natural. Runs on your device; about 11 MB downloads the first time.",
   rnnoise: "Removes background noise like fans, keyboards and traffic. It runs on your device, never on a server.",
   standard: "Your browser's built-in noise reduction. Lighter, removes less.",
   off: "Your microphone is sent as is. Best for music.",
@@ -239,8 +240,8 @@ function VoiceTab() {
       <Toggle label="Stereo (music mode)" hint="Needs a stereo source and turn off echo cancellation for true stereo; the receiver's device must play stereo." checked={s.stereo} onChange={(v) => updateVoiceSettings({ stereo: v, presetId: "custom" })} />
       <Toggle label="Echo cancellation" checked={s.echoCancellation} onChange={(v) => updateVoiceSettings({ echoCancellation: v, presetId: "custom" })} />
       <Field label="Noise suppression" hint={NS_HINT[s.suppression]}>
-        <div className="seg ns-seg" role="radiogroup" aria-label="Noise suppression">{(["rnnoise", "standard", "off"] as Suppression[]).map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={s.suppression === k} className={s.suppression === k ? "on" : ""} disabled={k === "rnnoise" && !denoiseSupported()} onClick={() => updateVoiceSettings({ ...suppressionFor(k), presetId: "custom" })}>{SUPPRESSION_LABEL[k]}</button>))}</div>
+        <div className="seg ns-seg" role="radiogroup" aria-label="Noise suppression">{(["deepfilter", "rnnoise", "standard", "off"] as Suppression[]).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={s.suppression === k} className={s.suppression === k ? "on" : ""} disabled={(k === "rnnoise" || k === "deepfilter") && !denoiseSupported()} onClick={() => { if (k === "deepfilter") preloadDeepFilter(); updateVoiceSettings({ ...suppressionFor(k), presetId: "custom" }); }}>{SUPPRESSION_LABEL[k]}</button>))}</div>
       </Field>
       <p className="muted small">Using the Krisp app? <button className="link" onClick={() => { const device = devices.find(d => d.kind === "audioinput" && /krisp/i.test(d.label)); if (device) switchDevice("audioinput", device.deviceId); else toast("Krisp microphone not found. Start Krisp, allow microphone access, then refresh your devices.", "info"); }}>Use the Krisp microphone</button> and set noise suppression to None.</p>
       <Toggle label="Automatic gain control" checked={s.autoGainControl} onChange={(v) => updateVoiceSettings({ autoGainControl: v, presetId: "custom" })} />

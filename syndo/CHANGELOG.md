@@ -1,5 +1,13 @@
 # SEND changelog
 
+## 2026-11-12 — Advanced noise suppression (DeepFilterNet3)
+
+- **New "Advanced" noise suppression** (Voice & video → Noise suppression; the slot Discord gives Krisp):
+  DeepFilterNet3, a stronger model than RNNoise that keeps voices natural. Compiled to WebAssembly from the
+  `deep-filter-rt` crate (MIT/Apache-2.0, official model embedded) in `web/df3-wasm/`, served by SEND itself at
+  `/df3/` (19.5 MB, ~11 MB compressed, cached a month), runs in an AudioWorklet on the device (~1.3 ms per 10 ms
+  frame), 10 ms extra latency. Falls back to RNNoise if it can't start. "AI" (RNNoise) stays the default.
+
 ## 2026-11-12 — Worldwide voice network (beta)
 
 - **Voice channels can use Cloudflare's worldwide media network** (right-click a voice channel → "Worldwide voice

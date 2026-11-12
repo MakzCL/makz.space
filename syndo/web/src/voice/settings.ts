@@ -65,7 +65,7 @@ export function loadVoiceSettings(): VoiceSettings {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
     // Settings saved before the suppression choice existed: keep "off" for people who turned it off, otherwise use the AI one.
     if (!saved.suppression) saved.suppression = saved.noiseSuppression === false ? "off" : "rnnoise";
-    if (!["rnnoise", "standard", "off"].includes(saved.suppression)) saved.suppression = "rnnoise";
+    if (!["deepfilter", "rnnoise", "standard", "off"].includes(saved.suppression)) saved.suppression = "rnnoise";
     saved.noiseSuppression = saved.suppression === "standard";
     return { ...DEFAULT_VOICE, ...saved, stream: { ...DEFAULT_VOICE.stream, ...(saved.stream ?? {}) } };
   }
