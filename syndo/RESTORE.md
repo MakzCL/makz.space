@@ -1,5 +1,21 @@
 # SEND restore points
 
+## 2026-11-12 — desktop 0.7.0 (SEND's own screen sharing, game capture, popout calls)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.6.4.yml` (feed at 0.6.4; its installer stays in the bucket) |
+| Download link (Worker `send-beta-api`) | version `61c8ec1b-52ba-4d24-92be-9ec82fd1436d` (link → 0.6.4) |
+
+Released from commit `b059d19` (CI run 43316649201, artifact digest `sha256:517f24e0…`): `SEND-Setup-0.7.0.exe`,
+1,808,402 bytes, sha512 `sjgFeGKf+Q2Hqtcmc3BJe45wF3vimGwS3Jb5+FQGepWhWNg0yVs9CIR1OWs0ZNo9+WesOWhTBABTN7dxDfskLQ==`, verified
+on the public copy. One-hour token limited to `syndo-desktop`, revoked right after. Download link: Worker deployment
+`58e2c5ca` (installer name only; `SOURCE_COMMIT` unchanged at `b059d19`).
+
+### Roll back
+1. Feed: copy `latest-0.6.4.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers → `send-beta-api` → Deployments → deploy version `61c8ec1b` at 100%.
+
 ## 2026-11-12 — website send.makz.space (new)
 
 New Cloudflare Pages project `send-site` (static, no build) from `syndo/site/`, production branch
