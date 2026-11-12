@@ -1,5 +1,24 @@
 # SEND restore points
 
+## 2026-11-12 — Go Live dialog (web only)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `464f7ba6-9e88-4edd-988c-9f535a1f24cb` (commit `e828048`) |
+| Backend, desktop feed | unchanged |
+
+Roll back: Pages → `syndo-app` → Deployments → `464f7ba6` → *Rollback to this deployment*.
+
+## 2026-11-12 — motion, voice messages, centred + (web only)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Web (Pages `syndo-app`) | deployment `3b0ff942` |
+| Backend, desktop feed | unchanged (the server voice-note type fix is in the code but not deployed) |
+
+Web: deployment `464f7ba6-9e88-4edd-988c-9f535a1f24cb` (commit `e828048`, build id `4r9210`).
+Roll back: Pages → `syndo-app` → Deployments → `3b0ff942` → *Rollback to this deployment*.
+
 ## 2026-11-11 — desktop 0.6.4 (updater no longer freezes)
 
 0.6.2 and 0.6.3 froze on the "Updating SEND" window: the update commands were synchronous, so the window was built

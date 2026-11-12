@@ -10,6 +10,19 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-go-live",
+    title: "A proper Go Live screen",
+    date: "2026-11-12",
+    intro: "Screen sharing starts from a SEND dialog, like you'd expect.",
+    sections: [
+      { title: "Screen share", items: [
+        "Pick Applications, Entire Screen or Devices, then press Go Live.",
+        "Devices streams a camera or capture card (consoles, cameras) with a live preview.",
+        "Choose resolution, frame rate and sound right in the dialog.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-motion-voice",
     title: "Smoother, with nicer voice messages",
     date: "2026-11-12",

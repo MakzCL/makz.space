@@ -3,7 +3,7 @@ import { onEvent, toast, useStore } from "../store.ts";
 import { primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
 import { denoiseTrack } from "./denoise.ts";
-import { SCREEN_ECHO_NOTE, screenAudioMayEcho, screenAudioConstraints, streamBitrate, type VoiceSettings } from "./settings.ts";
+import { SCREEN_ECHO_NOTE, captureShare, shareMayEcho, streamBitrate, type ShareSource, type VoiceSettings } from "./settings.ts";
 
 /**
  * Direct (peer-to-peer) calls — the SK Factory call model, adapted to SEND:
@@ -343,15 +343,14 @@ export class MeshCall {
       await this.replaceVideo();
     } catch (e) { toast(deviceError(e), "error"); }
   }
-  async screen() {
+  async screen(src?: ShareSource) {
     const st = useVoice.getState().settings.stream;
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { height: st.height === "source" ? undefined : { ideal: st.height }, frameRate: { ideal: st.fps } },
-        audio: st.audio ? screenAudioConstraints() : false, ...(st.audio ? { systemAudio: "include" } : {}), selfBrowserSurface: "exclude", surfaceSwitching: "include" } as DisplayMediaStreamOptions);
+      const stream = await captureShare(st, src);
       this.screenTrack = stream.getVideoTracks()[0]!;
       this.screenSound = stream.getAudioTracks()[0] ?? null;
-      if (screenAudioMayEcho(this.screenSound)) toast(SCREEN_ECHO_NOTE, "info");
-      if (st.audio && !this.screenSound) toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
+      if (shareMayEcho(src, this.screenSound)) toast(SCREEN_ECHO_NOTE, "info");
+      if (st.audio && !this.screenSound && src?.kind !== "device") toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
       this.screenTrack.contentHint = st.contentHint;
       this.screenTrack.onended = () => { this.stopScreen().catch(() => {}); };
       useVoice.setState({ sharing: true, localScreen: this.screenTrack });

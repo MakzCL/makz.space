@@ -4,16 +4,16 @@ import { userMenuItems } from "./menus.tsx";
 import { ProfileCard } from "./Dialogs.tsx";
 import { Popover, openContextMenu } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
-import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { P, STREAM_FPS, STREAM_HEIGHTS, has, type Channel, type Guild, type SoundboardSound } from "@send/shared";
+import { P, has, type Channel, type Guild, type SoundboardSound } from "@send/shared";
 import { playSoundboard, soundsFor } from "../expressions.ts";
 import { setTitle } from "../router.ts";
 import { can, displayName, guildPerms, useStore } from "../store.ts";
 import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
+import { ShareDialog } from "./ShareDialog.tsx";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, setWatching, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar } from "./ui.tsx";
 import { isPhone } from "../mobile.ts";
@@ -120,17 +120,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
             <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video || !caps.canShare} title={caps.canShare ? (v.sharing ? "Stop sharing" : "Share your screen") : "This browser can't share screens."}
               onClick={() => (v.sharing ? stopScreenShare() : setShareMenu(!shareMenu))} aria-label={v.sharing ? "Stop sharing" : "Share screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
             {v.sharing && <button className="ctl sm" onClick={switchScreenSource} aria-label="Switch shared window"><RefreshCw size={16} /></button>}
-            {shareMenu && !v.sharing && (
-              <div className="share-menu" role="dialog" aria-label="Screen share quality">
-                <h3>Share your screen</h3>
-                <label>Resolution <Select value={String(st.height)} onChange={(e) => updateVoiceSettings({ stream: { ...st, height: e.target.value === "source" ? "source" : +e.target.value } })}>{STREAM_HEIGHTS.map((h) => <option key={h} value={h}>{h}p</option>)}<option value="source">Source</option></Select></label>
-                <label>Frame rate <Select value={st.fps} onChange={(e) => updateVoiceSettings({ stream: { ...st, fps: +e.target.value as any } })}>{STREAM_FPS.map((f) => <option key={f} value={f}>{f} fps</option>)}</Select></label>
-                <label>Optimise for <Select value={st.contentHint} onChange={(e) => updateVoiceSettings({ stream: { ...st, contentHint: e.target.value as any } })}><option value="detail">Text & detail</option><option value="motion">Motion</option></Select></label>
-                <label className="row"><input type="checkbox" checked={st.audio} onChange={(e) => updateVoiceSettings({ stream: { ...st, audio: e.target.checked } })} /> Include audio {!caps.tabAudio && <small className="muted">(not supported in this browser)</small>}</label>
-                <p className="muted small">Your browser will ask which screen, window or tab to share.</p>
-                <button className="btn primary" onClick={() => { setShareMenu(false); startScreenShare(); }}>Go live</button>
-              </div>
-            )}
+            {shareMenu && !v.sharing && <ShareDialog onClose={() => setShareMenu(false)} />}
           </div>
           <ActivityButton channel={channel} ctl />
           {guild && guild.sounds !== undefined && <SoundboardButton channel={channel} guild={guild} />}

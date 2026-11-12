@@ -128,3 +128,34 @@ export function screenAudioMayEcho(track: MediaStreamTrack | null | undefined) {
   return st.displaySurface !== "browser" && st.restrictOwnAudio !== true;
 }
 export const SCREEN_ECHO_NOTE = "This browser can't keep SEND's own sound out of a shared screen, so people may hear the call echo. Share a tab, or use Chrome, Edge or the SEND desktop app.";
+
+/**
+ * What to share. "window", "browser" (a tab) and "monitor" open the system picker with that tab chosen first (browsers and
+ * WebView2 don't let a page list windows or screens itself); "device" streams a capture card or camera
+ * as the stream, with its matching audio input when it has one.
+ */
+export type ShareSource = { kind: "window" } | { kind: "browser" } | { kind: "monitor" } | { kind: "device"; deviceId: string };
+
+export async function captureShare(st: StreamSettings, src: ShareSource = { kind: "window" }): Promise<MediaStream> {
+  const h = st.height === "source" ? undefined : st.height;
+  if (src.kind === "device") {
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
+    const cam = devices.find((d) => d.kind === "videoinput" && d.deviceId === src.deviceId);
+    // A capture card shows up as a video input and an audio input in the same group.
+    const mic = st.audio && cam?.groupId ? devices.find((d) => d.kind === "audioinput" && d.groupId === cam.groupId && d.deviceId !== "default" && d.deviceId !== "communications") : undefined;
+    return navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: src.deviceId }, ...(h ? { height: { ideal: h } } : {}), frameRate: { ideal: st.fps } },
+      audio: mic ? { deviceId: { exact: mic.deviceId }, ...screenAudioConstraints() } : false,
+    });
+  }
+  return navigator.mediaDevices.getDisplayMedia({
+    video: { ...(h ? { height: { ideal: h } } : {}), frameRate: { ideal: st.fps }, displaySurface: src.kind },
+    audio: st.audio ? screenAudioConstraints() : false,
+    ...(st.audio ? { systemAudio: "include" } : {}),
+    selfBrowserSurface: "exclude", surfaceSwitching: "include", preferCurrentTab: false,
+  } as DisplayMediaStreamOptions);
+}
+/** Device captures don't carry SEND's sound, so only screen captures can echo. */
+export function shareMayEcho(src: ShareSource | undefined, track: MediaStreamTrack | null | undefined) {
+  return src?.kind !== "device" && screenAudioMayEcho(track);
+}

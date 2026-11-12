@@ -1,5 +1,15 @@
 # SEND changelog
 
+## 2026-11-12 — Go Live dialog
+
+- **Screen share dialog** like Discord's: tabs **Applications** (window, or a browser tab in the browser),
+  **Entire Screen** and **Devices**, plus resolution, frame rate, "optimise for" and share-audio controls, then
+  **Go Live**. Applications/Entire Screen open the system picker on that tab (`displaySurface` hint); a web page
+  and WebView2 can't list windows or show their thumbnails themselves, so the system picker still does that.
+- **Devices** lists cameras and capture cards with live previews and streams the chosen one as the screen share
+  (mesh, Cloudflare and LiveKit paths), with the card's own audio input when it has one in the same device group.
+- "Switch shared window" reopens the same kind of source.
+
 ## 2026-11-12 — Motion, voice messages, centred +
 
 - **Voice message recording:** the message box becomes a recording bar — bin (cancel, also Esc), pulsing dot and

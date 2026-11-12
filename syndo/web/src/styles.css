@@ -2015,3 +2015,25 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 [data-motion="full"] .aud-play:active { scale: .9; }
 [data-motion="full"] .att-audio.playing .wave i.on { animation: none; }
 .composer-field[hidden] { display: none !important; }
+
+/* Screen share dialog (Discord-style Go Live) */
+.share-dlg { display: flex; flex-direction: column; gap: 14px; }
+.share-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border, #ffffff14); }
+.share-tabs button { border: 0; background: none; color: var(--textMuted); font-weight: 600; padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.share-tabs button:hover { color: var(--text); }
+.share-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.share-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; min-height: 150px; align-content: start; }
+.share-card { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: var(--r); background: var(--bg2); color: var(--text); cursor: pointer; text-align: left; transition: border-color .12s, background .12s; }
+.share-card:hover { background: var(--bg3); }
+.share-card.on { border-color: var(--accent); }
+.share-thumb { aspect-ratio: 16 / 9; border-radius: calc(var(--r) - 4px); background: #0006; overflow: hidden; display: grid; place-items: center; }
+.share-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.share-thumb-icon { color: var(--textMuted); display: grid; place-items: center; }
+.share-name { font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.share-note { margin: 0; grid-column: 1 / -1; }
+.share-quality { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border, #ffffff14); }
+.share-q-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.share-q-l { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--textMuted); }
+.share-q-row .seg { margin: 0; flex-wrap: wrap; }
+.share-audio { cursor: pointer; }
+[data-motion="full"] .share-card.on { animation: m-pop-in .16s var(--ease-out); }

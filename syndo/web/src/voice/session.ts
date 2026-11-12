@@ -16,7 +16,7 @@ async function loadLiveKit() { LK ??= await import("livekit-client"); return LK;
 import { api, errMsg } from "../api.ts";
 import { gwSend } from "../gateway.ts";
 import { toast, useStore } from "../store.ts";
-import { DEFAULT_VOICE, SCREEN_ECHO_NOTE, loadVoiceSettings, saveVoiceSettings, screenAudioConstraints, screenAudioMayEcho, streamBitrate, type VoiceSettings } from "./settings.ts";
+import { DEFAULT_VOICE, SCREEN_ECHO_NOTE, loadVoiceSettings, saveVoiceSettings, shareMayEcho, captureShare, streamBitrate, type ShareSource, type VoiceSettings } from "./settings.ts";
 
 /**
  * Voice / video / screen sharing over a LiveKit SFU.
@@ -439,24 +439,20 @@ export async function switchDevice(kind: "audioinput" | "audiooutput" | "videoin
 /* ----------------------------------------------------------- screen share -- */
 let screenPubs: LocalTrackPublication[] = [];
 
-export async function startScreenShare() {
-  if (cf) { if (!get().grants?.video) return; await cf.screen(); reportState(); return; }
+let lastShare: ShareSource | undefined;
+export async function startScreenShare(src?: ShareSource) {
+  lastShare = src;
+  if (cf) { if (!get().grants?.video) return; await cf.screen(src); reportState(); return; }
   if (!room) return;
   if (!get().grants?.video) { toast("You don't have permission to share your screen here.", "error"); return; }
   const st = get().settings.stream;
-  const source = st.height === "source";
   try {
-    const tracks = await LK.createLocalScreenTracks({
-      audio: st.audio ? screenAudioConstraints() as any : false,
-      // Source: no resolution constraint → the browser captures at the surface's native size.
-      resolution: source ? undefined : { width: Math.round((st.height as number) * 16 / 9), height: st.height as number, frameRate: st.fps },
-      contentHint: st.contentHint,
-      selfBrowserSurface: "exclude",
-      surfaceSwitching: "include",
-      systemAudio: st.audio ? "include" : "exclude",
-      preferCurrentTab: false,
-      video: source ? { frameRate: st.fps } as any : undefined,
-    } as any);
+    const stream = await captureShare(st, src);
+    stream.getVideoTracks()[0] && (stream.getVideoTracks()[0]!.contentHint = st.contentHint);
+    const tracks = [
+      ...stream.getVideoTracks().map((t) => new LK.LocalVideoTrack(t, undefined, true)),
+      ...stream.getAudioTracks().map((t) => new LK.LocalAudioTrack(t, undefined, true)),
+    ];
     const video = tracks.find((t) => t.kind === LK.Track.Kind.Video) as LocalVideoTrack | undefined;
     if (!video) throw new Error("No screen was selected.");
     const settings = video.mediaStreamTrack.getSettings();
@@ -478,9 +474,9 @@ export async function startScreenShare() {
     } as any);
     screenPubs = [pub];
     const audio = tracks.find((t) => t.kind === LK.Track.Kind.Audio);
-    if (screenAudioMayEcho(audio?.mediaStreamTrack)) toast(SCREEN_ECHO_NOTE, "info");
+    if (shareMayEcho(src, audio?.mediaStreamTrack)) toast(SCREEN_ECHO_NOTE, "info");
     if (audio) screenPubs.push(await room.localParticipant.publishTrack(audio, { source: LK.Track.Source.ScreenShareAudio, dtx: false, red: false, audioPreset: { maxBitrate: 128_000 }, forceStereo: true } as any));
-    else if (st.audio) toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
+    else if (st.audio && src?.kind !== "device") toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
     video.mediaStreamTrack.addEventListener("ended", () => stopScreenShare());
     set({ sharing: true, localScreen: video.mediaStreamTrack });
   } catch (e) {
@@ -500,7 +496,7 @@ export async function stopScreenShare() {
 }
 
 /** Change the shared surface without stopping (browser picker). */
-export async function switchScreenSource() { await stopScreenShare(); await startScreenShare(); }
+export async function switchScreenSource() { await stopScreenShare(); await startScreenShare(lastShare); }
 
 function supportsCodec(mime: string) {
   try { return !!RTCRtpSender.getCapabilities?.("video")?.codecs.some((c) => c.mimeType.toLowerCase() === mime.toLowerCase()); } catch { return false; }
