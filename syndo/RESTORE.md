@@ -1,5 +1,12 @@
 # SEND restore points
 
+## 2026-11-12 — website send.makz.space (new)
+
+New Cloudflare Pages project `send-site` (static, no build) from `syndo/site/`, production branch
+`claude/charming-meitner-a8exoe`, building only when `syndo/site/**` changes. Custom domain `send.makz.space`
+with a proxied CNAME `send` → `send-site.pages.dev` (DNS record `15bcd0b3…`). First deployment `611127ef`.
+To take it down: remove the custom domain from `send-site` and delete that DNS record. Nothing else uses them.
+
 ## 2026-11-12 — emotes in the message box, jump to present (web only)
 
 Web: deployment `d9e5fc09-e4bd-46ff-9e34-84bb5a78fc95` (commit `b6d2792`, build `1pw24gy`). Before it: `1ffcd2b3`
