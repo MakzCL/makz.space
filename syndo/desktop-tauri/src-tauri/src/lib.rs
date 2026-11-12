@@ -200,7 +200,8 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
       open_external(url);
       false
     })
-    .on_new_window(|url, _features| { open_external(&url); NewWindowResponse::Deny })
+    // The web app's "pop out call" window is a blank page it draws into itself; everything else opens in the browser.
+    .on_new_window(|url, _features| { if url.scheme() == "about" { return NewWindowResponse::Allow; } open_external(&url); NewWindowResponse::Deny })
     .on_permission_request(move |webview, kind| {
       let o = origin_of(&shell(&perm_app).cfg().server_url);
       let from_app = webview.url().ok().map(|u| u.origin().ascii_serialization()) == o && o.is_some();

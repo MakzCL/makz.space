@@ -120,20 +120,35 @@ export function playSound(kind: Sound, volume = 1) {
 export const playCallSound = (kind: Sound) => playSound(kind);
 
 export function initCallSounds() {
-  let timer: ReturnType<typeof setInterval> | null = null;
-  const stop = () => { if (timer) clearInterval(timer); timer = null; };
+  // Ringing never goes on forever: at most 30 s per call (Discord-like), and the caller's "calling" tone stops as
+  // soon as someone picks up. A call that already rang out doesn't start ringing again on later updates.
+  const MAX_RING_MS = 30_000;
+  let timer: ReturnType<typeof setInterval> | null = null, stopAt = 0, ringingFor: string | null = null;
+  const rangOut = new Set<string>();
+  const stop = () => { if (timer) clearInterval(timer); timer = null; ringingFor = null; };
+  const someoneElseJoined = (channelId: string) => {
+    const s = useStore.getState(); return Object.values(s.voice).some((v) => v.channel_id === channelId && v.user_id !== s.me?.id);
+  };
   onEvent("CALL_UPDATE", (call) => {
-    stop();
     const me = useStore.getState().me;
-    if (!me || me.status === "dnd") return;
-    const incoming = call.ringing.includes(me.id), outgoing = useVoice.getState().channelId === call.channel_id && call.ringing.length > 0;
-    if (!incoming && !outgoing) return;
+    const key = `${call.channel_id}:${call.started_at ?? ""}`;
+    const incoming = !!me && call.ringing.includes(me.id) && useVoice.getState().channelId !== call.channel_id;
+    const outgoing = useVoice.getState().channelId === call.channel_id && call.ringing.length > 0 && !someoneElseJoined(call.channel_id);
+    if (!me || me.status === "dnd" || (!incoming && !outgoing) || rangOut.has(key)) { if (ringingFor === call.channel_id || !timer) stop(); return; }
+    if (timer && ringingFor === call.channel_id) return; // already ringing for this call: keep the same 30 s window
+    stop();
+    ringingFor = call.channel_id; stopAt = Date.now() + MAX_RING_MS;
     const sound = incoming ? "ring" : "calling";
     playSound(sound);
-    timer = setInterval(() => playSound(sound), incoming ? 2600 : 3000);
+    timer = setInterval(() => {
+      const still = useVoice.getState().channelId;
+      if (Date.now() >= stopAt || (incoming && still === call.channel_id) || (!incoming && (still !== call.channel_id || someoneElseJoined(call.channel_id)))) { rangOut.add(key); stop(); return; }
+      playSound(sound);
+    }, incoming ? 2600 : 3000);
   });
-  onEvent("CALL_DELETE", () => { stop(); playSound("ended"); });
-  useVoice.subscribe((next, prev) => { if (next.channelId !== prev.channelId && next.channelId === null) stop(); });
+  onEvent("CALL_DELETE", (d: any) => { if (!d || !ringingFor || d.channel_id === ringingFor) { stop(); playSound("ended"); } });
+  useVoice.subscribe((next, prev) => { if (next.channelId !== prev.channelId) stop(); });
+  useStore.subscribe((s, p) => { if (ringingFor && s.voice !== p.voice && useVoice.getState().channelId === ringingFor && someoneElseJoined(ringingFor)) stop(); });
 
   // Other people joining / leaving the voice channel I'm in, and starting / stopping a stream.
   let room: string | null = null, since = 0;

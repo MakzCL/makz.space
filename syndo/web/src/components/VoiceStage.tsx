@@ -5,7 +5,7 @@ import { ProfileCard } from "./Dialogs.tsx";
 import { Popover, openContextMenu } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2, VolumeX, EyeOff, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { P, has, type Channel, type Guild, type SoundboardSound } from "@send/shared";
 import { playSoundboard, soundsFor } from "../expressions.ts";
@@ -14,6 +14,8 @@ import { can, displayName, guildPerms, useStore } from "../store.ts";
 import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { ShareDialog } from "./ShareDialog.tsx";
+import { closeCallPopout, openCallPopout, usePopout } from "../features/CallPopout.tsx";
+import { setTileOrder, sortTiles, useTileDrag, useTileOrder } from "../features/callLayout.ts";
 import { nativeCapture } from "../voice/nativeCapture.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, setWatching, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar } from "./ui.tsx";
@@ -37,12 +39,18 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const me = useStore((s) => s.me!);
   const states = useStore(useShallow((s) => Object.values(s.voice).filter((x) => x.channel_id === channel.id)));
   const [diag, setDiag] = useState(false);
+  const tileKeysRef = useRef<string[]>([]);
   const [shareMenu, setShareMenu] = useState(false);
   // The call chat stays open or closed the way you left it.
   const [chat, setChatRaw] = useState(() => { try { return localStorage.getItem("send.callChat") === "1"; } catch { return false; } });
   const setChat = (on: boolean) => { setChatRaw(on); try { localStorage.setItem("send.callChat", on ? "1" : "0"); } catch { /* private mode */ } };
   const here = v.channelId === channel.id;
+  const savedOrder = useTileOrder((s) => s.order[channel.id]);
+  const drag = useTileDrag(tileKeysRef, (keys) => setTileOrder(channel.id, keys));
   useEffect(() => setTitle(`${channel.name ?? "Call"}${guild ? ` · ${guild.name}` : ""}`), [channel, guild]);
+  // The pop-out window's share button opens the Go Live picker here.
+  useEffect(() => { const on = () => setShareMenu(true); window.addEventListener("send:open-share", on); return () => window.removeEventListener("send:open-share", on); }, []);
+  const popped = usePopout((p) => p.channelId === channel.id) && here;
 
   if (!here) return (
     <div className="stage-idle">
@@ -55,6 +63,19 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
       <div className="row">{states.map((s) => <Avatar key={s.user_id} user={users[s.user_id]} size={48} />)}</div>
       <button className="btn primary" onClick={() => joinVoice(channel.id)}>{channel.type === ChannelType.STAGE ? "Join stage" : "Join voice"}</button>
     </div>
+    </div>
+  );
+
+  if (popped) return (
+    <div className="stage stage-popped" data-region="call">
+      <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1></header>
+      <div className="stage-empty">
+        <ExternalLink size={40} aria-hidden />
+        <h2>The call is in its own window</h2>
+        <p className="muted">You're still connected. Close that window or bring it back to see the call here.</p>
+        <div className="row"><button className="btn primary" onClick={() => closeCallPopout()}>Bring it back</button><button className="btn danger" onClick={() => leaveVoice()}>Leave call</button></div>
+      </div>
+      {shareMenu && !v.sharing && <ShareDialog onClose={() => setShareMenu(false)} />}
     </div>
   );
 
@@ -75,7 +96,10 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   let shown = tiles.filter((t) => v.settings.callShowSelf || !t.local || t.kind === "screen");
   if (!v.settings.callShowNonVideo) { const withVideo = shown.filter((t) => t.track); if (withVideo.length) shown = withVideo; }
   if (!shown.length) shown = tiles.slice(0, 1);
+  // Your own arrangement (drag tiles around), remembered per call.
+  shown = sortTiles(shown, savedOrder);
   // Like Discord: a stream you aren't watching can't be the focused tile.
+  tileKeysRef.current = shown.map((t) => t.key);
   const focused = v.focus ? shown.find((t) => t.key === v.focus && !t.preview) ?? null : null;
   // Click a tile to focus it, click the focused one to go back to the grid; a stream preview starts watching.
   const activate = (t: Tile) => { if (t.preview) setWatching(t.uid, true); else useVoice.setState(t.key === v.focus ? { focus: null } : { focus: t.key, layout: "focus" }); };
@@ -89,6 +113,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         {guild && <VoiceStatusEditor channel={channel} />}
         <div className="ch-actions">
+          <button className="icon-btn" onClick={() => openCallPopout(channel.id)} aria-label="Pop out call" title="Pop out call"><ExternalLink size={20} /></button>
           {guild && <ChatToggle channel={channel} open={chatOn} onToggle={() => setChat(!chatOn)} />}
         </div>
       </header>
@@ -98,10 +123,10 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
         {focused ? <div className={`focus-area ${v.hideStrip || shown.length < 2 ? "no-strip" : ""}`}>
           <VideoTile t={focused} guildId={guild?.id ?? null} big onFocus={() => activate(focused)} />
           {shown.length > 1 && <button className="strip-toggle" onClick={() => useVoice.setState({ hideStrip: !v.hideStrip })} aria-expanded={!v.hideStrip} title={v.hideStrip ? "Show members" : "Hide members"} aria-label={v.hideStrip ? "Show members" : "Hide members"}>{v.hideStrip ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>}
-          {!v.hideStrip && shown.length > 1 && <div className="tile-strip">
+          {!v.hideStrip && shown.length > 1 && <div className="tile-strip" {...drag}>
             {shown.filter((t) => t.key !== focused.key).map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => activate(t)} />)}
           </div>}
-        </div> : <div ref={gridRef} style={gridStyle} className="tile-grid">
+        </div> : <div ref={gridRef} style={gridStyle} className="tile-grid" {...drag}>
           {shown.map((t) => <VideoTile key={t.key} t={t} guildId={guild?.id ?? null} onFocus={() => activate(t)} />)}
           {alone && guild && <InviteCard channel={channel} guild={guild} />}
         </div>}
@@ -133,7 +158,8 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   );
 }
 
-export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null; t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean; preview?: boolean }; big?: boolean; onFocus: () => void }) {
+export function VideoTile({ t, big, onFocus, guildId, popout }: { popout?: boolean; guildId: string | null; t: { key: string; uid: string; name: string; track: MediaStreamTrack | null; kind: string; speaking: boolean; muted: boolean; local: boolean; preview?: boolean }; big?: boolean; onFocus: () => void }) {
+  // In the pop-out window, menus and pop-ups (which open in the main window) are left out.
   const ref = useRef<HTMLVideoElement>(null);
   const tileRef = useRef<HTMLElement>(null);
   const [profile, setProfile] = useState(false);
@@ -142,6 +168,14 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
   const vol = useVoice((s) => s.settings.userVolumes[t.kind === "screen" ? `${t.uid}:stream` : t.uid] ?? 1);
   const [menu, setMenu] = useState(false);
   const volBtn = useRef<HTMLButtonElement>(null);
+  const hoverT = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Clicking the speaker mutes/unmutes this person or stream for you (the volume you had comes back).
+  const volKey = t.kind === "screen" ? `${t.uid}:stream` : t.uid;
+  const toggleMute = () => {
+    clearTimeout(hoverT.current); setMenu(false);
+    if (vol > 0) { try { sessionStorage.setItem(`send.vol.before.${volKey}`, String(vol)); } catch { /* */ } setUserVolume(volKey, 0); }
+    else { let back = 1; try { back = +(sessionStorage.getItem(`send.vol.before.${volKey}`) ?? 1) || 1; } catch { /* */ } setUserVolume(volKey, back); }
+  };
   const tint = useImageTint((t.local ? me : users[t.uid])?.avatar ?? null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
@@ -166,9 +200,9 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
     }));
   };
   return (
-    <figure ref={tileRef} tabIndex={0} aria-label={t.preview ? `${t.name}. Watch stream` : t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} ${t.track ? "has-video" : ""} ${t.preview ? "preview" : ""} k-${t.kind}`} style={{ ...(tint ? { "--tile-bg": tint } : {}), ...(big && ar && t.track ? { "--ar": ar } : {}) } as React.CSSProperties}
+    <figure ref={tileRef} data-key={t.key} tabIndex={0} aria-label={t.preview ? `${t.name}. Watch stream` : t.name} aria-haspopup="menu" className={`tile ${t.speaking ? "speaking" : ""} ${big ? "big" : ""} ${t.track ? "has-video" : ""} ${t.preview ? "preview" : ""} k-${t.kind}`} style={{ ...(tint ? { "--tile-bg": tint } : {}), ...(big && ar && t.track ? { "--ar": ar } : {}) } as React.CSSProperties}
       onClick={(e) => { if (!(e.target as HTMLElement).closest("button, input, a, .vol-pop")) onFocus(); }}
-      onContextMenu={context} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFocus(); return; } contextMenuKey(e, () => context(e)); }}
+      onContextMenu={popout ? undefined : context} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFocus(); return; } if (!popout) contextMenuKey(e, () => context(e)); }}
       onDoubleClick={() => { if (!t.preview) void fullscreen()?.catch(() => {}); }}>
       {t.track ? <video ref={ref} autoPlay playsInline muted onLoadedMetadata={measure} onResize={measure} className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
       {t.preview && <div className="watch-cta"><button className="btn primary" onClick={onFocus}>Watch Stream</button></div>}
@@ -178,7 +212,11 @@ export function VideoTile({ t, big, onFocus, guildId }: { guildId: string | null
         {watched && <button className="icon-btn sm" onClick={() => setWatching(t.uid, false)} aria-label="Stop watching" title="Stop watching"><EyeOff size={14} /></button>}
         {t.track && !t.preview && <button className="icon-btn sm" onClick={() => { void fullscreen()?.catch(() => {}); }} aria-label="Fullscreen"><Maximize size={14} /></button>}
         {t.track && !t.preview && "requestPictureInPicture" in HTMLVideoElement.prototype && <button className="icon-btn sm" onClick={() => { void pip()?.catch(() => {}); }} aria-label="Picture in picture"><PictureInPicture2 size={14} /></button>}
-        {!t.local && !t.preview && <button ref={volBtn} className="icon-btn sm" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label={`Volume for ${t.name}`}><Volume2 size={14} /></button>}
+        {!t.local && !t.preview && <button ref={volBtn} className={`icon-btn sm ${vol === 0 ? "vol-muted" : ""}`}
+          onClick={toggleMute} onMouseEnter={() => { if (!popout) hoverT.current = setTimeout(() => setMenu(true), 450); }} onMouseLeave={() => clearTimeout(hoverT.current)}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if (!popout) setMenu(true); }}
+          aria-pressed={vol === 0} aria-label={vol === 0 ? `Unmute ${t.kind === "screen" ? "stream" : t.name}` : `Mute ${t.kind === "screen" ? "stream" : t.name}`}
+          title={vol === 0 ? "Click to unmute · hover for volume" : "Click to mute · hover for volume"}>{vol === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}</button>}
       </div>
       {profile && tileRef.current && <ProfileCard userId={t.uid} guildId={guildId} anchor={tileRef.current} onClose={() => setProfile(false)} />}
       {menu && <Popover className="vol-pop" role="dialog" label={`Volume for ${t.name}`} anchor={() => volBtn.current} onClose={() => setMenu(false)}><label className="small">{t.kind === "screen" ? "Stream volume" : "User volume"} {Math.round(vol * 100)}%<Range min={0} max={2} step={0.05} value={vol} onChange={(e) => setUserVolume(t.kind === "screen" ? `${t.uid}:stream` : t.uid, +e.target.value)} /></label></Popover>}

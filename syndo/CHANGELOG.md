@@ -1,5 +1,18 @@
 # SEND changelog
 
+## 2026-11-12 — Rearrange call tiles, pop-out calls, mute by click, ringing stops
+
+- **Drag call tiles to rearrange them**, like apps on a phone's home screen: pick one up and the others slide
+  out of the way (FLIP animation) as the order changes live; let go and it settles into the gap. Saved per call on
+  this device. Mouse/pen; touch keeps scrolling.
+- **Pop out a call** into its own window (header button): tiles, screen shares, mic/deafen/camera/share, leave and
+  "bring back". The main window shows that the call is popped out. Desktop 0.7.0 allows this window (it used to
+  send every new window to the browser).
+- **Click the speaker on a tile to mute/unmute** that person or stream for you (your volume comes back); hover or
+  right-click it for the slider.
+- **Ringing stops:** at most 30 s per call, the caller's tone stops as soon as someone joins, and a call that rang
+  out doesn't start ringing again on later updates (group calls rang until everyone answered).
+
 ## 2026-11-12 — Discord-feel sounds, no sharing banner
 
 - **Sounds reworked** in the spirit of Discord's: short tuned "mallet"/bell notes with soft overtones (no more

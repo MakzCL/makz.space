@@ -10,6 +10,20 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-call-tiles",
+    title: "Arrange your call",
+    date: "2026-11-12",
+    intro: "Calls you can shape the way you like.",
+    sections: [
+      { title: "Calls", items: [
+        "Drag anyone's box to a new spot — the others slide out of the way, like apps on your phone.",
+        "Pop the whole call out into its own window with the button at the top.",
+        "Click the speaker on someone's box to mute them for you; hover it for the volume.",
+        "Group calls stop ringing after 30 seconds.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-desktop-share",
     title: "Screen sharing, built into the app",
     date: "2026-11-12",
