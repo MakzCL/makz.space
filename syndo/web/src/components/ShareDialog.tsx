@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, Globe, Monitor, Webcam } from "lucide-react";
+import { AppWindow, Globe, Monitor, Settings2, Video, Webcam } from "lucide-react";
 import { STREAM_FPS, STREAM_HEIGHTS } from "@send/shared";
 import { Modal } from "./ui.tsx";
 import { startScreenShare, updateVoiceSettings, useVoice } from "../voice/session.ts";
@@ -7,7 +7,7 @@ import { captureCapabilities, type ShareSource } from "../voice/settings.ts";
 import { useStore } from "../store.ts";
 
 type Tab = "window" | "monitor" | "device";
-const TABS: { id: Tab; label: string }[] = [{ id: "window", label: "Applications" }, { id: "monitor", label: "Entire Screen" }, { id: "device", label: "Devices" }];
+const TABS: { id: Tab; label: string; icon: typeof Monitor }[] = [{ id: "window", label: "Applications", icon: AppWindow }, { id: "monitor", label: "Entire Screen", icon: Monitor }, { id: "device", label: "Devices", icon: Video }];
 
 /** Live preview of one capture device, released when the card unmounts. */
 function DevicePreview({ deviceId, onReady }: { deviceId: string; onReady: () => void }) {
@@ -31,6 +31,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("window");
   const [devices, setDevices] = useState<MediaDeviceInfo[] | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
 
   const list = () => navigator.mediaDevices.enumerateDevices().then((d) => {
     const v = d.filter((x) => x.kind === "videoinput" && x.deviceId);
@@ -47,11 +48,10 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const label = (d: MediaDeviceInfo, i: number) => d.label || `Capture device ${i + 1}`;
 
   return (
-    <Modal title="Screen Share" onClose={onClose} wide label="Screen share"
-      footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn primary" onClick={() => go()} disabled={!source}>Go Live</button></>}>
+    <Modal onClose={onClose} label="Screen share" className="share-modal">
       <div className="share-dlg">
         <div className="share-tabs" role="tablist" aria-label="What to share">
-          {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}
+          {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}><t.icon size={16} aria-hidden />{t.label}</button>)}
         </div>
         <div className="share-grid" role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label}>
           {tab === "window" && <>
@@ -82,7 +82,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
           {tab === "window" ? (surface === "browser" ? "Your browser's picker opens with your tabs. A tab shares its own sound only, so the call never echoes." : "Your system's picker opens with your open windows.") : "Your system's picker opens with your screens."} SEND's own window is left out.
         </p>}
 
-        <div className="share-quality">
+        {more && <div className="share-quality">
           <div className="share-q-row">
             <span className="share-q-l">Resolution</span>
             <div className="seg" role="radiogroup" aria-label="Resolution">
@@ -108,6 +108,19 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={st.audio} onChange={(e) => set({ audio: e.target.checked })} />
           </label>
           {st.audio && tab !== "device" && !caps.tabAudio && <p className="muted small">This browser can't share sound from a screen.</p>}
+        </div>}
+
+        <div className="share-bar">
+          <div className="share-sum">
+            <strong>{st.contentHint === "motion" ? "Gaming" : "Work & detail"}</strong>
+            <span className="muted small">{st.contentHint === "motion" ? "Smoother video" : "Text readability"} · {st.height === "source" ? "Source" : `${st.height}p`} · {st.fps}fps{st.audio ? " · Sound" : ""}</span>
+          </div>
+          <div className="seg share-sdhd" role="radiogroup" aria-label="Quality">
+            <button role="radio" aria-checked={st.height === 720} aria-selected={st.height === 720} onClick={() => set({ height: 720 })}>SD</button>
+            <button role="radio" aria-checked={st.height === 1080} aria-selected={st.height === 1080} onClick={() => set({ height: 1080 })}>HD</button>
+          </div>
+          <button className={`icon-btn share-gear ${more ? "on" : ""}`} aria-expanded={more} aria-label="Stream settings" title="Stream settings" onClick={() => setMore(!more)}><Settings2 size={18} /></button>
+          <button className="btn primary" onClick={() => go()} disabled={!source}>Go Live</button>
         </div>
       </div>
     </Modal>

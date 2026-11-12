@@ -45,7 +45,7 @@ export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { u
   );
 }
 
-export function Modal({ title, onClose, children, wide, footer, label }: { title?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode; label?: string }) {
+export function Modal({ title, onClose, children, wide, footer, label, className }: { title?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode; label?: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   // Escape (topmost layer only) closes; focus returns to the opener; presses outside can't reach what's underneath.
   useLayer(ref, onClose, { outside: false });
@@ -68,7 +68,7 @@ export function Modal({ title, onClose, children, wide, footer, label }: { title
   // positioned by its parent's backdrop-filter, which would make it a containing block for fixed elements.
   return createPortal(
     <div className="modal-back" onPointerDown={(e) => { down.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && down.current === e.currentTarget) onClose(); }}>
-      <div ref={ref} data-region="overlay" data-layer className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
+      <div ref={ref} data-region="overlay" data-layer className={`modal ${wide ? "wide" : ""} ${className ?? ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
         {title && <header className="modal-h"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>}
         <div className="modal-b">{children}</div>
         {footer && <footer className="modal-f">{footer}</footer>}
