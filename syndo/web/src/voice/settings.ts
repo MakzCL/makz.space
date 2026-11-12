@@ -56,7 +56,7 @@ export const DEFAULT_VOICE: VoiceSettings = {
   inputDeviceId: "default", outputDeviceId: "default", videoDeviceId: "", inputGain: 1, mode: "vad", pttKey: "KeyV", pttReleaseDelay: 200,
   userVolumes: {}, cameraHeight: 720,
   stream: { height: 1080, fps: 30, bitrate: 0, contentHint: "detail", audio: true, codec: "auto" },
-  suppressSoundEffects: false, soundVolume: .8, pttSounds: true, speakingColor: "#23a55a", soundboardVolume: .7, soundboardMuted: false, callShowSelf: true, callShowNonVideo: true, callMessagePreviews: true,
+  suppressSoundEffects: false, soundVolume: 1, pttSounds: true, speakingColor: "#23a55a", soundboardVolume: .7, soundboardMuted: false, callShowSelf: true, callShowNonVideo: true, callMessagePreviews: true,
 };
 
 const KEY = "send.voice.v1";

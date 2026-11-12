@@ -19,6 +19,7 @@ export const CHANGELOG: Release[] = [
         "See your open windows and screens with live previews, right in SEND.",
         "Share a window and only that app's sound goes with it.",
         "Share a screen and everything is heard except SEND itself, so there's no echo.",
+        "New join, mute and message sounds, and no more red sharing bar.",
       ] },
     ],
   },

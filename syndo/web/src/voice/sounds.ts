@@ -3,8 +3,9 @@ import { useVoice } from "./session.ts";
 
 /**
  * SEND's interface sounds — original, synthesised in the browser (no audio files).
- * Soft, rounded "bloops": a sine body with a quick pitch glide, a touch of triangle
- * for warmth, and a short echo, so they read clearly but never sound harsh.
+ * Styled after the feel of Discord's: short tuned "mallet" notes (a sine with soft overtones that ring out
+ * quickly), small two- or three-note melodies going up for on/join and down for off/leave, and a gentle level
+ * that sits under voices. The melodies are SEND's own.
  */
 export type Sound =
   | "join" | "leave" | "userJoin" | "userLeave" | "move"
@@ -14,37 +15,49 @@ export type Sound =
   | "message" | "mention"
   | "calling" | "ring" | "ended";
 
-/** A note: start/end frequency (Hz), start time and length (s), loudness 0–1. */
-type Note = { f: number; to?: number; at: number; len: number; vol?: number; wave?: OscillatorType };
+/** A note: pitch (Hz, optional glide target), start (s), ring time (s), loudness 0–1, timbre. */
+type Note = { f: number; to?: number; at: number; len: number; vol?: number; tone?: "mallet" | "bell" | "soft" | "tick" };
+
+// Note names → Hz, so the melodies read like music.
+const N = { G4: 392, A4: 440, B4: 493.9, C5: 523.3, D5: 587.3, E5: 659.3, F5: 698.5, G5: 784, A5: 880, B5: 987.8, C6: 1046.5, D6: 1174.7, E6: 1318.5, G6: 1568, A6: 1760 };
 
 const SOUNDS: Record<Sound, Note[]> = {
-  // You join / leave a voice channel: a bright rising pair / a falling pair.
-  join: [{ f: 520, to: 700, at: 0, len: .12 }, { f: 780, to: 1040, at: .09, len: .2 }],
-  leave: [{ f: 760, to: 600, at: 0, len: .12 }, { f: 560, to: 400, at: .09, len: .22 }],
-  // Someone else joins / leaves your channel: the same shapes, softer and higher.
-  userJoin: [{ f: 880, to: 1100, at: 0, len: .09, vol: .6 }, { f: 1170, to: 1320, at: .07, len: .14, vol: .55 }],
-  userLeave: [{ f: 1100, to: 900, at: 0, len: .09, vol: .6 }, { f: 820, to: 660, at: .07, len: .16, vol: .55 }],
-  move: [{ f: 660, to: 880, at: 0, len: .1 }, { f: 880, to: 660, at: .1, len: .14 }],
-  // Mic and headphones: short plucks, down for "off", up for "on".
-  mute: [{ f: 620, to: 430, at: 0, len: .11, vol: .8 }],
-  unmute: [{ f: 430, to: 640, at: 0, len: .11, vol: .8 }],
-  deafen: [{ f: 520, to: 360, at: 0, len: .1, vol: .8 }, { f: 380, to: 260, at: .08, len: .14, vol: .7 }],
-  undeafen: [{ f: 300, to: 420, at: 0, len: .1, vol: .8 }, { f: 460, to: 620, at: .08, len: .14, vol: .75 }],
-  // Screen share: a little sparkle up / down.
-  streamStart: [{ f: 660, at: 0, len: .08, vol: .6 }, { f: 880, at: .06, len: .08, vol: .6 }, { f: 1320, to: 1480, at: .12, len: .18, vol: .55 }],
-  streamStop: [{ f: 1320, at: 0, len: .08, vol: .55 }, { f: 880, at: .06, len: .08, vol: .55 }, { f: 620, to: 520, at: .12, len: .18, vol: .55 }],
-  viewerJoin: [{ f: 1240, to: 1480, at: 0, len: .1, vol: .4 }],
+  // You join / leave a voice channel: two bright notes up / down.
+  join: [{ f: N.D5, at: 0, len: .28 }, { f: N.A5, at: .075, len: .42 }],
+  leave: [{ f: N.A5, at: 0, len: .28 }, { f: N.D5, at: .075, len: .42 }],
+  // Someone else joins / leaves: the same idea, a fourth higher and a little softer.
+  userJoin: [{ f: N.G5, at: 0, len: .24, vol: .8 }, { f: N.D6, at: .07, len: .36, vol: .8 }],
+  userLeave: [{ f: N.D6, at: 0, len: .24, vol: .8 }, { f: N.G5, at: .07, len: .36, vol: .8 }],
+  move: [{ f: N.E5, at: 0, len: .2 }, { f: N.A5, at: .07, len: .2 }, { f: N.E5, at: .14, len: .3 }],
+  // Mic and headphones: low, rounded blips — down for off, up for on.
+  mute: [{ f: N.D5, at: 0, len: .14, vol: .85, tone: "soft" }, { f: N.A4, at: .055, len: .22, vol: .85, tone: "soft" }],
+  unmute: [{ f: N.A4, at: 0, len: .14, vol: .85, tone: "soft" }, { f: N.D5, at: .055, len: .22, vol: .85, tone: "soft" }],
+  deafen: [{ f: N.E5, at: 0, len: .13, vol: .85, tone: "soft" }, { f: N.B4, at: .055, len: .13, vol: .85, tone: "soft" }, { f: N.G4, at: .11, len: .26, vol: .85, tone: "soft" }],
+  undeafen: [{ f: N.G4, at: 0, len: .13, vol: .85, tone: "soft" }, { f: N.B4, at: .055, len: .13, vol: .85, tone: "soft" }, { f: N.E5, at: .11, len: .26, vol: .85, tone: "soft" }],
+  // Going live: a quick rising sparkle / falling for stop.
+  streamStart: [{ f: N.C5, at: 0, len: .16, vol: .7 }, { f: N.E5, at: .06, len: .16, vol: .7 }, { f: N.G5, at: .12, len: .16, vol: .7 }, { f: N.C6, at: .18, len: .4, vol: .75, tone: "bell" }],
+  streamStop: [{ f: N.C6, at: 0, len: .16, vol: .7 }, { f: N.G5, at: .06, len: .16, vol: .7 }, { f: N.E5, at: .12, len: .16, vol: .7 }, { f: N.C5, at: .18, len: .4, vol: .75 }],
+  viewerJoin: [{ f: N.A5, at: 0, len: .18, vol: .5, tone: "bell" }, { f: N.E6, at: .06, len: .26, vol: .45, tone: "bell" }],
   // Push-to-talk: barely-there ticks.
-  pttOn: [{ f: 1400, to: 1600, at: 0, len: .04, vol: .25, wave: "triangle" }],
-  pttOff: [{ f: 1300, to: 1100, at: 0, len: .04, vol: .22, wave: "triangle" }],
-  disconnect: [{ f: 700, to: 560, at: 0, len: .12 }, { f: 520, to: 400, at: .1, len: .12 }, { f: 380, to: 260, at: .2, len: .26 }],
-  // Messages: a soft pop; mentions get a second, higher note.
-  message: [{ f: 990, to: 1180, at: 0, len: .09, vol: .55 }, { f: 1480, at: .06, len: .12, vol: .35 }],
-  mention: [{ f: 880, to: 1100, at: 0, len: .09, vol: .7 }, { f: 1320, to: 1480, at: .09, len: .16, vol: .6 }],
-  // Calls.
-  calling: [{ f: 520, to: 560, at: 0, len: .22, vol: .55 }, { f: 660, to: 700, at: .26, len: .3, vol: .55 }],
-  ring: [{ f: 784, at: 0, len: .14 }, { f: 988, at: .15, len: .14 }, { f: 1175, at: .3, len: .22 }, { f: 988, at: .62, len: .14 }, { f: 1175, at: .77, len: .26 }],
-  ended: [{ f: 660, to: 560, at: 0, len: .12 }, { f: 520, to: 440, at: .11, len: .14 }, { f: 420, to: 330, at: .23, len: .24 }],
+  pttOn: [{ f: 1600, at: 0, len: .035, vol: .3, tone: "tick" }],
+  pttOff: [{ f: 1200, at: 0, len: .035, vol: .26, tone: "tick" }],
+  disconnect: [{ f: N.A5, at: 0, len: .18 }, { f: N.E5, at: .09, len: .18 }, { f: N.A4, at: .18, len: .4 }],
+  // Messages: a short, high two-note "blip"; mentions ring a bit longer.
+  message: [{ f: N.C6, at: 0, len: .12, vol: .7, tone: "bell" }, { f: N.G6, at: .045, len: .22, vol: .55, tone: "bell" }],
+  mention: [{ f: N.E6, at: 0, len: .14, vol: .8, tone: "bell" }, { f: N.A6, at: .055, len: .3, vol: .7, tone: "bell" }],
+  // Calls: an outgoing "calling" pulse and a friendly incoming ring.
+  calling: [{ f: N.E5, at: 0, len: .3, vol: .6 }, { f: N.A5, at: .32, len: .45, vol: .6 }],
+  ring: [{ f: N.E5, at: 0, len: .2 }, { f: N.A5, at: .14, len: .2 }, { f: N.C6, at: .28, len: .2 }, { f: N.B5, at: .42, len: .2 }, { f: N.A5, at: .56, len: .45 },
+    { f: N.E5, at: 1.1, len: .2 }, { f: N.A5, at: 1.24, len: .2 }, { f: N.C6, at: 1.38, len: .5 }],
+  ended: [{ f: N.C6, at: 0, len: .2 }, { f: N.G5, at: .1, len: .2 }, { f: N.C5, at: .2, len: .45 }],
+};
+
+/** Overtones per timbre: [multiple of the pitch, level, how fast it fades vs. the note]. */
+const TIMBRES: Record<NonNullable<Note["tone"]>, [number, number, number][]> = {
+  mallet: [[1, 1, 1], [2, .28, .55], [3.01, .09, .35], [4.2, .05, .2]],
+  bell: [[1, 1, 1], [2.76, .18, .5], [5.4, .07, .3]],
+  soft: [[1, 1, 1], [2, .12, .5]],
+  tick: [[1, 1, 1], [3, .4, .6]],
 };
 
 let ctx: AudioContext | null = null;
@@ -53,14 +66,16 @@ function output() {
   ctx ??= new AudioContext();
   ctx.resume().catch(() => {});
   if (!bus) {
-    // Dry signal plus a short, quiet echo for a little "room".
+    // A gentle compressor keeps chords even, then a short, quiet room echo.
     const input = ctx.createGain(); input.gain.value = 1;
-    const delay = ctx.createDelay(); delay.delayTime.value = .085;
-    const fb = ctx.createGain(); fb.gain.value = .18;
-    const wet = ctx.createGain(); wet.gain.value = .22;
-    const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = 5200;
-    input.connect(tone).connect(ctx.destination);
-    input.connect(delay); delay.connect(fb).connect(delay); delay.connect(wet).connect(ctx.destination);
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = .002; comp.release.value = .12;
+    const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = 7000;
+    const delay = ctx.createDelay(); delay.delayTime.value = .07;
+    const fb = ctx.createGain(); fb.gain.value = .12;
+    const wet = ctx.createGain(); wet.gain.value = .12;
+    input.connect(comp).connect(tone);
+    tone.connect(ctx.destination);
+    tone.connect(delay); delay.connect(fb).connect(delay); delay.connect(wet).connect(ctx.destination);
     bus = { input };
   }
   return { ctx, input: bus.input };
@@ -75,21 +90,25 @@ function muted(kind: Sound) {
   return false;
 }
 
+/** Loudness at 100%: about Discord's level — clear, but under people's voices. */
+const LEVEL = .2;
+
 export function playSound(kind: Sound, volume = 1) {
   if (muted(kind)) return;
   try {
     const { ctx, input } = output();
     const now = ctx.currentTime + .005;
-    const master = Math.min(1, Math.max(0, useVoice.getState().settings.soundVolume ?? 1)) * volume * .11;
+    const master = Math.min(1, Math.max(0, useVoice.getState().settings.soundVolume ?? 1)) * volume * LEVEL;
     for (const n of SOUNDS[kind]) {
-      const start = now + n.at, end = start + n.len, peak = master * (n.vol ?? 1);
-      for (const [wave, mix] of [[n.wave ?? "sine", 1], ["triangle", .18]] as const) {
+      const start = now + n.at, peak = master * (n.vol ?? 1);
+      for (const [mul, level, fade] of TIMBRES[n.tone ?? "mallet"]) {
+        const end = start + Math.max(.03, n.len * fade);
         const osc = ctx.createOscillator(), gain = ctx.createGain();
-        osc.type = wave;
-        osc.frequency.setValueAtTime(n.f, start);
-        if (n.to) osc.frequency.exponentialRampToValueAtTime(n.to, start + n.len * .8);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(n.f * mul, start);
+        if (n.to) osc.frequency.exponentialRampToValueAtTime(n.to * mul, start + n.len * .8);
         gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(peak * mix, start + .008);
+        gain.gain.linearRampToValueAtTime(peak * level, start + .004);
         gain.gain.exponentialRampToValueAtTime(.0001, end);
         osc.connect(gain).connect(input);
         osc.start(start); osc.stop(end + .02);

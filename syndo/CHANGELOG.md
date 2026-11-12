@@ -1,5 +1,13 @@
 # SEND changelog
 
+## 2026-11-12 — Discord-feel sounds, no sharing banner
+
+- **Sounds reworked** in the spirit of Discord's: short tuned "mallet"/bell notes with soft overtones (no more
+  sliding tones), little melodies up for join/unmute and down for leave/mute, a gentle compressor, and 100% now
+  sits at about Discord's level. New default: 100%. All synthesised; the melodies are SEND's own.
+- **Removed the red "You are sharing your screen" bar** above the call (the green share button and LIVE badge
+  already show it).
+
 ## 2026-11-12 — Desktop 0.7.0: SEND's own screen sharing
 
 - **The desktop app shares screens without the system picker.** The Go Live dialog lists your windows and screens

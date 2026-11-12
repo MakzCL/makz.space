@@ -81,7 +81,6 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const activate = (t: Tile) => { if (t.preview) setWatching(t.uid, true); else useVoice.setState(t.key === v.focus ? { focus: null } : { focus: t.key, layout: "focus" }); };
   const chatOn = chat && !!guild;
   const caps = captureCapabilities();
-  const st = v.settings.stream;
 
   return (
     <div className={`stage ${chatOn ? "with-chat" : ""}`} data-region="call">
@@ -94,7 +93,6 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
         </div>
       </header>
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
-      {v.sharing && <div className="sharing-ind big" role="status"><Monitor size={16} /> You are sharing your screen{st.audio ? " with audio" : ""}. <button className="link" onClick={stopScreenShare}>Stop</button></div>}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={shown.length + (alone && guild ? 1 : 0)}>
         {/* Focused: the big tile, the members toggle and strip move together as one centred group. */}
         {focused ? <div className={`focus-area ${v.hideStrip || shown.length < 2 ? "no-strip" : ""}`}>
