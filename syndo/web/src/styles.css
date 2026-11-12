@@ -2080,18 +2080,23 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .tile.tile-drop-target { outline: 3px dashed var(--accent) !important; outline-offset: 4px; filter: brightness(1.15); }
 .tile-tools .vol-muted { color: var(--brand-danger, #E5484D); }
 
-/* Pop-out call window (features/CallPopout.tsx) */
-.popout-body { margin: 0; height: 100vh; overflow: hidden; background: var(--bg0, #0b0e17); }
+/* Pop-out call window (features/CallPopout.tsx), laid out like Discord's: black, name top-left, chat top-right,
+   controls along the bottom with invite on the left and pop in / full screen on the right; all fade when idle. */
+.popout-body { margin: 0; height: 100vh; overflow: hidden; background: #000; }
 .popout-root, .popout-call { height: 100%; }
-.popout-call { display: flex; flex-direction: column; gap: 10px; padding: 10px; box-sizing: border-box; }
-.popout-tiles { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.popout-grid { flex: 1; min-height: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); align-content: center; }
+.popout-call { position: relative; display: flex; flex-direction: column; background: #000; color: #f2f3f5; box-sizing: border-box; }
+.popout-h { position: absolute; inset: 0 0 auto 0; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 14px 18px; font-weight: 700; background: linear-gradient(#000c, #0000); transition: opacity .25s; }
+.popout-h .popout-chat { margin-left: auto; color: #dbdee1; }
+.popout-tiles { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 56px 10px 84px; }
+.popout-grid { flex: 1; min-height: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-content: center; }
 .popout-grid > .tile { aspect-ratio: 16 / 9; width: 100%; height: auto; max-height: 100%; }
 .popout-focus { flex: 1; min-height: 0; display: grid; place-items: center; }
 .popout-focus > .tile { width: 100%; height: 100%; max-height: 100%; }
 .popout-tiles.focused .tile-strip { flex: 0 0 auto; display: flex; gap: 8px; justify-content: center; overflow-x: auto; }
 .popout-tiles.focused .tile-strip > .tile { width: 180px; aspect-ratio: 16 / 9; flex: 0 0 auto; }
-.popout-call .call-controls { position: static; margin: 0 auto; }
+.popout-call .popout-controls { position: absolute; inset: auto 0 0 0; z-index: 3; margin: 0; padding: 14px 18px 16px; background: linear-gradient(#0000, #000d); border: 0; transition: opacity .25s; }
+.popout-call.idle .popout-h, .popout-call.idle .popout-controls, .popout-call.idle .tile figcaption, .popout-call.idle .tile-tools { opacity: 0; }
+.popout-call.idle { cursor: none; }
 .stage-popped .stage-empty svg { color: var(--textMuted); }
 
 /* Ongoing call in a DM / group DM that you're not in (ChannelView OngoingCall): Discord's dark call strip */
@@ -2111,3 +2116,11 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .dm-call-ico { color: var(--brand-success, #2FBF71); flex: 0 0 auto; margin-left: auto; }
 [data-motion="full"] .ongoing-call { animation: m-pop-in .2s var(--ease-out); }
 .dm-voice-badge { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; font-size: .82rem; font-weight: 700; color: var(--brand-success, #2FBF71); white-space: nowrap; }
+
+/* Call bar sides (Discord): invite on the left, pop out / full screen on the right. */
+.call-controls { position: relative; }
+.ctl-side { position: absolute; top: 50%; translate: 0 -50%; display: flex; gap: 6px; }
+.ctl-side.left { left: 16px; } .ctl-side.right { right: 16px; }
+.ctl-mini { width: 40px; height: 40px; color: color-mix(in srgb, var(--text) 80%, transparent); }
+.ctl-mini:hover { color: var(--text); }
+@media (max-width: 760px) { .ctl-side { display: none; } }

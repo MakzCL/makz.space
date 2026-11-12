@@ -7,8 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { ArrowDownLeft, Camera, CameraOff, Headphones, HeadphoneOff, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from "lucide-react";
-import { channelById, displayName, toast, useStore } from "../store.ts";
+import { ArrowDownLeft, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, MessageCircle, Mic, MicOff, Monitor, MonitorOff, PhoneOff, UserPlus } from "lucide-react";
+import { ChannelType } from "@send/shared";
+import { ChannelGlyph } from "../components/ChannelGlyph.tsx";
+import { openDialog } from "../components/Shell.tsx";
+import { channelById, displayName, dmTitle, toast, useStore } from "../store.ts";
 import { leaveVoice, setDeafened, setMuted, setWatching, stopScreenShare, toggleCamera, useVoice } from "../voice/session.ts";
 import { VideoTile } from "../components/VoiceStage.tsx";
 import { setTileOrder, sortTiles, useTileDrag, useTileOrder } from "./callLayout.ts";
@@ -101,25 +104,44 @@ function PopoutCall({ channelId, win: w }: { channelId: string; win: Window }) {
     setTimeout(() => window.dispatchEvent(new CustomEvent("send:open-share")), 200);
   };
 
+  // Like Discord's pop-out: the name and controls fade away while the mouse rests, and come back when it moves.
+  const [idle, setIdle] = useState(false);
+  const idleT = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const wake = () => { setIdle(false); clearTimeout(idleT.current); idleT.current = setTimeout(() => setIdle(true), 2500); };
+  useEffect(() => { wake(); return () => clearTimeout(idleT.current); }, []);
+  const title = channel ? (channel.guild_id ? channel.name : dmTitle(channel)) : "Call";
+  const openChat = () => { window.focus(); navigate(`/channels/${guildId ?? "@me"}/${channelId}`); };
+  const fullscreen = () => { const d = w.document; if (d.fullscreenElement) d.exitFullscreen().catch(() => {}); else d.documentElement.requestFullscreen?.().catch(() => {}); };
+
   return (
-    <div className="popout-call" data-region="call">
+    <div className={`popout-call ${idle ? "idle" : ""}`} data-region="call" onMouseMove={wake} onMouseDown={wake}>
+      <header className="popout-h">
+        {channel && <ChannelGlyph c={channel} size={20} />}<span className="ellipsis">{title}</span>
+        <button className="icon-btn popout-chat" onClick={openChat} aria-label="Show chat" title="Show Chat"><MessageCircle size={20} /></button>
+      </header>
       <div className={`popout-tiles ${focused ? "focused" : ""}`}>
         {focused && <div className="popout-focus"><VideoTile t={focused} guildId={guildId} big popout onFocus={() => activate(focused)} /></div>}
         <div className={focused ? "tile-strip" : "popout-grid"} data-count={tiles.length} {...drag}>
           {tiles.filter((t) => t.key !== focused?.key).map((t) => <VideoTile key={t.key} t={t} guildId={guildId} popout onFocus={() => activate(t)} />)}
         </div>
       </div>
-      <div className="call-controls" role="toolbar" aria-label="Call controls">
-        <div className="ctl-group">
-          <button className={`ctl ${v.muted ? "off" : ""}`} aria-pressed={v.muted} onClick={() => setMuted(!v.muted)} aria-label={v.muted ? "Unmute" : "Mute"}>{v.muted ? <MicOff /> : <Mic />}</button>
-          <button className={`ctl ${v.deafened ? "off" : ""}`} aria-pressed={v.deafened} onClick={() => setDeafened(!v.deafened)} aria-label={v.deafened ? "Undeafen" : "Deafen"}>{v.deafened ? <HeadphoneOff /> : <Headphones />}</button>
-          <button className={`ctl ${v.camera ? "on" : ""}`} aria-pressed={v.camera} disabled={!v.grants?.video} onClick={() => toggleCamera()} aria-label={v.camera ? "Turn off camera" : "Turn on camera"}>{v.camera ? <Camera /> : <CameraOff />}</button>
-          <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video} onClick={share} aria-label={v.sharing ? "Stop sharing" : "Share screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
+      <div className="call-controls popout-controls" role="toolbar" aria-label="Call controls">
+        <div className="ctl-side left">
+          {(guildId || channel?.type === ChannelType.GROUP_DM) && <button className="icon-btn ctl-mini" title="Invite to Voice" aria-label="Invite to Voice" onClick={() => { window.focus(); openDialog(guildId ? { kind: "invite", guildId, channelId } : { kind: "groupDm" }); }}><UserPlus size={20} /></button>}
         </div>
         <div className="ctl-group">
-          <button className="ctl" onClick={() => { window.focus(); closeCallPopout(); }} aria-label="Bring the call back to SEND" title="Bring back"><ArrowDownLeft /></button>
+          <button className={`ctl ${v.muted ? "off" : ""}`} aria-pressed={v.muted} onClick={() => setMuted(!v.muted)} aria-label={v.muted ? "Unmute" : "Mute"} title={v.muted ? "Unmute" : "Mute"}>{v.muted ? <MicOff /> : <Mic />}</button>
+          <button className={`ctl ${v.deafened ? "off" : ""}`} aria-pressed={v.deafened} onClick={() => setDeafened(!v.deafened)} aria-label={v.deafened ? "Undeafen" : "Deafen"} title={v.deafened ? "Undeafen" : "Deafen"}>{v.deafened ? <HeadphoneOff /> : <Headphones />}</button>
+          <button className={`ctl ${v.camera ? "on" : ""}`} aria-pressed={v.camera} disabled={!v.grants?.video} onClick={() => toggleCamera()} aria-label={v.camera ? "Turn off camera" : "Turn on camera"} title={v.camera ? "Turn Off Camera" : "Turn On Camera"}>{v.camera ? <Camera /> : <CameraOff />}</button>
+        </div>
+        <div className="ctl-group">
+          <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video} onClick={share} aria-label={v.sharing ? "Stop sharing" : "Share screen"} title={v.sharing ? "Stop Streaming" : "Share Your Screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
         </div>
         <button className="ctl danger hang-up" onClick={() => leaveVoice()} aria-label="Leave call" title="Disconnect"><PhoneOff /></button>
+        <div className="ctl-side right">
+          <button className="icon-btn ctl-mini" onClick={() => { window.focus(); closeCallPopout(); }} aria-label="Pop in" title="Pop In"><ArrowDownLeft size={20} /></button>
+          <button className="icon-btn ctl-mini" onClick={fullscreen} aria-label="Full screen" title="Full Screen"><Maximize size={20} /></button>
+        </div>
       </div>
     </div>
   );

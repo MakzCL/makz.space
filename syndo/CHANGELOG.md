@@ -1,5 +1,13 @@
 # SEND changelog
 
+## 2026-11-12 — Discord-style pop-out for every call
+
+- **Pop Out and Full Screen** sit at the bottom right of every call (server voice channels, DMs and group DMs), with
+  **Invite to Voice** at the bottom left, like Discord.
+- **The pop-out window looks like Discord's:** black, the call's name top left, Show Chat top right, the controls
+  along the bottom (invite, mic, deafen, camera, share, leave, pop in, full screen), and the name, controls and
+  tile labels fade out while the mouse rests.
+
 ## 2026-11-12 — Ongoing calls in DMs and group DMs
 
 - **See calls you're not in:** the conversation list shows "In a call · N" with a green phone, the header says "In voice",

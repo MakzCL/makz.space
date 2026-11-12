@@ -5,12 +5,13 @@ import { ProfileCard } from "./Dialogs.tsx";
 import { Popover, openContextMenu } from "./overlay.tsx";
 import { Range } from "./Range.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2, VolumeX, EyeOff, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, Music2, Camera, CameraOff, Headphones, HeadphoneOff, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, PictureInPicture2, Pin, RefreshCw, Volume2, VolumeX, EyeOff, ExternalLink, UserPlus, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { P, has, type Channel, type Guild, type SoundboardSound } from "@send/shared";
 import { playSoundboard, soundsFor } from "../expressions.ts";
 import { setTitle } from "../router.ts";
 import { can, displayName, guildPerms, useStore } from "../store.ts";
+import { openDialog } from "./Shell.tsx";
 import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { ShareDialog } from "./ShareDialog.tsx";
@@ -113,7 +114,6 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         {guild && <VoiceStatusEditor channel={channel} />}
         <div className="ch-actions">
-          <button className="icon-btn" onClick={() => openCallPopout(channel.id)} aria-label="Pop out call" title="Pop out call"><ExternalLink size={20} /></button>
           {guild && <ChatToggle channel={channel} open={chatOn} onToggle={() => setChat(!chatOn)} />}
         </div>
       </header>
@@ -151,6 +151,15 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           <MoreButton channel={channel} guild={guild} onDiag={() => setDiag(!diag)} />
         </div>
         <button className="ctl danger hang-up" onClick={() => leaveVoice()} aria-label="Leave call" title="Disconnect"><PhoneOff /></button>
+        {/* Like Discord: invite on the left; pop out and full screen on the right. */}
+        <div className="ctl-side left">
+          {(guild ? can(channel, P.CREATE_INVITE) : channel.type === ChannelType.GROUP_DM) && <button className="icon-btn ctl-mini" title="Invite to Voice" aria-label="Invite to Voice"
+            onClick={() => guild ? openDialog({ kind: "invite", guildId: guild.id, channelId: channel.id }) : openDialog({ kind: "groupDm" })}><UserPlus size={20} /></button>}
+        </div>
+        <div className="ctl-side right">
+          <button className="icon-btn ctl-mini" title="Pop Out" aria-label="Pop Out" onClick={() => openCallPopout(channel.id)}><ExternalLink size={20} /></button>
+          <button className="icon-btn ctl-mini" title="Full Screen" aria-label="Full Screen" onClick={(e) => { const st = (e.currentTarget.closest(".stage") as HTMLElement | null); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else st?.requestFullscreen?.().catch(() => {}); }}><Maximize size={20} /></button>
+        </div>
       </div>
       </div>
       {chatOn && <CallChat channel={channel} onClose={() => setChat(false)} />}
