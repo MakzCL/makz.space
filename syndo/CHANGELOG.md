@@ -1,5 +1,12 @@
 # SEND changelog
 
+## 2026-11-12 — Emotes in the message box, jump to present
+
+- **Emotes show as pictures while you type** (custom emoji and 7TV/BTTV): the box holds `:name:` with the picture
+  drawn over it, Backspace removes a whole emote, and the codes are restored on send and in saved drafts.
+- **"Jump to present" goes away near the newest message.** It no longer sticks when the channel's last message was
+  deleted, and after jumping to an old message, scrolling down loads the newer ones.
+
 ## 2026-11-12 — Go Live dialog
 
 - **Screen share dialog** like Discord's: tabs **Applications** (window, or a browser tab in the browser),

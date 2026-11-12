@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { EmoteMirror, backspaceEmote, collapseEmotes, expandEmotes, hasEmotes, type EmoteMap } from "../features/composerEmotes.tsx";
 import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
@@ -234,7 +235,10 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   const jumped = useRef<string | null>(null);
   const canHistory = can(channel, P.READ_MESSAGE_HISTORY) || !channel.guild_id;
   const [away, setAway] = useState(false);
-  const latestLoaded = !channel.last_message_id || list.some((m) => m.id === channel.last_message_id);
+  // The newest message is loaded when nothing in the channel is newer than what we have (a deleted
+  // last message or a just-sent one mustn't keep the bar up).
+  const newestHere = [...list].reverse().find((m) => !m._state)?.id;
+  const latestLoaded = !channel.last_message_id || list.some((m) => m.id === channel.last_message_id) || (!!newestHere && big(newestHere) >= big(channel.last_message_id));
   const jumpToPresent = async () => {
     if (!latestLoaded) await loadMessages(channel.id, { latest: true });
     if (highlight) navigate(`/channels/${channel.guild_id ?? "@me"}/${channel.id}`, true);
@@ -280,9 +284,13 @@ function MessageList({ channel, data, highlight, onReply, mdCtx }: { channel: Ch
   }, []);
   const onScroll = () => {
     const el = ref.current!;
-    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setAway(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight * 1.5 || !latestLoaded);
+    // Only stick to the bottom when the bottom is the present (not the end of an older page).
+    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 && latestLoaded;
+    const fromEnd = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAway(fromEnd > el.clientHeight);
     checkDivider();
+    // After jumping to an old message, scrolling down loads the newer ones (like Discord).
+    if (fromEnd < 300 && !latestLoaded && !data?.loading && newestHere) loadMessages(channel.id, { after: newestHere });
     if (el.scrollTop < 200 && data?.hasMore && !data.loading && list.length) {
       prevHeight.current = el.scrollHeight;
       loadMessages(channel.id, { before: list.find((m) => !m._state)?.id });
@@ -738,7 +746,9 @@ function Typing({ channelId, guildId }: { channelId: string; guildId: string | n
 
 /* ---------------------------------------------------------- composer -- */
 function Composer({ channel, title, reply, onClearReply }: { channel: Channel; title: string; reply: Message | null; onClearReply: () => void }) {
-  const [text, setText] = useState(() => sessionStorage.getItem(`send.draft.${channel.id}`) ?? "");
+  // Emotes show as pictures in the box: the text holds `:name:`, the codes live here until sending.
+  const emoteMap = useRef<EmoteMap>({});
+  const [text, setText] = useState(() => collapseEmotes(sessionStorage.getItem(`send.draft.${channel.id}`) ?? "", emoteMap.current));
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
   const [recording, setRecording] = useState<null | { rec: MediaRecorder; started: number; levels: number[]; cancelled: { v: boolean } }>(null);
   const limits = useStore((s) => s.limits);
@@ -760,7 +770,8 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
     const ro = new ResizeObserver(() => { host.style.setProperty("--composer-h", `${Math.ceil(el.getBoundingClientRect().height)}px`); host.dispatchEvent(new Event("composer-resize")); });
     ro.observe(el); return () => { ro.disconnect(); host.style.removeProperty("--composer-h"); };
   }, []);
-  const insert = (s: string) => {
+  const insert = (raw: string) => {
+    const s = collapseEmotes(raw, emoteMap.current);
     const el = ta.current; if (!el) { setText((t) => t + s); return; }
     const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
     const next = el.value.slice(0, a) + s + el.value.slice(b);
@@ -779,7 +790,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
     requestAnimationFrame(() => document.querySelector(`[data-mid="${last.id}"]`)?.scrollIntoView({ block: "nearest" }));
     return true;
   };
-  const mentions = useMentionAutocomplete(channel, text, setText, ta);
+  const mentions = useMentionAutocomplete(channel, text, setText, ta, (v) => collapseEmotes(v, emoteMap.current));
   const slash = useSlashCommands(channel, text, setText, ta);
   const [pingReply, setPingReply] = useState(true);
   useEffect(() => { setPingReply(true); }, [reply?.id]);
@@ -787,7 +798,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
   const canSend = isDm ? can(channel, P.SEND_MESSAGES) || !channel.my_permissions : can(channel, P.SEND_MESSAGES);
   const canAttach = isDm || can(channel, P.ATTACH_FILES);
   const slow = channel.rate_limit_per_user;
-  useEffect(() => { try { sessionStorage.setItem(`send.draft.${channel.id}`, text); } catch { /* */ } }, [text, channel.id]);
+  useEffect(() => { try { sessionStorage.setItem(`send.draft.${channel.id}`, expandEmotes(text, emoteMap.current)); } catch { /* */ } }, [text, channel.id]);
   useEffect(() => { if (reply) ta.current?.focus(); }, [reply]);
 
   const update = useCallback((u: PendingUpload) => setUploads((list) => { const i = list.findIndex((x) => x.key === u.key); if (i < 0) return [...list, u]; const n = [...list]; n[i] = u; return n; }), []);
@@ -808,7 +819,7 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
     }
   };
   const submit = async () => {
-    const content = text.trim();
+    const content = expandEmotes(text.trim(), emoteMap.current);
     const ready = uploads.filter((u) => u.status === "done");
     if (uploads.some((u) => u.status === "uploading")) { toast("Wait for uploads to finish.", "info"); return; }
     if (!content && !ready.length) return;
@@ -879,15 +890,22 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
           onCancel={() => { recording.cancelled.v = true; recording.rec.stop(); setRecording(null); }}
           onSend={() => { recording.rec.stop(); setRecording(null); }} />}
         <div className="composer-field" hidden={!!recording}>
-        <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
-          onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
+        <div className="ta-wrap">
+        {hasEmotes(text, emoteMap.current) && <EmoteMirror text={text} map={emoteMap.current} textarea={ta} />}
+        <textarea ref={ta} rows={1} value={text} className={hasEmotes(text, emoteMap.current) ? "has-emotes" : undefined} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
+          onChange={(e) => { setText(collapseEmotes(e.target.value, emoteMap.current)); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
           onKeyDown={(e) => {
             if (slash.onKeyDown(e) || mentions.onKeyDown(e) || e.nativeEvent.isComposing) return;
+            if (e.key === "Backspace" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+              const el = e.currentTarget, r = el.selectionStart === el.selectionEnd ? backspaceEmote(text, el.selectionStart, emoteMap.current) : null;
+              if (r) { e.preventDefault(); setText(r.text); requestAnimationFrame(() => el.setSelectionRange(r.caret, r.caret)); return; }
+            }
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
             if (e.key === "Escape" && reply) { e.preventDefault(); onClearReply(); } // cancel the reply before Esc marks the channel read
             if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !text && editLast()) e.preventDefault();
           }} />
+        </div>
         <button ref={emojiBtn} className={`icon-btn ${emoji ? "active" : ""}`} aria-label="Emoji" aria-expanded={emoji} title="Emoji" onClick={() => setEmoji((v) => !v)}><Smile size={20} /></button>
         {emoji && <EmojiPicker emotes anchor={emojiBtn.current} guildId={channel.guild_id} onPick={(x) => { insert(x); setEmoji(false); }} onClose={() => setEmoji(false)} />}
         {hasStickers && <button ref={stickerBtn} className={`icon-btn ${stickers ? "active" : ""}`} aria-label="Stickers" aria-expanded={stickers} title="Stickers" onClick={() => setStickers((v) => !v)}><StickerIcon size={20} /></button>}

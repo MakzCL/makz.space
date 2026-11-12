@@ -10,7 +10,7 @@ import { emoteGroups, emoteToken, emoteUrl, loadEmotes, useEmotes } from "../fea
 type Suggestion = { key: string; label: string; detail: string; value: string; user?: Member["user"]; image?: string };
 
 /** Suggestions are scoped to this server or DM; the API still authorizes every ping. */
-export function useMentionAutocomplete(channel: Channel, text: string, setText: (value: string) => void, textarea: RefObject<HTMLTextAreaElement | null>) {
+export function useMentionAutocomplete(channel: Channel, text: string, setText: (value: string) => void, textarea: RefObject<HTMLTextAreaElement | null>, display?: (value: string) => string) {
   const id = useId();
   const [caret, setCaret] = useState(text.length);
   const [dismissed, setDismissed] = useState("");
@@ -85,8 +85,9 @@ export function useMentionAutocomplete(channel: Channel, text: string, setText: 
   const index = Math.min(selected, Math.max(0, options.length - 1));
   useEffect(() => { document.getElementById(`${id}-${index}`)?.scrollIntoView?.({ block: "nearest" }); }, [id, index, options.length]);
   const choose = (option: Suggestion) => {
-    const next = text.slice(0, start) + option.value + " " + text.slice(caret);
-    const pos = start + option.value.length + 1;
+    const value = display ? display(option.value) : option.value;
+    const next = text.slice(0, start) + value + " " + text.slice(caret);
+    const pos = start + value.length + 1;
     setText(next); setCaret(pos);
     requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(pos, pos); });
   };

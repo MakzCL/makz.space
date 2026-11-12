@@ -10,6 +10,19 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-emotes-box",
+    title: "Emotes in the message box",
+    date: "2026-11-12",
+    intro: "Small things that make chatting nicer.",
+    sections: [
+      { title: "Messages", items: [
+        "Emotes show as pictures while you type, not as codes.",
+        "Backspace removes a whole emote at once.",
+        "\"Jump to present\" disappears once you're back at the newest messages.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-go-live",
     title: "A proper Go Live screen",
     date: "2026-11-12",

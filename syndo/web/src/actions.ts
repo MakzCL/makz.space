@@ -36,13 +36,15 @@ export async function logout() {
 }
 
 /* ------------------------------------------------------------- messages -- */
-export async function loadMessages(channelId: string, opts: { before?: string; around?: string; latest?: boolean } = {}) {
+export async function loadMessages(channelId: string, opts: { before?: string; after?: string; around?: string; latest?: boolean } = {}) {
   const cur = get().messages[channelId];
   if (cur?.loading) return;
   set((s) => ({ messages: { ...s.messages, [channelId]: { ...(cur ?? { list: [], hasMore: true, loaded: false }), loading: true } } }));
   try {
-    const qs = opts.before ? `&before=${opts.before}` : opts.around ? `&around=${opts.around}` : "";
+    const qs = opts.before ? `&before=${opts.before}` : opts.after ? `&after=${opts.after}` : opts.around ? `&around=${opts.around}` : "";
     const list = await api.get<Message[]>(`/api/channels/${channelId}/messages?limit=50${qs}`);
+    // Newer messages (scrolling down after a jump): merge them in, keeping the "older left" flag.
+    if (opts.after) { messagesApi.upsertMessages(channelId, list); return; }
     messagesApi.upsertMessages(channelId, list, { hasMore: opts.around ? true : list.length === 50, replace: !!opts.around || !!opts.latest });
   } catch (e) {
     set((s) => ({ messages: { ...s.messages, [channelId]: { ...(s.messages[channelId] ?? { list: [], hasMore: false, loaded: true }), loading: false, loaded: true } } }));

@@ -2047,3 +2047,12 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .share-gear { width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--bg3); }
 .share-gear.on { color: var(--accent); }
 @media (max-width: 520px) { .share-grid { grid-template-columns: 1fr; } .share-tabs button svg { display: none; } .share-bar { flex-wrap: wrap; } .share-sum { flex-basis: 100%; } }
+
+/* Emotes drawn as pictures in the message box (features/composerEmotes.tsx) */
+.ta-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+.ta-wrap > textarea { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.ta-wrap > textarea.has-emotes { color: transparent; caret-color: var(--accent); background: transparent !important; }
+.ta-wrap > textarea.has-emotes::placeholder { color: transparent; }
+.ta-mirror { position: absolute; inset: 0; overflow: hidden; white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; pointer-events: none; margin: 0; color: inherit; }
+.ta-emote { position: relative; color: transparent; }
+.ta-emote img { position: absolute; left: 50%; top: 50%; translate: -50% -50%; height: 1.45em; max-width: 3.2em; object-fit: contain; }
