@@ -3,6 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "2.0.0") },
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "2.0.0"), __SK_CHANNEL__: JSON.stringify(process.env.SK_CHANNEL ?? (process.env.CF_PAGES_BRANCH === "beta" ? "beta" : "stable")) },
   build: { target: "es2022", sourcemap: false },
 });

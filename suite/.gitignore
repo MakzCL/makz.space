@@ -4,3 +4,4 @@ release
 .cache
 version.json
 site
+channel.json

@@ -1,5 +1,6 @@
 // ADMINISTRATION: role access, machines (capabilities), materials (linked to KORTANA stock), laser
 // settings with versioning and approval, material test cards, audit log and diagnostics.
+import { URLS } from "../../../../packages/sk-channel/channel";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { ROLE_META, ROLE_ORDER } from "../../lib/roles";
@@ -50,7 +51,7 @@ function Access() {
   return (
     <div className="t-table-wrap">
       <p className="t-note">Access to TROTAN is managed in <b>Kortana → Settings → TROTAN</b> by the Owner, a Developer or a Manager — per role, with exceptions for individual people. Owner and Developer always have everything.</p>
-      <a className="t-btn primary" href="https://kortana.makz.space/#settings" target="_blank" rel="noreferrer">Open Kortana settings</a>
+      <a className="t-btn primary" href={`${URLS.kortana}/#settings`} target="_blank" rel="noreferrer">Open Kortana settings</a>
       <h4>Current access by role</h4>
       <table className="t-table"><thead><tr><th>Role</th>{SECTIONS.map((s) => <th key={s}>{SECTION_LABEL[s]}</th>)}</tr></thead>
         <tbody>{roles.map((r) => { const secs = T.access.find((a) => a.role === r)?.sections ?? []; return <tr key={r}><td>{ROLE_META[r].label} <small className="t-muted">· {db.profiles.filter((p) => p.role === r && p.active).length}</small></td>{SECTIONS.map((s) => <td key={s}>{secs.includes(s) ? "✓" : ""}</td>)}</tr>; })}</tbody></table>

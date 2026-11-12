@@ -1,5 +1,6 @@
 // TROTAN — laser design & production. Shares sign-in, people and roles with SK Factory and KORTANA;
 // keeps its own data (projects, machines, materials, settings, jobs) behind server-enforced rights.
+import { URLS } from "../../../packages/sk-channel/channel";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence } from "motion/react";
@@ -31,7 +32,7 @@ const WORKSPACES: { v: WS; label: string; need: Section[] }[] = [
   { v: "prepare", label: "Prepare", need: ["prepare", "produce"] }, { v: "produce", label: "Produce", need: ["produce"] },
   { v: "admin", label: "Administration", need: ["admin", "approve", "manage"] },
 ];
-const FACTORY_URL = "https://factory.makz.space", KORTANA_URL = "https://kortana.makz.space";
+const FACTORY_URL = URLS.factory, KORTANA_URL = URLS.kortana;
 type Palette = "light" | "granat" | "dark";
 /** Same three palettes as SK Factory and KORTANA; Granat by default. */
 const getTheme = (): Palette => { try { const v = localStorage.getItem("trotan-theme"); return v === "light" || v === "dark" ? v : "granat"; } catch { return "granat"; } };

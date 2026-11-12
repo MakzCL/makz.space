@@ -3,6 +3,9 @@
 // If an update starts but never reports healthy (crash on start), the next launch rolls back to the shipped code.
 const { app } = require("electron");
 const path = require("node:path"); const fs = require("node:fs");
+// SK Suite Beta (channel.json present) gets its own name and profile, so it runs side by side with SK Suite
+let channel = null; try { channel = JSON.parse(fs.readFileSync(path.join(__dirname, "channel.json"), "utf8")); } catch { /* stable */ }
+if (channel?.name) { app.setName(channel.name); if (!process.argv.some((a) => a.startsWith("--user-data-dir"))) app.setPath("userData", path.join(app.getPath("appData"), channel.name)); }
 if (process.env.SK_SUITE_USER_DATA) app.setPath("userData", process.env.SK_SUITE_USER_DATA); // tests and portable profiles
 const shipped = JSON.parse(fs.readFileSync(path.join(__dirname, "version.json"), "utf8")).version;
 const newer = (a, b) => { const x = a.split(".").map(Number), y = b.split(".").map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };

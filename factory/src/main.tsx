@@ -5,9 +5,11 @@ import { installGlobalHandlers } from "./lib/errors";
 import { t } from "./lib/i18n";
 import { apply } from "./lib/prefs";
 import "./styles.css";
+import { mountBetaMark } from "../../packages/sk-channel/channel";
 
 apply();
 installGlobalHandlers();
+mountBetaMark();
 /** Kortana (inventory) runs from kortana.makz.space, or /kimera on any host. */
 const kimera = /^(kortana|kimera)\./.test(location.hostname) || location.pathname.startsWith("/kimera");
 if (kimera) {

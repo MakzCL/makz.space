@@ -3,7 +3,8 @@
 // /download/SK-Suite-win-x64.zip.sha256 gives the checksum; anything else under /download/ falls through to static files.
 export async function onRequest({ request, params, env, waitUntil, next }) {
   const file = String(params.file ?? "");
-  if (file !== "SK-Suite-win-x64.zip" && file !== "SK-Suite-win-x64.zip.sha256") return next();
+  // SK-Suite-win-x64.zip on the stable site; SK-Suite-Beta-win-x64.zip on the beta site (same manifest format)
+  if (!/^SK-Suite(-Beta)?-win-x64\.zip(\.sha256)?$/.test(file)) return next();
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
   const base = new URL(request.url); const m = await env.ASSETS.fetch(new URL("/download/parts/manifest.json", base));
   if (!m.ok) return new Response("The download is not available right now. Please try again later.", { status: 503 });

@@ -1,3 +1,4 @@
+import { URLS } from "../../../packages/sk-channel/channel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { TransfersView } from "./Locations";
 import { WarehouseTasksView } from "./Warehouse";
@@ -33,7 +34,7 @@ import { SkKimera } from "./mark";
 import { KLogo } from "../components/Logo";
 import { Splash } from "../components/Splash";
 
-export const FACTORY_URL = "https://factory.makz.space";
+export const FACTORY_URL = URLS.factory;
 
 type Tab = "sell" | "make" | "buy" | "stock" | "items" | "plan" | "tickets" | "insights" | "settings";
 const NAV: { v: Tab; label: string; icon: ReactNode }[] = [

@@ -1,5 +1,6 @@
 // Kortana → Settings → TROTAN: who may use the laser app. Per role, with per-person exceptions.
 // Owner, Developer and Manager change it; the server enforces it (set_trotan_role_access / set_trotan_person_access).
+import { URLS } from "../../../packages/sk-channel/channel";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Lock, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,7 +21,7 @@ const HINT: Record<Sec, string> = {
   admin: "Machines, materials and laser settings",
   approve: "Approve power and speed for a material — a safety decision",
 };
-const TROTAN_URL = "https://trotan.makz.space";
+const TROTAN_URL = URLS.trotan;
 
 export function TrotanAccess() {
   const { db, backend, person } = useStore();

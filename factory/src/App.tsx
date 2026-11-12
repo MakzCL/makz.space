@@ -1,3 +1,4 @@
+import { URLS } from "../../packages/sk-channel/channel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -85,7 +86,7 @@ function Member({ signOut, joinCode, clearJoin }: { signOut: () => void; joinCod
 }
 
 /** Permanent link to the latest SK Suite Windows build (served by the sk-suite site from its update feed). */
-const SK_SUITE_DOWNLOAD = "https://sk-suite.pages.dev/download/SK-Suite-win-x64.zip";
+const SK_SUITE_DOWNLOAD = URLS.suiteDownload;
 
 function Main({ signOut }: { signOut: () => void }) {
   const { db, me, ready } = useStore();

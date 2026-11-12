@@ -7,10 +7,14 @@ const BOOT = global.__suite ?? { root: __dirname, version: JSON.parse(fs.readFil
 const VERSION = BOOT.version;
 // One-click updates: the suite's own code and the bundled apps come from this fixed HTTPS address; every file is checked
 // against the SHA-256 in the manifest before it is used. The Electron runtime itself is not updated this way.
-const UPDATE_BASE = process.env.SK_SUITE_UPDATE_BASE || "https://sk-suite.pages.dev/update/";
+// Beta builds (SK Suite Beta, the pre-publish suite) carry channel.json: own name, profile, sign-in session, update feed
+// and the beta addresses of the web apps. Stable builds have no channel.json.
+const CH = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, "channel.json"), "utf8")); } catch { return null; } })();
+const BETA = CH?.channel === "beta"; const PRODUCT = CH?.name ?? "SK Suite";
+const UPDATE_BASE = process.env.SK_SUITE_UPDATE_BASE || CH?.updateBase || "https://sk-suite.pages.dev/update/";
 
-const APPS = JSON.parse(fs.readFileSync(path.join(__dirname, "apps.json"), "utf8"));
-const PARTITION = "persist:sk-suite";
+const APPS = JSON.parse(fs.readFileSync(path.join(__dirname, "apps.json"), "utf8")).map((a) => ({ ...a, ...(CH?.apps?.[a.id] ?? {}) }));
+const PARTITION = BETA ? "persist:sk-suite-beta" : "persist:sk-suite";
 const BUNDLED_ROOT = path.join(__dirname, "bundled"); // bundled/<app id>/ for each offline app
 const HUB_ROOT = path.join(__dirname, "hub");
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
@@ -25,7 +29,9 @@ let saveT = null; const saveState = () => { clearTimeout(saveT); saveT = setTime
 const BG = { light: "#f3f4fa", granat: "#0b1033", dark: "#060920" };
 
 let hub = null; const wins = new Map(); // app id -> BrowserWindow
-const appForUrl = (u) => { try { const h = new URL(u).hostname; return APPS.find((a) => a.hosts.includes(h)) ?? null; } catch { return null; } };
+// In beta, SK Factory, Kortana and TROTAN share one address and differ by path (/, /kimera, /trotan): the longest matching path wins
+const appForUrl = (u) => { try { const x = new URL(u); const c = APPS.filter((a) => a.hosts.includes(x.hostname)); if (c.length < 2) return c[0] ?? null;
+  return c.filter((a) => !a.path || x.pathname === a.path || x.pathname.startsWith(a.path.endsWith("/") ? a.path : `${a.path}/`)).sort((a, b) => (b.path ?? "").length - (a.path ?? "").length)[0] ?? null; } catch { return null; } };
 const allowedInApp = (a, u) => { try { const x = new URL(u); return a.offline ? x.protocol === "app:" : x.protocol === "https:" && (a.hosts.includes(x.hostname) || x.hostname.endsWith(".supabase.co")); } catch { return false; } };
 const broadcast = () => hub && !hub.isDestroyed() && hub.webContents.send("suite:state", publicState());
 const publicState = () => ({ palette: state.palette, running: [...wins.keys()], lastOpened: state.lastOpened, update: upd });
@@ -119,7 +125,7 @@ function openApp(id, url) {
 }
 
 function createHub() {
-  hub = new BrowserWindow({ width: 1180, height: 760, minWidth: 820, minHeight: 560, title: "SK Suite", show: false, autoHideMenuBar: true, backgroundColor: BG[state.palette],
+  hub = new BrowserWindow({ width: 1180, height: 760, minWidth: 820, minHeight: 560, title: PRODUCT, show: false, autoHideMenuBar: true, backgroundColor: BG[state.palette],
     icon: path.join(HUB_ROOT, "icons", "suite.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false } });
   track(hub, "hub");
@@ -127,8 +133,16 @@ function createHub() {
   hub.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) void shell.openExternal(url); return { action: "deny" }; });
   hub.webContents.on("will-navigate", (e) => e.preventDefault());
   hub.on("closed", () => { hub = null; });
+  // insertCSS is not subject to the hub's Content-Security-Policy (an injected <style> would be)
+  if (BETA) hub.webContents.on("did-finish-load", () => { void hub?.webContents.insertCSS(BETA_CSS); void hub?.webContents.executeJavaScript(BETA_MARK).catch(() => {}); });
   void hub.loadURL("app://hub/index.html");
 }
+
+// the same BETA corner mark the beta web apps show (packages/sk-channel/channel.ts)
+const BETA_CSS = "#sk-beta-mark{position:fixed;top:0;left:0;width:92px;height:92px;overflow:hidden;z-index:2147483647;pointer-events:none}#sk-beta-mark span{position:absolute;top:16px;left:-30px;width:130px;transform:rotate(-45deg);background:#f5a524;color:#1a1200;font:800 11px/22px system-ui,sans-serif;letter-spacing:.18em;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35);opacity:.92}";
+const BETA_MARK = `(() => { if (document.getElementById("sk-beta-mark")) return;
+const m = document.createElement("div"); m.id = "sk-beta-mark"; m.title = "Beta: pre-release version for testing"; const s = document.createElement("span"); s.textContent = "BETA"; m.appendChild(s);
+document.body.appendChild(m); document.title = ${JSON.stringify(PRODUCT)}; })()`;
 
 function serve(root) {
   return (req) => {
@@ -167,7 +181,7 @@ app.whenReady().then(() => {
   ipcMain.handle("suite:open", (_e, id) => openApp(String(id)));
   ipcMain.handle("suite:openInBrowser", (_e, id) => { const a = APPS.find((x) => x.id === id); if (a && !a.offline) void shell.openExternal(a.url); return !!a; });
   ipcMain.handle("suite:palette", (_e, p) => { if (["light", "granat", "dark"].includes(p)) { state.palette = p; nativeTheme.themeSource = p === "light" ? "light" : "dark"; saveState(); broadcast(); } return state.palette; });
-  ipcMain.handle("suite:version", () => ({ suite: VERSION, shipped: BOOT.shipped ?? VERSION, updated: BOOT.updated, electron: process.versions.electron, chrome: process.versions.chrome }));
+  ipcMain.handle("suite:version", () => ({ product: PRODUCT, channel: BETA ? "beta" : "stable", suite: VERSION, shipped: BOOT.shipped ?? VERSION, updated: BOOT.updated, electron: process.versions.electron, chrome: process.versions.chrome }));
   ipcMain.handle("suite:healthy", () => { markHealthy(); return true; });
   ipcMain.handle("suite:checkUpdate", () => checkUpdate());
   ipcMain.handle("suite:restart", () => { relaunchOnQuit = true; app.quit(); return true; });
