@@ -101,7 +101,8 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
   await p.keyboard.press(`${mod}+e`);
   const picker = p.getByRole('dialog', { name: 'Pick an emoji' });
   check('Ctrl+E opens the emoji picker', await seen(picker));
-  await picker.locator('.picker-grid button').first().click();
+  // A regular emoji (7TV/BTTV emotes and server emoji come first when the server has them).
+  await picker.locator('.picker-grid button[aria-label]:not([aria-label^=":"])').first().click();
   check('Picking an emoji inserts it at the cursor', /\p{Extended_Pictographic}/u.test(await composer().inputValue()) && await gone(picker));
   await composer().fill('');
   await p.keyboard.press(`${mod}+p`);
