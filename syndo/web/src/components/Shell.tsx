@@ -2,7 +2,7 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
   ChevronDown, Hash, Headphones, HeadphoneOff, Megaphone, Mic, MicOff, Plus, Settings, Users, Volume2, Lock, MessageSquare,
-  Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Monitor, Video, Signal, Image, Radio, Bookmark,
+  Compass, FolderPlus, UserPlus, LogOut, PhoneOff, Phone, Monitor, Video, Signal, Image, Radio, Bookmark,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
@@ -254,6 +254,8 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
   const pending = useStore((s) => Object.values(s.relationships).filter((r) => r.type === 3).length);
   const scopes = useAppearance((s) => s.scopes);
   const list = Object.values(dms).sort((a, b) => (BigInt(b.last_message_id ?? b.id) > BigInt(a.last_message_id ?? a.id) ? 1 : -1));
+  // People in a call in each conversation (shown as "In a call" with a phone, like Discord).
+  const callers = useStore(useShallow((s) => { const n: Record<string, number> = {}; for (const v of Object.values(s.voice)) if (s.dms[v.channel_id]) n[v.channel_id] = (n[v.channel_id] ?? 0) + 1; return n; }));
   return (
     <>
       <header className="side-h"><span>Direct messages</span></header>
@@ -270,7 +272,8 @@ function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialo
           return (
             <button key={c.id} className={`side-dm ${current === c.id ? "active" : ""} ${isUnread(c) ? "unread" : ""}`} onClick={() => navigate(`/channels/@me/${c.id}`)} onContextMenu={(e) => openContextMenu(e, dmMenuItems(c))}>
               {other ? <Avatar user={other} size={32} status="" /> : <span className="group-ico"><Users size={18} /></span>}
-              <span className="ellipsis">{other ? (scopes[`channel:${c.id}`]?.data.conversation?.label ? <><span className="local-label">{scopes[`channel:${c.id}`]!.data.conversation!.label}</span> <small className="muted">{displayName(other)}</small></> : displayName(other)) : dmTitle(c)}{c.type === ChannelType.GROUP_DM && <small className="muted block">{(c.recipients?.length ?? 0) + 1} members</small>}</span>
+              <span className="ellipsis">{other ? (scopes[`channel:${c.id}`]?.data.conversation?.label ? <><span className="local-label">{scopes[`channel:${c.id}`]!.data.conversation!.label}</span> <small className="muted">{displayName(other)}</small></> : displayName(other)) : dmTitle(c)}{(callers[c.id] ?? 0) > 0 ? <small className="dm-in-call block">In a call · {callers[c.id]}</small> : c.type === ChannelType.GROUP_DM && <small className="muted block">{(c.recipients?.length ?? 0) + 1} members</small>}</span>
+              {(callers[c.id] ?? 0) > 0 && <Phone size={15} className="dm-call-ico" aria-label="Call in progress" />}
               {mentions > 0 && <span className="badge inline">{mentions}</span>}
             </button>
           );

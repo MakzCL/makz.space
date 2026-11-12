@@ -2093,3 +2093,18 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .popout-tiles.focused .tile-strip > .tile { width: 180px; aspect-ratio: 16 / 9; flex: 0 0 auto; }
 .popout-call .call-controls { position: static; margin: 0 auto; }
 .stage-popped .stage-empty svg { color: var(--textMuted); }
+
+/* Ongoing call in a DM / group DM that you're not in (ChannelView OngoingCall) */
+.ongoing-call { display: flex; align-items: center; gap: 16px; margin: 8px 12px 0; padding: 14px 18px; border-radius: var(--r); background: color-mix(in srgb, #000 35%, var(--bg1)); border: 1px solid color-mix(in srgb, var(--brand-success, #2FBF71) 35%, transparent); flex-wrap: wrap; }
+.ongoing-avatars { display: flex; }
+.ongoing-av { position: relative; margin-left: -8px; border-radius: 50%; box-shadow: 0 0 0 3px color-mix(in srgb, #000 35%, var(--bg1)); }
+.ongoing-av:first-child { margin-left: 0; }
+.ongoing-av .live { position: absolute; bottom: -4px; left: 50%; translate: -50% 0; }
+.ongoing-more { align-self: center; margin-left: 8px; font-weight: 700; color: var(--textMuted); }
+.ongoing-text { display: flex; flex-direction: column; flex: 1; min-width: 140px; }
+.ongoing-text time { font-variant-numeric: tabular-nums; }
+.ongoing-join { background: var(--brand-success, #2FBF71); color: #fff; }
+.ongoing-join:hover { filter: brightness(1.08); }
+.dm-in-call { color: var(--brand-success, #2FBF71); font-weight: 600; }
+.dm-call-ico { color: var(--brand-success, #2FBF71); flex: 0 0 auto; margin-left: auto; }
+[data-motion="full"] .ongoing-call { animation: m-pop-in .2s var(--ease-out); }

@@ -20,6 +20,7 @@ export const CHANGELOG: Release[] = [
         "Pop the whole call out into its own window with the button at the top.",
         "Click the speaker on someone's box to mute them for you; hover it for the volume.",
         "Group calls stop ringing after 30 seconds.",
+        "See ongoing calls in your DMs and group chats, and join with one click.",
       ] },
     ],
   },

@@ -141,9 +141,9 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           ])}><MoreVertical size={20} /></button>
         </div>
       </header>
-      {call && call.ringing.length > 0 && !inVoiceHere && (
+      {call && call.ringing.includes(useStore.getState().me?.id ?? "") && !inVoiceHere && (
         <div className="call-banner" role="alert">
-          <Phone size={18} /> <span>{call.ringing.includes(useStore.getState().me!.id) ? "Incoming call" : "Ringing…"}</span>
+          <Phone size={18} /> <span>Incoming call</span>
           <button className="btn primary sm" onClick={() => joinVoice(channel.id)}>Join</button>
           <button className="btn danger sm" onClick={() => api.post(`/api/channels/${channel.id}/call/decline`)}>Decline</button>
         </div>
@@ -203,11 +203,31 @@ export function CallChat({ channel, onClose }: { channel: Channel; onClose: () =
 function DmCall({ channel }: { channel: Channel }) {
   const inCall = useVoice((v) => v.channelId === channel.id);
   const [full, setFull] = useState(false);
-  if (!inCall) return null;
+  if (!inCall) return <OngoingCall channel={channel} />;
   return <div className={`dm-call ${full ? "full" : ""}`}>
     <VoiceStage channel={channel} guild={null} />
     <button className="dm-call-size icon-btn" onClick={() => setFull((f) => !f)} aria-label={full ? "Show the conversation" : "Expand the call"} title={full ? "Show chat" : "Expand"}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
   </div>;
+}
+
+/** A call going on in this conversation that I'm not in (Discord's "Ongoing call" bar): who's there, how long, Join. */
+function OngoingCall({ channel }: { channel: Channel }) {
+  const states = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === channel.id)));
+  const users = useStore((s) => s.users);
+  const ringingMe = useStore((s) => { const c = s.calls?.[channel.id]; return !!c && !!s.me && c.ringing.includes(s.me.id); });
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { if (!states.length) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [states.length]);
+  if (!states.length || ringingMe) return null; // the incoming-call banner covers ringing
+  const since = Math.min(...states.map((v) => v.joined_at ?? now));
+  const sec = Math.max(0, Math.floor((now - since) / 1000)), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  const dur = h ? `${h}:${String(m).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}` : `${m}:${String(sec % 60).padStart(2, "0")}`;
+  return (
+    <div className="ongoing-call" role="region" aria-label="Ongoing call">
+      <div className="ongoing-avatars">{states.slice(0, 6).map((v) => <span key={v.user_id} className="ongoing-av" title={displayName(users[v.user_id])}><Avatar user={users[v.user_id] ?? v.user ?? null} size={44} />{v.self_stream && <span className="live">LIVE</span>}</span>)}{states.length > 6 && <span className="ongoing-more">+{states.length - 6}</span>}</div>
+      <div className="ongoing-text"><strong>Ongoing call</strong><span className="muted small">{states.length} {states.length === 1 ? "person" : "people"} · <time>{dur}</time></span></div>
+      <button className="btn ongoing-join" onClick={() => joinVoice(channel.id)}><Phone size={16} /> Join call</button>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------- list -- */
