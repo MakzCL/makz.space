@@ -1,0 +1,8 @@
+{
+  "name": "@sk/formats",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SK Suite file-format SDK: content-based format and version detection, importer/exporter registry, import reports. No runtime dependencies.",
+  "scripts": { "test": "node --test --experimental-strip-types tests/*.test.ts" }
+}

@@ -6,18 +6,30 @@ import { importDxf } from "../geom/dxf";
 import { I, uid, type Doc, type Layer, type Mat, type Obj } from "../geom/core";
 import { readProject, writeProject, type ProjectFile } from "../geom/project";
 import { drawDoc, LIGHT } from "./render";
+import { detect, defaultRegistry, type Detection } from "../../../../packages/sk-formats/src/index.ts";
 
 export const IMPORT_FORMATS = [
-  { ext: ".svg", label: "SVG", ok: true }, { ext: ".dxf", label: "DXF (R12–2018 ASCII)", ok: true },
-  { ext: ".png", label: "PNG", ok: true }, { ext: ".jpg,.jpeg", label: "JPEG", ok: true }, { ext: ".bmp", label: "BMP", ok: true },
+  { ext: ".svg,.svgz", label: "SVG / SVGZ", ok: true }, { ext: ".dxf", label: "DXF (R12–2018 ASCII)", ok: true },
+  { ext: ".png", label: "PNG", ok: true }, { ext: ".jpg,.jpeg", label: "JPEG", ok: true }, { ext: ".bmp", label: "BMP", ok: true }, { ext: ".gif", label: "GIF (first frame)", ok: true }, { ext: ".webp", label: "WebP", ok: true },
   { ext: ".trotan", label: "TROTAN project", ok: true },
-  { ext: ".pdf", label: "PDF — not supported yet (export SVG/DXF from your PDF tool)", ok: false },
-  { ext: ".ai,.eps", label: "AI / EPS — not supported (save as SVG or PDF-compatible SVG)", ok: false },
-  { ext: ".cdr", label: "CorelDRAW CDR — not supported (proprietary; export SVG/DXF)", ok: false },
-  { ext: ".tif,.tiff", label: "TIFF — not supported by browsers yet (export PNG)", ok: false },
+  { ext: ".cdr,.cdt", label: "CorelDRAW CDR — recognised with its version; import coming next", ok: false },
+  { ext: ".cmx", label: "Corel CMX — recognised; import coming with CDR", ok: false },
+  { ext: ".pdf,.ai", label: "PDF / Illustrator — recognised; vector import planned", ok: false },
+  { ext: ".eps", label: "EPS — recognised; not supported (save as SVG or PDF)", ok: false },
+  { ext: ".dwg", label: "DWG — recognised; needs a licensed DWG library (save as DXF)", ok: false },
+  { ext: ".tif,.tiff", label: "TIFF — recognised; browsers cannot decode it (export PNG)", ok: false },
+  { ext: ".psd", label: "Photoshop PSD — recognised; not supported yet (export PNG)", ok: false },
+  { ext: ".plt,.hpgl", label: "HPGL / PLT — recognised; import planned", ok: false },
 ];
-export const ACCEPT = IMPORT_FORMATS.filter((f) => f.ok).map((f) => f.ext).join(",");
-
+/** Every extension TROTAN recognises, so recognised-but-unsupported files can still be picked and get a precise answer. */
+export const ACCEPT = IMPORT_FORMATS.map((f) => f.ext).join(",");
+const REG = defaultRegistry();
+/** Browser DEFLATE decompression with an output limit (zip-bomb protection). */
+async function inflate(data: Uint8Array, max: number, kind: "deflate-raw" | "gzip" = "deflate-raw"): Promise<Uint8Array> {
+  const r = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream(kind)).getReader(); const parts: Uint8Array[] = []; let n = 0;
+  for (;;) { const { done, value } = await r.read(); if (done) break; n += value.length; if (n > max) { await r.cancel(); throw new Error(`Decompressed data is larger than ${(max / 1048576).toFixed(0)} MB`); } parts.push(value); }
+  const out = new Uint8Array(n); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out;
+}
 function inWorker(kind: "svg" | "dxf", text: string): Promise<ImportResult> {
   return new Promise((resolve, reject) => {
     let w: Worker;
@@ -30,18 +42,28 @@ function inWorker(kind: "svg" | "dxf", text: string): Promise<ImportResult> {
   });
 }
 const MAX_BYTES = 60 * 1024 * 1024;
-export type Imported = { kind: "vector"; result: ImportResult } | { kind: "project"; project: ProjectFile } | { kind: "image"; obj: Obj; layer: Layer; warnings: string[] };
+export type Imported = ({ kind: "vector"; result: ImportResult } | { kind: "project"; project: ProjectFile } | { kind: "image"; obj: Obj; layer: Layer; warnings: string[] }) & { detection: Detection };
+/** Identify the file by its content (never by its name alone), then use the matching importer or explain precisely why not. */
 export async function importFile(f: File, engraveLayer: Layer | undefined): Promise<Imported> {
   if (f.size > MAX_BYTES) throw new Error(`${f.name} is ${(f.size / 1048576).toFixed(0)} MB — the limit is 60 MB`);
-  const ext = f.name.toLowerCase().split(".").pop() ?? "";
-  if (ext === "svg") return { kind: "vector", result: await inWorker("svg", await f.text()) };
-  if (ext === "dxf") return { kind: "vector", result: await inWorker("dxf", await f.text()) };
-  if (ext === "trotan" || ext === "json") return { kind: "project", project: readProject(await f.text()) };
-  if (["png", "jpg", "jpeg", "bmp"].includes(ext)) return importImage(f, engraveLayer);
-  const known = IMPORT_FORMATS.find((x) => x.ext.split(",").includes("." + ext));
-  throw new Error(known ? known.label : `.${ext} files are not supported`);
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const d = await detect(bytes, f.name, { inflateRaw: (x, max) => inflate(x, max) });
+  const named = d.extensionMismatch ? [`${f.name} is really a ${d.label} file (the name says otherwise); it was read as ${d.label}.`] : [];
+  const text = (b: Uint8Array) => new TextDecoder("utf-8").decode(b);
+  const vector = (result: ImportResult): Imported => ({ kind: "vector", result: { ...result, warnings: [...named, ...result.warnings] }, detection: d });
+  switch (d.format) {
+    case "svg": return vector(await inWorker("svg", text(bytes)));
+    case "svgz": return vector(await inWorker("svg", text(await inflate(bytes, MAX_BYTES * 4, "gzip"))));
+    case "dxf": return vector(await inWorker("dxf", text(bytes)));
+    case "trotan-project": return { kind: "project", project: readProject(text(bytes)), detection: d };
+    case "png": case "jpeg": case "bmp": case "gif": case "webp": { const r = await importImage(f, engraveLayer); return { ...r, warnings: [...named, ...r.warnings], detection: d } as Imported; }
+  }
+  const what = `${d.label}${d.version ? ` (${d.version})` : ""}`;
+  if (d.format === "unknown" || d.format === "zip") throw new Error(`${f.name}: not a file TROTAN recognises${d.notes[0] ? ` — ${d.notes[0]}` : ""}. Nothing was imported.`);
+  const a = REG.all("trotan").find((x) => x.formats.includes(d.format));
+  throw new Error(`${f.name} is a ${what} file. ${a?.limitations[0] ?? "TROTAN cannot import it yet."} Nothing was imported.`);
 }
-async function importImage(f: File, layer: Layer | undefined): Promise<Imported> {
+async function importImage(f: File, layer: Layer | undefined): Promise<{ kind: "image"; obj: Obj; layer: Layer; warnings: string[] }> {
   const url = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error("The image could not be read")); r.readAsDataURL(f); });
   const im = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Not a valid image (or a format this browser cannot decode)")); i.src = url; });
   const warnings: string[] = [];

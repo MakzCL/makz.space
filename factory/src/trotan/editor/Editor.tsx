@@ -7,7 +7,7 @@ import { I, dist, findObj, transformPaths, uid, type Doc, type Layer, type Mat, 
 import { loadFont, textOutline } from "../geom/text";
 import { errText } from "../data";
 import { useSession } from "../session";
-import { Menu, type MenuItem } from "../ui";
+import { Menu, Modal, type MenuItem } from "../ui";
 import * as A from "./actions";
 import { ACCEPT, IMPORT_FORMATS, exportAs, importFile } from "./io";
 import { RULER, canvasTheme, type Palette, drawDoc, drawRulers, hitTest, toScreen, toWorld, type View } from "./render";
@@ -60,6 +60,9 @@ export function Editor({ palette, readOnly }: { palette: Palette; readOnly: bool
   const [opts, setOpts] = useState(() => loadPref("trotan-editor", { grid: 10, showGrid: true, toGrid: false, toObjects: true, toGuides: true, outline: false, polySides: 6, star: 0, font: "Poppins", textSize: 10 }));
   const [activeLayer, setActiveLayer] = useState<string>(doc.layers[0]?.id ?? "");
   const [busy, setBusy] = useState<string | null>(null);
+  /** Import review: shown when an import skipped content, so the loss is seen before anything is added. */
+  const [review, setReview] = useState<{ file: string; what: string; count: number; notes: string[]; done: (ok: boolean) => void } | null>(null);
+  const askReview = (file: string, what: string, count: number, notes: string[]) => new Promise<boolean>((done) => setReview({ file, what, count, notes, done }));
   const [space, setSpace] = useState(false);
   const drag = useRef<Drag | null>(null), marquee = useRef<{ s: Vec; e: Vec } | null>(null), snapL = useRef<SnapLines>({ x: null, y: null });
   const pen = useRef<PenPt[]>([]); const [, bump] = useState(0);
@@ -389,6 +392,8 @@ export function Editor({ palette, readOnly }: { palette: Palette; readOnly: bool
           if (window.confirm(`Replace this design with “${r.project.name}”? You can undo this.`)) { edit(() => r.project.doc, "Open .trotan file"); setSel([]); fitted.current = null; }
         } else if (r.kind === "vector") {
           if (!r.result.objects.length) throw new Error(`${f.name} has no shapes TROTAN can use${r.result.warnings.length ? ": " + r.result.warnings[0] : ""}`);
+          const losses = r.result.warnings.filter((w) => /^Skipped|really a /.test(w));
+          if (losses.length && !(await askReview(f.name, `${r.detection.label}${r.detection.version ? ` (${r.detection.version})` : ""}`, r.result.objects.length, r.result.warnings))) { toast(`Import of ${f.name} cancelled; the design is unchanged`, "info"); continue; }
           editSel((d) => A.placeImport(d, r.result.objects, r.result.layers), `Import ${f.name}`);
           toast(`Imported ${r.result.objects.length} object${r.result.objects.length === 1 ? "" : "s"} from ${f.name}${r.result.warnings.length ? ` — ${r.result.warnings.length} note(s), see Checks` : ""}`, r.result.warnings.length ? "info" : "ok");
           setWarnings(r.result.warnings.map((w) => `${f.name}: ${w}`));
@@ -548,6 +553,11 @@ export function Editor({ palette, readOnly }: { palette: Palette; readOnly: bool
         {split.handle}
         <Panels readOnly={readOnly} edit={edit} editSel={editSel} activeLayer={activeLayer} setActiveLayer={setActiveLayer} grid={opts.grid} setGrid={(g) => setOpts({ ...opts, grid: g })} warnings={warnings} clearWarnings={() => setWarnings([])} />
       </aside>
+      {review && <Modal title={`Import ${review.file}?`} onClose={() => { review.done(false); setReview(null); }}
+        foot={<><button type="button" className="t-btn" data-testid="import-cancel" onClick={() => { review.done(false); setReview(null); }}>Cancel</button><button type="button" className="t-btn primary" data-testid="import-confirm" onClick={() => { review.done(true); setReview(null); }}>Import {review.count} object{review.count === 1 ? "" : "s"}</button></>}>
+        <div data-testid="import-review"><p><b>{review.what}</b>: {review.count} object{review.count === 1 ? "" : "s"} can be imported as editable vectors.</p>
+          <p>Not everything in the file can be brought in:</p><ul>{review.notes.map((n, i) => <li key={i}>{n}</li>)}</ul></div>
+      </Modal>}
       <input ref={fileIn} type="file" hidden multiple accept={ACCEPT} data-testid="file-input" onChange={(e) => { if (e.target.files) importFiles(e.target.files); e.target.value = ""; }} />
       {menu && <Menu at={menu} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
