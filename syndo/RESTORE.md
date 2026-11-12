@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-12 — emotes in the message box, jump to present (web only)
+
+Web: deployment `d9e5fc09-e4bd-46ff-9e34-84bb5a78fc95` (commit `b6d2792`, build `1pw24gy`). Before it: `1ffcd2b3`
+(commit `e564c62`). Roll back: Pages → `syndo-app` → Deployments → `1ffcd2b3` → *Rollback to this deployment*.
+Backend and desktop feed unchanged.
+
 ## 2026-11-12 — backend to `e564c62` (voice notes stored as audio)
 
 | Layer | Restore point (before this release) |
