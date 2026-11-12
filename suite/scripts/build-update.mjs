@@ -1,5 +1,5 @@
 // Builds the one-click update feed: <out>/update/latest.json + <out>/update/<version>/<files>.
-// The feed carries the suite's own code (main, preload, hub, app list) and the bundled NUCLUES and CADRA; boot.cjs and the
+// The feed carries the suite's own code (main, preload, hub, app list) and the bundled NUCLEUS and CADRA; boot.cjs and the
 // Electron runtime are not part of it. Every file is listed with its size and SHA-256, which the suite checks.
 // Usage: node scripts/build-update.mjs [outDir=site] [--version x.y.z] [--notes "…"]
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import { execSync } from "node:child_process";

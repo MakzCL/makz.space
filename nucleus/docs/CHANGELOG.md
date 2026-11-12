@@ -1,7 +1,6 @@
-# NUCLUES changelog
+# NUCLEUS changelog
 
 ## 2026-11-12
-- **Name.** The product is now **NUCLUES** in every user-visible place: window title, About box, file-type labels, the Gerber/drill/SPICE generator attribute, the Windows exe name and the SK Suite tile. New projects save as `.nuclues`; `.nucleus` files still open. Internal identifiers are unchanged.
 - **Library.**
   - NE555 timer (behavioural; DIP-8 or SOIC-8).
   - LM7805 regulator (behavioural; new TO-220-3 footprint and 3D body).

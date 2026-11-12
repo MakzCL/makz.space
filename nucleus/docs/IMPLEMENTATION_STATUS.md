@@ -1,6 +1,6 @@
-# NUCLUES implementation status
+# NUCLEUS implementation status
 
-Phases follow the NUCLUES master specification. Mechanical CAD (old Phase 8) moved to CADRA; see `../../cadra/docs/CADRA_SPEC.md`. "Done" means the phase's acceptance test passes, as recorded in `TEST_REPORT.md`.
+Phases follow the NUCLEUS master specification. Mechanical CAD (old Phase 8) moved to CADRA; see `../../cadra/docs/CADRA_SPEC.md`. "Done" means the phase's acceptance test passes, as recorded in `TEST_REPORT.md`.
 
 | Phase | Acceptance test | State |
 |---|---|---|

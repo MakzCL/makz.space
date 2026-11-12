@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NUCLUES — electronics design, simulation and PCB engineering suite",
+  "description": "NUCLEUS — electronics design, simulation and PCB engineering suite",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

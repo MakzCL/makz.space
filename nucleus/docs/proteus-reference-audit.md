@@ -42,8 +42,8 @@ Notes from the 9.2 pages:
 - F6/F7 zoom in/out, F8 zoom to all, F5 centre at cursor (in older versions), G toggles the grid, and M toggles metric/imperial (ARES).
 - PCB routing: Shift+P push/follow mode, Shift+N neck-down, Escape cancels.
 
-## What NUCLUES uses from this audit
-NUCLUES takes only the familiar *workflow*:
+## What NUCLEUS uses from this audit
+NUCLEUS takes only the familiar *workflow*:
 - pick devices with P
 - the object selector on the left
 - the transport at the bottom

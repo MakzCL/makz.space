@@ -1,4 +1,4 @@
-// SK Suite desktop e2e: hub lists the apps, palette persists, NUCLUES opens offline in its own window and
+// SK Suite desktop e2e: hub lists the apps, palette persists, NUCLEUS opens offline in its own window and
 // simulates, a web app opens in its own window (live site, or the offline page when unreachable), a second
 // click switches to the open window instead of duplicating it.
 // Run: npm test   (Linux CI: xvfb-run -a npm test)
@@ -17,7 +17,7 @@ try {
   const hub = await app.firstWindow(); const errors = []; hub.on("pageerror", (e) => errors.push(e.message));
   await hub.locator(".tile").first().waitFor();
   assert.equal(hub.url(), "app://hub/index.html");
-  const names = await hub.locator(".tile b").allInnerTexts(); assert.deepEqual(names, ["SK Factory", "Kortana", "TROTAN", "NUCLUES", "CADRA"]);
+  const names = await hub.locator(".tile b").allInnerTexts(); assert.deepEqual(names, ["SK Factory", "Kortana", "TROTAN", "NUCLEUS", "CADRA"]);
   step(`hub opened with ${names.join(", ")}`);
   if (SHOTS) await hub.screenshot({ path: `${SHOTS}/suite-granat.png` });
   for (const p of ["light", "dark"]) { await hub.locator(`.rail .themes button[data-p=${p}]`).click(); assert.equal(await hub.evaluate(() => document.documentElement.dataset.theme), p); if (SHOTS) await hub.screenshot({ path: `${SHOTS}/suite-${p}.png` }); }
@@ -32,15 +32,15 @@ try {
   step("CADRA opened in its own window from the bundled copy and drew a rectangle and a circle");
   await cad.close();
 
-  // NUCLUES: bundled, offline, own window
+  // NUCLEUS: bundled, offline, own window
   const [nuc] = await Promise.all([app.waitForEvent("window"), hub.locator('.tile[data-app="nucleus"]').click()]);
   await nuc.getByTestId("schematic-canvas").waitFor(); assert.match(nuc.url(), /^app:\/\/nucleus\//);
-  step("NUCLUES opened in its own window from the bundled copy (no network)");
+  step("NUCLEUS opened in its own window from the bundled copy (no network)");
   await nuc.evaluate(() => localStorage.clear()); await nuc.reload(); await nuc.getByTestId("schematic-canvas").waitFor();
-  await runExamples(nuc, null, (s) => step(`NUCLUES: ${s}`));
-  await hub.locator('.run').filter({ hasText: "NUCLUES" }).waitFor(); step("hub shows NUCLUES under “Open now”");
+  await runExamples(nuc, null, (s) => step(`NUCLEUS: ${s}`));
+  await hub.locator('.run').filter({ hasText: "NUCLEUS" }).waitFor(); step("hub shows NUCLEUS under “Open now”");
   const before = (await app.windows()).length; await hub.locator('.tile[data-app="nucleus"]').click(); await hub.waitForTimeout(500);
-  assert.equal((await app.windows()).length, before); step("opening NUCLUES again switches to its window instead of a second copy");
+  assert.equal((await app.windows()).length, before); step("opening NUCLEUS again switches to its window instead of a second copy");
 
   // a web app in its own window
   const [fac] = await Promise.all([app.waitForEvent("window"), hub.locator('.tile[data-app="factory"]').click()]);
@@ -57,7 +57,7 @@ app = await launch();
 try {
   const hub = await app.firstWindow(); await hub.locator(".tile").first().waitFor();
   assert.equal(await hub.evaluate(() => document.documentElement.dataset.theme), "dark");
-  const recent = await hub.locator("#recent .chip span").allInnerTexts(); assert.ok(recent.includes("NUCLUES") && recent.includes("SK Factory"), recent.join());
+  const recent = await hub.locator("#recent .chip span").allInnerTexts(); assert.ok(recent.includes("NUCLEUS") && recent.includes("SK Factory"), recent.join());
   step(`after restart: palette kept (Dark), recently opened: ${recent.join(", ")}`);
 } finally { await closeAll(app); fs.rmSync(profile, { recursive: true, force: true }); }
 console.log("\nSK Suite e2e: all steps passed");

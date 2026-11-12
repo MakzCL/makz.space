@@ -1,4 +1,4 @@
-// Built-in device library (NUCLUES original symbols). Every simulated device carries an explicit SPICE
+// Built-in device library (NUCLEUS original symbols). Every simulated device carries an explicit SPICE
 // definition; models are either standard published parameter sets (credited in modelNote) or clearly
 // labelled generic/behavioural models. Devices without `spice` are refused by the simulator.
 import type { DeviceDef, Gfx, PinDef, PinType, Pt, PropDef } from "../core/types";

@@ -1,26 +1,19 @@
-# NUCLUES architecture
+# NUCLEUS architecture
 
-NUCLUES is the electronic design application of SK Suite: schematic capture, simulation, PCB layout and manufacturing. It is one of three separate workstreams:
+NUCLEUS is the electronic design application of SK Suite: schematic capture, simulation, PCB layout and manufacturing. It is one of three separate workstreams:
 
 | Workstream | Folder | Scope |
 |---|---|---|
 | SK Suite | `suite/` | Launcher, installation, one-click updates, shared session; no engineering editing. |
-| NUCLUES | `nucleus/` | EDA: schematic, SPICE, instruments, PCB, DRC, 3D board view, manufacturing outputs. |
+| NUCLEUS | `nucleus/` | EDA: schematic, SPICE, instruments, PCB, DRC, 3D board view, manufacturing outputs. |
 | CADRA | `cadra/` | Mechanical CAD: drafting, and later parametric solids and assemblies. |
 
-The applications have their own code, native file formats, tests, versions and release artifacts. NUCLUES runs without SK Suite: in a browser, at nucleus-eda.pages.dev, or as its own Electron window. The planned way for NUCLUES and CADRA to exchange data is through files: NUCLUES exports STEP and CADRA imports it. Neither application links the other's code.
+The applications have their own code, native file formats, tests, versions and release artifacts. NUCLEUS runs without SK Suite: in a browser, at nucleus-eda.pages.dev, or as its own Electron window. The planned way for NUCLEUS and CADRA to exchange data is through files: NUCLEUS exports STEP and CADRA imports it. Neither application links the other's code.
 
-Internal identifiers keep the original lowercase `nucleus` spelling, so existing projects and settings keep working:
-- the folder and package name;
-- the file envelope `format: "nucleus-project"`;
-- storage keys;
-- the site name `nucleus-eda`.
-
-The product name users see is **NUCLUES**.
 
 ## Stack decision
 
-The specification suggests Qt 6/C++ or Tauri/Rust. NUCLUES keeps its existing stack, because it works, is tested, and meets the requirements below. The specification also says to preserve working code.
+The specification suggests Qt 6/C++ or Tauri/Rust. NUCLEUS keeps its existing stack, because it works, is tested, and meets the requirements below. The specification also says to preserve working code.
 
 | Concern | Choice | Why | Revisit when |
 |---|---|---|---|
@@ -30,12 +23,12 @@ The specification suggests Qt 6/C++ or Tauri/Rust. NUCLUES keeps its existing st
 | Board geometry | Integer nanometres in JS numbers (exact to 2^53 nm); clipper-lib (Boost licence) for pours | Exact equality, no drift with zoom. | — |
 | 3D | three.js (MIT), loaded only when the 3D view opens | Real-time board view from `pcb/model3d.ts`. | STEP export needs a B-rep kernel: Open CASCADE (LGPL-2.1 with exception) through opencascade.js. This decision is shared with CADRA. |
 | Desktop | Electron 45 (Chromium + Node) | Consistent WebAssembly and canvas behaviour. Already packaged as a portable Windows x64 zip and bundled in SK Suite. | An installer, file associations and code signing are Phase 10. |
-| Storage | `.nuclues` JSON, SHA-256 over canonical JSON, schema version and migrations; recovery copy in browser storage | Human-readable, diffable, damage is detected. | Multi-file project folders, if projects outgrow one file. |
+| Storage | `.nucleus` JSON, SHA-256 over canonical JSON, schema version and migrations; recovery copy in browser storage | Human-readable, diffable, damage is detected. | Multi-file project folders, if projects outgrow one file. |
 
 ### Not chosen, and why
 - **Qt/C++ rewrite:** it would discard a tested schematic, simulation and PCB stack for no measured gain.
 - **Our own SPICE solver:** ngspice exists and is licensed for this use.
-- **Our own solid kernel:** Open CASCADE exists. It is needed for STEP and for CADRA, not for NUCLUES editing.
+- **Our own solid kernel:** Open CASCADE exists. It is needed for STEP and for CADRA, not for NUCLEUS editing.
 
 ## Modules (`src/`)
 

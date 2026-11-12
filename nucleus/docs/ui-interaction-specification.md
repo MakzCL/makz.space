@@ -1,7 +1,7 @@
 # UI interaction specification (implemented behaviour)
 
 ## Window
-- **Header:** NUCLUES mark, menus (File, Edit, View, Place, Design, Simulation, PCB, Library, Manufacturing, Tools, Window, Help), project name, revision, file name, save state, undo/redo/save buttons.
+- **Header:** NUCLEUS mark, menus (File, Edit, View, Place, Design, Simulation, PCB, Library, Manufacturing, Tools, Window, Help), project name, revision, file name, save state, undo/redo/save buttons.
 - **Document tabs:** Schematic, Analysis (graph), Bill of Materials, PCB placeholder. Tabs can be switched, closed, reordered by dragging, and opened with "+".
 - **Transport (top right):** analysis selector, ▶ run (F5), ■ stop (Shift+F5, which terminates the worker), ⟲ clear results, and engine state with solve time.
 - **Left:** tool strip (Selection, Component, Wire, Net label, Power, Ground, Probe), then the object browser (Devices with preview, Parts, Nets, Project tree). The browser can be resized and hidden.

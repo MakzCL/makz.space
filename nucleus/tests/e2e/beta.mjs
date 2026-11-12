@@ -1,9 +1,9 @@
-// NUCLUES first-beta acceptance test (steps 1–12) driven through the real UI in Chromium.
+// NUCLEUS first-beta acceptance test (steps 1–12) driven through the real UI in Chromium.
 // Run: npm run build && npx vite preview --port 4280 &  then  node tests/e2e/beta.mjs [shotsDir]
 import { createRequire } from "node:module"; import assert from "node:assert/strict"; import fs from "node:fs"; import { execFileSync } from "node:child_process";
 const require = createRequire(import.meta.url);
 let chromium; try { ({ chromium } = require("playwright")); } catch { ({ chromium } = require(execFileSync("npm", ["root", "-g"]).toString().trim() + "/playwright")); }
-const URL = process.env.NUCLUES_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2]; if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
+const URL = process.env.NUCLEUS_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2]; if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 let n = 0; const step = (s) => console.log(`✓ ${++n}. ${s}`); const shot = async (p, name) => SHOTS && p.screenshot({ path: `${SHOTS}/${String(n).padStart(2, "0")}-${name}.png` });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const b = await chromium.launch();
@@ -13,7 +13,7 @@ try {
   const p = await ctx.newPage(); const errors = []; p.on("pageerror", (e) => errors.push(e.message));
   // 1 launch
   await p.goto(URL); await p.getByTestId("schematic-canvas").waitFor(); await p.evaluate(() => localStorage.clear());
-  await p.reload(); await p.getByTestId("schematic-canvas").waitFor(); step("NUCLUES launched");
+  await p.reload(); await p.getByTestId("schematic-canvas").waitFor(); step("NUCLEUS launched");
   // 2 new project
   await p.keyboard.press("Control+n"); await p.getByTestId("new-name").fill("LED tester"); await p.getByTestId("new-ok").click();
   await p.getByText("LED tester").first().waitFor(); step("new project created"); 
@@ -74,7 +74,7 @@ try {
   const netBefore = await (async () => { await p.getByRole("button", { name: "Netlist" }).click(); return p.locator(".n-netl pre").first().innerText(); })();
   const [sv] = await Promise.all([p.waitForEvent("download"), p.keyboard.press("Control+s")]);
   const saved = await sv.path(); const file = `/tmp/${sv.suggestedFilename()}`; fs.copyFileSync(saved, file);
-  assert.match(sv.suggestedFilename(), /LED tester\.nuclues/); step(`saved ${sv.suggestedFilename()} (${fs.statSync(file).size} bytes, SHA-256 protected)`);
+  assert.match(sv.suggestedFilename(), /LED tester\.nucleus/); step(`saved ${sv.suggestedFilename()} (${fs.statSync(file).size} bytes, SHA-256 protected)`);
   // 11 close (fresh browser context, no recovery copy) and reopen from the file
   await ctx.close();
   const ctx2 = await b.newContext({ viewport: { width: 1600, height: 1000 } }); await ctx2.addInitScript(() => { delete window.showSaveFilePicker; delete window.showOpenFilePicker; });
@@ -89,5 +89,5 @@ try {
   const bom = await q.getByTestId("bom").innerText(); assert.match(bom, /R_0805_2012Metric/); assert.match(bom, /LED_D5\.0mm/); assert.doesNotMatch(bom, /missing/);
   step("every PCB part has a valid footprint (BOM shows them; sources excluded)"); await shot(q, "bom");
   assert.deepEqual(errors, [], errors.join("\n"));
-  console.log(`\nNUCLUES beta steps 1–${n} passed. Steps 13–21 (PCB layout, routing, DRC, Gerber/drill) are covered by tests/e2e/pcb.mjs.`);
+  console.log(`\nNUCLEUS beta steps 1–${n} passed. Steps 13–21 (PCB layout, routing, DRC, Gerber/drill) are covered by tests/e2e/pcb.mjs.`);
 } finally { await b.close(); }

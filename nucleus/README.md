@@ -1,4 +1,4 @@
-# NUCLUES
+# NUCLEUS
 
 Electronics design, simulation and PCB engineering suite. **Milestone 1:** schematic capture, ERC and SPICE simulation (ngspice, compiled to WebAssembly) with instruments and graphs. PCB layout is the next milestone and is not built yet.
 
@@ -19,7 +19,7 @@ Open http://localhost:5173. To run it as a desktop window instead:
 npm run desktop
 ```
 
-To build the portable Windows package (`release\NUCLUES-0.1.0-win-x64.zip`, run `NUCLUES.exe` from the unzipped folder; not code-signed, so SmartScreen may ask for confirmation):
+To build the portable Windows package (`release\NUCLEUS-0.1.0-win-x64.zip`, run `NUCLEUS.exe` from the unzipped folder; not code-signed, so SmartScreen may ask for confirmation):
 
 ```powershell
 npm run package:win

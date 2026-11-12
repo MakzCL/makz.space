@@ -1,5 +1,5 @@
-/* NUCLUES — compact engineering UI. Tokens on <html data-theme> so portalled menus/dialogs match. */
-/* Ecosystem palettes shared with SK Factory, KORTANA and TROTAN: Granat (default), Dark (deep navy), Light. NUCLUES keeps its amber accent. */
+/* NUCLEUS — compact engineering UI. Tokens on <html data-theme> so portalled menus/dialogs match. */
+/* Ecosystem palettes shared with SK Factory, KORTANA and TROTAN: Granat (default), Dark (deep navy), Light. NUCLEUS keeps its amber accent. */
 :root, :root[data-theme="granat"] {
   --bg: #0b1033; --panel: #0e1440; --panel2: #151c4d; --line: #20285a; --line2: #2c3570; --text: #ffffff; --dim: #8a91c4;
   --accent: #f0b54a; --accent-ink: #0b1033; --sel: #5868e6; --ok: #3fcf8e; --warn: #f5c85c; --err: #ff5d4f; --input: #0b1033; color-scheme: dark;

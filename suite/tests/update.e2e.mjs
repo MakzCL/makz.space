@@ -36,7 +36,7 @@ try {
   await hub.waitForTimeout(500); assert.equal(cur().pending, false);
   const [nuc] = await Promise.all([app.waitForEvent("window"), (async () => { await hub.locator('.nav[data-view="home"]').click(); await hub.locator('.tile[data-app="nucleus"]').click(); })()]);
   await nuc.getByTestId("schematic-canvas").waitFor();
-  step(`restarted into ${next}; marked healthy; NUCLUES opens from the updated files`);
+  step(`restarted into ${next}; marked healthy; NUCLEUS opens from the updated files`);
   await close(app);
 
   // a start that never becomes healthy rolls back to the shipped version

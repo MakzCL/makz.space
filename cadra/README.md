@@ -79,7 +79,7 @@ The tests check DXF output with [ezdxf](https://ezdxf.mozman.de/), an independen
 
 Each drawing is autosaved in the browser after every change, so a reload brings it back.
 
-The full mechanical-CAD roadmap (sketch constraints, parametric solids, assemblies, STEP, the NUCLUES board link) is in `docs/CADRA_SPEC.md`.
+The full mechanical-CAD roadmap (sketch constraints, parametric solids, assemblies, STEP, the NUCLEUS board link) is in `docs/CADRA_SPEC.md`.
 
 ## Parity with CADCraft (honest status)
 

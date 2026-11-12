@@ -1,6 +1,6 @@
-# NUCLUES — Proteus feature parity
+# NUCLEUS — Proteus feature parity
 
-This matrix tracks NUCLUES against Labcenter Proteus Design Suite 9.2, within the NUCLUES scope. That scope is EDA only: mechanical CAD lives in CADRA (see `../../cadra/docs/CADRA_SPEC.md`).
+This matrix tracks NUCLEUS against Labcenter Proteus Design Suite 9.2, within the NUCLEUS scope. That scope is EDA only: mechanical CAD lives in CADRA (see `../../cadra/docs/CADRA_SPEC.md`).
 
 **Sources.** The reference behaviour comes from Labcenter's public pages, downloaded on 2026-11-12:
 - whatsnew/9.2, schematic, pcb-layout, router, highspeed, simulation, instruments, microprocessors, proteus9, pcb, tutorials.
@@ -27,9 +27,9 @@ A button or dialog existing does not count.
 
 ## 1. Workspace and project
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
-| Project create / save / open | `.pdsprj` project holding schematic, PCB, BOM and notes in one file *(format not public)* | `.nuclues` versioned JSON with SHA-256 over canonical JSON. A schema version refuses newer files. Older `.nucleus` files still open. | VERIFIED | U-CORE (round-trip, tamper, newer schema); E-BETA-10/11; E-PCB-9 |
+| Project create / save / open | `.pdsprj` project holding schematic, PCB, BOM and notes in one file *(format not public)* | `.nucleus` versioned JSON with SHA-256 over canonical JSON. A schema version refuses newer files. Older `.nucleus` files still open. | VERIFIED | U-CORE (round-trip, tamper, newer schema); E-BETA-10/11; E-PCB-9 |
 | Autosave / recovery | Autosave and backup copies *(details not stated)* | Recovery copy in browser storage after every change. | IMPLEMENTED | — |
 | Undo / redo | Unlimited | 300-step snapshot history of the whole project model, covering schematic and PCB. | IMPLEMENTED | Used in E-PCB-6 (move + undo) |
 | Document tabs | Schematic, PCB Layout, 3D Visualiser, BOM, Design Explorer, Project Notes as tabs | Tabs: Schematic, PCB Layout, Analysis, BOM. 3D opens as a view over the PCB tab. | IN DEVELOPMENT (no Design Explorer, Project Notes or 3D tab) | E-EX, E-PCB |
@@ -41,7 +41,7 @@ A button or dialog existing does not count.
 
 ## 2. Schematic capture
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | Device picking | Pick Devices (P): keyword search over a 50 000+ part library | Search by name, part number, description or category. Symbol preview, pin table, model note, footprints. **24 built-in devices.** | VERIFIED (library small) | E-BETA-4 |
 | Placement, rotate, mirror | Click to place; rotate/mirror while placing | Same (R, X while placing; repeat placement). | VERIFIED | E-BETA-4 |
@@ -63,7 +63,7 @@ A button or dialog existing does not count.
 
 ## 3. Simulation (ngspice 45, WASM, in a worker)
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | DC operating point | Yes | ngspice `.op` | VERIFIED | U-SIM, U-EX (divider 2.5 V, matches native ngspice); E-EX-2 |
 | Transient | Yes | ngspice `.tran` | VERIFIED | U-EX (RC 63.2 % at τ); U-TMR (555 frequency measured from the waveform) |
@@ -77,7 +77,7 @@ A button or dialog existing does not count.
 
 ## 4. Instruments
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | System scope | 4 channels, X-Y; 20 V/div to 2 mV/div; 200 ms/div to 0.5 µs/div; AC/DC coupling; auto and one-shot trigger; cursors; live probing | 4 channels, V/div, time/div, edge trigger, hold, cursors, CSV, from transient results. | IN DEVELOPMENT (no X-Y, AC coupling, live probing or one-shot) | Visual (E-EX-5) |
 | System meter (new in 9.2) | Live probes A and B, A−B differential mode, during simulation | Multimeter: DC V, AC V rms (transient), DC A, with + and − probe nets. | IN DEVELOPMENT (not live during a running transient) | E-EX-2 (vs native ngspice) |
@@ -89,14 +89,14 @@ A button or dialog existing does not count.
 
 ## 5. Microcontroller simulation (VSM-equivalent)
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | MCU co-simulation | 750+ variants: ARM7, Cortex-M0/M3/M4, PIC10–PIC24/dsPIC33, AVR, 8051, MSP430, Arduino boards, MicroPython (Pico, ESP32) | — | NOT STARTED | No MCU is claimed as supported. Candidate engines: simavr (GPL-3.0) for AVR, Renode (MIT) or QEMU (GPL-2.0) for Cortex-M; licensing to be decided before any is bundled |
 | Firmware debug | Breakpoints (source and schematic hardware breakpoints), single step, watch window, GDB remote for Cortex-M (9.2) | — | NOT STARTED | — |
 
 ## 6. PCB layout
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | Footprints | IPC-7351 footprint libraries; 15 M parts via import | 27 footprints generated from package dimensions. Pad names match symbol pins. | VERIFIED | U-PCB (every device's pins have pads; 0805 pitch 1.825 mm; DIP row 7.62 mm) |
 | Netlist transfer | Forward annotation | Update from schematic: adds, removes, renames, changes footprints; reports parts without footprints. | VERIFIED | U-PCB; E-PCB-2 |
@@ -116,7 +116,7 @@ A button or dialog existing does not count.
 
 ## 7. Manufacturing outputs
 
-| Feature | Reference behaviour | NUCLUES implementation | Status | Tests |
+| Feature | Reference behaviour | NUCLEUS implementation | Status | Tests |
 |---|---|---|---|---|
 | Gerber | Gerber X2; offset holes preserved (9.2) | RS-274X with X2 attributes: copper ×2, mask ×2, paste ×2 (SMD), silkscreen, outline. | VERIFIED | U-PCB (gerbonara counts equal the board; gerbv renders every file) |
 | Excellon drill | Plated / non-plated | Plated holes, metric. | VERIFIED (no NPTH or slots) | U-PCB |
@@ -130,5 +130,5 @@ A button or dialog existing does not count.
 |---|---|---|
 | Proteus file import (`.pdsprj`, libraries) | NOT SUPPORTED | Proprietary format; no authorised specification. |
 | Proteus part library | NOT SUPPORTED | Proprietary data. Libraries are built from public package standards and imported open libraries. |
-| Mechanical CAD (sketcher, parametric solids, assemblies) | NOT SUPPORTED in NUCLUES | Belongs to CADRA. NUCLUES may export STEP for CADRA in future. |
+| Mechanical CAD (sketcher, parametric solids, assemblies) | NOT SUPPORTED in NUCLEUS | Belongs to CADRA. NUCLEUS may export STEP for CADRA in future. |
 | EDAi / ProPilot AI | NOT STARTED | An optional assistant may follow. It must never change geometry or connectivity silently. |

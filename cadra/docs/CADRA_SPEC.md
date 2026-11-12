@@ -1,6 +1,6 @@
 # CADRA — mechanical CAD specification
 
-CADRA is the standalone mechanical CAD application of SK Suite. It holds every mechanical-CAD requirement that was removed from the NUCLUES specification:
+CADRA is the standalone mechanical CAD application of SK Suite. It holds every mechanical-CAD requirement that was removed from the NUCLEUS specification:
 - sketcher and constraints;
 - parametric solids and feature history;
 - assemblies;
@@ -8,15 +8,15 @@ CADRA is the standalone mechanical CAD application of SK Suite. It holds every m
 - STEP/IGES/DXF/STL exchange;
 - Test E (enclosure).
 
-**Out of scope for CADRA:** schematic capture, SPICE simulation and PCB routing. Those belong to NUCLUES.
+**Out of scope for CADRA:** schematic capture, SPICE simulation and PCB routing. Those belong to NUCLEUS.
 
 CADRA has its own code (`cadra/`), native format (`.cadra`), tests, versions and release artifacts. It runs on its own: in a browser at cadra.makz.space, or offline inside SK Suite.
 
-## Exchange with NUCLUES (planned, file-based)
-1. NUCLUES exports the board assembly as STEP: outline, thickness, holes, component bodies.
+## Exchange with NUCLEUS (planned, file-based)
+1. NUCLEUS exports the board assembly as STEP: outline, thickness, holes, component bodies.
 2. CADRA imports it as a fixed body.
 3. In CADRA, the user designs the enclosure and checks mounting points and clearances.
-4. When the board outline changes in NUCLUES, re-importing updates the linked body. Changes that cannot be applied automatically appear as explicit warnings.
+4. When the board outline changes in NUCLEUS, re-importing updates the linked body. Changes that cannot be applied automatically appear as explicit warnings.
 
 There is no shared code or in-process link between the two applications.
 
@@ -53,7 +53,7 @@ There is no shared code or in-process link between the two applications.
    - STEP and STL export, validated by an independent reader.
 4. **Feature tree:** parametric recompute and failure reporting.
 5. **Assemblies:** placement, interference and clearance.
-6. **NUCLUES board import and Test E.**
+6. **NUCLEUS board import and Test E.**
 7. **Drawings:** views, dimensions, PDF.
 
 ## Architecture (current)

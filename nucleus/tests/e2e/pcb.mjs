@@ -4,7 +4,7 @@
 import { createRequire } from "node:module"; import assert from "node:assert/strict"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import { execFileSync } from "node:child_process";
 const require = createRequire(import.meta.url);
 let chromium; try { ({ chromium } = require("playwright")); } catch { ({ chromium } = require(execFileSync("npm", ["root", "-g"], { shell: true }).toString().trim() + "/playwright")); }
-const URL = process.env.NUCLUES_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2];
+const URL = process.env.NUCLEUS_URL ?? "http://localhost:4280/"; const SHOTS = process.argv[2];
 let n = 0; const step = (s) => console.log(`✓ ${++n}. ${s}`); const shot = async (p, name) => SHOTS && p.screenshot({ path: `${SHOTS}/pcb-${String(n).padStart(2, "0")}-${name}.png` });
 const b = await chromium.launch();
 try {
@@ -59,5 +59,5 @@ try {
   await q.getByTestId("menu-PCB").click(); await q.getByRole("menuitem", { name: "Open PCB layout" }).click();
   await q.getByTestId("pcb-status").filter({ hasText: "All connections routed" }).waitFor();
   step("saved, reopened in a fresh window: the routed board is intact");
-  assert.deepEqual(errors, []); console.log("\nNUCLUES PCB e2e: all steps passed");
+  assert.deepEqual(errors, []); console.log("\nNUCLEUS PCB e2e: all steps passed");
 } finally { await b.close(); }

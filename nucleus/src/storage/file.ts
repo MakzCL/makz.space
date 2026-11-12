@@ -1,4 +1,4 @@
-// .nuclues project files (older .nucleus files open too): versioned JSON with a SHA-256 of the canonical project for corruption detection.
+// .nucleus project files: versioned JSON with a SHA-256 of the canonical project for corruption detection.
 import type { Project } from "../core/types";
 import { SCHEMA } from "../core/project";
 import { DEVICE } from "../library/devices";
@@ -15,7 +15,7 @@ export async function sha256(text: string): Promise<string> {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 export async function saveFile(pr: Project): Promise<string> {
-  const env: FileEnvelope = { format: "nucleus-project", schema: SCHEMA, app: `NUCLUES ${APP_VERSION}`, saved: new Date().toISOString(), sha256: await sha256(canonical(pr)), project: pr };
+  const env: FileEnvelope = { format: "nucleus-project", schema: SCHEMA, app: `NUCLEUS ${APP_VERSION}`, saved: new Date().toISOString(), sha256: await sha256(canonical(pr)), project: pr };
   return JSON.stringify(env, null, 1);
 }
 /** Upgrades older schemas step by step. */
@@ -23,9 +23,9 @@ const MIGRATIONS: Record<number, (p: Record<string, unknown>) => Record<string, 
 export class FileError extends Error { constructor(msg: string, public recoverable = false, public project?: Project) { super(msg); } }
 export async function openFile(text: string, opts: { acceptChecksumMismatch?: boolean } = {}): Promise<{ project: Project; warnings: string[] }> {
   let env: FileEnvelope;
-  try { env = JSON.parse(text); } catch { throw new FileError("This is not a NUCLUES project (the file is not valid JSON)."); }
-  if (env?.format !== "nucleus-project" || !env.project) throw new FileError("This is not a NUCLUES project file.");
-  if (typeof env.schema !== "number" || env.schema > SCHEMA) throw new FileError(`This project was saved by a newer NUCLUES (schema ${env.schema}). Update NUCLUES to open it.`);
+  try { env = JSON.parse(text); } catch { throw new FileError("This is not a NUCLEUS project (the file is not valid JSON)."); }
+  if (env?.format !== "nucleus-project" || !env.project) throw new FileError("This is not a NUCLEUS project file.");
+  if (typeof env.schema !== "number" || env.schema > SCHEMA) throw new FileError(`This project was saved by a newer NUCLEUS (schema ${env.schema}). Update NUCLEUS to open it.`);
   const warnings: string[] = [];
   const sum = await sha256(canonical(env.project));
   if (sum !== env.sha256) {

@@ -3,7 +3,7 @@
   "productName": "SK Suite",
   "version": "0.3.1",
   "private": true,
-  "description": "Desktop home for SK Factory, Kortana, TROTAN, NUCLUES and CADRA",
+  "description": "Desktop home for SK Factory, Kortana, TROTAN, NUCLEUS and CADRA",
   "main": "boot.cjs",
   "scripts": {
     "bundle": "node scripts/bundle.mjs",

@@ -19,7 +19,7 @@ fs.writeFileSync(path.join(dir, "README.txt"), [`SK Suite ${pkg.version} - porta
   "Run \"SK Suite.exe\". No installation needed. Right-click it > Send to > Desktop (create shortcut) to pin it.",
   "Not code-signed: Windows SmartScreen may warn the first time (More info > Run anyway).",
   "SK Factory, Kortana and TROTAN load their live sites (internet needed) and stay signed in.",
-  "NUCLUES and CADRA are included and work offline.", "Updates: Settings > Updates > Update now (one click; the suite restarts itself).", "",
+  "NUCLEUS and CADRA are included and work offline.", "Updates: Settings > Updates > Update now (one click; the suite restarts itself).", "",
   `Runtime: Electron ${ev} (MIT; LICENSE and LICENSES.chromium.html in this folder).`, ""].join("\r\n"));
 const s = zipDir(rel, folder, path.join(rel, `${folder}.zip`));
 console.log(`release/${folder}.zip  ${(fs.statSync(path.join(rel, `${folder}.zip`)).size / 1048576).toFixed(1)} MB  sha256 ${s}`);

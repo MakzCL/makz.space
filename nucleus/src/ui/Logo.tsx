@@ -1,4 +1,4 @@
-// NUCLUES mark: an original hexagonal cell with a solid core and one orbit. Flat, single colour.
+// NUCLEUS mark: an original hexagonal cell with a solid core and one orbit. Flat, single colour.
 export function Logo({ size = 22, color = "currentColor" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">

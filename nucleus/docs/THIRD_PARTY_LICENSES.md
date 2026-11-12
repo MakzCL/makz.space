@@ -1,6 +1,6 @@
-# Third-party software in NUCLUES
+# Third-party software in NUCLEUS
 
-Versions are as installed on 2026-11-12. No third-party source has been copied into `src/`. Only `src/library` symbols and `src/pcb/footprints.ts` geometry are original NUCLUES work, generated from public package dimensions (IPC-7351 nominal and JEDEC outlines).
+Versions are as installed on 2026-11-12. No third-party source has been copied into `src/`. Only `src/library` symbols and `src/pcb/footprints.ts` geometry are original NUCLEUS work, generated from public package dimensions (IPC-7351 nominal and JEDEC outlines).
 
 ## Shipped with the application
 
