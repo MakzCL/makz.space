@@ -14,6 +14,7 @@ import { can, displayName, guildPerms, useStore } from "../store.ts";
 import { collect, opusFmtp, type Diagnostics } from "../voice/diagnostics.ts";
 import { captureCapabilities } from "../voice/settings.ts";
 import { ShareDialog } from "./ShareDialog.tsx";
+import { nativeCapture } from "../voice/nativeCapture.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, setUserVolume, setWatching, startScreenShare, stopScreenShare, switchScreenSource, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { Avatar } from "./ui.tsx";
 import { isPhone } from "../mobile.ts";
@@ -119,7 +120,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           <div className="ctl-wrap">
             <button className={`ctl ${v.sharing ? "on" : ""}`} aria-pressed={v.sharing} disabled={!v.grants?.video || !caps.canShare} title={caps.canShare ? (v.sharing ? "Stop sharing" : "Share your screen") : "This browser can't share screens."}
               onClick={() => (v.sharing ? stopScreenShare() : setShareMenu(!shareMenu))} aria-label={v.sharing ? "Stop sharing" : "Share screen"}>{v.sharing ? <MonitorOff /> : <Monitor />}</button>
-            {v.sharing && <button className="ctl sm" onClick={switchScreenSource} aria-label="Switch shared window"><RefreshCw size={16} /></button>}
+            {v.sharing && <button className="ctl sm" onClick={() => { if (nativeCapture()) { stopScreenShare().then(() => setShareMenu(true)); } else switchScreenSource(); }} aria-label="Switch shared window"><RefreshCw size={16} /></button>}
             {shareMenu && !v.sharing && <ShareDialog onClose={() => setShareMenu(false)} />}
           </div>
           <ActivityButton channel={channel} ctl />

@@ -29,6 +29,10 @@
     "allow-restart-to-update",
     "allow-flash",
     "allow-notify",
-    "allow-set-capture-excluded"
+    "allow-set-capture-excluded",
+    "allow-capture-sources",
+    "allow-capture-start",
+    "allow-capture-stop",
+    "allow-capture-ack"
   ]
 }

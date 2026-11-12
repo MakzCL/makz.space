@@ -1,5 +1,18 @@
 # SEND changelog
 
+## 2026-11-12 — Desktop 0.7.0: SEND's own screen sharing
+
+- **The desktop app shares screens without the system picker.** The Go Live dialog lists your windows and screens
+  with live thumbnails (refreshed every 3 s); Go Live streams the one you pick. Video: GDI capture (`BitBlt` for
+  screens, `PrintWindow` with full-content rendering for windows, mouse pointer drawn in), scaled and JPEG-encoded
+  in Rust, sent over a Tauri channel and turned into a video track with WebCodecs + `MediaStreamTrackGenerator`.
+  At most two frames wait for the page, so a slow page drops frames instead of lagging.
+- **Sound like Discord:** sharing a window sends only that app's sound; sharing a screen sends everything except
+  SEND's own (Windows per-process loopback capture, Windows 10 2004+), so the call never echoes.
+- The browser version is unchanged (system picker). Desktop 0.6.x keeps working with the old picker.
+- Known limits: games in exclusive full-screen and some protected windows may capture black (window capture uses
+  `PrintWindow`); minimised windows aren't listed.
+
 ## 2026-11-12 — Voice channel sidebar like Discord
 
 - People in a voice channel use Discord's sizing: 24px avatars, 32px rows, indented under the channel.

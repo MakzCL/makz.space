@@ -10,6 +10,7 @@
 //! is locked to that origin and everything else opens in the system browser; camera, mic and
 //! notification permission is granted only to that origin.
 
+mod capture;
 mod games;
 mod ptt;
 mod updater;
@@ -147,6 +148,7 @@ const REMOTE_COMMANDS: &[&str] = &[
   "allow-window-control", "allow-set-ptt", "allow-set-material", "allow-get-settings", "allow-set-performance", "allow-set-startup",
   "allow-restart-app", "allow-refresh", "allow-set-close-to-tray", "allow-change-server", "allow-update-status", "allow-check-updates",
   "allow-download-update", "allow-restart-to-update", "allow-flash", "allow-notify", "allow-set-capture-excluded",
+  "allow-capture-sources", "allow-capture-start", "allow-capture-stop", "allow-capture-ack",
 ];
 
 fn load_app<R: Runtime>(app: &AppHandle<R>) {
@@ -171,7 +173,7 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
     "version": app.package_info().version.to_string(),
     "platform": if cfg!(windows) { "win32" } else { std::env::consts::OS },
     "osBuild": windows_build(),
-    "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true, "captureExclusion": cfg!(windows) },
+    "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true, "captureExclusion": cfg!(windows), "nativeCapture": cfg!(windows) },
   });
   let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required");
   if !c.hardware_acceleration { args.push_str(" --disable-gpu"); }
@@ -483,6 +485,29 @@ fn set_capture_excluded<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R
   false
 }
 
+/// Screens and windows for SEND's own Go Live picker, with thumbnails (runs off the main thread).
+#[tauri::command]
+async fn capture_sources<R: Runtime>(webview: tauri::Webview<R>, thumb_width: Option<u32>) -> Result<Vec<capture::Source>, String> {
+  main_only(&webview)?;
+  let w = thumb_width.unwrap_or(320);
+  tauri::async_runtime::spawn_blocking(move || capture::sources(w)).await.map_err(|e| e.to_string())
+}
+
+/// Start streaming a screen/window chosen in SEND's picker; frames and sound come back over the two channels.
+#[tauri::command]
+async fn capture_start<R: Runtime>(webview: tauri::Webview<R>, source: String, options: capture::StartOptions,
+  video: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>, audio: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>) -> Result<u64, String> {
+  main_only(&webview)?;
+  capture::start(source, options, video, Some(audio))
+}
+
+#[tauri::command]
+fn capture_stop<R: Runtime>(webview: tauri::Webview<R>, id: u64) { if main_only(&webview).is_ok() { capture::stop(id); } }
+
+/// The page drew a frame (keeps at most a couple of frames waiting, so a slow page never builds a backlog).
+#[tauri::command]
+fn capture_ack<R: Runtime>(webview: tauri::Webview<R>, id: u64) { if main_only(&webview).is_ok() { capture::ack(id); } }
+
 #[tauri::command]
 fn notify<R: Runtime>(app: AppHandle<R>, webview: tauri::Webview<R>, title: String, body: String) {
   if main_only(&webview).is_err() { return; }
@@ -545,7 +570,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       window_control, set_ptt, set_material, get_settings, set_performance, set_startup, restart_app, refresh,
       set_close_to_tray, change_server, update_status, check_updates, download_update, restart_to_update,
-      flash, notify, connect_set_server, connect_info, set_capture_excluded
+      flash, notify, connect_set_server, connect_info, set_capture_excluded,
+      capture_sources, capture_start, capture_stop, capture_ack
     ])
     .setup(|app| {
       let handle = app.handle().clone();

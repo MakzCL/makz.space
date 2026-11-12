@@ -134,10 +134,18 @@ export const SCREEN_ECHO_NOTE = "This browser can't keep SEND's own sound out of
  * WebView2 don't let a page list windows or screens itself); "device" streams a capture card or camera
  * as the stream, with its matching audio input when it has one.
  */
-export type ShareSource = { kind: "window" } | { kind: "browser" } | { kind: "monitor" } | { kind: "device"; deviceId: string };
+export type ShareSource = { kind: "window" } | { kind: "browser" } | { kind: "monitor" } | { kind: "device"; deviceId: string }
+  /** A screen or window picked in SEND's own picker (desktop app). */
+  | { kind: "native"; id: string };
 
 export async function captureShare(st: StreamSettings, src: ShareSource = { kind: "window" }): Promise<MediaStream> {
   const h = st.height === "source" ? undefined : st.height;
+  if (src.kind === "native") {
+    const { nativeCapture, nativeShareStream } = await import("./nativeCapture.ts");
+    const api = nativeCapture();
+    if (!api) throw new Error("This version of the SEND app can't share this way.");
+    return nativeShareStream(api, src.id, st);
+  }
   if (src.kind === "device") {
     const devices = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
     const cam = devices.find((d) => d.kind === "videoinput" && d.deviceId === src.deviceId);
@@ -157,5 +165,6 @@ export async function captureShare(st: StreamSettings, src: ShareSource = { kind
 }
 /** Device captures don't carry SEND's sound, so only screen captures can echo. */
 export function shareMayEcho(src: ShareSource | undefined, track: MediaStreamTrack | null | undefined) {
-  return src?.kind !== "device" && screenAudioMayEcho(track);
+  // Devices carry no SEND sound; the desktop app's own capture leaves SEND's sound out itself.
+  return src?.kind !== "device" && src?.kind !== "native" && screenAudioMayEcho(track);
 }

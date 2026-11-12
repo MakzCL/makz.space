@@ -5,6 +5,7 @@ import { Modal } from "./ui.tsx";
 import { startScreenShare, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { captureCapabilities, type ShareSource } from "../voice/settings.ts";
 import { useStore } from "../store.ts";
+import { nativeCapture, type NativeSource } from "../voice/nativeCapture.ts";
 
 type Tab = "window" | "monitor" | "device";
 const TABS: { id: Tab; label: string; icon: typeof Monitor }[] = [{ id: "window", label: "Applications", icon: AppWindow }, { id: "monitor", label: "Entire Screen", icon: Monitor }, { id: "device", label: "Devices", icon: Video }];
@@ -32,6 +33,20 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const [devices, setDevices] = useState<MediaDeviceInfo[] | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [more, setMore] = useState(false);
+  // Desktop app: SEND's own picker — real windows and screens with live thumbnails, no system picker.
+  const nat = nativeCapture();
+  const [natList, setNatList] = useState<NativeSource[] | null>(null);
+  const [natPick, setNatPick] = useState<string | null>(null);
+  useEffect(() => {
+    if (!nat) return;
+    let alive = true, busy = false;
+    const load = () => { if (busy) return; busy = true; nat.sources(360).then((l) => { if (alive) setNatList(l); }, () => { if (alive) setNatList((x) => x ?? []); }).finally(() => { busy = false; }); };
+    load();
+    const t = setInterval(load, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const natOf = (k: "window" | "screen") => (natList ?? []).filter((x) => x.kind === k);
+  const natChosen = (k: "window" | "screen") => { const l = natOf(k); return l.find((x) => x.id === natPick) ?? (k === "screen" ? l.find((x) => x.primary) : undefined) ?? l[0] ?? null; };
 
   const list = () => navigator.mediaDevices.enumerateDevices().then((d) => {
     const v = d.filter((x) => x.kind === "videoinput" && x.deviceId);
@@ -43,7 +58,10 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const heights = STREAM_HEIGHTS.filter((h) => h <= maxH && h >= 720);
   const set = (p: Partial<typeof st>) => updateVoiceSettings({ stream: { ...st, ...p } });
   const [surface, setSurface] = useState<"window" | "browser">("window");
-  const source: ShareSource | null = tab === "device" ? (deviceId ? { kind: "device", deviceId } : null) : tab === "window" ? { kind: surface } : { kind: "monitor" };
+  const natSel = nat && tab !== "device" ? natChosen(tab === "window" ? "window" : "screen") : null;
+  const source: ShareSource | null = tab === "device" ? (deviceId ? { kind: "device", deviceId } : null)
+    : nat ? (natSel ? { kind: "native", id: natSel.id } : null)
+    : tab === "window" ? { kind: surface } : { kind: "monitor" };
   const go = (src = source) => { if (!src) return; onClose(); startScreenShare(src); };
   const label = (d: MediaDeviceInfo, i: number) => d.label || `Capture device ${i + 1}`;
 
@@ -54,7 +72,16 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
           {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}><t.icon size={16} aria-hidden />{t.label}</button>)}
         </div>
         <div className="share-grid" role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label}>
-          {tab === "window" && <>
+          {nat && tab !== "device" && natList === null && <p className="muted share-note">Looking for {tab === "window" ? "windows" : "screens"}…</p>}
+          {nat && tab !== "device" && natList !== null && natOf(tab === "window" ? "window" : "screen").length === 0 && <p className="muted share-note">{tab === "window" ? "No windows to share. Open the app you want to show, then come back." : "No screens found."}</p>}
+          {nat && tab !== "device" && natOf(tab === "window" ? "window" : "screen").map((x) => (
+            <button key={x.id} className={`share-card ${natSel?.id === x.id ? "on" : ""}`} aria-pressed={natSel?.id === x.id} title={x.app ? `${x.name} — ${x.app}` : x.name}
+              onClick={() => setNatPick(x.id)} onDoubleClick={() => go({ kind: "native", id: x.id })}>
+              <span className="share-thumb native">{x.thumb ? <img src={x.thumb} alt="" draggable={false} /> : <span className="share-thumb-icon">{x.kind === "screen" ? <Monitor size={40} /> : <AppWindow size={40} />}</span>}</span>
+              <span className="share-name">{x.name}</span>
+            </button>
+          ))}
+          {!nat && tab === "window" && <>
             <button className={`share-card ${surface === "window" ? "on" : ""}`} aria-pressed={surface === "window"} onClick={() => setSurface("window")} onDoubleClick={() => go({ kind: "window" })}>
               <span className="share-thumb"><span className="share-thumb-icon"><AppWindow size={40} /></span></span>
               <span className="share-name">Choose a window</span>
@@ -64,7 +91,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
               <span className="share-name">Browser tab</span>
             </button>}
           </>}
-          {tab === "monitor" && <button className="share-card on" onClick={() => go()} aria-label="Choose a screen">
+          {!nat && tab === "monitor" && <button className="share-card on" onClick={() => go()} aria-label="Choose a screen">
             <span className="share-thumb"><span className="share-thumb-icon"><Monitor size={40} /></span></span>
             <span className="share-name">Choose a screen</span>
           </button>}
@@ -78,7 +105,10 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
-        {tab !== "device" && <p className="muted small share-note">
+        {nat && tab !== "device" && natSel && <p className="muted small share-note">
+          {tab === "window" ? `Only ${natSel.app || "this app"}'s sound is shared.` : "Your computer's sound is shared, without SEND's own."} SEND's own window is left out.
+        </p>}
+        {!nat && tab !== "device" && <p className="muted small share-note">
           {tab === "window" ? (surface === "browser" ? "Your browser's picker opens with your tabs. A tab shares its own sound only, so the call never echoes." : "Your system's picker opens with your open windows.") : "Your system's picker opens with your screens."} SEND's own window is left out.
         </p>}
 
@@ -107,7 +137,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
             <span className="share-q-l">Share audio</span>
             <input type="checkbox" checked={st.audio} onChange={(e) => set({ audio: e.target.checked })} />
           </label>
-          {st.audio && tab !== "device" && !caps.tabAudio && <p className="muted small">This browser can't share sound from a screen.</p>}
+          {st.audio && tab !== "device" && !nat && !caps.tabAudio && <p className="muted small">This browser can't share sound from a screen.</p>}
         </div>}
 
         <div className="share-bar">

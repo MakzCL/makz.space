@@ -48,6 +48,26 @@
     onActivity: (cb) => on("activity", cb),
     flash: () => inv("flash"),
     setCaptureExcluded: (excluded) => inv("set_capture_excluded", { excluded: !!excluded }),
+    // SEND's own screen sharing: list screens/windows (with thumbnails) and stream one of them.
+    // onVideo gets JPEG frames (ArrayBuffer; an empty one means the window closed), onAudio 20 ms of 48 kHz stereo f32.
+    capture: Object.freeze({
+      sources: (thumbWidth) => inv("capture_sources", { thumbWidth: thumbWidth || 320 }),
+      start: async (source, options, onVideo, onAudio) => {
+        const chan = (cb) => {
+          const id = T.transformCallback((m) => { if (!m || m.end) return; try { cb(m.message, m.index); } catch (_) { /* listener error */ } });
+          return { id, arg: "__CHANNEL__:" + id };
+        };
+        const v = chan(onVideo), a = chan(onAudio || (() => {}));
+        try {
+          const id = await inv("capture_start", { source: String(source), options: options || {}, video: v.arg, audio: a.arg });
+          return {
+            id,
+            ack: () => inv("capture_ack", { id }).catch(() => {}),
+            stop: () => { inv("capture_stop", { id }).catch(() => {}); try { T.unregisterCallback(v.id); T.unregisterCallback(a.id); } catch (_) { /* gone */ } },
+          };
+        } catch (e) { try { T.unregisterCallback(v.id); T.unregisterCallback(a.id); } catch (_) { /* gone */ } throw e; }
+      },
+    }),
   });
 
   // Web notifications → native Windows toasts (WebView2's own notification support varies by runtime).

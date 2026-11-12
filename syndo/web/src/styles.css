@@ -2071,3 +2071,4 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .voice-invite-icon { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--textMuted); }
 .voice-invite-chev { margin-left: auto; opacity: .7; }
 .call-timer { margin-left: auto; font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ok, #23a55a); padding-left: 6px; flex: 0 0 auto; }
+.share-thumb.native img { width: 100%; height: 100%; object-fit: contain; background: #000; }

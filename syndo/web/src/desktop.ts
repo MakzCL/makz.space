@@ -34,6 +34,14 @@ export interface SENDDesktop {
   flash(): Promise<void>;
   /** Keep the SEND window out of screen captures (desktop 0.6.3+, Windows). */
   setCaptureExcluded?(excluded: boolean): Promise<boolean>;
+  /** SEND's own screen sharing (desktop 0.7+, Windows): see voice/nativeCapture.ts. */
+  capture?: NativeCaptureApi;
+}
+export interface NativeSource { id: string; kind: "screen" | "window"; name: string; app: string; thumb: string | null; width: number; height: number; primary: boolean }
+export interface NativeCaptureApi {
+  sources(thumbWidth?: number): Promise<NativeSource[]>;
+  start(source: string, options: { fps?: number; maxHeight?: number; quality?: number; audio?: boolean },
+    onVideo: (jpeg: ArrayBuffer) => void, onAudio: (pcm: ArrayBuffer) => void): Promise<{ id: number; ack(): void; stop(): void }>;
 }
 export const desktop: SENDDesktop | null = (window as any).sendDesktop ?? null;
 

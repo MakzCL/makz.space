@@ -10,6 +10,19 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-desktop-share",
+    title: "Screen sharing, built into the app",
+    date: "2026-11-12",
+    intro: "SEND for Windows 0.7 picks what to share itself — no more system pop-up.",
+    sections: [
+      { title: "Go Live", items: [
+        "See your open windows and screens with live previews, right in SEND.",
+        "Share a window and only that app's sound goes with it.",
+        "Share a screen and everything is heard except SEND itself, so there's no echo.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-emotes-box",
     title: "Emotes in the message box",
     date: "2026-11-12",
