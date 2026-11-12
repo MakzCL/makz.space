@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
-import { AudioLines, FolderOpen, Search } from "lucide-react";
+import { AudioLines, ChevronRight, FolderOpen, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -376,6 +376,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
   const voiceUsers = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id)));
+  const myVoice = useVoice((v) => v.channelId);
   // Who is talking right now — known for the channel I'm connected to.
   const speaking = useVoice(useShallow((v) => v.channelId !== c.id ? [] : [...Object.values(v.peers).filter((p) => p.speaking).map((p) => p.id), ...(v.localSpeaking ? ["@me"] : [])]));
   const myId = useStore((s) => s.me?.id);
@@ -395,6 +396,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
         {c.type === ChannelType.VOICE && c.voice_status
           ? <span className="side-ch-text"><span className="ellipsis">{c.name}</span><small className="side-voice-status ellipsis" title={c.voice_status}>{c.voice_status}</small></span>
           : <span className="ellipsis">{c.name}</span>}
+        {voiceUsers.length > 0 && <CallTimer since={Math.min(...voiceUsers.map((v) => v.joined_at ?? Date.now()))} />}
         {c.user_limit > 0 && isVoiceType(c.type) && <small className="muted">{voiceUsers.length}/{c.user_limit}</small>}
         {mentions > 0 && <span className="badge inline">{mentions}</span>}
       </button>
@@ -409,7 +411,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
                 onClick={e => setProfile({ id: v.user_id, el: e.currentTarget })}
                 onContextMenu={e => participantMenu(v.user_id, e.currentTarget, e)}
                 onKeyDown={e => contextMenuKey(e, () => participantMenu(v.user_id, e.currentTarget, e))}>
-              <span className={`voice-avatar ${speaking.includes(v.user_id === myId ? "@me" : v.user_id) ? "speaking" : ""}`}><Avatar user={users[v.user_id] ?? null} size={22} /></span>
+              <span className={`voice-avatar ${speaking.includes(v.user_id === myId ? "@me" : v.user_id) ? "speaking" : ""}`}><Avatar user={users[v.user_id] ?? null} size={24} /></span>
               <span className="ellipsis">{displayName(users[v.user_id])}</span>
               <SoundActivity userId={v.user_id} />
               {v.self_stream && <span className="live">LIVE</span>}
@@ -419,10 +421,25 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
               </button>
             </li>
           ))}
+          {myVoice === c.id && can(c, P.CREATE_INVITE) && <li>
+            <button className="voice-participant voice-invite" onClick={() => openDialog({ kind: "invite", guildId: guild.id, channelId: c.id })}>
+              <span className="voice-invite-icon" aria-hidden><UserPlus size={13} /></span><span className="ellipsis">Invite to Voice</span><ChevronRight size={15} className="voice-invite-chev" aria-hidden />
+            </button>
+          </li>}
         </ul>
       )}
     </>
   );
+}
+
+/** How long the call in a voice channel has been going (from the earliest person still in it), like Discord. */
+function CallTimer({ since }: { since: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  if (!Number.isFinite(since)) return null;
+  const s = Math.max(0, Math.floor((now - since) / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const text = h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+  return <time className="call-timer" aria-label={`Call going for ${text}`}>{text}</time>;
 }
 
 function useImageLoads(url: string | null | undefined) {

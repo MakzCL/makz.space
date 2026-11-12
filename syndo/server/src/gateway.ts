@@ -190,6 +190,7 @@ export async function setVoice(uid: string, sessionId: string, d: any): Promise<
     next.request_to_speak_at = same ? prev!.request_to_speak_at ?? null : null;
   }
   if (prev && prev.channel_id === ch.id && prev.activity_id) next.activity_id = prev.activity_id;
+  next.joined_at = prev && prev.channel_id === ch.id && prev.joined_at ? prev.joined_at : Date.now();
   voice.set(uid, next);
   await publishVoice(uid, prev && prev.channel_id !== next.channel_id ? prev : null, next);
   return null;

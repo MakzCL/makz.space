@@ -2059,3 +2059,15 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 /* Custom status under a member's name (same look as a voice channel's status) */
 .member-status { font-size: .72rem; font-weight: 500; color: var(--textMuted); margin-top: 1px; line-height: 1.25; }
 .member:hover .member-status { color: color-mix(in srgb, var(--text) 70%, transparent); }
+
+/* Voice channel members in the sidebar, sized like Discord's: 24px avatars, 32px rows, indented under the channel. */
+.voice-users { margin: 2px 0 6px 30px; }
+.voice-users li { padding: 0; font-size: .875rem; }
+.voice-participant { gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+.voice-participant > .ellipsis { flex: 1; min-width: 0; color: color-mix(in srgb, var(--text) 82%, transparent); }
+.voice-participant:hover > .ellipsis { color: var(--text); }
+.voice-participant svg { flex: 0 0 auto; color: var(--textMuted); }
+.voice-invite > .ellipsis { color: var(--textMuted); font-weight: 500; }
+.voice-invite-icon { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--textMuted); }
+.voice-invite-chev { margin-left: auto; opacity: .7; }
+.call-timer { margin-left: auto; font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ok, #23a55a); padding-left: 6px; flex: 0 0 auto; }

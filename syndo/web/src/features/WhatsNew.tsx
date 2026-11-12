@@ -19,6 +19,7 @@ export const CHANGELOG: Release[] = [
         "Emotes show as pictures while you type, not as codes.",
         "Backspace removes a whole emote at once.",
         "People's statuses show under their names in the member list.",
+        "Voice channels show a call timer and an Invite to Voice row, laid out like Discord.",
         "\"Jump to present\" disappears once you're back at the newest messages.",
       ] },
     ],

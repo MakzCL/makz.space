@@ -359,6 +359,8 @@ export interface VoiceState {
   activity_id?: string | null;
   /** Who it is (so clients can show the name/picture without loading the member list). */
   user?: User | null;
+  /** When they joined this channel (ms since epoch) — the call timer counts from the earliest one. */
+  joined_at?: number;
 }
 
 /** Operator-configurable limits, published to clients so nothing is hidden. Same for every user — there are no tiers. */

@@ -1,5 +1,12 @@
 # SEND changelog
 
+## 2026-11-12 — Voice channel sidebar like Discord
+
+- People in a voice channel use Discord's sizing: 24px avatars, 32px rows, indented under the channel.
+- **Invite to Voice** row under the people in the channel you're in (opens the invite dialog for that channel).
+- **Call timer** on the voice channel row, counting from the earliest person still in the call (voice states now
+  carry `joined_at`).
+
 ## 2026-11-12 — Statuses under names
 
 - **Custom statuses show under people's names in the member list**, small, like a voice channel's status (a
