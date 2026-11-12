@@ -10,6 +10,23 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-motion-voice",
+    title: "Smoother, with nicer voice messages",
+    date: "2026-11-12",
+    intro: "Little animations everywhere, and voice messages that look the part.",
+    sections: [
+      { title: "Voice messages", items: [
+        "Recording shows a live waveform, a timer and a pulsing dot — tap send when you're done, or the bin to throw it away.",
+        "Sent voice messages play in a SEND player with a waveform, never the plain browser one.",
+      ] },
+      { title: "Feel", items: [
+        "Buttons and icons react when you hover and click them.",
+        "Menus, pickers and pop-ups glide in instead of popping.",
+        "The + in the message box sits right in the middle of its circle.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-calls-layout",
     title: "Calls fit your window",
     date: "2026-11-11",

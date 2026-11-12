@@ -1,5 +1,18 @@
 # SEND changelog
 
+## 2026-11-12 — Motion, voice messages, centred +
+
+- **Voice message recording:** the message box becomes a recording bar — bin (cancel, also Esc), pulsing dot and
+  timer, live waveform scaled to your voice, and a send button that sends straight away (no confirm dialog).
+- **Sent voice messages** always use the SEND player in an accent-tinted pill with a waveform. Voice notes the
+  server had stored as `video/webm` (WebM sniffs as video) are shown as voice notes too; the server now keeps
+  them as audio (takes effect with the next backend deploy).
+- **Motion** (all off with reduced motion): icons lift on hover and squish on press, message-box icons have their
+  own wiggle/hop, the server rail morphs with a spring, menus/pickers/popovers/dialogs fade and scale in, badges and
+  call tiles pop in, people joining a voice channel slide in, reactions lift.
+- **The (+) in the message box** is centred in its circle (its 22px icon overflowed a 20px box).
+- Fixed a reduced-motion rule that used the wrong value and never applied.
+
 ## 2026-11-11 — Desktop 0.6.4
 
 - **Updates install again:** in 0.6.2 and 0.6.3 the green update button froze on the "Updating SEND" window.

@@ -1001,7 +1001,7 @@ video.viewer-media { cursor: default; }
   background: color-mix(in srgb, var(--bg0) 96%, #000); color: var(--text); box-shadow: 0 8px 24px #0007; animation: tip-in .1s ease-out; }
 @keyframes tip-in { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) { .viewer, .tooltip { animation: none; } }
-[data-motion="reduced"] .viewer, [data-motion="reduced"] .tooltip { animation: none; }
+[data-motion="reduce"] .viewer, [data-motion="reduce"] .tooltip { animation: none; }
 .ask-back { z-index: 13500; } .ask { width: min(440px, 100%); } .ask h2 { margin: 0 0 8px; font-weight: 800; } .pre-line { white-space: pre-line; }
 .ask .modal-f { display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -1934,3 +1934,84 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .tiles.focused .tile-strip { justify-content: safe center; }
 @media (max-width: 760px) { .stage .tiles .focus-area > .tile.big { flex: none; min-height: 0; aspect-ratio: var(--ar, 16 / 9); } }
 .stage .tiles:not(.focused) > .tile-grid { min-height: 0; }
+
+/* ======================= Motion: small, quick, Discord-like =======================
+   Hover lifts, presses squish, menus and popovers fade/scale in, badges pop. Uses the separate
+   `scale`/`translate`/`rotate` properties so it never fights an element's own `transform`.
+   Everything here is under [data-motion="full"]; reduced motion (setting or system) turns it off. */
+:root { --ease-spring: cubic-bezier(.34, 1.56, .64, 1); --ease-out: cubic-bezier(.2, .8, .2, 1); }
+
+/* The (+) in the message box: icon centred in its circle (the 22px icon used to overflow a 20px box). */
+.composer-plus { padding: 0 !important; display: inline-grid !important; place-items: center !important; }
+.composer-plus svg { display: block; width: 20px; height: 20px; }
+
+[data-motion="full"] .icon-btn svg, [data-motion="full"] .ctl svg, [data-motion="full"] .ctl-seg svg { transition: scale .18s var(--ease-spring), rotate .25s var(--ease-spring), translate .18s var(--ease-spring); }
+[data-motion="full"] .icon-btn:hover svg { scale: 1.1; }
+[data-motion="full"] .icon-btn:active svg, [data-motion="full"] .ctl:active svg, [data-motion="full"] .ctl-seg:active svg { scale: .86; transition-duration: .08s; }
+[data-motion="full"] .btn { transition: background .15s, color .15s, border-color .15s, scale .12s var(--ease-out), filter .15s; }
+[data-motion="full"] .btn:active:not(:disabled) { scale: .97; }
+
+/* Message box icons each have their own little move. */
+[data-motion="full"] .composer-plus:hover svg { rotate: 90deg; scale: 1.08; }
+[data-motion="full"] .composer-plus.active svg { rotate: 45deg; transform: none; }
+[data-motion="full"] .composer [aria-label="Emoji"]:hover svg { animation: m-wiggle .5s var(--ease-out); scale: 1.14; }
+[data-motion="full"] .composer [aria-label="GIFs"]:hover svg, [data-motion="full"] .composer [aria-label="Stickers"]:hover svg { animation: m-hop .45s var(--ease-out); }
+[data-motion="full"] .composer [aria-label="Record a voice message"]:hover svg { animation: m-hop .45s var(--ease-out); }
+[data-motion="full"] .composer [aria-label="Create a poll"]:hover svg { animation: m-bars .5s var(--ease-out); }
+[data-motion="full"] .composer [aria-label="Send"] { animation: m-pop .22s var(--ease-spring); }
+@keyframes m-wiggle { 0% { rotate: 0deg; } 25% { rotate: -14deg; } 55% { rotate: 10deg; } 80% { rotate: -4deg; } 100% { rotate: 0deg; } }
+@keyframes m-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -3px; } 70% { translate: 0 1px; } }
+@keyframes m-bars { 0%, 100% { scale: 1 1; } 40% { scale: 1 .8; } 70% { scale: 1 1.08; } }
+@keyframes m-pop { from { scale: .6; opacity: 0; } }
+
+/* Server rail: icon squircle morph with a little spring; the pill grows smoothly. */
+[data-motion="full"] .rail-item > button { transition: border-radius .22s var(--ease-out), background .15s, color .15s, scale .12s var(--ease-out); }
+[data-motion="full"] .rail-item > button:active { scale: .94; }
+[data-motion="full"] .rail-item .pill { transition: height .22s var(--ease-spring), opacity .15s; }
+
+/* Menus, pickers, popovers and dialogs come in instead of appearing. */
+@media (min-width: 761px) {
+  [data-motion="full"] .ctx-menu, [data-motion="full"] .picker, [data-motion="full"] .vol-pop, [data-motion="full"] .picker-pop,
+  [data-motion="full"] .profile-card, [data-motion="full"] .share-menu { animation: m-pop-in .14s var(--ease-out); transform-origin: top left; }
+  [data-motion="full"] .modal { animation: m-modal-in .2s var(--ease-out); }
+  [data-motion="full"] .modal-back { animation: m-fade .18s ease-out; }
+}
+@keyframes m-pop-in { from { opacity: 0; scale: .96; translate: 0 -4px; } }
+@keyframes m-modal-in { from { opacity: 0; scale: .94; } }
+@keyframes m-fade { from { opacity: 0; } }
+
+/* Reactions lift on hover; badges and new tiles pop. */
+[data-motion="full"] .reaction { transition: background .15s, border-color .15s, scale .15s var(--ease-spring); }
+[data-motion="full"] .reaction:hover { scale: 1.06; }
+[data-motion="full"] .reaction:active { scale: .94; }
+[data-motion="full"] .badge { animation: m-pop .25s var(--ease-spring); }
+[data-motion="full"] .voice-users li { animation: m-slide-in .2s var(--ease-out); }
+[data-motion="full"] .tile { animation: m-pop-in .2s var(--ease-out); }
+@keyframes m-slide-in { from { opacity: 0; translate: -6px 0; } }
+[data-motion="full"] .side-ch, [data-motion="full"] .side-dm { transition: background .12s, color .12s; }
+[data-motion="full"] .toggle-l input + * , [data-motion="full"] .switch { transition: background .18s, translate .18s var(--ease-spring); }
+
+/* Recording a voice message: the message box turns into a recording bar. */
+.rec-bar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 4px; height: 40px; }
+.rec-bar .rec-cancel { color: var(--textMuted); }
+.rec-bar .rec-cancel:hover { color: var(--brand-danger); background: color-mix(in srgb, var(--brand-danger) 14%, transparent); }
+.rec-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--brand-danger); box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-danger) 60%, transparent); }
+[data-motion="full"] .rec-dot { animation: rec-pulse 1.2s ease-out infinite; }
+@keyframes rec-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-danger) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
+.rec-time { flex: none; font-variant-numeric: tabular-nums; font-weight: 700; font-size: .9rem; min-width: 36px; color: var(--text); }
+.rec-wave { flex: 1; min-width: 0; height: 26px; display: flex; align-items: center; gap: 2px; overflow: hidden; }
+.rec-wave i { flex: 1 1 0; min-width: 2px; max-width: 4px; height: 12%; border-radius: 2px; background: var(--accent); transition: height .1s linear; }
+.rec-wave i.idle { background: color-mix(in srgb, var(--textMuted) 35%, transparent); }
+.rec-send { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: var(--accent); color: #fff; box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 45%, transparent); }
+.rec-send:hover { filter: brightness(1.1); }
+[data-motion="full"] .rec-bar { animation: m-pop-in .16s var(--ease-out); }
+[data-motion="full"] .rec-send:active { scale: .92; }
+
+/* Sent voice message: a tinted pill (not the browser's grey audio box). */
+.att-audio.voice { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--bg3)), color-mix(in srgb, var(--accent) 8%, var(--bg3))); border-color: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 2px 12px #0003; }
+.att-audio.voice .aud-play { box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 45%, transparent); }
+.att-audio.voice .wave i { border-radius: 3px; }
+[data-motion="full"] .aud-play { transition: scale .12s var(--ease-spring), filter .15s; }
+[data-motion="full"] .aud-play:active { scale: .9; }
+[data-motion="full"] .att-audio.playing .wave i.on { animation: none; }
+.composer-field[hidden] { display: none !important; }

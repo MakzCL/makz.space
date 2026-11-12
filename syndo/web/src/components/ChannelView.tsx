@@ -524,13 +524,33 @@ function AttachmentContent({ a, index }: { a: Message["attachments"][number]; in
     </button>
   );
   if (a.content_type.startsWith("video/")) return <video className="att-video" src={a.url} controls preload="metadata" />;
-  if (a.content_type.startsWith("audio/")) return (
+  const voiceNote = !!a.waveform || /^voice-message\./.test(a.filename);
+  if (a.content_type.startsWith("audio/") || (voiceNote && /^video\/(webm|mp4)/.test(a.content_type))) return (
     <AudioPlayer a={a} />
   );
   return (
     <a className="att-file" href={a.url} download={a.filename}>
       <FileIcon size={28} aria-hidden /><span><strong className="ellipsis block">{a.filename}</strong><small className="muted">{fmtBytes(a.size)}</small></span>
     </a>
+  );
+}
+
+/** Recording a voice message: cancel · pulsing dot + timer · live waveform · send. Escape cancels. */
+function RecordingBar({ levels, started, onCancel, onSend }: { levels: number[]; started: number; onCancel: () => void; onSend: () => void }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 100); return () => clearInterval(t); }, []);
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onCancel(); } }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onCancel]);
+  const secs = (Date.now() - started) / 1000;
+  const bars = levels.slice(-48);
+  const peak = Math.max(24, ...levels); // scale against the loudest moment so normal speech fills the bar
+  return (
+    <div className="rec-bar" role="group" aria-label="Recording a voice message">
+      <button className="icon-btn rec-cancel" onClick={onCancel} aria-label="Cancel recording" title="Cancel (Esc)"><Trash2 size={18} /></button>
+      <span className="rec-dot" aria-hidden />
+      <span className="rec-time" aria-live="off">{fmtClock(secs)}</span>
+      <div className="rec-wave" aria-hidden>{Array.from({ length: 48 }, (_, i) => { const v = bars[i - (48 - bars.length)]; return <i key={i} style={{ height: v === undefined ? undefined : `${Math.round(14 + 86 * Math.min(1, v / peak))}%` }} className={v === undefined ? "idle" : ""} />; })}</div>
+      <button className="rec-send" onClick={onSend} aria-label="Send voice message" title="Send"><SendHorizontal size={18} /></button>
+    </div>
   );
 }
 
@@ -546,6 +566,7 @@ function AudioPlayer({ a }: { a: Message["attachments"][number] }) {
   const [rate, setRate] = useState(1);
   const bars = useMemo(() => { try { return a.waveform ? [...atob(a.waveform)].map((c) => c.charCodeAt(0) / 255) : []; } catch { return []; } }, [a.waveform]);
   const voice = bars.length > 0 || a.filename.startsWith("voice-message.");
+  const barPeak = Math.max(0.08, ...bars); // loudest point = full height
   const frac = len > 0 ? Math.min(1, t / len) : 0;
   const toggle = () => {
     const el = ref.current!;
@@ -575,7 +596,7 @@ function AudioPlayer({ a }: { a: Message["attachments"][number] }) {
         {!voice && <strong className="ellipsis aud-name" title={a.filename}>{a.filename}</strong>}
         <div className={bars.length ? "wave" : "aud-bar"} role="slider" tabIndex={0} aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(len)} aria-valuenow={Math.round(t)} aria-valuetext={`${fmtClock(t)} of ${fmtClock(len)}`}
           onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); }} onPointerMove={(e) => { if (e.buttons === 1) seek(e); }} onKeyDown={onKey}>
-          {bars.length ? bars.map((b, i) => <i key={i} className={(i + 0.5) / bars.length <= frac ? "on" : ""} style={{ height: `${Math.max(12, b * 100)}%` }} />) : <span style={{ width: `${frac * 100}%` }} />}
+          {bars.length ? bars.map((b, i) => <i key={i} className={(i + 0.5) / bars.length <= frac ? "on" : ""} style={{ height: `${Math.round(16 + 84 * Math.min(1, b / barPeak))}%` }} />) : <span style={{ width: `${frac * 100}%` }} />}
         </div>
       </div>
       <span className="aud-time">{playing || t > 0 ? fmtClock(t) : fmtClock(len)}</span>
@@ -719,7 +740,7 @@ function Typing({ channelId, guildId }: { channelId: string; guildId: string | n
 function Composer({ channel, title, reply, onClearReply }: { channel: Channel; title: string; reply: Message | null; onClearReply: () => void }) {
   const [text, setText] = useState(() => sessionStorage.getItem(`send.draft.${channel.id}`) ?? "");
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
-  const [recording, setRecording] = useState<null | { rec: MediaRecorder; started: number; levels: number[] }>(null);
+  const [recording, setRecording] = useState<null | { rec: MediaRecorder; started: number; levels: number[]; cancelled: { v: boolean } }>(null);
   const limits = useStore((s) => s.limits);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileIn = useRef<HTMLInputElement>(null);
@@ -806,27 +827,26 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined);
-      const chunks: Blob[] = []; const levels: number[] = [];
+      const chunks: Blob[] = []; const levels: number[] = []; const cancelled = { v: false };
       const ctx = new AudioContext(); const an = ctx.createAnalyser(); ctx.createMediaStreamSource(stream).connect(an); an.fftSize = 256;
       const buf = new Uint8Array(an.frequencyBinCount);
       const timer = setInterval(() => { an.getByteTimeDomainData(buf); let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v - 128)); levels.push(Math.min(255, peak * 2)); }, 100);
       rec.ondataavailable = (e) => chunks.push(e.data);
       rec.onstop = async () => {
         clearInterval(timer); ctx.close(); stream.getTracks().forEach((t) => t.stop());
+        if (cancelled.v) return;
         const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
         const duration = (Date.now() - started) / 1000;
         if (duration < 0.5) return;
         const step = Math.max(1, Math.floor(levels.length / 64));
         const wf = btoa(String.fromCharCode(...levels.filter((_, i) => i % step === 0).slice(0, 64)));
         const file = new File([blob], `voice-message.${blob.type.includes("mp4") ? "m4a" : "webm"}`, { type: blob.type });
-        if (await askConfirm({ title: `Send this ${Math.round(duration)}s voice message?`, confirmLabel: "Send" })) {
-          const u = startUpload(channel.id, file, (x) => { update(x); if (x.status === "done") { sendMessage(channel.id, "", { attachment_ids: [x.id!] }); setUploads((l) => l.filter((y) => y.key !== x.key)); } }, { duration: duration.toFixed(1), waveform: wf });
-          void u;
-        }
+        // Pressing send in the recording bar sends it straight away (the trash button throws it away).
+        startUpload(channel.id, file, (x) => { update(x); if (x.status === "done") { sendMessage(channel.id, "", { attachment_ids: [x.id!] }); setUploads((l) => l.filter((y) => y.key !== x.key)); } }, { duration: duration.toFixed(1), waveform: wf });
       };
       const started = Date.now();
       rec.start(250);
-      setRecording({ rec, started, levels });
+      setRecording({ rec, started, levels, cancelled });
     } catch (e) { toast((await import("../voice/session.ts")).deviceError(e), "error"); }
   };
 
@@ -851,11 +871,14 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
       {mentions.popup}
       {slash.popup}
       <div className="composer">
-        {canAttach && <><button ref={plusBtn} className={`icon-btn composer-plus ${attach ? "active" : ""}`} aria-label="Add photos, videos or files" aria-expanded={attach} title="Add" onClick={() => setAttach((v) => !v)}><Plus size={22} /></button>
+        {canAttach && !recording && <><button ref={plusBtn} className={`icon-btn composer-plus ${attach ? "active" : ""}`} aria-label="Add photos, videos or files" aria-expanded={attach} title="Add" onClick={() => setAttach((v) => !v)}><Plus size={22} /></button>
           <input ref={fileIn} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} /></>}
         {attach && <AttachSheet anchor={plusBtn.current} onFiles={(f) => addFiles(f)} onClose={() => setAttach(false)} onCamera={() => setCamera(true)} onStickers={hasStickers ? () => setStickers(true) : undefined} />}
         {camera && <CameraCapture onCapture={(f) => { setCamera(false); addFiles([f]); }} onClose={() => setCamera(false)} />}
-        <div className="composer-field">
+        {recording && <RecordingBar levels={recording.levels} started={recording.started}
+          onCancel={() => { recording.cancelled.v = true; recording.rec.stop(); setRecording(null); }}
+          onSend={() => { recording.rec.stop(); setRecording(null); }} />}
+        <div className="composer-field" hidden={!!recording}>
         <textarea ref={ta} rows={1} value={text} placeholder={`Message ${title}`} aria-label={`Message ${title}`} maxLength={limits?.max_message_length} {...mentions.inputProps} onSelect={mentions.onSelect} onBlur={mentions.onBlur}
           onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping(channel.id); }}
           onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
@@ -871,9 +894,8 @@ function Composer({ channel, title, reply, onClearReply }: { channel: Channel; t
         <ComposerExtras channel={channel} onSendGif={(url) => sendMessage(channel.id, url, { reply_to: reply?.id })} />
         {stickers && <StickerPicker anchor={stickerBtn.current} guildId={channel.guild_id} onPick={(st) => { setStickers(false); sendMessage(channel.id, "", { sticker: st, reply_to: reply?.id }); onClearReply(); }} onClose={() => setStickers(false)} />}
         </div>
-        {recording ? <button className="icon-btn danger" aria-label="Stop recording" onClick={() => { recording.rec.stop(); setRecording(null); }}><Square size={18} /></button>
-          : canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
-        <button className={`icon-btn composer-send ${text.trim() || uploads.some((u) => u.status === "done") ? "ready" : ""}`} aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>
+        {!recording && canAttach && <button className="icon-btn" aria-label="Record a voice message" onClick={startRec}><Mic size={20} /></button>}
+        {!recording && <button className={`icon-btn composer-send ${text.trim() || uploads.some((u) => u.status === "done") ? "ready" : ""}`} aria-label="Send" onClick={submit}><SendHorizontal size={20} /></button>}
       </div>
       <div className="composer-meta muted small">
         {slow > 0 && <span>Slow mode: {slow}s</span>}

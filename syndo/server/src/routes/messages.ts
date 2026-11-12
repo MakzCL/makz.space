@@ -642,6 +642,8 @@ export async function messageRoutes(app: FastifyInstance) {
     const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
     const sniff = await fileTypeFromBuffer(head);
     let type = sniff?.mime ?? (/^text\/plain/.test(file.mimetype) && !head.includes(0) ? "text/plain" : "application/octet-stream");
+    // A voice message in a WebM/MP4 container sniffs as video; keep it audio when it is one.
+    if (/^video\/(webm|mp4)$/.test(type) && (/^audio\//.test(file.mimetype) || field("waveform"))) type = type.replace("video/", "audio/");
     if (!channel.guild_id && field("encrypted") === "1") type = "application/octet-stream";
     if (type === "image/svg+xml") type = "application/octet-stream"; // never render uploaded SVG
     const num = (v: string | undefined, max: number) => (v && /^\d+(\.\d+)?$/.test(v) ? Math.min(Number(v), max) : null);
@@ -683,6 +685,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const head = await new Promise<Buffer>((res, rej) => { const chunks: Buffer[] = []; storage.open(t.key, { start: 0, end: 4100 }).on("data", (c) => chunks.push(c as Buffer)).on("end", () => res(Buffer.concat(chunks))).on("error", rej); });
     const sniff = await fileTypeFromBuffer(head);
     let type = sniff?.mime ?? (!head.includes(0) && /\.(txt|md|log|csv)$/i.test(body.filename) ? "text/plain" : "application/octet-stream");
+    if (/^video\/(webm|mp4)$/.test(type) && (body.waveform || /^voice-message\./.test(body.filename ?? ""))) type = type.replace("video/", "audio/");
     if (type === "image/svg+xml") type = "application/octet-stream";
     const name = safeName(body.filename || "file");
     const num = (v: number | undefined, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(v, max) : null);
