@@ -110,7 +110,8 @@ pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBo
       }
     }
     std::thread::Builder::new().name("send-capture-video".into()).spawn(move || {
-      win::video_loop(target, fps, max_h, quality, &sess, &video);
+      // Windows Graphics Capture first (games, GPU apps, efficient); the GDI loop if it isn't available.
+      if !win::wgc::run(target, fps, max_h, quality, sess.clone(), video.clone()) { win::video_loop(target, fps, max_h, quality, &sess, &video); }
       SESSIONS.lock().unwrap().remove(&id);
     }).map_err(|e| e.to_string())?;
     Ok(id)
@@ -379,6 +380,83 @@ mod win {
       if next > now { std::thread::sleep(next - now); } else { next = now; }
     }
     sess.stop.store(true, Ordering::SeqCst);
+  }
+
+  /// Windows Graphics Capture (Windows 10 1903+), via the `windows-capture` crate: the same API Discord's and
+  /// OBS's window capture use. It captures games and GPU-drawn windows that GDI shows black, includes the
+  /// pointer, and only hands over frames when something changed (the last frame is resent once a second so
+  /// people joining mid-stream still get a picture).
+  pub mod wgc {
+    use super::*;
+    use std::sync::Mutex as StdMutex;
+    use windows_capture::capture::{Context, GraphicsCaptureApiHandler};
+    use windows_capture::frame::Frame;
+    use windows_capture::graphics_capture_api::InternalCaptureControl;
+    use windows_capture::monitor::Monitor as WcMonitor;
+    use windows_capture::settings::{ColorFormat, CursorCaptureSettings, DirtyRegionSettings, DrawBorderSettings, MinimumUpdateIntervalSettings, SecondaryWindowSettings, Settings};
+    use windows_capture::window::Window as WcWindow;
+
+    pub struct Shared { sess: Arc<Session>, ch: Channel<InvokeResponseBody>, period: Duration, max_h: u32, quality: u8, last: StdMutex<(Option<Vec<u8>>, Instant)>, closed: AtomicBool }
+
+    struct Handler { s: Arc<Shared>, next: Instant, scratch: Vec<u8> }
+
+    impl GraphicsCaptureApiHandler for Handler {
+      type Flags = Arc<Shared>;
+      type Error = Box<dyn std::error::Error + Send + Sync>;
+      fn new(ctx: Context<Self::Flags>) -> Result<Self, Self::Error> { Ok(Handler { s: ctx.flags, next: Instant::now(), scratch: Vec::new() }) }
+      fn on_frame_arrived(&mut self, frame: &mut Frame, control: InternalCaptureControl) -> Result<(), Self::Error> {
+        let s = &self.s;
+        if s.sess.stop.load(Ordering::SeqCst) { control.stop(); return Ok(()); }
+        let now = Instant::now();
+        if now < self.next || s.sess.inflight.load(Ordering::SeqCst) >= MAX_INFLIGHT { return Ok(()); }
+        self.next = now + s.period;
+        let (w, h) = (frame.width(), frame.height());
+        let buf = frame.buffer()?;
+        let px = buf.as_nopadding_buffer(&mut self.scratch);
+        let max_w = (s.max_h as u64 * 32 / 9) as u32;
+        let (scaled, sw, sh) = scale(px, w, h, max_w, s.max_h);
+        if let Some(j) = jpeg(&scaled, sw, sh, s.quality) {
+          s.sess.inflight.fetch_add(1, Ordering::SeqCst);
+          if s.ch.send(InvokeResponseBody::Raw(j.clone())).is_err() { s.sess.stop.store(true, Ordering::SeqCst); control.stop(); }
+          *s.last.lock().unwrap() = (Some(j), Instant::now());
+        }
+        Ok(())
+      }
+      fn on_closed(&mut self) -> Result<(), Self::Error> { self.s.closed.store(true, Ordering::SeqCst); Ok(()) }
+    }
+
+    /// Returns false when WGC couldn't start (then the caller uses GDI). Blocks until the share ends.
+    pub fn run(t: Target, fps: u32, max_h: u32, quality: u8, sess: Arc<Session>, ch: Channel<InvokeResponseBody>) -> bool {
+      let shared = Arc::new(Shared { sess: sess.clone(), ch: ch.clone(), period: Duration::from_micros(1_000_000 / fps as u64), max_h, quality, last: StdMutex::new((None, Instant::now())), closed: AtomicBool::new(false) });
+      let start = |border: DrawBorderSettings| -> Option<_> {
+        let interval = MinimumUpdateIntervalSettings::Custom(Duration::from_micros(1_000_000 / fps.max(1) as u64));
+        match t {
+          Target::Window(h) => Handler::start_free_threaded(Settings::new(WcWindow::from_raw_hwnd(h as *mut core::ffi::c_void), CursorCaptureSettings::WithCursor, border,
+            SecondaryWindowSettings::Include, interval, DirtyRegionSettings::Default, ColorFormat::Bgra8, shared.clone())).ok(),
+          Target::Screen(r, _) => {
+            let hmon = unsafe { MonitorFromPoint(windows::Win32::Foundation::POINT { x: r.left + 1, y: r.top + 1 }, MONITOR_DEFAULTTONEAREST) };
+            Handler::start_free_threaded(Settings::new(WcMonitor::from_raw_hmonitor(hmon.0), CursorCaptureSettings::WithCursor, border,
+              SecondaryWindowSettings::Default, interval, DirtyRegionSettings::Default, ColorFormat::Bgra8, shared.clone())).ok()
+          }
+        }
+      };
+      // No yellow border where Windows allows it (11); Windows 10 insists on one.
+      let Some(control) = start(DrawBorderSettings::WithoutBorder).or_else(|| start(DrawBorderSettings::Default)) else { return false };
+      while !sess.stop.load(Ordering::SeqCst) && !shared.closed.load(Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(100));
+        if let Target::Window(h) = t { if !unsafe { IsWindow(Some(HWND(h as _))) }.as_bool() { break; } }
+        // Nothing changed for a second: send the last picture again.
+        let mut last = shared.last.lock().unwrap();
+        if last.1.elapsed() >= Duration::from_secs(1) && sess.inflight.load(Ordering::SeqCst) < MAX_INFLIGHT {
+          if let Some(j) = last.0.clone() { sess.inflight.fetch_add(1, Ordering::SeqCst); if ch.send(InvokeResponseBody::Raw(j)).is_err() { break; } }
+          last.1 = Instant::now();
+        }
+      }
+      let _ = control.stop();
+      if !sess.stop.load(Ordering::SeqCst) { let _ = ch.send(InvokeResponseBody::Raw(Vec::new())); } // the window closed
+      sess.stop.store(true, Ordering::SeqCst);
+      true
+    }
   }
 
   pub mod audio {

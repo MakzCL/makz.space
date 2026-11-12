@@ -31,8 +31,10 @@
 - **Sound like Discord:** sharing a window sends only that app's sound; sharing a screen sends everything except
   SEND's own (Windows per-process loopback capture, Windows 10 2004+), so the call never echoes.
 - The browser version is unchanged (system picker). Desktop 0.6.x keeps working with the old picker.
-- Known limits: games in exclusive full-screen and some protected windows may capture black (window capture uses
-  `PrintWindow`); minimised windows aren't listed.
+- **Windows Graphics Capture** (`windows-capture` crate, the API Discord and OBS use) streams the window/screen:
+  games and GPU-drawn apps capture properly, the pointer is included, no yellow border on Windows 11, frames only
+  when something changes (the last one is resent each second for late joiners). GDI is the fallback (older
+  Windows) and still makes the picker thumbnails. Minimised windows aren't listed.
 
 ## 2026-11-12 — Voice channel sidebar like Discord
 
