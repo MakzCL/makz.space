@@ -59,7 +59,7 @@ export function roleOut(r: any): Role {
 export function channelOut(r: any, overwrites: any[] = [], extra: Partial<Channel> = {}): Channel {
   return {
     id: r.id, type: r.type, guild_id: r.guild_id, name: r.name, topic: r.topic, position: r.position, parent_id: r.parent_id,
-    nsfw: r.nsfw, rate_limit_per_user: r.rate_limit_per_user, bitrate: r.bitrate, user_limit: r.user_limit,
+    nsfw: r.nsfw, rate_limit_per_user: r.rate_limit_per_user, bitrate: r.bitrate, user_limit: r.user_limit, rtc_region: r.rtc_region ?? null,
     permission_synced: r.permission_synced, last_message_id: r.last_message_id, owner_id: r.owner_id ?? null,
     icon: mediaUrl(r.icon_key),
     banner: mediaUrl(r.banner_key),

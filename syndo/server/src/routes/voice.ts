@@ -71,7 +71,10 @@ export async function voiceRoutes(app: FastifyInstance) {
     ]);
     const speak = has(perms, P.SPEAK) && !member?.mute;
     const video = has(perms, P.VIDEO);
-    if (config.voiceMode === "mesh") return { provider: "mesh", ice_servers: await iceServers(), grants: { speak, video, vad: has(perms, P.USE_VAD) } };
+    // A voice channel set to the worldwide network uses Cloudflare's media servers (everyone connects to their
+    // nearest Cloudflare location); everything else connects people directly.
+    const global = channel.rtc_region === "global" && sfuConfigured();
+    if (config.voiceMode === "mesh" && !global) return { provider: "mesh", ice_servers: await iceServers(), grants: { speak, video, vad: has(perms, P.USE_VAD) } };
     if (sfuConfigured()) { const [p, ice] = await Promise.all([openSfu(me, req.session!.id, channel.id, u.display_name || u.username), iceServers()]); return { provider: "cloudflare", session: p.id, ice_servers: ice, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }
     const token = await mintToken({ userId: me, name: u.display_name || u.username, channelId: channel.id, speak, video });
     return {

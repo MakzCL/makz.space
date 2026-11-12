@@ -12,7 +12,7 @@ import { forbidden, notFound } from "./errors.ts";
  */
 export interface ChanRow {
   id: string; guild_id: string | null; type: number; parent_id: string | null; owner_id: string | null; name: string | null;
-  rate_limit_per_user: number; user_limit: number; bitrate: number; permission_synced: boolean; last_message_id: string | null;
+  rate_limit_per_user: number; user_limit: number; rtc_region?: string | null; bitrate: number; permission_synced: boolean; last_message_id: string | null;
   [k: string]: any;
 }
 

@@ -66,6 +66,13 @@ export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
     ...(textLike ? [{ label: "Mute channel", checked: muted, onSelect: () => setConversationMuted(c.id, !muted).catch((e) => toast(errMsg(e), "error")) } as MenuItem] : []),
     ...(can(c, P.MANAGE_CHANNELS) ? [sep,
       ...(c.type !== ChannelType.CATEGORY ? [{ label: "Change icon", onSelect: () => window.dispatchEvent(new CustomEvent("send:channel-icon", { detail: c.id })) } as MenuItem] : []),
+      // Voice network (Discord's "Region Override" slot): Cloudflare's worldwide media servers instead of direct calls.
+      ...(c.type === ChannelType.VOICE ? [{ label: "Worldwide voice network (beta)", checked: c.rtc_region === "global", onSelect: () => {
+        const on = c.rtc_region !== "global";
+        api.patch(`/api/channels/${c.id}`, { rtc_region: on ? "global" : null })
+          .then(() => toast(on ? "This channel now uses SEND's worldwide voice network. People already in the call switch when they rejoin." : "This channel now connects people directly.", "success"))
+          .catch((e) => toast(errMsg(e), "error"));
+      } } as MenuItem] : []),
       ...(c.type === ChannelType.CATEGORY ? [{ label: "Create channel", onSelect: () => openDialog({ kind: "createChannel", guildId: g.id, parentId: c.id }) } as MenuItem,
         ...(c.banner !== undefined ? [{ label: c.banner ? "Change banner" : "Add banner", onSelect: () => setChannelBanner(c) } as MenuItem] : []),
         ...(c.banner ? [{ label: "Remove banner", onSelect: () => removeChannelBanner(c) } as MenuItem] : [])] : []),

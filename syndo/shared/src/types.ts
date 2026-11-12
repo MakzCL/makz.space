@@ -96,6 +96,8 @@ export interface Channel {
   rate_limit_per_user: number;
   bitrate: number;
   user_limit: number;
+  /** Voice network: null = automatic (direct), "global" = Cloudflare's worldwide media network. */
+  rtc_region?: string | null;
   permission_overwrites: Overwrite[];
   permission_synced: boolean;
   last_message_id: string | null;

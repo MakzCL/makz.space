@@ -1,5 +1,14 @@
 # SEND changelog
 
+## 2026-11-12 — Worldwide voice network (beta)
+
+- **Voice channels can use Cloudflare's worldwide media network** (right-click a voice channel → "Worldwide voice
+  network (beta)", needs Manage Channels): everyone connects to their nearest Cloudflare location and Cloudflare
+  carries the call between them, so a call across countries stays low-latency and scales past a handful of people.
+  Other channels and DMs keep connecting people directly. Like Discord's region override, it's per channel.
+- Migration `009_voice_network.sql` (`channels.rtc_region`, null = automatic/direct, `global` = worldwide).
+- Desktop 0.7.0 also uses Windows Graphics Capture for sharing (see below).
+
 ## 2026-11-12 — Rearrange call tiles, pop-out calls, mute by click, ringing stops
 
 - **Drag call tiles to rearrange them**, like apps on a phone's home screen: pick one up and the others slide
