@@ -1,6 +1,8 @@
 import { useLayer } from "../layers.ts";
 import { ArrowLeft } from "lucide-react";
 import { CollectionArt } from "../appearance/CollectionArt.tsx";
+import { AvatarDecoration } from "../appearance/motion/MotionView.tsx";
+import { motionSupported } from "../appearance/motion/engine.ts";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -35,11 +37,14 @@ export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { u
   const presence = useStore((s) => (user ? (user.id === s.me?.id ? (s.me.status === "invisible" ? "invisible" : s.me.status) : s.presences[user.id] ?? "offline") : "offline"));
   const { theme, animate } = useCosmetics(plain ? null : user, serverTheme);
   const url = src ?? user?.avatar ?? null;
+  const [hover, setHover] = useState(false);
+  const motion = !!theme?.collection && size >= 24 && motionSupported();
   return (
-    <span className={`avatar ${decorClasses(theme, animate)}`} style={{ width: size, height: size, ...decorVars(theme) }}>
+    <span className={`avatar ${decorClasses(theme, animate)}`} style={{ width: size, height: size, ...decorVars(theme) }}
+      onMouseEnter={motion && animate ? () => setHover(true) : undefined} onMouseLeave={motion && animate ? () => setHover(false) : undefined}>
       {url ? <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
         : <span className="avatar-fallback" style={{ background: hue(user?.id ?? "0"), fontSize: size * 0.38 }} aria-hidden>{initials(user)}</span>}
-      {theme?.collection && <CollectionArt id={theme.collection} animate={animate} />}
+      {theme?.collection && (motion ? <AvatarDecoration id={theme.collection} size={size} live={animate && (size >= 64 || hover)} /> : <CollectionArt id={theme.collection} animate={animate} />)}
       {status !== undefined && status !== null && <StatusDot status={status || presence} size={Math.max(10, size * 0.3)} />}
     </span>
   );

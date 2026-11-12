@@ -1,3 +1,4 @@
+import palettes from "./motion/palettes.json";
 import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 const ORIGINAL_COLLECTIONS = [
   { id: "eclipse", name: "Lunar Eclipse", family: "Celestial", primary: "#B8DDF0", secondary: "#344F73", motif: "moon", description: "An eclipsed moon, silver craters and drifting celestial dust." },
@@ -14,11 +15,12 @@ const ORIGINAL_COLLECTIONS = [
   { id: "phantom", name: "Phantom Veil", family: "Dark", primary: "#D4D9E8", secondary: "#655C89", motif: "ghost", description: "A spectral ribbon winding through moonlit fragments." },
 ] as const;
 export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"|"badge"; source?:string; artRatio?:number; focusY?:number; artTitle?:string; motion?:string };
-export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>({id:c.id,name:c.name,family:c.category,primary:c.primary,secondary:c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
+export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
 export function collectionById(id: string | null | undefined) { return COLLECTIONS.find(c => c.id === id); }
 export function collectionTheme(c: Collection): ProfileTheme {
   return { ...DEFAULT_PROFILE_THEME, collection: c.id, primary: c.primary, secondary: c.secondary,
     ring: { style: "none", color: c.primary, speed: .5 }, nameStyle: "gradient", nameColor2: c.primary, nameGlow: 20,
     frame: "glass", entrance: "fade", bannerAnimation: "pan",
+    // Cards with WebGL2 draw the collection's own motion scene instead; these layers are the fallback.
     effects: [{ kind: ["sakura", "wisteria"].includes(c.id) || ["snow", "petals", "rain"].includes(c.motion??"") ? "snow" : c.motion === "tide" ? "aurora" : c.motion === "ember" ? "particles" : "sparkle", enabled: true, color: c.primary, intensity: 38, speed: .5, density: 15, loop: true, trigger: "always", duration: 8 }] };
 }

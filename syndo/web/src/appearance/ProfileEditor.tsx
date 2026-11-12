@@ -2,6 +2,8 @@ import { useCropUpload, type CropKind } from "../components/CropEditor.tsx";
 import { askConfirm, askText } from "../components/overlay.tsx";
 import { Select } from "../components/Select.tsx";
 import { CollectionArt } from "./CollectionArt.tsx";
+import { ProfileEffect } from "./motion/MotionView.tsx";
+import { motionSupported } from "./motion/engine.ts";
 import { Range } from "../components/Range.tsx";
 import { ArrowDown, ArrowUp, Plus, Trash2, Pencil } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
@@ -37,8 +39,8 @@ export function ProfileCardView({ d, serverTheme, statusDot }: { d: CardData; se
       style={t ? ({ "--pc1": t.primary, "--pc2": t.secondary } as React.CSSProperties) : undefined}>
       <div className={`pc-banner ${t && animate && t.bannerAnimation !== "none" ? `banner-${t.bannerAnimation}` : ""}`}
         style={d.banner ? { backgroundImage: `url(${d.banner})` } : { background: t ? `linear-gradient(135deg, ${t.primary}, ${t.secondary})` : d.user.accent_color ?? "var(--accent)" }} />
-      {t?.collection && <CollectionArt id={t.collection} frame animate={animate} />}
-      {t && t.effects.length > 0 && <EffectsLayer layers={t.effects} animate={animate} hovered={hover} />}
+      {t?.collection && (motionSupported() ? <ProfileEffect key={t.collection} id={t.collection} animate={animate} /> : <CollectionArt id={t.collection} frame animate={animate} />)}
+      {t && t.effects.length > 0 && !(t.collection && motionSupported()) && <EffectsLayer layers={t.effects} animate={animate} hovered={hover} />}
       <div className="pc-av"><Avatar user={d.user} size={80} status={statusDot ?? undefined} src={d.avatar} serverTheme={t} /></div>
       <div className="pc-body">
         <h2><StyledName theme={t} animate={animate}>{d.name}</StyledName></h2>

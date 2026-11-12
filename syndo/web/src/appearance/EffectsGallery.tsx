@@ -1,14 +1,33 @@
 import { Select } from "../components/Select.tsx";
 import { useAppearance } from "./store.ts";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { displayName, toast, useStore } from "../store.ts";
 import { Wordmark } from "../components/ui.tsx";
 import { CollectionArt } from "./CollectionArt.tsx";
+import { AvatarDecoration, ProfileEffect } from "./motion/MotionView.tsx";
+import { motionSupported } from "./motion/engine.ts";
 import { COLLECTIONS, collectionTheme } from "./collections.ts";
 import { CosmeticsEditor, ProfileCardView } from "./ProfileEditor.tsx";
 import { normalizeTheme } from "./effects.tsx";
+
+/** A tile's little profile card and avatar: still frames, coming alive while the tile is hovered or focused. */
+function TilePreview({ id, motion }: { id: string; motion: boolean }) {
+  const [live, setLive] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const tile = ref.current?.closest(".collection-tile"); if (!tile) return;
+    const on = () => setLive(true), off = () => setLive(false);
+    tile.addEventListener("pointerenter", on); tile.addEventListener("pointerleave", off); tile.addEventListener("focusin", on); tile.addEventListener("focusout", off);
+    return () => { tile.removeEventListener("pointerenter", on); tile.removeEventListener("pointerleave", off); tile.removeEventListener("focusin", on); tile.removeEventListener("focusout", off); };
+  }, []);
+  if (!motionSupported()) return <span ref={ref} style={{ display: "contents" }}><span className="collection-mini-card"><i/><span className="mini-lines"><b/><b/><b/></span><CollectionArt id={id} frame animate={motion} /></span><span className="collection-mini-avatar"><Wordmark/><CollectionArt id={id} animate={motion}/></span></span>;
+  return <span ref={ref} style={{ display: "contents" }}>
+    <span className="collection-mini-card motion"><ProfileEffect key={`${id}-${live}`} id={id} animate={motion && live} /><i/><span className="mini-lines"><b/><b/><b/></span></span>
+    <span className="collection-mini-avatar"><Wordmark/><AvatarDecoration id={id} size={76} live={motion && live} /></span>
+  </span>;
+}
 
 export function EffectsGallery({ initialGuild }: { initialGuild?: string }) {
   const motion = useAppearance(s => !s.resolved.reduceMotion && !s.global.data.a11y.lowPower && !s.device.a11y?.lowPower && !s.global.data.a11y.disableProfileEffects);
@@ -45,7 +64,7 @@ export function EffectsGallery({ initialGuild }: { initialGuild?: string }) {
       <div className="catalog-tools"><label className="field"><span className="field-l">Find your collection</span><input type="search" aria-label="Search profile collections" placeholder="Games, cars, films, a favourite world…" value={query} onChange={e=>{setQuery(e.target.value);setLimit(24);}}/></label><label className="field"><span className="field-l">Category</span><Select aria-label="Collection category" value={filter} onChange={e=>{setFilter(e.target.value);setLimit(24);}}>{["All",...new Set([...COLLECTIONS.map(c=>c.family),...PROFILE_CATALOG.map(c=>c.category)])].map(f=><option key={f}>{f}</option>)}</Select></label></div>
       <p className="catalog-count" role="status">{matches.length} collections ready to preview</p>
       <div className="collection-grid">{matches.slice(0,limit).map(c=><button key={c.id} className={`collection-tile ${theme.collection===c.id?"selected":""}`} aria-pressed={theme.collection===c.id} aria-label={`Preview ${c.name}`} onClick={()=>setTheme(collectionTheme(c))} style={{"--collection-color":c.primary,"--collection-shadow":c.secondary} as CSSProperties}>
-        <span className={`collection-scene scene-${c.artKind??"original"}`}>{c.art&&<img className="collection-cover" src={c.art} alt="" loading="lazy" decoding="async"/>}<span className="collection-halo"/><span className="collection-mini-card"><i/><span className="mini-lines"><b/><b/><b/></span><CollectionArt id={c.id} frame animate={motion} /></span><span className="collection-mini-avatar"><Wordmark/><CollectionArt id={c.id} animate={motion}/></span><span className="collection-edition">{c.family}</span></span>
+        <span className={`collection-scene scene-${c.artKind??"original"}`}>{c.art&&<img className="collection-cover" src={c.art} alt="" loading="lazy" decoding="async"/>}<span className="collection-halo"/><TilePreview id={c.id} motion={motion}/><span className="collection-edition">{c.family}</span></span>
         <span className="collection-caption"><strong>{c.name}</strong><span>{theme.collection===c.id?"In preview":"Explore collection"}<span aria-hidden="true"> ↗</span></span></span>
       </button>)}</div>
       {limit<matches.length&&<button className="btn catalog-more" onClick={()=>setLimit(limit+24)}>Show 24 more</button>}

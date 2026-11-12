@@ -2124,3 +2124,20 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .ctl-mini { width: 40px; height: 40px; color: color-mix(in srgb, var(--text) 80%, transparent); }
 .ctl-mini:hover { color: var(--text); }
 @media (max-width: 760px) { .ctl-side { display: none; } }
+
+/* SEND Motion: collection profile effects and avatar decorations */
+.pcv > .motion-back, .pcv > .motion-front, .pcv > .motion-still, .collection-mini-card > .motion-back, .collection-mini-card > .motion-front, .collection-mini-card > .motion-still { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; border-radius: inherit; }
+.pcv > .motion-back, .collection-mini-card > .motion-back { z-index: 0; }
+.pcv > .motion-front, .pcv > .motion-still, .collection-mini-card > .motion-front, .collection-mini-card > .motion-still { z-index: 3; }
+.pcv > .motion-still { z-index: 0; }
+.avatar > .motion-deco { position: absolute; inset: -20%; width: 140%; height: 140%; z-index: 2; pointer-events: none; }
+.avatar > .motion-deco.under { z-index: 1; opacity: 0; }
+.collection-mini-card.motion { overflow: hidden; }
+.collection-mini-card.motion > i, .collection-mini-card.motion > .mini-lines { position: relative; z-index: 1; }
+.collection-mini-card.motion > i { opacity: .55; }
+.collection-mini-avatar > .motion-deco { position: absolute; inset: -20%; width: 140%; height: 140%; pointer-events: none; }
+/* Profile effects: a full-size live preview, like the shop's */
+.effects-workbench { grid-template-columns: 300px 1fr; gap: 32px; }
+.effects-showcase { width: 300px; height: auto; }
+.effects-showcase .pcv { width: 300px; min-height: 400px; transform: none; }
+@media (max-width: 860px) { .effects-workbench { grid-template-columns: 1fr; } .effects-showcase { margin: auto; } }
