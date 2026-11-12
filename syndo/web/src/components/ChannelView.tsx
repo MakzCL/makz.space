@@ -4,7 +4,7 @@ import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { MoreHorizontal,
-  AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, Paperclip, Pencil, Plus, Phone, Pin, PinOff,
+  AtSign, Bookmark, BookmarkCheck, Copy, CornerUpLeft, File as FileIcon, Hash, Link2, MicOff, Paperclip, Pencil, Plus, Phone, Pin, PinOff,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -111,6 +111,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
         <div className="ch-title" onClick={() => { if (isPhone() && (guildId || channel.type === ChannelType.GROUP_DM)) setPanel(panel === "members" ? null : "members"); }}>
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label — only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {guildId && <OnlineCount guildId={guildId} />}
+        {isDm && <DmVoiceBadge channelId={channel.id} />}
         </div>
         {isThreadType(channel.type) && <ThreadHeader channel={channel} />}
         {channel.topic && <span className="topic ellipsis" title={channel.topic}>{channel.topic}</span>}
@@ -210,6 +211,12 @@ function DmCall({ channel }: { channel: Channel }) {
   </div>;
 }
 
+/** Discord's green "In voice" next to a DM's name while a call is going on in it. */
+function DmVoiceBadge({ channelId }: { channelId: string }) {
+  const n = useStore((s) => Object.values(s.voice).filter((v) => v.channel_id === channelId).length);
+  return n ? <span className="dm-voice-badge" role="status"><Volume2 size={15} aria-hidden /> In voice</span> : null;
+}
+
 /** A call going on in this conversation that I'm not in (Discord's "Ongoing call" bar): who's there, how long, Join. */
 function OngoingCall({ channel }: { channel: Channel }) {
   const states = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === channel.id)));
@@ -223,9 +230,18 @@ function OngoingCall({ channel }: { channel: Channel }) {
   const dur = h ? `${h}:${String(m).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}` : `${m}:${String(sec % 60).padStart(2, "0")}`;
   return (
     <div className="ongoing-call" role="region" aria-label="Ongoing call">
-      <div className="ongoing-avatars">{states.slice(0, 6).map((v) => <span key={v.user_id} className="ongoing-av" title={displayName(users[v.user_id])}><Avatar user={users[v.user_id] ?? v.user ?? null} size={44} />{v.self_stream && <span className="live">LIVE</span>}</span>)}{states.length > 6 && <span className="ongoing-more">+{states.length - 6}</span>}</div>
-      <div className="ongoing-text"><strong>Ongoing call</strong><span className="muted small">{states.length} {states.length === 1 ? "person" : "people"} · <time>{dur}</time></span></div>
-      <button className="btn ongoing-join" onClick={() => joinVoice(channel.id)}><Phone size={16} /> Join call</button>
+      <div className="ongoing-avatars">{states.slice(0, 8).map((v) => (
+        <span key={v.user_id} className="ongoing-av" title={displayName(users[v.user_id] ?? v.user ?? undefined)}>
+          <Avatar user={users[v.user_id] ?? v.user ?? null} size={80} />
+          {(v.self_mute || v.server_mute) && <span className="ongoing-muted" aria-label="muted"><MicOff size={14} /></span>}
+          {v.self_stream && <span className="live">LIVE</span>}
+        </span>))}
+        {states.length > 8 && <span className="ongoing-more">+{states.length - 8}</span>}
+      </div>
+      <div className="ongoing-actions">
+        <button className="btn ongoing-join" onClick={() => joinVoice(channel.id)}><Phone size={18} /> Join Call</button>
+        <span className="ongoing-meta">{states.length} in the call · <time>{dur}</time></span>
+      </div>
     </div>
   );
 }

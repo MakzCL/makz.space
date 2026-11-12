@@ -2,8 +2,8 @@
 
 ## 2026-11-12 — Ongoing calls in DMs and group DMs
 
-- **See calls you're not in:** the conversation list shows "In a call · N" with a green phone, and the
-  conversation shows an "Ongoing call" bar (who's there, how long, LIVE if someone's streaming, Join call).
+- **See calls you're not in:** the conversation list shows "In a call · N" with a green phone, the header says "In voice",
+  and the conversation opens with a dark call strip like Discord's (big avatars, mute and LIVE marks, Join Call, time).
 - The "Join / Decline" strip now only shows to people actually being rung (it used to say "Ringing…" to everyone).
 
 ## 2026-11-12 — Advanced noise suppression (DeepFilterNet3)
