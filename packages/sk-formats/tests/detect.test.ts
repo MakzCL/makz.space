@@ -42,11 +42,12 @@ test("without a decompressor the zipped CDR is still recognised, with no version
 test("CDR version characters follow libcdr: ' ' = 3, '7' = 7, 'E' = 14, 'N' = 23", () => {
   assert.equal(cdrVersionFromChar(0x20), 3); assert.equal(cdrVersionFromChar(0x37), 7); assert.equal(cdrVersionFromChar(0x45), 14); assert.equal(cdrVersionFromChar(0x4e), 23); assert.equal(cdrVersionFromChar(0x30), null);
 });
-test("routing: SVG → TROTAN, DXF → CADRA (TROTAN also reads it), CDR recognised but no reader yet, unknown → nowhere", async () => {
+test("routing: SVG → TROTAN, DXF → CADRA (TROTAN also reads it), CDR → TROTAN (partial import), CMX recognised but no reader yet, unknown → nowhere", async () => {
   const reg = defaultRegistry();
   assert.equal(routeFor(await det("min.svg"), reg).app, "trotan");
   const dxf = await det("r2018.dxf"); assert.equal(routeFor(dxf, reg).app, "cadra"); assert.deepEqual(reg.readersFor(dxf).map((a) => a.app).sort(), ["cadra", "trotan"]);
-  const cdr = routeFor(await det("corel-x5-stored.cdr"), reg); assert.equal(cdr.adapter, null); assert.match(cdr.reason, /no SK Suite application can read it yet/);
+  const cdr = routeFor(await det("corel-x5-stored.cdr"), reg); assert.equal(cdr.app, "trotan"); assert.equal(cdr.adapter?.read, "partial-import");
+  const cmx = routeFor(await det("corel.cmx"), reg); assert.equal(cmx.adapter, null); assert.match(cmx.reason, /no SK Suite application can read it yet/);
   assert.equal(routeFor(await det("noise.xyz"), reg).app, null);
 });
 test("every adapter claiming more than 'unsupported' names the tests behind the claim (except declared untested CSV)", () => {

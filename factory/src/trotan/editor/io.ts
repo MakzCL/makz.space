@@ -7,12 +7,13 @@ import { I, uid, type Doc, type Layer, type Mat, type Obj } from "../geom/core";
 import { readProject, writeProject, type ProjectFile } from "../geom/project";
 import { drawDoc, LIGHT } from "./render";
 import { detect, defaultRegistry, type Detection } from "../../../../packages/sk-formats/src/index.ts";
+import { cdrToImport } from "../geom/cdr";
 
 export const IMPORT_FORMATS = [
   { ext: ".svg,.svgz", label: "SVG / SVGZ", ok: true }, { ext: ".dxf", label: "DXF (R12–2018 ASCII)", ok: true },
   { ext: ".png", label: "PNG", ok: true }, { ext: ".jpg,.jpeg", label: "JPEG", ok: true }, { ext: ".bmp", label: "BMP", ok: true }, { ext: ".gif", label: "GIF (first frame)", ok: true }, { ext: ".webp", label: "WebP", ok: true },
   { ext: ".trotan", label: "TROTAN project", ok: true },
-  { ext: ".cdr,.cdt", label: "CorelDRAW CDR — recognised with its version; import coming next", ok: false },
+  { ext: ".cdr,.cdt", label: "CorelDRAW CDR / CDT (CorelDRAW 4 – X5 verified; shapes, groups, outlines, solid fills — not text or bitmaps yet)", ok: true },
   { ext: ".cmx", label: "Corel CMX — recognised; import coming with CDR", ok: false },
   { ext: ".pdf,.ai", label: "PDF / Illustrator — recognised; vector import planned", ok: false },
   { ext: ".eps", label: "EPS — recognised; not supported (save as SVG or PDF)", ok: false },
@@ -55,6 +56,13 @@ export async function importFile(f: File, engraveLayer: Layer | undefined): Prom
     case "svg": return vector(await inWorker("svg", text(bytes)));
     case "svgz": return vector(await inWorker("svg", text(await inflate(bytes, MAX_BYTES * 4, "gzip"))));
     case "dxf": return vector(await inWorker("dxf", text(bytes)));
+    case "cdr": case "cdt": {
+      // the CorelDRAW reader (MPL-2.0, ported from libcdr) is loaded only when a CorelDRAW file is opened
+      const { readCdr } = await import("../../../../packages/sk-formats/src/cdr.ts");
+      // built-in decompression: browser decoders drop output when CorelDRAW pads a compressed section
+      const doc = await readCdr(bytes).catch((e: Error) => { throw new Error(`${f.name}: ${e.message} Nothing was imported.`); });
+      return vector(cdrToImport(doc));
+    }
     case "trotan-project": return { kind: "project", project: readProject(text(bytes)), detection: d };
     case "png": case "jpeg": case "bmp": case "gif": case "webp": { const r = await importImage(f, engraveLayer); return { ...r, warnings: [...named, ...r.warnings], detection: d } as Imported; }
   }

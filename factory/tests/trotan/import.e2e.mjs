@@ -1,5 +1,5 @@
 // TROTAN import by content (SK Suite file-format SDK): SVGZ/GIF/WebP import, a renamed PNG is read as PNG with a note,
-// a real CorelDRAW X5 file is recognised with its version and refused precisely, random bytes are refused, and an SVG
+// a real CorelDRAW X5 file is imported at true size, a CorelDRAW 3 file is refused with the reason, random bytes are refused, and an SVG
 // with text shows the review dialog (Cancel leaves the design unchanged; Import adds the shapes). Mocked backend.
 // Run: npm run build && npx vite preview --port 4173 &  then  node tests/trotan/import.e2e.mjs
 import { createRequire } from "node:module"; import assert from "node:assert/strict"; import fs from "node:fs"; import zlib from "node:zlib"; import path from "node:path";
@@ -24,12 +24,17 @@ try {
   // 3 renamed PNG
   await put("logo.cdr", fs.readFileSync(path.join(FX, "img.png"))); await p.getByText("Placed logo.cdr").waitFor();
   step("a PNG renamed to logo.cdr was identified by its content and placed as an image");
-  // 4 real CorelDRAW X5 file: recognised precisely, refused honestly, design unchanged
-  const before = await p.evaluate(() => document.querySelectorAll("[data-testid=objects] li, .t-objects li").length);
-  await put("fdo65220.cdr", fs.readFileSync(path.join(FX, "corel-x5-stored.cdr")));
-  const err = p.getByText(/fdo65220\.cdr is a CorelDRAW drawing \(CDR 15 \(CorelDRAW X5\)\) file\..*Nothing was imported\./); await err.waitFor();
-  assert.equal(await p.evaluate(() => document.querySelectorAll("[data-testid=objects] li, .t-objects li").length), before);
-  step("real CorelDRAW X5 file recognised with its version; TROTAN says CDR import comes next and imports nothing");
+  // 4 real CorelDRAW X5 file: imported at true size (positions verified against libcdr in packages/sk-formats)
+  await put("fdo65220.cdr", fs.readFileSync(path.join(FX, "corel-x5-stored.cdr"))); await p.getByText(/Imported 5 objects from fdo65220\.cdr/).waitFor();
+  assert.match(await status(), /184\.63 × 179\.20 mm/);
+  await p.getByText("Layers", { exact: true }).first().click();
+  const layerNames = await p.locator("input").evaluateAll((els) => els.map((e) => e.value)); assert.ok(layerNames.includes("Line #000000"), layerNames.join(", "));
+  step("real CorelDRAW X5 file imported: 5 rectangles, 184.63 × 179.20 mm as in CorelDRAW, black outlines on a cut layer");
+  // 4b a CorelDRAW 3 file is refused with the reason, nothing imported
+  const statusCdr = await status();
+  await put("old.cdr", Buffer.concat([Buffer.from("RIFF"), Buffer.from([4, 0, 0, 0]), Buffer.from("CDR ")]));
+  await p.getByText(/old\.cdr: CorelDRAW 3 files are not supported yet.*Nothing was imported\./).waitFor(); assert.equal(await status(), statusCdr);
+  step("a CorelDRAW 3 file is refused with the reason; the design is unchanged");
   // 5 random bytes
   await put("mystery.cdr", fs.readFileSync(path.join(FX, "noise.xyz"))); await p.getByText(/mystery\.cdr: not a file TROTAN recognises/).waitFor();
   step("random bytes named .cdr are refused, not guessed");

@@ -119,7 +119,7 @@ We have no CorelDRAW licence and have not run CorelDRAW. No Corel code, icons, b
 | Object manager (layers and objects panel) | Layers panel with operations; objects listed | IMPLEMENTED | — |
 | Save, autosave, revisions, recovery copy | Yes | VERIFIED | e2e step 7 |
 | Import by content detection, with a review of losses | New in this cycle | VERIFIED | `import.e2e.mjs`, `packages/sk-formats` tests |
-| Open CorelDRAW CDR/CDT/CMX | Recognised with version; import not built | IN DEVELOPMENT | `packages/sk-formats/tests/detect.test.ts` |
+| Open CorelDRAW CDR/CDT | Shapes, groups, layers, transforms, solid fills and outlines import as editable vectors (CorelDRAW 5–X5 verified against libcdr: 781/781 shapes). Text, bitmaps, gradients and spot colours are counted and listed, not imported. CMX is recognised only. | PARTIAL (VERIFIED for what is imported) | `packages/sk-formats/docs/CDR_IMPORT_VERIFICATION.md`, `tests/cdr.test.ts`, `import.e2e.mjs` |
 | PDF / AI / EPS import | Recognised; import not built | NOT STARTED | — |
 | SVG / SVGZ / DXF import and export | Yes | VERIFIED | `geom.test.ts`, `import.e2e.mjs` |
 | PDF export | — | NOT STARTED | — |
@@ -136,6 +136,6 @@ The biggest gaps against CorelDRAW are:
 2. typography;
 3. pages;
 4. tracing;
-5. CorelDRAW file import.
+5. CorelDRAW text, bitmaps and fills on import. Geometry import is done for CorelDRAW 5–X5; X6–2024 need real files to verify.
 
 The next milestones address these in that dependency order; see `REGRESSION_TESTS.md` and the CHANGELOG.

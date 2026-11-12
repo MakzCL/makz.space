@@ -184,3 +184,22 @@ test("coordinate accuracy: transforms stay exact to 1e-9 mm over 1000 operations
   const p = apply(m, [100, 0]); // 360° total
   near(p[0], 100, 1e-9); near(p[1], 0, 1e-9);
 });
+
+// ---- CorelDRAW import (reader: packages/sk-formats/src/cdr.ts, verified against libcdr there)
+import { readCdr } from "../../../packages/sk-formats/src/cdr";
+import { cdrToImport } from "../../src/trotan/geom/cdr";
+import { readFileSync } from "node:fs";
+
+test("CorelDRAW X5 → TROTAN: real size, one layer per outline colour, positions in mm", async () => {
+  const bytes = new Uint8Array(readFileSync(new URL("../../packages/sk-formats/tests/fixtures/corel-x5-stored.cdr", import.meta.url) /* resolved from the bundled tests/.trotan-geom.mjs */));
+  const doc = await readCdr(bytes);
+  const r = cdrToImport(doc);
+  near(r.width, 210, 1e-6, "A4 width"); near(r.height, 297, 1e-6, "A4 height");
+  assert.equal(r.objects.length, 5);
+  assert.equal(r.layers.length, 1, "all five have a black outline → one Line layer");
+  assert.equal(r.layers[0].color, "#000000"); assert.equal(r.layers[0].op, "cut");
+  const b = boxOfPaths((r.objects[0] as { paths: SubPath[] }).paths)!;
+  near(b.x, 58.5649 * 25.4 / 72, 1e-3, "x"); near(b.y, 100.1565 * 25.4 / 72, 1e-3, "y");
+  assert.match(r.warnings[0], /CorelDRAW X5/);
+  assert.ok(!r.warnings.some((w) => w.startsWith("Skipped")), "nothing skipped in this file");
+});
