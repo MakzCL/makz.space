@@ -447,7 +447,7 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!ids.length) return;
     const atts = await q<any>("select storage_key from attachments where message_id = any($1::bigint[])", [ids]);
     await tx(async (c) => {
-      await c.query("update messages set deleted_at = now(), content = '', pinned = false where id = any($1::bigint[])", [ids]);
+      await c.query("update messages set deleted_at = now(), content = '', pinned = false, embeds = '[]'::jsonb, snapshot = null where id = any($1::bigint[])", [ids]);
       await c.query("delete from attachments where message_id = any($1::bigint[])", [ids]);
       await c.query("delete from reactions where message_id = any($1::bigint[])", [ids]);
       await c.query("delete from saved_messages where message_id = any($1::bigint[])", [ids]);

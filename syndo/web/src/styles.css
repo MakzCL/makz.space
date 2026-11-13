@@ -2317,3 +2317,8 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .ch-sub svg { display: none; }
 }
 .stage .call-controls [aria-label="Activities"] { } @media (max-width: 760px) { .stage .call-controls [aria-label="Activities"] { display: none !important; } } @media (max-width: 400px) { .stage .call-controls .ctl, .stage .call-controls .ctl-seg { width: 46px; height: 46px; } .stage .call-controls .hang-up { width: 66px !important; } }
+.report-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0 14px; }
+.report-reason { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); cursor: pointer; font-size: .92rem; }
+.report-reason.on { background: color-mix(in srgb, var(--danger, #f23f43) 22%, transparent); }
+@media (max-width: 760px) { .report-reasons { grid-template-columns: 1fr; } .report-reason { min-height: 46px; } }
+.auth-legal { font-size: .78rem; color: var(--textMuted); margin: 10px 0 0; line-height: 1.45; } .auth-legal a { color: var(--link, #00a8fc); }

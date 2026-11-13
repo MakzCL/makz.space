@@ -25,6 +25,7 @@ import { Avatar, fmtBytes, fmtTime, MobileNavButton } from "./ui.tsx";
 import { MoreVertical, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { ProfileCard } from "./Dialogs.tsx";
 import { ChannelInfo } from "../mobile/ChannelInfo.tsx";
+import { openReport } from "../features/Report.tsx";
 import { usePhone } from "../mobile.ts";
 import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuItem } from "./overlay.tsx";
 import { copy, developerMode, userMenuItems } from "./menus.tsx";
@@ -453,6 +454,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
         if (!encrypted) items.push({ label: "Copy image link", onSelect: () => copy(new URL(url, location.href).href, "Link copied") }, { label: "Open image", onSelect: () => window.open(url, "_blank", "noopener,noreferrer") });
       } else if (link) items.push(sep, { label: "Copy link", onSelect: () => copy(link.href, "Link copied") }, { label: "Open link", onSelect: () => window.open(link.href, "_blank", "noopener,noreferrer") });
       if (mine || canManage) items.push(sep, { label: "Delete message", danger: true, hint: "Shift+click", onSelect: () => del() });
+      if (!mine) items.push(sep, { label: "Report message", danger: true, onSelect: () => openReport({ type: "message", id: m.id, channelId: channel.id, guildId, label: "message", evidence: { content: (m.content ?? "").slice(0, 4000), author_id: m.author.id, author_name: displayName(m.author), attachments: (m.attachments ?? []).map((a) => a.filename).slice(0, 10) } }) });
       if (developerMode()) items.push(sep, { label: "Copy message ID", onSelect: () => copy(m.id, "ID copied") });
     }
     openContextMenu(e, items);

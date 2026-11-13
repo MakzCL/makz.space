@@ -91,6 +91,7 @@ export function Register() {
         </Field>
         <Field label="Password" hint="At least 8 characters." error={e("password")}><input type="password" value={f.password} onChange={up("password")} minLength={8} required autoComplete="new-password" /></Field>
         <button className="btn primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
+        <p className="auth-legal">By creating an account, you agree to SEND's <a href="https://send.makz.space/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="https://send.makz.space/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>, and confirm you are at least 13 years old.</p>
         <p className="muted small">Already have an account? <button type="button" className="link" onClick={() => navigate("/login" + location.search)}>Sign in</button></p>
       </form>
     </Card>

@@ -141,3 +141,32 @@ p { margin: 0 0 1em; color: var(--muted); }
 /* Zoom in on the voice channel list and the stream in the "hop in" shot */
 .feature-shot.crop { aspect-ratio: 4 / 3; }
 .feature-shot.crop img { width: 100%; height: 100%; object-fit: cover; object-position: 8% 30%; scale: 1.35; transform-origin: 18% 40%; }
+
+/* ---- company & policy pages ---- */
+.doc { max-width: 860px; margin: 0 auto; padding: clamp(40px, 7vw, 80px) 24px 80px; }
+.doc h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.05; margin: 0 0 12px; }
+.doc h2 { font-size: 1.45rem; margin: 2.2em 0 .6em; scroll-margin-top: 90px; } .doc h3 { font-size: 1.12rem; margin: 1.4em 0 .4em; }
+.doc p, .doc li { color: var(--muted); } .doc li { margin: .35em 0; } .doc strong { color: var(--text); }
+.doc a { color: #8FB0FF; } .doc .btn { color: inherit; text-decoration: none; margin: 4px 6px 4px 0; }
+.doc .btn-brand { color: #fff; } .doc .lead { font-size: 1.2rem; color: #C9D1E4; }
+.doc-meta { color: var(--faint); font-size: .95rem; }
+.doc-toc { background: var(--bg2); border: 1px solid #ffffff12; border-radius: 18px; padding: 18px 22px; margin: 26px 0; } .doc-toc ol { columns: 2; margin: 0; padding-left: 20px; } .doc-toc li { break-inside: avoid; }
+.doc-table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: .95rem; } .doc-table th, .doc-table td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #ffffff14; } .doc-table th { color: var(--text); }
+.doc-scroll { max-height: 70vh; overflow: auto; border: 1px solid #ffffff12; border-radius: 14px; }
+.doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 26px 0; } .doc-cards > div { background: var(--bg2); border: 1px solid #ffffff12; border-radius: 18px; padding: 18px 20px; } .doc-cards h3 { margin-top: 0; }
+.faq { background: var(--bg2); border: 1px solid #ffffff12; border-radius: 14px; padding: 4px 18px; margin: 10px 0; } .faq summary { cursor: pointer; font-weight: 800; padding: 12px 0; } .faq p { margin-top: 0; }
+.brand-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; margin: 24px 0; } .brand-tiles figure { margin: 0; } .brand-tiles .tile { height: 150px; display: grid; place-items: center; border-radius: 18px; border: 1px solid #ffffff14; } .brand-tiles .tile.light { background: #F4F6FB; } .brand-tiles .tile.dark { background: var(--bg2); } .brand-tiles figcaption { margin-top: 8px; color: var(--muted); font-size: .95rem; }
+.swatch { display: inline-block; width: 18px; height: 18px; border-radius: 5px; vertical-align: -3px; border: 1px solid #ffffff30; }
+.status-grid { display: grid; gap: 10px; margin: 24px 0; } .status-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 16px; background: var(--bg2); border: 1px solid #ffffff12; }
+.status-pill { padding: 6px 12px; border-radius: 999px; background: #ffffff14; font-weight: 700; font-size: .9rem; } .status-pill.ok { background: #1f8f4e33; color: #6BE39A; } .status-pill.bad { background: #c0392b33; color: #FF8A80; }
+/* footer, Discord style: columns on wide screens, folding sections on phones */
+.foot nav.foot-cols { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 28px; flex: 1; }
+.foot-col summary { list-style: none; font-weight: 800; color: var(--text); margin-bottom: 10px; cursor: default; } .foot-col summary::-webkit-details-marker { display: none; }
+.foot-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; } .foot-col a { color: var(--muted); text-decoration: none; } .foot-col a:hover { color: #fff; }
+@media (max-width: 700px) {
+  .doc-toc ol { columns: 1; }
+  .foot nav.foot-cols { grid-template-columns: 1fr; gap: 0; width: 100%; }
+  .foot-col { border-bottom: 1px solid #ffffff1c; } .foot-col summary { cursor: pointer; padding: 18px 0; margin: 0; font-size: 1.35rem; display: flex; justify-content: space-between; align-items: center; }
+  .foot-col summary::after { content: ""; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .25s; margin-right: 6px; }
+  .foot-col[open] summary::after { transform: rotate(-135deg); } .foot-col ul { padding: 0 0 18px; gap: 18px; } .foot-col a { font-size: 1.1rem; color: #DCE2F0; }
+}

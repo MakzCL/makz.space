@@ -1,3 +1,4 @@
+import { AVAILABLE_CATALOG } from "./licensing.ts";
 import { PROFILE_CATALOG } from "./catalog.ts";
 /**
  * SEND theme engine — schema, validation, layering and safety rules.
@@ -580,7 +581,7 @@ export const DEFAULT_PROFILE_THEME: ProfileTheme = {
   nameStyle: "plain", nameColor2: null, nameGlow: 40, nameplate: "none", statusShape: "circle", entrance: "fade", bannerAnimation: "none", effects: [],
 };
 const PROFILE_SPEC: Spec = obj({
-  collection: nul(en("eclipse", "rosecourt", "lepidoptera", "emberwake", "glacial", "sakura", "abyssal", "ophidian", "starlit", "gilded", "wisteria", "phantom", ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>c.id))),
+  collection: nul(en("eclipse", "rosecourt", "lepidoptera", "emberwake", "glacial", "sakura", "abyssal", "ophidian", "starlit", "gilded", "wisteria", "phantom", ...AVAILABLE_CATALOG.map(c=>c.id))),
   primary: color, secondary: color, decoration: en(...DECORATIONS), frame: en(...FRAMES),
   ring: obj({ style: en(...RING_STYLES), color, speed: num(0.25, 3) }),
   nameStyle: en(...NAME_STYLES), nameColor2: nul(color), nameGlow: pct, nameplate: en(...NAMEPLATES), statusShape: en(...STATUS_SHAPES),

@@ -1,3 +1,4 @@
+import { openReport } from "../features/Report.tsx";
 import { removeChannelBanner, setChannelBanner } from "../expressions.ts";
 import { ChannelType, P, has, isVoiceType, type Channel, type Guild, type User } from "@send/shared";
 import { audioMenuItems, selfCallMenuItems } from "./callMenus.tsx";
@@ -51,6 +52,7 @@ export function guildMenuItems(g: Guild): MenuItem[] {
       try { await api.del(`/api/guilds/${g.id}/members/@me`); navigate("/channels/@me"); } catch (e) { toast(errMsg(e), "error"); }
     } } as MenuItem] : []),
     ...idItem(g.id, "Copy server ID"),
+    ...(!owner ? [sep, { label: "Report server", danger: true, onSelect: () => openReport({ type: "guild", id: g.id, guildId: g.id, label: g.name }) } as MenuItem] : []),
   ];
 }
 
@@ -108,6 +110,7 @@ export function userMenuItems(u: User, opts: { guildId?: string | null; onProfil
     items.push(rel === 2
       ? { label: "Unblock", onSelect: () => relAct(() => api.del(`/api/users/@me/relationships/${u.id}`)) }
       : { label: "Block", danger: true, onSelect: async () => { if (await askConfirm({ title: `Block ${displayName(u)}?`, body: "They won't be able to message or call you, and won't be told.", confirmLabel: "Block", danger: true })) relAct(() => api.put(`/api/users/@me/relationships/${u.id}`, { type: 2 })); } });
+    items.push({ label: "Report", danger: true, onSelect: () => openReport({ type: "user", id: u.id, guildId: opts.guildId ?? null, label: displayName(u), evidence: { author_id: u.id, author_name: displayName(u) } }) });
     if (g && u.id !== g.owner_id && (has(perms, P.KICK_MEMBERS) || has(perms, P.BAN_MEMBERS))) {
       items.push(sep);
       if (has(perms, P.KICK_MEMBERS)) items.push({ label: `Kick ${displayName(u)}`, danger: true, onSelect: async () => {

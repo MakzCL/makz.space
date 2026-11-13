@@ -16,9 +16,9 @@ export const CHANGELOG: Release[] = [
     intro: "Every profile effect and avatar decoration, rebuilt with real motion. Still free for everyone.",
     sections: [
       { title: "Profile effects", items: [
-        "432 collections, each with its own animated scene: storms, auroras, fireworks, lightsabers, lava and more.",
+        "Every collection has its own animated scene: moonlit storms, auroras, fireworks, lava, koi ponds and more.",
         "Animated avatar decorations: flame, ice, gold, neon and floral rings, with things orbiting your avatar.",
-        "Brand logos and artwork on cards, plus new KATSEYE and BIGBANG collections.",
+        "New: report messages, people and servers from their menus, so the SEND safety team can step in.",
       ] },
       { title: "On your phone", items: [
         "A new phone app layout: Messages home, a channel page with Media, Links and Files, and a You page.",

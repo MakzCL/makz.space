@@ -338,6 +338,14 @@ function About() {
     <div className="stack">
       <h2>About {BRAND.name}</h2>
       <p>{BRAND.description}</p>
+      <section className="stack">
+        <h3>Legal and support</h3>
+        <p className="muted small">{BRAND.name} is made by MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3NJ, United Kingdom.</p>
+        <div className="row wrap">
+          {[["Terms of Service", "terms"], ["Privacy Policy", "privacy"], ["Community Guidelines", "guidelines"], ["Cookies", "cookies"], ["Copyright", "copyright"], ["Acknowledgements", "acknowledgements"], ["Support", "support"]].map(([l, p]) => <a key={p} className="btn sm" href={`https://send.makz.space/${p}`} target="_blank" rel="noreferrer">{l}</a>)}
+          <a className="btn sm" href="mailto:send@makz.space">send@makz.space</a>
+        </div>
+      </section>
       {inAndroidApp && (
         <section className="stack">
           <h3>Android app</h3>
@@ -349,7 +357,7 @@ function About() {
           </div>
         </section>
       )}
-      <p className="muted">There are no subscriptions, boosts or paid cosmetics. Every account gets the same limits, set by whoever runs this server based on what their hardware can handle:</p>
+      <p className="muted">Every feature is free. Every account gets the same limits, set by whoever runs this server based on what their hardware can handle:</p>
       {limits && <table className="caps"><tbody>
         <tr><td>Upload size</td><td>{Math.round(limits.max_upload_bytes / 1048576)} MB</td></tr>
         <tr><td>Message length</td><td>{limits.max_message_length} characters</td></tr>

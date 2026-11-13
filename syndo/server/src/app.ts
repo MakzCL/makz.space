@@ -23,6 +23,7 @@ import { userRoutes } from "./routes/users.ts";
 import { voiceRoutes } from "./routes/voice.ts";
 import { expressionRoutes } from "./routes/expressions.ts";
 import { appearanceAssetRoute, appearanceRoutes } from "./routes/appearance.ts";
+import { reportRoutes } from "./routes/reports.ts";
 import { automodRoutes } from "./routes/automod.ts";
 import { insightsRoutes } from "./routes/insights.ts";
 import { threadRoutes } from "./routes/threads.ts";
@@ -131,6 +132,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(premiumRoutes);
   await app.register(signinRoutes);
   await app.register(notificationRoutes);
+  await app.register(reportRoutes);
 
   // Serve the built web client when present (single-origin deployment).
   const web = new URL("../../web/dist/", import.meta.url).pathname;

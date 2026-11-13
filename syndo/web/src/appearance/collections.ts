@@ -1,5 +1,5 @@
 import palettes from "./motion/palettes.json";
-import { DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
+import { AVAILABLE_CATALOG, DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 const ORIGINAL_COLLECTIONS = [
   { id: "eclipse", name: "Lunar Eclipse", family: "Celestial", primary: "#B8DDF0", secondary: "#344F73", motif: "moon", description: "An eclipsed moon, silver craters and drifting celestial dust." },
   { id: "rosecourt", name: "Rose Court", family: "Botanical", primary: "#F3AFC7", secondary: "#965474", motif: "rose", description: "Pearlescent roses woven through an ornamental silver frame." },
@@ -15,7 +15,7 @@ const ORIGINAL_COLLECTIONS = [
   { id: "phantom", name: "Phantom Veil", family: "Dark", primary: "#D4D9E8", secondary: "#655C89", motif: "ghost", description: "A spectral ribbon winding through moonlit fragments." },
 ] as const;
 export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"|"badge"; source?:string; artRatio?:number; focusY?:number; artTitle?:string; motion?:string };
-export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
+export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...AVAILABLE_CATALOG.map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
 /** Names are drawn in the collection's colour, so it has to stay readable on a dark card. */
 function readable(hex: string) {
   const n = parseInt(hex.slice(1, 7), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
