@@ -6576,5 +6576,29 @@ export const PROFILE_CATALOG = [
     "secondary": "#311d43",
     "motif": "star",
     "motion": "shimmer"
+  },
+  {
+    "id": "bundle-431",
+    "number": 431,
+    "name": "KATSEYE",
+    "category": "Music",
+    "brief": "stage lights; cat-eye glints; pink hearts and sparkle",
+    "ready": true,
+    "primary": "#ff4fa3",
+    "secondary": "#7a1f52",
+    "motif": "star",
+    "motion": "shimmer"
+  },
+  {
+    "id": "bundle-432",
+    "number": 432,
+    "name": "BIGBANG",
+    "category": "Music",
+    "brief": "yellow crown lightsticks; VIP stage glow; golden fireworks",
+    "ready": true,
+    "primary": "#ffd400",
+    "secondary": "#6b5a00",
+    "motif": "star",
+    "motion": "shimmer"
   }
 ] as const;

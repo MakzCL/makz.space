@@ -16,6 +16,15 @@ const ORIGINAL_COLLECTIONS = [
 ] as const;
 export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"|"badge"; source?:string; artRatio?:number; focusY?:number; artTitle?:string; motion?:string };
 export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...PROFILE_CATALOG.filter(c=>c.ready).map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
+/** Names are drawn in the collection's colour, so it has to stay readable on a dark card. */
+function readable(hex: string) {
+  const n = parseInt(hex.slice(1, 7), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const lum = (.2126 * r + .7152 * g + .0722 * b) / 255;
+  if (lum >= .42) return hex;
+  const k = (.42 - lum) / (1 - lum) + .08, mix = (c: number) => Math.round(c + (255 - c) * Math.min(1, k * 1.4));
+  return `#${[mix(r), mix(g), mix(b)].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}
+for (const c of COLLECTIONS) c.primary = readable(c.primary);
 export function collectionById(id: string | null | undefined) { return COLLECTIONS.find(c => c.id === id); }
 export function collectionTheme(c: Collection): ProfileTheme {
   return { ...DEFAULT_PROFILE_THEME, collection: c.id, primary: c.primary, secondary: c.secondary,

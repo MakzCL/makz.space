@@ -2141,3 +2141,15 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .effects-showcase { width: 300px; height: auto; }
 .effects-showcase .pcv { width: 300px; min-height: 400px; transform: none; }
 @media (max-width: 860px) { .effects-workbench { grid-template-columns: 1fr; } .effects-showcase { margin: auto; } }
+/* SEND Motion: the collection's logo or artwork worn on the card and the avatar */
+.pcv > .motion-emblem, .collection-mini-card > .motion-emblem { position: absolute; bottom: 14px; right: 14px; z-index: 3; pointer-events: none; display: grid; place-items: center; }
+.motion-emblem img { display: block; width: 76px; height: 44px; object-fit: contain; }
+.motion-emblem.emblem-logo img, .motion-emblem.emblem-badge img { filter: brightness(0) invert(1) drop-shadow(0 0 6px var(--emblem)) drop-shadow(0 0 14px color-mix(in srgb, var(--emblem) 60%, transparent)); opacity: .92; }
+.motion-emblem.emblem-cover { width: 50px; height: 66px; border-radius: 9px; overflow: hidden; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--emblem) 80%, white), 0 6px 18px #0009, 0 0 18px color-mix(in srgb, var(--emblem) 50%, transparent); }
+.motion-emblem.emblem-cover img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+[data-motion="full"] .motion-emblem:not(.still) { animation: emblem-float 6s ease-in-out infinite; }
+@keyframes emblem-float { 50% { transform: translateY(-3px) rotate(-1.5deg); } }
+.collection-mini-card > .motion-emblem { bottom: 6px; right: 6px; transform: scale(.5); transform-origin: bottom right; animation: none !important; }
+.avatar > .motion-badge, .collection-mini-avatar > .motion-badge { position: absolute; left: -6%; bottom: -6%; width: 34%; height: 34%; z-index: 3; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #0c0d14; box-shadow: 0 0 0 1.5px var(--emblem), 0 0 8px color-mix(in srgb, var(--emblem) 60%, transparent); pointer-events: none; }
+.motion-badge img { width: 100%; height: 100%; object-fit: cover; }
+.motion-badge.badge-logo img, .motion-badge.badge-badge img { width: 64%; height: 64%; object-fit: contain; filter: brightness(0) invert(1); }

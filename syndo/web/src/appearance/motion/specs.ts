@@ -437,4 +437,6 @@ export const SPECS: Record<number, string> = {
   428: "haunted sky=fog hero=none -bat +skull.rise*3 +crow.flock*4 pal=#9bff6b,#5b4a3a,#050603",
   429: "crystal pal=#c77dff,#4dd0ff,#0b0614",
   430: "neonrain pal=#ff4fd8,#4dd0ff,#0b0614",
+  431: "music sky=stage -note +eye.twinkle*3~#ff4fa3 +heart.rise*7~#ff4fa3,#ffd1e8 +star.twinkle*14~#ffd1e8,w pal=#ff4fa3,#ffd1e8,#0b0610 ring=neon deco+heart.orbit*5~#ff4fa3,#ffd1e8",
+  432: "music sky=stage -note +crown.drift*3~#ffd400 +glow.drift*10~#ffd400 +dust.fireworks*2~#ffd400,w +star.twinkle*12~#ffd400 pal=#ffd400,#ffffff,#0b0b05 ring=metal deco+crown.orbit*3~#ffd400",
 };

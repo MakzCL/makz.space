@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sim, addView, getRenderer, kick, stillFrame, type View } from "./engine.ts";
 import { sceneFor } from "./recipes.ts";
+import { collectionById } from "../collections.ts";
 
 const dprCap = (max: number) => Math.min(max, window.devicePixelRatio || 1);
 
@@ -64,7 +65,17 @@ export function ProfileEffect({ id, animate }: { id: string; animate: boolean })
     <canvas ref={back} className="motion-back" aria-hidden="true" />
     <canvas ref={front} className="motion-front" aria-hidden="true" />
     {still && <img className="motion-still" src={still} alt="" aria-hidden="true" />}
+    <Emblem id={id} animate={animate} heroRight={(info.scene.hero?.x ?? 0) > .5} />
   </>;
+}
+
+/** The collection's own logo or artwork, worn on the card like a patch: logos glow in the effect's colour, covers sit in a small frame. */
+function Emblem({ id, animate, heroRight }: { id: string; animate: boolean; heroRight: boolean }) {
+  const c = collectionById(id);
+  if (!c?.art) return null;
+  return <span className={`motion-emblem emblem-${c.artKind ?? "cover"} ${heroRight ? "left" : "right"} ${animate ? "" : "still"}`} aria-hidden="true" style={{ "--emblem": c.primary } as React.CSSProperties}>
+    <img src={c.art} alt="" loading="lazy" decoding="async" />
+  </span>;
 }
 
 /** A collection's avatar decoration: live while it matters (profile cards, hover), a cached still frame everywhere else. */
@@ -95,5 +106,6 @@ export function AvatarDecoration({ id, size, live }: { id: string; size: number;
   return <>
     {still && <img className={`motion-deco ${live ? "under" : ""}`} src={still} alt="" aria-hidden="true" />}
     {live && <canvas ref={ref} className="motion-deco" aria-hidden="true" />}
+    {size >= 40 && (() => { const c = collectionById(id); return c?.art ? <span className={`motion-badge badge-${c.artKind ?? "cover"}`} aria-hidden="true" style={{ "--emblem": c.primary } as React.CSSProperties}><img src={c.art} alt="" loading="lazy" decoding="async" /></span> : null; })()}
   </>;
 }
