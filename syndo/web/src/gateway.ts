@@ -93,6 +93,28 @@ function reconnectNow() {
 }
 // Reconnect promptly when the network comes back or the tab/laptop wakes up.
 window.addEventListener("online", reconnectNow);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnectNow(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { if (pausedForBackground) { pausedForBackground = false; stopped = false; } reconnectNow(); } else parkSoon(); });
+
+/* Inside the Android and iOS apps: when SEND goes to the background, close the connection after a short grace period
+   so the server sees you as away and sends push notifications to the phone. Never during a call. */
+let pausedForBackground = false, parkTimer: number | null = null, appBackground = false;
+// The Android app tells the page directly (its WebView keeps reporting "visible" in the background).
+window.addEventListener("send:appstate", (e) => {
+  appBackground = (e as CustomEvent).detail === "background";
+  if (appBackground) parkSoon();
+  else { if (parkTimer) { clearTimeout(parkTimer); parkTimer = null; } if (pausedForBackground) { pausedForBackground = false; stopped = false; } reconnectNow(); }
+});
+const inNativeApp = /SENDAndroid\/|SENDiOS\//.test(navigator.userAgent);
+function parkSoon() {
+  if (!inNativeApp || stopped) return;
+  if (parkTimer) clearTimeout(parkTimer);
+  parkTimer = window.setTimeout(() => {
+    parkTimer = null;
+    if (!(document.visibilityState === "hidden" || appBackground) || stopped) return;
+    const me = useStore.getState().me?.id;
+    if (me && useStore.getState().voice[me]) return; // in a call: stay connected
+    pausedForBackground = true; disconnectGateway();
+  }, 20_000);
+}
 window.addEventListener("focus", reconnectNow);
 export const gatewaySeq = () => lastSeq;

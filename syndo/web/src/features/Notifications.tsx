@@ -6,6 +6,8 @@ import { isMutedScope, notifLevel, toast, useStore } from "../store.ts";
 import { Popover } from "../components/overlay.tsx";
 import { Modal, Toggle } from "../components/ui.tsx";
 import { openModal } from "./modals.tsx";
+import { disableNativePush, enableNativePush, inNativeApp, nativeBridgeReady, nativePushRegistered } from "../native.ts";
+import { inAndroidApp } from "../mobile.ts";
 
 /**
  * Discord-style notification settings: All messages / Only @mentions / Nothing, timed mutes,
@@ -84,6 +86,11 @@ function ServerNotifications({ guild, onClose }: { guild: Guild; onClose: () => 
 const b64 = (s: string) => { const p = "=".repeat((4 - (s.length % 4)) % 4); const raw = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
 
 export async function pushState(): Promise<"unsupported" | "unavailable" | "denied" | "off" | "on"> {
+  if (inNativeApp) {
+    const { native } = await api.get<{ native?: { android: boolean; ios: boolean } }>("/api/push/key").catch(() => ({ native: undefined }));
+    if (!nativeBridgeReady() || !native?.[inAndroidApp ? "android" : "ios"]) return "unavailable";
+    return nativePushRegistered() ? "on" : "off";
+  }
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
   const { key } = await api.get<{ key: string | null }>("/api/push/key").catch(() => ({ key: null }));
   if (!key) return "unavailable";
@@ -93,6 +100,12 @@ export async function pushState(): Promise<"unsupported" | "unavailable" | "deni
   return sub ? "on" : "off";
 }
 export async function enablePush() {
+  if (inNativeApp) {
+    const r = await enableNativePush();
+    if (r === "push:denied") throw new Error("Notifications are turned off for SEND. Turn them on in your phone's settings.");
+    if (r !== "push:token") throw new Error("Push notifications aren't available in this version of the app.");
+    return;
+  }
   const { key } = await api.get<{ key: string | null }>("/api/push/key");
   if (!key) throw new Error("Push notifications aren't set up on this server yet.");
   if ((await Notification.requestPermission()) !== "granted") throw new Error("Allow notifications for SEND in your browser settings.");
@@ -103,6 +116,7 @@ export async function enablePush() {
   await api.post("/api/push/subscriptions", { endpoint: j.endpoint, keys: j.keys });
 }
 export async function disablePush() {
+  if (inNativeApp) return disableNativePush();
   const reg = await navigator.serviceWorker.getRegistration("/");
   const sub = await reg?.pushManager.getSubscription();
   if (sub) { await api.del("/api/push/subscriptions", { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }

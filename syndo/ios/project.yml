@@ -19,6 +19,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: space.makz.send
         PRODUCT_NAME: SEND
         INFOPLIST_FILE: SEND/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SEND/SEND.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SEND_APP_URL: https://syndo.makz.space

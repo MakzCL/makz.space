@@ -12,7 +12,12 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.webkit.*;
 import android.widget.*;
+import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+import com.google.firebase.messaging.FirebaseMessaging;
+import java.util.HashSet;
 import java.util.ArrayList;
 
 /**
@@ -30,7 +35,40 @@ public class MainActivity extends Activity {
     private ProgressBar progress;
     private PermissionRequest pendingPermission;
     private ValueCallback<Uri[]> files;
-    private final int MEDIA = 10, PICK_FILE = 11;
+    private final int MEDIA = 10, PICK_FILE = 11, NOTIFY = 12;
+    private static MainActivity current;
+    private JavaScriptReplyProxy pushReply;
+
+    /* ------------------------------------------------------------ push notifications (bridge to the page) */
+    private void reply(String json) { if (pushReply != null) runOnUiThread(() -> { try { pushReply.postMessage(json); } catch (Exception ignored) { } }); }
+    private void sendToken() {
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(t -> {
+            if (t.isSuccessful() && t.getResult() != null) reply(tokenJson(t.getResult())); else reply("{\"type\":\"push:unavailable\"}");
+        });
+    }
+    private static String tokenJson(String token) {
+        return "{\"type\":\"push:token\",\"platform\":\"android\",\"token\":" + org.json.JSONObject.quote(token) + ",\"version\":" + org.json.JSONObject.quote(BuildConfig.VERSION_NAME) + "}";
+    }
+    /** Firebase rotated this phone's token: tell the page so it re-registers it. */
+    static void tokenChanged(String token) { MainActivity a = current; if (a != null) a.reply(tokenJson(token)); }
+    private boolean notificationsAllowed() { return Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED; }
+    private void onPageMessage(String data, JavaScriptReplyProxy proxy) {
+        pushReply = proxy;
+        boolean enable = data.contains("\"push:enable\""), sync = data.contains("\"push:sync\"");
+        if (!enable && !sync) return;
+        if (!SENDApp.pushConfigured()) { if (enable) reply("{\"type\":\"push:unavailable\"}"); return; }
+        if (notificationsAllowed()) sendToken();
+        else if (enable) requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, NOTIFY);
+    }
+    /** Opens the conversation a notification was for (paths on SEND only). */
+    private void openFromIntent(Intent intent) {
+        String url = intent == null ? null : intent.getStringExtra("send_url");
+        if (url == null || !url.startsWith("/") || url.startsWith("//") || web == null) return;
+        intent.removeExtra("send_url");
+        String js = "(function(u){if(window.__sendNavigate){window.__sendNavigate(u);return true}return false})(" + org.json.JSONObject.quote(url) + ")";
+        web.evaluateJavascript(js, done -> { if (!"true".equals(done)) web.loadUrl(BuildConfig.HOSTED_URL + url); });
+    }
+    private void appState(String state) { if (web != null) web.evaluateJavascript("window.dispatchEvent(new CustomEvent('send:appstate',{detail:'" + state + "'}))", null); }
 
     private boolean trusted(Uri uri) {
         return uri != null && "https".equals(uri.getScheme()) && (uri.getPort() == -1 || uri.getPort() == 443)
@@ -144,6 +182,18 @@ public class MainActivity extends Activity {
         });
         // Android 13+: system back (and Android 16's predictive back) arrives here, not in onBackPressed.
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::goBack);
+        // The page talks to the app (push) through an origin-restricted channel: only SEND's own pages can use it.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            HashSet<String> origins = new HashSet<>(); origins.add(BuildConfig.HOSTED_URL); origins.add("https://appassets.androidplatform.net");
+            WebViewCompat.addWebMessageListener(web, "SENDNative", origins, (view, message, origin, isMainFrame, proxy) -> {
+                if (isMainFrame && message.getData() != null) onPageMessage(message.getData(), proxy);
+            });
+        }
+        current = this;
+        if (state == null && getIntent() != null && getIntent().getStringExtra("send_url") != null) {
+            String url = getIntent().getStringExtra("send_url");
+            if (url.startsWith("/") && !url.startsWith("//")) { getIntent().removeExtra("send_url"); getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.loadUrl(BuildConfig.HOSTED_URL + url); return; }
+        }
         if (state == null) { if (getPreferences(MODE_PRIVATE).getBoolean("hosted", true)) openLive(false); else web.loadUrl(LOCAL); }
         else if (web.restoreState(state) == null) openLive(false);
     }
@@ -157,7 +207,12 @@ public class MainActivity extends Activity {
         }
         if (granted.isEmpty()) request.deny(); else request.grant(granted.toArray(new String[0]));
     }
-    @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) { super.onRequestPermissionsResult(code, permissions, results); if (code == MEDIA) grantMedia(); }
+    @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(code, permissions, results);
+        if (code == MEDIA) grantMedia();
+        if (code == NOTIFY) { if (notificationsAllowed()) sendToken(); else reply("{\"type\":\"push:denied\"}"); }
+    }
+    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); openFromIntent(intent); }
     @Override protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
         if (code == PICK_FILE && files != null) {
@@ -172,7 +227,8 @@ public class MainActivity extends Activity {
         }
     }
     @Override protected void onSaveInstanceState(Bundle state) { super.onSaveInstanceState(state); web.saveState(state); }
-    @Override protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
+    @Override protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); appState("background"); }
+    @Override protected void onResume() { super.onResume(); appState("foreground"); }
     @SuppressWarnings("deprecation")
     @Override public void onBackPressed() { goBack(); }
     private void goBack() {
@@ -182,5 +238,5 @@ public class MainActivity extends Activity {
             if (web.canGoBack()) web.goBack(); else moveTaskToBack(true);
         });
     }
-    @Override protected void onDestroy() { if (pendingPermission != null) pendingPermission.deny(); if (files != null) files.onReceiveValue(null); web.destroy(); super.onDestroy(); }
+    @Override protected void onDestroy() { if (current == this) current = null; if (pendingPermission != null) pendingPermission.deny(); if (files != null) files.onReceiveValue(null); web.destroy(); super.onDestroy(); }
 }

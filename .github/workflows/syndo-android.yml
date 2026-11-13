@@ -54,7 +54,12 @@ jobs:
           SEND_KEYSTORE_PASSWORD: ${{ secrets.SEND_ANDROID_KEYSTORE_PASSWORD }}
           SEND_KEY_ALIAS: ${{ secrets.SEND_ANDROID_KEY_ALIAS }}
           SEND_KEY_PASSWORD: ${{ secrets.SEND_ANDROID_KEY_PASSWORD }}
-        run: gradle --no-daemon assembleRelease bundleRelease -PsendAppUrl="$SEND_APP_URL"
+          # Firebase client settings for push (Project settings > Your apps in the Firebase console). Public values, so repository variables.
+          FCM_APP_ID: ${{ vars.SEND_FCM_APP_ID }}
+          FCM_API_KEY: ${{ vars.SEND_FCM_API_KEY }}
+          FCM_PROJECT_ID: ${{ vars.SEND_FCM_PROJECT_ID }}
+          FCM_SENDER_ID: ${{ vars.SEND_FCM_SENDER_ID }}
+        run: gradle --no-daemon assembleRelease bundleRelease -PsendAppUrl="$SEND_APP_URL" -PfcmAppId="$FCM_APP_ID" -PfcmApiKey="$FCM_API_KEY" -PfcmProjectId="$FCM_PROJECT_ID" -PfcmSenderId="$FCM_SENDER_ID"
       - name: Name the downloads
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk SEND-beta.apk

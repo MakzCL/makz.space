@@ -9,6 +9,7 @@ import { newId } from "./ids.ts";
 import { isOnline, presenceOf, toUser } from "./gateway.ts";
 import { viewers, type ChanRow } from "./perms.ts";
 import { PREFIX } from "./routes/encryption.ts";
+import { apnsReady, fcmReady, nativeReady, sendNative, type PushPayload } from "./nativePush.ts";
 
 /**
  * Notification settings (levels, timed mutes, suppress @everyone/@here and role mentions,
@@ -38,13 +39,15 @@ export async function pushTargets(channel: ChanRow, msg: Message, info: { author
     // Everyone mentioned, plus anyone who chose "all messages" for this server or channel.
     const all = await q<any>(`select distinct user_id::text from notification_settings where scope_id = any($1::bigint[]) and level = 0`, [[channel.guild_id, channel.id, channel.parent_id].filter(Boolean)]);
     const roleUsers = info.roles.length ? await q<any>("select distinct user_id::text from member_roles where guild_id = $1 and role_id = any($2::bigint[])", [channel.guild_id, info.roles]) : [];
-    const everyoneUsers = info.everyone ? await q<any>("select user_id::text from push_subscriptions ps where exists (select 1 from members m where m.guild_id = $1 and m.user_id = ps.user_id)", [channel.guild_id]) : [];
+    const everyoneUsers = info.everyone ? await q<any>(`select user_id::text from (select user_id from push_subscriptions union select user_id from device_push_tokens) ps
+      where exists (select 1 from members m where m.guild_id = $1 and m.user_id = ps.user_id)`, [channel.guild_id]) : [];
     candidates = [...info.users, ...all.map((r) => r.user_id), ...roleUsers.map((r) => r.user_id), ...everyoneUsers.map((r) => r.user_id)];
   }
   candidates = [...new Set(candidates)].filter((u) => u !== info.author);
   if (!candidates.length) return [];
   // Only people with a push subscription who aren't actively using SEND.
-  const subs = await q<any>("select distinct user_id::text from push_subscriptions where user_id = any($1::bigint[])", [candidates]);
+  const subs = await q<any>(`select distinct user_id::text from (select user_id from push_subscriptions union select user_id from device_push_tokens) x
+    where user_id = any($1::bigint[])`, [candidates]);
   candidates = subs.map((r) => r.user_id).filter((u) => presenceOf(u) !== "dnd" && (!isOnline(u) || presenceOf(u) === "idle"));
   if (!candidates.length) return [];
   const blocked = new Set((await q<any>("select user_id::text from relationships where type = 2 and other_id = $1 and user_id = any($2::bigint[])", [info.author, candidates])).map((r) => r.user_id));
@@ -72,7 +75,7 @@ export async function pushTargets(channel: ChanRow, msg: Message, info: { author
 }
 
 export async function notifyMessage(channel: ChanRow, msg: Message, info: { author: string; everyone: boolean; users: string[]; roles: string[]; silent: boolean }) {
-  if (!pushReady || msg.type !== MessageType.DEFAULT && msg.type !== MessageType.REPLY) return;
+  if (!(pushReady || nativeReady()) || msg.type !== MessageType.DEFAULT && msg.type !== MessageType.REPLY) return;
   const targets = await pushTargets(channel, msg, info);
   if (!targets.length) return;
   const who = msg.member_nick || msg.author.display_name || msg.author.username;
@@ -87,8 +90,15 @@ export async function notifyMessage(channel: ChanRow, msg: Message, info: { auth
   await sendPush(targets, payload);
 }
 
+/** Sends to every browser subscription (Web Push) and every app (Android and iOS) the users have. `payload` is JSON. */
 export async function sendPush(users: string[], payload: string) {
-  if (!pushReady || !users.length) return;
+  if (!users.length) return;
+  let p: PushPayload | null = null;
+  try { p = JSON.parse(payload); } catch { /* not JSON: browsers only */ }
+  await Promise.all([sendWeb(users, payload), p?.title ? sendNative(users, p) : Promise.resolve()]);
+}
+async function sendWeb(users: string[], payload: string) {
+  if (!pushReady) return;
   const subs = await q<any>("select id::text, endpoint, p256dh, auth from push_subscriptions where user_id = any($1::bigint[])", [users]);
   await Promise.all(subs.map(async (s) => {
     try {
@@ -142,7 +152,21 @@ export async function notificationRoutes(app: FastifyInstance) {
     return row;
   });
 
-  app.get("/api/push/key", async () => ({ key: pushReady ? VAPID_PUBLIC : null }));
+  app.get("/api/push/key", async () => ({ key: pushReady ? VAPID_PUBLIC : null, native: { android: fcmReady, ios: apnsReady } }));
+
+  /** The Android and iOS apps register their push token here (one row per device; a token moves to whoever signs in on it). */
+  app.post("/api/push/devices", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const b = z.object({ platform: z.enum(["android", "ios"]), token: z.string().min(16).max(4096).regex(/^[A-Za-z0-9:_\-.]+$/), sandbox: z.boolean().optional(), app_version: z.string().max(40).optional() }).parse(req.body);
+    await q(`insert into device_push_tokens(id, user_id, platform, token, sandbox, app_version) values ($1,$2,$3,$4,$5,$6)
+             on conflict (token) do update set user_id = excluded.user_id, platform = excluded.platform, sandbox = excluded.sandbox, app_version = excluded.app_version`,
+      [newId(), uid(req), b.platform, b.token, b.sandbox ?? false, b.app_version ?? null]);
+    return { ok: true, active: b.platform === "android" ? fcmReady : apnsReady };
+  });
+  app.delete("/api/push/devices", async (req) => {
+    const b = z.object({ token: z.string().max(4096) }).parse(req.body);
+    await q("delete from device_push_tokens where user_id = $1 and token = $2", [uid(req), b.token]);
+    return { ok: true };
+  });
   app.post("/api/push/subscriptions", async (req) => {
     if (!pushReady) throw bad("Push notifications aren't set up on this server yet.");
     const b = z.object({ endpoint: z.string().url().max(1000), keys: z.object({ p256dh: z.string().max(200), auth: z.string().max(100) }) }).parse(req.body);

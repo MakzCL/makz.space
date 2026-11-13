@@ -3,7 +3,7 @@ import WebKit
 
 /// Hosts the SEND web app full screen. Only SEND's own origin runs inside the app;
 /// every other link opens in Safari. Camera and microphone are granted to SEND's origin only.
-final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     static let background = UIColor(red: 11/255, green: 16/255, blue: 32/255, alpha: 1)
     private let home: URL = {
         let raw = (Bundle.main.object(forInfoDictionaryKey: "SENDAppURL") as? String) ?? "https://syndo.makz.space"
@@ -27,6 +27,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         config.websiteDataStore = .default()
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         config.applicationNameForUserAgent = "SENDiOS/\(version)"
+        // The page asks for push through this; only SEND's own main frame is listened to (checked below).
+        config.userContentController.add(WeakHandler(self), name: "sendNative")
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -63,6 +65,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             self?.progress.isHidden = web.estimatedProgress >= 1
         }
         buildOffline()
+        Push.shared.send = { [weak self] reply in self?.toPage(reply) }
+        Push.shared.open = { [weak self] path in self?.navigate(path) }
         webView.load(URLRequest(url: home))
     }
 
@@ -73,6 +77,26 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private func isOurs(_ url: URL?) -> Bool {
         guard let url, url.scheme == "https", let host = url.host else { return false }
         return host == home.host && (url.port == nil || url.port == 443)
+    }
+
+    // MARK: Bridge to the page (push notifications)
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https", message.frameInfo.securityOrigin.host == home.host,
+              let body = message.body as? [String: Any], let type = body["type"] as? String, ["push:enable", "push:sync"].contains(type) else { return }
+        Push.shared.handle(type)
+    }
+    private func toPage(_ reply: [String: Any]) {
+        guard isOurs(webView.url), let data = try? JSONSerialization.data(withJSONObject: reply), let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.__sendNativePush && window.__sendNativePush(\(json))")
+    }
+    /// Opens a SEND path inside the running app (no reload), falling back to a page load.
+    private func navigate(_ path: String) {
+        guard let url = URL(string: path, relativeTo: home)?.absoluteURL, isOurs(url) else { return }
+        guard let quoted = try? JSONSerialization.data(withJSONObject: [path]), let arg = String(data: quoted, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("(function(u){if(window.__sendNavigate){window.__sendNavigate(u);return true}return false})(\(arg)[0])") { [weak self] done, _ in
+            if (done as? Bool) != true { self?.webView.load(URLRequest(url: url)) }
+        }
     }
 
     // MARK: Navigation
@@ -101,7 +125,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         return nil
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { offline.isHidden = true }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { offline.isHidden = true; Push.shared.flush() }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { offline.isHidden = false }
     }
@@ -180,4 +204,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             offline.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
         ])
     }
+}
+
+/// Keeps the web view's script handler from holding the controller alive.
+private final class WeakHandler: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+    init(_ target: WKScriptMessageHandler) { self.target = target }
+    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) { target?.userContentController(c, didReceive: m) }
 }

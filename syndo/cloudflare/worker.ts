@@ -57,6 +57,7 @@ const run = promisify(cp.execFile);
 // Keys the backend picks up when they're saved as Worker secrets (Settings → Variables and Secrets), so turning on
 // push, Stripe, GIFs or account connections needs no code change — only a secret and a restart of the backend.
 const OPTIONAL_ENV = ["SEND_SECRET", "SEND_VAPID_PUBLIC", "SEND_VAPID_PRIVATE", "SEND_VAPID_SUBJECT", "SEND_STAFF_USER_IDS",
+  "SEND_FCM_SERVICE_ACCOUNT", "SEND_APNS_KEY", "SEND_APNS_KEY_ID", "SEND_APNS_TEAM_ID", "SEND_APNS_TOPIC",
   "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "SEND_GIF_PROVIDER", "SEND_GIF_KEY",
   ...["GITHUB", "TWITCH", "SPOTIFY", "REDDIT", "GOOGLE", "XBOX"].flatMap((p) => [`SEND_${p}_CLIENT_ID`, `SEND_${p}_CLIENT_SECRET`])];
 function optionalEnv(env: Record<string, unknown>): Record<string, string> {

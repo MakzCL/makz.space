@@ -18,6 +18,8 @@ export function initMobile() {
   if (installed || typeof window === "undefined") return; installed = true;
   if (inAndroidApp) document.documentElement.dataset.app = "android";
   if (inIosApp) document.documentElement.dataset.app = "ios";
+  // Lets the apps open the right conversation when a notification is tapped, without reloading.
+  if (inAndroidApp || inIosApp) import("./router.ts").then((r) => { (window as unknown as { __sendNavigate?: (u: string) => void }).__sendNavigate = (u) => { if (u.startsWith("/") && !u.startsWith("//")) r.navigate(u); }; });
 
   /* ---------------- long-press → contextmenu (one consistent gesture for every menu) */
   let timer = 0, start: { x: number; y: number; t: Element } | null = null, fired = false;

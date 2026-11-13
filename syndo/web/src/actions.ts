@@ -14,13 +14,26 @@ export async function boot() {
     await api.get("/api/users/@me");
     set({ conn: "connecting" });
     connectGateway();
+    nativePushAfterSignIn();
   } catch (e) {
     set({ conn: "signed_out" });
     if (e instanceof ApiError && e.code === "mfa_required") navigate("/login?mfa=1", true);
   }
 }
 
-export function signedIn() { set({ conn: "connecting" }); connectGateway(); }
+export function signedIn() { set({ conn: "connecting" }); connectGateway(); nativePushAfterSignIn(); }
+
+/** In the Android and iOS apps: ask for notifications once (like Discord does on first launch), then keep the token fresh. */
+function nativePushAfterSignIn() {
+  import("./native.ts").then(async (n) => {
+    if (!n.inNativeApp) return;
+    let asked = false;
+    try { asked = !!localStorage.getItem("send.native-push.asked"); localStorage.setItem("send.native-push.asked", "1"); } catch { /* ignore */ }
+    const { native } = await api.get<{ native?: { android: boolean; ios: boolean } }>("/api/push/key").catch(() => ({ native: undefined }));
+    if (!native || !(n.inNativeApp && (native.android || native.ios))) return;
+    if (asked) n.syncNativePush(); else void n.enableNativePush();
+  }).catch(() => {});
+}
 
 export function signedOut(reason?: string) {
   disconnectGateway();
@@ -31,6 +44,8 @@ export function signedOut(reason?: string) {
 }
 
 export async function logout() {
+  // Stop this phone getting the account's notifications before the session ends.
+  await import("./native.ts").then((n) => n.disableNativePush()).catch(() => {});
   await api.post("/api/auth/logout").catch(() => {});
   signedOut();
 }

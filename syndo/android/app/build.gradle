@@ -12,6 +12,12 @@ android {
         targetSdk 36
         versionCode 7
         versionName '0.7.1'
+        // Firebase client settings for push (public values, the same ones google-services.json would hold). Empty = push off.
+        ['fcmAppId': 'FCM_APP_ID', 'fcmApiKey': 'FCM_API_KEY', 'fcmProjectId': 'FCM_PROJECT_ID', 'fcmSenderId': 'FCM_SENDER_ID'].each { prop, field ->
+            def v = providers.gradleProperty(prop).getOrElse('')
+            if (!(v ==~ /[A-Za-z0-9:._-]*/)) throw new GradleException("${prop} has unexpected characters")
+            buildConfigField 'String', field, '"' + v + '"'
+        }
         buildConfigField 'String', 'HOSTED_URL', '"' + hosted.replaceAll('/$', '') + '"'
     }
     // Release signing: set SEND_KEYSTORE (path), SEND_KEYSTORE_PASSWORD, SEND_KEY_ALIAS, SEND_KEY_PASSWORD.
@@ -29,4 +35,8 @@ android {
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
-dependencies { implementation 'androidx.webkit:webkit:1.12.1' }
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
+}
