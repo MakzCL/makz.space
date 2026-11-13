@@ -11,7 +11,7 @@ import { QUAD_VS, SKY_FS, SPRITE_FS, SPRITE_VS } from "./shaders.ts";
 import { GRID, SPRITES, spriteAtlas, type SpriteName } from "./sprites.ts";
 
 // ---------------------------------------------------------------- scene description --
-export type Behavior = "fall" | "rise" | "drift" | "flock" | "flutter" | "orbit" | "streak" | "twinkle" | "swirl" | "comet" | "fireworks" | "lightning";
+export type Behavior = "fall" | "rise" | "drift" | "flock" | "flutter" | "orbit" | "streak" | "twinkle" | "swirl" | "comet" | "fireworks" | "lightning" | "flyby" | "beam" | "pulse" | "lights" | "blink";
 export type Col = "c1" | "c2" | "c3" | "w" | `#${string}`;
 export interface Emitter {
   sprite: SpriteName; behavior: Behavior;
@@ -32,8 +32,8 @@ export interface Scene {
   intro?: { burst?: SpriteName; colors?: Col[]; count?: number; shock?: boolean; flash?: boolean };
   deco: { ring: number; intensity?: number; emitters: Emitter[] };
 }
-export const SKY = { none: 0, vortex: 1, nebula: 2, aurora: 3, fire: 4, fog: 5, neonrain: 6, rays: 7, caustics: 8, synth: 9, digital: 10, storm: 11, sand: 12, holo: 13, ink: 14, dreamy: 15, space: 16 } as const;
-export const HERO = { none: 0, moon: 1, sun: 2, blackhole: 3, planet: 4, portal: 5, orb: 6, eclipse: 7 } as const;
+export const SKY = { none: 0, vortex: 1, nebula: 2, aurora: 3, fire: 4, fog: 5, neonrain: 6, rays: 7, caustics: 8, synth: 9, digital: 10, storm: 11, sand: 12, holo: 13, ink: 14, dreamy: 15, space: 16, film: 17, comic: 18, crt: 19, stage: 20, police: 21, tunnel: 22, clouds: 23, lava: 24, hexgrid: 25, split: 26, glass: 27 } as const;
+export const HERO = { none: 0, moon: 1, sun: 2, blackhole: 3, planet: 4, portal: 5, orb: 6, eclipse: 7, ring: 8, eye: 9 } as const;
 export const RING = { none: 0, flame: 1, electric: 2, ice: 3, nebula: 4, metal: 5, shadow: 6, water: 7, neon: 8, floral: 9 } as const;
 
 // ---------------------------------------------------------------- simulation --
@@ -101,6 +101,12 @@ export class Sim {
       case "orbit": { p.cx = this.anchor.x; p.cy = this.anchor.y; p.rad = (this.kind === "deco" ? W * rand(.36, .44) : rand(52, 62) * sc); p.av = rand(.4, .7) * (e.speed ?? 1); break; }
       case "swirl": { const h = this.heroPx(); p.cx = h.x; p.cy = h.y; p.rad = rand(h.r * 1.4, W * .7); p.av = rand(.8, 1.4) * (e.speed ?? 1); break; }
       case "flutter": p.x = pt.x; p.y = pt.y; p.ang = rand(0, 6.283); break;
+      case "flyby": { const dir = Math.random() < .5 ? 1 : -1, v = rand(90, 150) * spd; p.vx = v * dir; p.vy = rand(-8, 8) * sc;
+        p.x = dir > 0 ? -size * 2 - rand(0, W * (warm ? 2 : 1.2)) : W + size * 2 + rand(0, W * (warm ? 2 : 1.2)); p.y = e.region === "all" ? rand(H * .1, H * .9) : rand(H * .04, H * .26); p.flip = dir; if (e.trail) p.hist = []; break; }
+      case "beam": { const src = e.region === "hero" ? this.heroPx() : e.region === "anchor" ? this.anchor : { x: rand(0, W), y: e.region === "bottom" ? H + 10 : -10 };
+        p.cx = src.x; p.cy = src.y; p.ang = (e.angle ?? 90) * Math.PI / 180 + rand(-.4, .4); p.av = rand(.25, .6) * (Math.random() < .5 ? -1 : 1); p.rad = rand(W * .6, W * 1.2); p.life = rand(2.5, 5); break; }
+      case "pulse": { const src = e.region === "hero" ? this.heroPx() : this.anchor; p.x = src.x; p.y = src.y; p.life = rand(1.4, 2); if (warm) p.age = rand(0, p.life); break; }
+      case "lights": case "blink": p.x = 0; p.y = 0; break;
       default: p.x = pt.x; p.y = pt.y;
     }
     if (e.trail) p.hist = [];
@@ -136,8 +142,8 @@ export class Sim {
     for (const p of this.parts) if (p.gen >= 0) counts.set(p.e, (counts.get(p.e) ?? 0) + 1);
     for (const e of this.emitters) {
       if (e.behavior === "fireworks" || e.behavior === "lightning") continue;
-      const want = Math.round(e.count * area * introBoost), have = counts.get(e) ?? 0;
-      const perStep = warming ? want : Math.max(1, Math.ceil(want * dt * 1.5));
+      const fixed = e.behavior === "lights" || e.behavior === "blink", want = fixed ? e.count : Math.round(e.count * area * introBoost), have = counts.get(e) ?? 0;
+      const perStep = warming || fixed ? want : Math.max(1, Math.ceil(want * dt * 1.5));
       for (let i = 0; i < Math.min(want - have, perStep); i++) this.parts.push(this.spawn(e, warming || t < .05));
     }
     // fireworks & lightning are timed events
@@ -209,6 +215,11 @@ export class Sim {
           p.a = (e.alpha ?? 1) * Math.min(1, p.age * 1.5);
           break;
         }
+        case "flyby": { p.x += p.vx * dt; p.y += p.vy * dt + Math.sin(t * 1.3 + p.ph) * 4 * sc * dt; p.rot = Math.atan2(p.vy, Math.abs(p.vx)) * Math.sign(p.vx) * .5;
+          if ((p.vx > 0 && p.x > W + p.size * 3) || (p.vx < 0 && p.x < -p.size * 3)) Object.assign(p, this.spawn(e)); break; }
+        case "beam": { p.ang += p.av * dt * Math.sin(t * .7 + p.ph); const k = p.age / p.life; p.a = (e.alpha ?? 1) * Math.min(1, k * 5) * Math.min(1, (1 - k) * 4); break; }
+        case "pulse": { const k = p.age / p.life; p.size = (e.size[0] + (e.size[1] - e.size[0]) * (1 - Math.pow(1 - k, 2))) * sc; p.a = (e.alpha ?? 1) * (1 - k); break; }
+        case "lights": case "blink": break;
         case "streak": { p.x += p.vx * dt; p.y += p.vy * dt; if (p.y > H + 80 || p.x < -W * .7 || p.x > W * 1.7 || p.y < -100) Object.assign(p, this.spawn(e)); break; }
         case "comet": { p.x += p.vx * dt; p.y += p.vy * dt; const k = p.age / p.life; p.a = Math.sin(Math.PI * Math.min(1, k)); break; }
         case "swirl": {
@@ -220,6 +231,26 @@ export class Sim {
         }
       }
       if (dead) this.parts.splice(i, 1);
+    }
+    this.layoutFixed();
+  }
+
+  /** Start lights and string lights sit at fixed spots; their timing comes from the clock. */
+  layoutFixed() {
+    const sc = this.scale, W = this.W, t = this.t;
+    for (const e of this.emitters) {
+      if (e.behavior !== "lights" && e.behavior !== "blink") continue;
+      const ps = this.parts.filter((p) => p.e === e), n = ps.length;
+      ps.forEach((p, i) => {
+        if (e.behavior === "lights") {
+          p.x = W * (.5 + (i - (n - 1) / 2) * .13); p.y = this.H * .09;
+          const cyc = t % 7, on = cyc < n * .7 ? (cyc > i * .7 ? 1 : 0) : cyc < n * .7 + 1.2 ? 1 : 0;
+          p.a = on ? 1 : .12; p.size = (e.size[0]) * sc;
+        } else {
+          const u = (i + .5) / n; p.x = W * u; p.y = this.H * .035 + Math.sin(u * Math.PI * 3) * 6 * sc + 10 * sc * Math.sin(u * Math.PI);
+          const h = Math.sin(i * 12.9898 + Math.floor(t * 2.2 + i * .37) * 78.233) * 43758.5453; p.a = (h - Math.floor(h)) > .35 ? 1 : .15;
+        }
+      });
     }
   }
 
@@ -327,6 +358,8 @@ class Renderer {
         const n = p.hist.length / 2;
         for (let k = 1; k < n; k++) { const f = 1 - k / n; queue.push([true, p.hist[k * 2]!, p.hist[k * 2 + 1]!, p.size * (.35 + .65 * f), p.size * (.35 + .65 * f), 0, p.a * f * .7, SPRITES.dust.index, col]); }
       }
+      if (p.e.behavior === "beam") { const L = p.rad, mx = p.cx + Math.cos(p.ang) * L / 2, my = p.cy + Math.sin(p.ang) * L / 2;
+        queue.push([true, mx, my, L / 2, p.size * 4, p.ang, pa * .35, SPRITES.glow.index, col]); queue.push([true, mx, my, L / 2, p.size * 1.5, p.ang, pa * .9, SPRITES.glow.index, col]); queue.push([true, mx, my, L / 2, p.size * 9, p.ang, pa, SPRITES.streak.index, [1, 1, 1]]); continue; }
       if (p.e.behavior === "streak") queue.push([isAdd, p.x, p.y, p.size * st, p.size, Math.atan2(p.vy, p.vx), pa, cell, col]);
       else queue.push([isAdd, p.x, p.y, p.size * p.flip, p.size, p.rot, pa, cell, col]);
     }

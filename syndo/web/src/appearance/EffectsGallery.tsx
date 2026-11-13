@@ -69,7 +69,7 @@ export function EffectsGallery({ initialGuild }: { initialGuild?: string }) {
       </button>)}</div>
       {limit<matches.length&&<button className="btn catalog-more" onClick={()=>setLimit(limit+24)}>Show 24 more</button>}
       {!matches.length&&<p className="muted">No ready collections match this search.</p>}
-      <details className="catalog-upcoming" open={upcoming} onToggle={e=>setUpcoming(e.currentTarget.open)}><summary>Requested collections · {pending.length} in preparation</summary>{upcoming&&<><p className="muted">These keep your requested designs on the list. They will become selectable as their artwork and animation are completed.</p><div className="upcoming-grid">{pending.map(c=><div key={c.id}><strong>{c.name}</strong><small>{c.brief}</small><span>In preparation</span></div>)}</div></>}</details>
+      {pending.length>0&&<details className="catalog-upcoming" open={upcoming} onToggle={e=>setUpcoming(e.currentTarget.open)}><summary>Requested collections · {pending.length} in preparation</summary>{upcoming&&<><p className="muted">These keep your requested designs on the list. They will become selectable as their artwork and animation are completed.</p><div className="upcoming-grid">{pending.map(c=><div key={c.id}><strong>{c.name}</strong><small>{c.brief}</small><span>In preparation</span></div>)}</div></>}</details>}
       <details className="effects-custom"><summary>Fine tune your look <span>Colours, layers, rings & motion</span></summary><CosmeticsEditor value={theme} onChange={t=>setTheme(t)}/><button className="btn primary" onClick={save} disabled={busy}>Save custom look</button></details>
     </>}
   </div>;

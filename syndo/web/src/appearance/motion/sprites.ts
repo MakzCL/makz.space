@@ -3,11 +3,13 @@
  * with its own shading (so one tint colours it). Animated creatures get several frames of a wing-beat cycle.
  * Nothing is downloaded; the atlas is built the first time an effect plays.
  */
-export const CELL = 128, GRID = 8;
+export const CELL = 128, GRID = 10;
 
 const STATIC = ["glow", "spark", "star", "snow", "petal", "leaf", "maple", "heart", "ember", "bubble", "drop", "confetti", "feather", "firefly",
-  "smoke", "shard", "note", "coin", "ring", "diamond", "flame", "paw", "dust", "twinkle", "hex", "bit0", "bit1", "lantern", "rose", "cube", "streak", "wisp", "bolt"] as const;
-const ANIMATED = { crow: 6, butterfly: 6, bat: 6, moth: 6 } as const;
+  "smoke", "shard", "note", "coin", "ring", "diamond", "flame", "paw", "dust", "twinkle", "hex", "bit0", "bit1", "lantern", "rose", "cube", "streak", "wisp", "bolt",
+  "balloon", "sword", "gear", "skull", "card", "die", "eye", "crown", "circle", "triangle", "square", "cross", "donut", "rune", "pumpkin", "mushroom",
+  "jet", "rocket", "cloud", "bill", "sprout", "apple", "strawberry", "flag", "orb", "chevron", "web", "shell", "marigold", "drip", "tire"] as const;
+const ANIMATED = { crow: 6, butterfly: 6, bat: 6, moth: 6, fish: 6 } as const;
 
 export type SpriteName = (typeof STATIC)[number] | keyof typeof ANIMATED;
 export const SPRITES: Record<SpriteName, { index: number; frames: number }> = {} as any;
@@ -142,6 +144,127 @@ const paint: Record<(typeof STATIC)[number], (c: C) => void> = {
     face([[0, -s], [s, -s / 2], [0, 0], [-s, -s / 2]], "#ffffff"); face([[-s, -s / 2], [0, 0], [0, s], [-s, s / 2]], "#bdbdbd"); face([[s, -s / 2], [0, 0], [0, s], [s, s / 2]], "#8e8e8e");
   },
   bolt(c) { c.fillStyle = "#fff"; c.beginPath(); c.moveTo(8, -54); c.lineTo(-20, 6); c.lineTo(0, 6); c.lineTo(-10, 54); c.lineTo(22, -10); c.lineTo(2, -10); c.closePath(); c.fill(); },
+  balloon(c) {
+    c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 30); c.quadraticCurveTo(6, 44, -2, 60); c.stroke();
+    c.beginPath(); c.moveTo(0, 30); c.bezierCurveTo(-36, 10, -34, -46, 0, -46); c.bezierCurveTo(34, -46, 36, 10, 0, 30); c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.55, "#e6e6e6"], [1, "#9a9a9a"]]); c.fill();
+    c.fillStyle = "#bdbdbd"; c.beginPath(); c.moveTo(-5, 34); c.lineTo(5, 34); c.lineTo(0, 28); c.fill();
+    c.fillStyle = "rgba(255,255,255,.95)"; c.beginPath(); c.ellipse(-12, -24, 6, 11, -.5, 0, 7); c.fill();
+  },
+  sword(c) {
+    c.rotate(-.6); const g = c.createLinearGradient(-6, 0, 6, 0); g.addColorStop(0, "#d6d6d6"); g.addColorStop(.5, "#ffffff"); g.addColorStop(1, "#a9a9a9");
+    c.fillStyle = g; c.beginPath(); c.moveTo(0, -60); c.lineTo(6, -48); c.lineTo(6, 22); c.lineTo(-6, 22); c.lineTo(-6, -48); c.closePath(); c.fill();
+    c.fillStyle = "#c8c8c8"; c.fillRect(-20, 22, 40, 6); c.fillStyle = "#8f8f8f"; c.fillRect(-4, 28, 8, 22); c.fillStyle = "#e0e0e0"; c.beginPath(); c.arc(0, 54, 6, 0, 7); c.fill();
+  },
+  gear(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.8, "#e0e0e0"], [1, "#a0a0a0"]]); c.beginPath();
+    for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, r = i % 2 ? 36 : 48; c.lineTo(Math.cos(a - .1) * r, Math.sin(a - .1) * r); c.lineTo(Math.cos(a + .1) * r, Math.sin(a + .1) * r); }
+    c.closePath(); c.fill(); c.globalCompositeOperation = "destination-out"; c.beginPath(); c.arc(0, 0, 14, 0, 7); c.fill(); c.globalCompositeOperation = "source-over";
+    c.strokeStyle = "rgba(120,120,120,.5)"; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, 26, 0, 7); c.stroke();
+  },
+  skull(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.7, "#e8e8e8"], [1, "#b0b0b0"]]); c.beginPath(); c.arc(0, -8, 36, Math.PI * .85, Math.PI * .15); c.lineTo(20, 30); c.lineTo(-20, 30); c.closePath(); c.fill();
+    c.globalCompositeOperation = "destination-out"; for (const x of [-14, 14]) { c.beginPath(); c.ellipse(x, -4, 10, 12, 0, 0, 7); c.fill(); }
+    c.beginPath(); c.moveTo(0, 8); c.lineTo(-5, 18); c.lineTo(5, 18); c.fill(); for (const x of [-10, 0, 10]) c.fillRect(x - 2, 24, 4, 8); c.globalCompositeOperation = "source-over";
+  },
+  card(c) {
+    c.rotate(.15); c.fillStyle = "#ffffff"; c.beginPath(); c.roundRect(-30, -42, 60, 84, 7); c.fill(); c.strokeStyle = "#bdbdbd"; c.lineWidth = 2; c.stroke();
+    c.fillStyle = "#8a8a8a"; c.beginPath(); c.moveTo(0, -16); c.bezierCurveTo(-22, -2, -10, 20, 0, 8); c.bezierCurveTo(10, 20, 22, -2, 0, -16); c.fill(); c.fillRect(-2, 6, 4, 14);
+  },
+  die(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [1, "#c4c4c4"]]); c.beginPath(); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; c.lineTo(Math.cos(a) * 44, Math.sin(a) * 44); } c.closePath(); c.fill();
+    c.strokeStyle = "rgba(110,110,110,.6)"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(0, -44); c.lineTo(-24, 14); c.lineTo(24, 14); c.closePath(); c.moveTo(-38, -22); c.lineTo(0, -44); c.lineTo(38, -22); c.moveTo(-24, 14); c.lineTo(0, 44); c.lineTo(24, 14); c.stroke();
+    c.fillStyle = "#7a7a7a"; c.font = "bold 24px system-ui"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("20", 0, -2);
+  },
+  eye(c) {
+    c.fillStyle = radial(c, R, [[0, "rgba(255,255,255,.4)"], [1, "rgba(255,255,255,0)"]]); c.fillRect(-R, -R, CELL, CELL);
+    c.fillStyle = "#ffffff"; c.beginPath(); c.moveTo(-50, 0); c.quadraticCurveTo(0, -36, 50, 0); c.quadraticCurveTo(0, 36, -50, 0); c.fill();
+    c.globalCompositeOperation = "destination-out"; c.beginPath(); c.ellipse(0, 0, 6, 20, 0, 0, 7); c.fill(); c.globalCompositeOperation = "source-over";
+  },
+  crown(c) {
+    c.fillStyle = radial(c, 60, [[0, "#ffffff"], [.7, "#e6e6e6"], [1, "#a8a8a8"]]); c.beginPath(); c.moveTo(-40, 26); c.lineTo(-46, -22); c.lineTo(-22, 0); c.lineTo(0, -34); c.lineTo(22, 0); c.lineTo(46, -22); c.lineTo(40, 26); c.closePath(); c.fill();
+    c.fillStyle = "#9c9c9c"; c.fillRect(-40, 20, 80, 8); for (const [x, y] of [[-46, -22], [0, -34], [46, -22]] as const) { c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, 6, 0, 7); c.fill(); }
+  },
+  circle(c) { c.strokeStyle = "#fff"; c.lineWidth = 9; c.beginPath(); c.arc(0, 0, 38, 0, 7); c.stroke(); },
+  triangle(c) { c.strokeStyle = "#fff"; c.lineWidth = 9; c.lineJoin = "round"; c.beginPath(); c.moveTo(0, -40); c.lineTo(40, 30); c.lineTo(-40, 30); c.closePath(); c.stroke(); },
+  square(c) { c.strokeStyle = "#fff"; c.lineWidth = 9; c.lineJoin = "round"; c.strokeRect(-34, -34, 68, 68); },
+  cross(c) { c.strokeStyle = "#fff"; c.lineWidth = 10; c.lineCap = "round"; c.beginPath(); c.moveTo(-32, -32); c.lineTo(32, 32); c.moveTo(32, -32); c.lineTo(-32, 32); c.stroke(); },
+  donut(c) {
+    c.fillStyle = radial(c, 48, [[0, "#d0d0d0"], [.6, "#f2f2f2"], [1, "#a2a2a2"]]); c.beginPath(); c.arc(0, 0, 44, 0, 7); c.fill();
+    c.fillStyle = "#ffffff"; c.beginPath(); for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, r = 38 + Math.sin(i * 2.3) * 4; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.fill();
+    c.globalCompositeOperation = "destination-out"; c.beginPath(); c.arc(0, 0, 14, 0, 7); c.fill(); c.globalCompositeOperation = "source-over";
+    for (let i = 0; i < 12; i++) { const a = i * 2.1, d = 22 + (i % 3) * 5; c.fillStyle = "#9a9a9a"; c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.rotate(a); c.fillRect(-4, -1.5, 8, 3); c.restore(); }
+  },
+  rune(c) {
+    c.fillStyle = radial(c, R, [[0, "rgba(255,255,255,.35)"], [1, "rgba(255,255,255,0)"]]); c.fillRect(-R, -R, CELL, CELL);
+    c.strokeStyle = "#fff"; c.lineWidth = 6; c.lineCap = "round"; c.lineJoin = "round"; c.beginPath(); c.moveTo(-6, -40); c.lineTo(-6, 40); c.moveTo(-6, -24); c.lineTo(20, -6); c.lineTo(-6, 12); c.moveTo(-6, 12); c.lineTo(18, 34); c.stroke();
+  },
+  pumpkin(c) {
+    for (const [x, w, k] of [[-20, 22, .8], [20, 22, .8], [0, 26, 1]] as const) { c.fillStyle = radial(c, 50, [[0, `rgba(255,255,255,${k})`], [1, "rgba(170,170,170,1)"]]); c.beginPath(); c.ellipse(x, 6, w, 34, 0, 0, 7); c.fill(); }
+    c.fillStyle = "#8a8a8a"; c.fillRect(-4, -38, 8, 12);
+  },
+  mushroom(c) {
+    c.fillStyle = "#e8e8e8"; c.beginPath(); c.moveTo(-12, 10); c.lineTo(-14, 46); c.lineTo(14, 46); c.lineTo(12, 10); c.fill();
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.8, "#dedede"], [1, "#9a9a9a"]]); c.beginPath(); c.moveTo(-46, 12); c.bezierCurveTo(-46, -44, 46, -44, 46, 12); c.closePath(); c.fill();
+    c.fillStyle = "rgba(120,120,120,.5)"; for (const [x, y, r] of [[-20, -10, 7], [10, -22, 6], [24, 0, 5], [-4, 2, 4]] as const) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+  },
+  jet(c) {
+    c.fillStyle = radial(c, 60, [[0, "#ffffff"], [1, "#b8b8b8"]]); c.beginPath(); c.moveTo(56, 0); c.lineTo(30, -6); c.lineTo(-4, -8); c.lineTo(-20, -40); c.lineTo(-30, -40); c.lineTo(-22, -8); c.lineTo(-44, -6); c.lineTo(-52, -20); c.lineTo(-58, -20); c.lineTo(-54, 0);
+    c.lineTo(-58, 20); c.lineTo(-52, 20); c.lineTo(-44, 6); c.lineTo(-22, 8); c.lineTo(-30, 40); c.lineTo(-20, 40); c.lineTo(-4, 8); c.lineTo(30, 6); c.closePath(); c.fill();
+  },
+  rocket(c) {
+    c.rotate(Math.PI / 2); const g = c.createLinearGradient(0, 30, 0, 60); g.addColorStop(0, "rgba(255,255,255,.9)"); g.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g; c.beginPath(); c.moveTo(-8, 28); c.quadraticCurveTo(0, 70, 8, 28); c.fill();
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [1, "#b6b6b6"]]); c.beginPath(); c.moveTo(0, -48); c.bezierCurveTo(18, -28, 16, 10, 12, 28); c.lineTo(-12, 28); c.bezierCurveTo(-16, 10, -18, -28, 0, -48); c.fill();
+    c.fillStyle = "#9a9a9a"; c.beginPath(); c.moveTo(-12, 10); c.lineTo(-24, 30); c.lineTo(-12, 26); c.moveTo(12, 10); c.lineTo(24, 30); c.lineTo(12, 26); c.fill(); c.fillStyle = "#7a7a7a"; c.beginPath(); c.arc(0, -16, 6, 0, 7); c.fill();
+  },
+  cloud(c) {
+    for (const [x, y, r] of [[-28, 10, 22], [-6, -6, 28], [22, 4, 24], [36, 16, 16], [-42, 20, 14], [4, 18, 22]] as const) { c.fillStyle = radial(c, r * 1.1, [[0, "#ffffff"], [.8, "#f2f2f2"], [1, "rgba(255,255,255,0)"]]); c.save(); c.translate(x, y); c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill(); c.restore(); }
+  },
+  bill(c) {
+    c.rotate(-.2); c.fillStyle = "#f2f2f2"; c.fillRect(-48, -24, 96, 48); c.strokeStyle = "#a0a0a0"; c.lineWidth = 3; c.strokeRect(-42, -18, 84, 36);
+    c.fillStyle = "#b0b0b0"; c.beginPath(); c.ellipse(0, 0, 13, 15, 0, 0, 7); c.fill(); c.fillStyle = "#fff"; c.font = "bold 18px system-ui"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("$", 0, 1);
+  },
+  sprout(c) {
+    c.strokeStyle = "#dcdcdc"; c.lineWidth = 5; c.beginPath(); c.moveTo(0, 46); c.quadraticCurveTo(-4, 10, 0, -6); c.stroke();
+    for (const s of [-1, 1]) { c.save(); c.scale(s, 1); c.fillStyle = radial(c, 40, [[0, "#ffffff"], [1, "#c0c0c0"]]); c.beginPath(); c.moveTo(0, -6); c.bezierCurveTo(10, -36, 44, -36, 44, -20); c.bezierCurveTo(40, -4, 14, 0, 0, -6); c.fill(); c.restore(); }
+  },
+  apple(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.7, "#e2e2e2"], [1, "#9c9c9c"]]); c.beginPath(); c.moveTo(0, -24); c.bezierCurveTo(-40, -44, -54, 20, -14, 42); c.quadraticCurveTo(0, 36, 14, 42); c.bezierCurveTo(54, 20, 40, -44, 0, -24); c.fill();
+    c.fillStyle = "#8a8a8a"; c.fillRect(-2, -42, 4, 18); c.fillStyle = "#bdbdbd"; c.beginPath(); c.ellipse(12, -36, 12, 5, -.5, 0, 7); c.fill();
+    c.fillStyle = "rgba(255,255,255,.95)"; c.beginPath(); c.ellipse(-16, -10, 6, 10, .3, 0, 7); c.fill();
+  },
+  strawberry(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.7, "#e0e0e0"], [1, "#9a9a9a"]]); c.beginPath(); c.moveTo(0, 46); c.bezierCurveTo(-48, 10, -38, -30, 0, -26); c.bezierCurveTo(38, -30, 48, 10, 0, 46); c.fill();
+    c.fillStyle = "#8f8f8f"; for (let i = 0; i < 14; i++) { const x = ((i * 37) % 50) - 25, y = ((i * 23) % 50) - 16; c.beginPath(); c.ellipse(x * .8, y, 2, 3.4, 0, 0, 7); c.fill(); }
+    c.fillStyle = "#bdbdbd"; c.beginPath(); for (let i = 0; i < 10; i++) { const a = Math.PI + i * Math.PI / 9, r = i % 2 ? 10 : 26; c.lineTo(Math.cos(a) * r, -26 + Math.sin(a) * r * .5); } c.fill();
+  },
+  flag(c) {
+    c.fillStyle = "#cfcfcf"; c.fillRect(-46, -46, 5, 96);
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 7; x++) { const wv = Math.sin(x * .9) * 5; c.fillStyle = (x + y) % 2 ? "#ffffff" : "#3a3a3a"; c.fillRect(-41 + x * 12, -46 + y * 12 + wv, 12, 12.5); }
+  },
+  orb(c) {
+    c.fillStyle = radial(c, R, [[0, "rgba(255,255,255,.4)"], [1, "rgba(255,255,255,0)"]]); c.fillRect(-R, -R, CELL, CELL);
+    c.fillStyle = radial(c, 34, [[0, "#ffffff"], [.5, "#f0f0f0"], [.9, "#bcbcbc"], [1, "#ffffff"]]); c.beginPath(); c.arc(0, 0, 32, 0, 7); c.fill();
+    c.fillStyle = "rgba(255,255,255,.95)"; c.beginPath(); c.ellipse(-11, -13, 8, 5, -.6, 0, 7); c.fill();
+  },
+  chevron(c) { c.strokeStyle = "#fff"; c.lineWidth = 12; c.lineCap = "round"; c.lineJoin = "round"; c.beginPath(); c.moveTo(-26, -34); c.lineTo(14, 0); c.lineTo(-26, 34); c.stroke(); },
+  web(c) {
+    c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 2;
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * 60, Math.sin(a) * 60); c.stroke(); }
+    for (let r = 12; r < 60; r += 11) { c.beginPath(); for (let k = 0; k <= 8; k++) { const a = k * Math.PI / 4, b = (k - .5) * Math.PI / 4; if (k) c.quadraticCurveTo(Math.cos(b) * r * .82, Math.sin(b) * r * .82, Math.cos(a) * r, Math.sin(a) * r); else c.moveTo(r, 0); } c.stroke(); }
+  },
+  shell(c) {
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [1, "#b4b4b4"]]); c.beginPath(); c.moveTo(0, 40); c.lineTo(-44, -6); c.quadraticCurveTo(0, -60, 44, -6); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(120,120,120,.55)"; c.lineWidth = 2.5; for (let i = -3; i <= 3; i++) { c.beginPath(); c.moveTo(0, 38); c.lineTo(i * 13, -30 + Math.abs(i) * 6); c.stroke(); }
+  },
+  marigold(c) {
+    for (let ring = 3; ring > 0; ring--) for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6 + ring * .3, d = ring * 11; c.fillStyle = `rgba(255,255,255,${.6 + ring * .12})`; c.save(); c.rotate(a); c.beginPath(); c.ellipse(d, 0, 12, 8, 0, 0, 7); c.fill(); c.restore(); }
+    c.fillStyle = "#bdbdbd"; c.beginPath(); c.arc(0, 0, 8, 0, 7); c.fill();
+  },
+  drip(c) { c.fillStyle = radial(c, 40, [[0, "#ffffff"], [1, "#c0c0c0"]]); c.beginPath(); c.moveTo(0, -46); c.bezierCurveTo(10, -16, 32, 4, 30, 22); c.arc(0, 22, 30, 0, Math.PI); c.bezierCurveTo(-32, 4, -10, -16, 0, -46); c.fill(); c.fillStyle = "rgba(255,255,255,.95)"; c.beginPath(); c.ellipse(-12, 18, 5, 9, .3, 0, 7); c.fill(); },
+  tire(c) {
+    c.fillStyle = "#6e6e6e"; c.beginPath(); c.arc(0, 0, 46, 0, 7); c.fill(); c.fillStyle = "#4a4a4a"; for (let i = 0; i < 24; i++) { c.save(); c.rotate(i * Math.PI / 12); c.fillRect(40, -3, 7, 6); c.restore(); }
+    c.fillStyle = radial(c, 30, [[0, "#ffffff"], [1, "#b0b0b0"]]); c.beginPath(); c.arc(0, 0, 28, 0, 7); c.fill(); c.strokeStyle = "#8a8a8a"; c.lineWidth = 4; for (let i = 0; i < 5; i++) { c.save(); c.rotate(i * Math.PI * .4); c.beginPath(); c.moveTo(0, 6); c.lineTo(0, 26); c.stroke(); c.restore(); }
+  },
 };
 
 /** A creature at wing phase p (0…1 around a full beat). Drawn as a soft-edged silhouette with a little shading. */
@@ -172,6 +295,16 @@ function creature(c: C, kind: keyof typeof ANIMATED, p: number) {
     }
     // subtle sheen so tinting keeps some form
     c.globalCompositeOperation = "source-atop"; c.fillStyle = "rgba(0,0,0,.18)"; c.fillRect(-R, 0, CELL, R); c.globalCompositeOperation = "source-over";
+    return;
+  }
+  if (kind === "fish") { // koi seen from above, tail sweeping
+    const sw = Math.sin(p * Math.PI * 2);
+    c.rotate(-Math.PI / 2);
+    c.fillStyle = radial(c, 50, [[0, "#ffffff"], [.7, "#e8e8e8"], [1, "#b0b0b0"]]);
+    c.beginPath(); c.moveTo(0, -40); c.bezierCurveTo(16, -34, 16, 4, 6 + sw * 3, 20); c.lineTo(-6 + sw * 3, 20); c.bezierCurveTo(-16, 4, -16, -34, 0, -40); c.fill();
+    c.fillStyle = "rgba(255,255,255,.75)"; c.beginPath(); c.moveTo(sw * 4, 18); c.quadraticCurveTo(-18 + sw * 14, 40, -10 + sw * 18, 52); c.quadraticCurveTo(sw * 12, 40, 10 + sw * 18, 52); c.quadraticCurveTo(18 + sw * 14, 40, sw * 4, 18); c.fill();
+    for (const s2 of [-1, 1]) { c.beginPath(); c.ellipse(s2 * 14, -14, 9, 4, s2 * .7, 0, 7); c.fill(); }
+    c.fillStyle = "rgba(120,120,120,.45)"; for (const [x, y, r] of [[-4, -20, 6], [5, -6, 5], [-3, 6, 4]] as const) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
     return;
   }
   // butterflies & moths: seen from above, wings foreshortened by the beat

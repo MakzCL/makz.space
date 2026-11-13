@@ -6,6 +6,8 @@
 import { PROFILE_CATALOG } from "@send/shared";
 import { HERO, RING, SKY, type Col, type Emitter, type Scene } from "./engine.ts";
 import palettes from "./palettes.json";
+import { SPECS } from "./specs.ts";
+import type { SpriteName } from "./sprites.ts";
 
 type Pal = [string, string, string];
 type Arch = (p: Pal, v: number) => Omit<Scene, "palette">;
@@ -386,6 +388,65 @@ const ORIGINAL_PALETTE: Record<string, Pal> = {
   starlit: ["#f5deae", "#7b8fd3", "#0b0e22"], gilded: ["#f7d896", "#9a7649", "#1a130a"], wisteria: ["#d2b4ff", "#625582", "#120e1e"], phantom: ["#d4d9e8", "#655c89", "#0e0d16"],
 };
 
+
+// ---------------------------------------------------------------- per-collection scenes (specs.ts) --
+const SIZE: Partial<Record<SpriteName, [number, number]>> = {
+  glow: [6, 14], spark: [5, 9], star: [5, 8], snow: [3, 7], petal: [5, 9], leaf: [5, 8], maple: [5, 9], heart: [6, 11], ember: [1.6, 3.4], bubble: [3, 7], drop: [3, 5],
+  confetti: [2.5, 4.5], feather: [6, 9], firefly: [3, 5], smoke: [22, 38], shard: [6, 10], note: [7, 11], coin: [6, 10], ring: [20, 40], diamond: [5, 8], flame: [9, 15],
+  paw: [5, 8], dust: [1.2, 2.6], twinkle: [3, 7], hex: [5, 9], bit0: [3.5, 6], bit1: [3.5, 6], lantern: [9, 15], rose: [5, 8], cube: [5, 9], streak: [1, 1.6], wisp: [16, 26],
+  bolt: [1, 1], balloon: [9, 15], sword: [9, 14], gear: [8, 16], skull: [7, 11], card: [7, 11], die: [8, 12], eye: [8, 12], crown: [8, 12], circle: [8, 13], triangle: [8, 13],
+  square: [8, 13], cross: [8, 13], donut: [7, 11], rune: [6, 10], pumpkin: [8, 13], mushroom: [7, 11], jet: [10, 16], rocket: [9, 14], cloud: [20, 32], bill: [7, 11],
+  sprout: [6, 10], apple: [7, 10], strawberry: [6, 9], flag: [10, 14], orb: [5, 9], chevron: [5, 8], web: [18, 30], shell: [6, 9], marigold: [6, 10], drip: [5, 8], tire: [8, 12],
+  crow: [10, 16], butterfly: [10, 15], bat: [8, 12], moth: [9, 13], fish: [16, 24],
+};
+const ADDITIVE = new Set<SpriteName>(["glow", "spark", "twinkle", "dust", "ember", "firefly", "streak", "wisp", "ring", "orb", "hex", "bit0", "bit1", "rune", "circle", "triangle", "square", "cross", "eye", "bolt", "chevron", "flame"]);
+const FLAT = new Set<SpriteName>(["petal", "leaf", "maple", "confetti", "feather", "card", "bill", "coin", "rose", "marigold", "shell"]);
+const REGION: Record<string, Emitter["region"]> = { a: "anchor", h: "hero", t: "top", b: "bottom", e: "edges", n: "banner", l: "all" };
+
+function makeEmitter(sprite: SpriteName, behavior: Emitter["behavior"], count: number, o: { angle?: number; speed?: number; region?: Emitter["region"]; colors?: Col[] }): Emitter {
+  const add = ADDITIVE.has(sprite);
+  const e: Emitter = { sprite, behavior, count, size: SIZE[sprite] ?? [5, 9], colors: o.colors ?? ["c1", "w"], blend: add ? "add" : "alpha", speed: o.speed, region: o.region, angle: o.angle };
+  switch (behavior) {
+    case "fall": if (FLAT.has(sprite)) { e.tumble = true; e.spin = 1.3; } else e.spin = .6; break;
+    case "rise": e.spin = .3; if (sprite === "ember") { e.toColor = "c2"; e.glow = .5; } if (sprite === "balloon" || sprite === "lantern") e.life = [8, 12]; break;
+    case "drift": e.alpha = .9; e.spin = .3; break;
+    case "twinkle": e.spin = .3; break;
+    case "flock": e.fps = sprite === "bat" ? 14 : 9; if (!o.colors) e.colors = ["#0b0b12"]; break;
+    case "flutter": e.fps = sprite === "fish" ? 6 : 14; e.glow = sprite === "fish" ? undefined : .25; break;
+    case "streak": e.stretch = sprite === "streak" ? 14 : 4; e.alpha = .65; e.angle = o.angle ?? 102; if (sprite !== "streak") e.glow = .4; break;
+    case "comet": e.trail = 16; e.blend = "add"; e.glow = .4; e.size = [3, 4.5]; break;
+    case "flyby": if (["rocket", "orb", "star"].includes(sprite)) { e.trail = 12; e.glow = .4; } break;
+    case "beam": e.size = [2.2, 3]; e.alpha = 1; e.blend = "add"; e.region = o.region ?? "bottom"; e.angle = o.angle ?? 270; break;
+    case "pulse": e.size = sprite === "ring" || sprite === "circle" || sprite === "hex" ? [18, 90] : [10, 40]; e.alpha = .8; e.blend = "add"; e.region = o.region ?? "anchor"; break;
+    case "lights": e.size = [6, 6]; e.glow = .9; e.blend = "add"; break;
+    case "blink": e.size = [4.5, 6]; e.glow = 1.1; e.blend = "add"; break;
+    case "swirl": e.blend = "add"; e.size = [1.2, 2.8]; e.glow = .4; break;
+  }
+  return e;
+}
+
+function applySpec(spec: string, pal: Pal, v: number): { base: Omit<Scene, "palette">; pal: Pal } {
+  const [arch, ...toks] = spec.trim().split(/\s+/);
+  const base = ARCHETYPES[arch!]!(pal, v);
+  const out: Omit<Scene, "palette"> = { ...base, emitters: [...base.emitters], deco: { ...base.deco, emitters: [...base.deco.emitters] }, sky: { ...base.sky } };
+  for (const t of toks) {
+    let m: RegExpMatchArray | null;
+    if ((m = t.match(/^sky=(\w+)(?::([\d.]+))?$/))) { out.sky.mode = (SKY as any)[m[1]!] ?? out.sky.mode; if (m[2]) out.sky.intensity = +m[2]; }
+    else if (t === "hero=none") delete out.hero;
+    else if ((m = t.match(/^hero=(\w+)(?:@([\d.]+),([\d.]+),([\d.]+))?$/))) { const kind = (HERO as any)[m[1]!] ?? 0; out.hero = m[2] ? { kind, x: +m[2], y: +m[3]!, r: +m[4]! } : { kind, x: out.hero?.x ?? .7, y: out.hero?.y ?? .14, r: out.hero?.r ?? .1 }; }
+    else if ((m = t.match(/^ring=(\w+)$/))) out.deco.ring = (RING as any)[m[1]!] ?? out.deco.ring;
+    else if ((m = t.match(/^pal=(#[0-9a-f]{6}),(#[0-9a-f]{6}),(#[0-9a-f]{6})$/i))) pal = [m[1]!, m[2]!, m[3]!];
+    else if ((m = t.match(/^-(\w+)$/))) { const sp = m[1]; out.emitters = out.emitters.filter((e) => e.sprite !== sp); }
+    else if ((m = t.match(/^(deco)?\+(\w+)\.(\w+)(?:\*([\d.]+))?(?:@(\d+))?(?:\^([\d.]+))?(?:%(\w))?(?:~(.+))?$/))) {
+      const e = makeEmitter(m[2] as SpriteName, m[3] as Emitter["behavior"], m[4] ? +m[4] : 6, { angle: m[5] ? +m[5] : undefined, speed: m[6] ? +m[6] : undefined, region: m[7] ? REGION[m[7]] : undefined, colors: m[8] ? (m[8].split(",") as Col[]) : undefined });
+      if (m[1]) { if (e.behavior === "fall" || e.behavior === "rise") e.region = e.region ?? "anchor"; e.size = [e.size[0] * .9, e.size[1] * .9]; out.deco.emitters.push(e); } else out.emitters.push(e);
+    } else if (import.meta.env?.DEV) console.warn("SEND Motion: unknown spec token", t, "in", spec);
+  }
+  // A swirl needs a centre: give it a soft orb if the scene has no hero.
+  if (out.emitters.some((e) => e.behavior === "swirl") && !out.hero) out.hero = { kind: HERO.orb, x: .7, y: .14, r: .06 };
+  return { base: out, pal };
+}
+
 export interface SceneInfo { scene: Scene; archetype: string }
 const cache = new Map<string, SceneInfo>();
 export function sceneFor(id: string | null | undefined): SceneInfo | null {
@@ -399,6 +460,13 @@ export function sceneFor(id: string | null | undefined): SceneInfo | null {
     pal = ((palettes as unknown as Record<string, Pal>)[id]) ?? [c.primary, c.secondary, darken(c.secondary, .45)];
   }
   const v = hash(id);
+  const num = Number(id.replace("bundle-", "")), spec = SPECS[num];
+  if (spec) {
+    const r = applySpec(spec, pal!, v);
+    const info = { scene: { ...r.base, palette: r.pal }, archetype: spec.split(" ")[0]! };
+    cache.set(id, info);
+    return info;
+  }
   const base = ARCHETYPES[arch]!(pal!, v);
   const have = new Set(base.emitters.map((e) => e.sprite + e.behavior));
   const extra = EXTRAS.filter(([re, e]) => re.test(text) && !have.has(e.sprite + e.behavior)).slice(0, 2).map(([, e]) => e);

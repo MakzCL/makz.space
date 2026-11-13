@@ -200,6 +200,105 @@ vec4 dreamy(vec2 p, float t, float hw){
   return vec4(col*.94, .94);
 }
 
+
+vec4 film(vec2 p, float t, float hw, vec2 uv){
+  float fl = .9 + .1*h21(vec2(floor(t*18.), 3.));
+  float grain = h21(uv*vec2(613., 419.) + floor(t*24.));
+  float scratch = smoothstep(.003, 0., abs(uv.x - h21(vec2(floor(t*6.), 1.))))*step(.6, h21(vec2(floor(t*6.), 2.)));
+  float vig = smoothstep(1.1, .25, length((uv - .5)*vec2(1., .8)));
+  vec3 base = mix(uC3*.3, mix(uC2, uC1, .5)*.8, vig*vig*(.55 + .45*fbm(p*3. + t*.05)));
+  vec3 col = base*fl + (grain - .5)*.12 + scratch*.35;
+  return vec4(col*.94, .94);
+}
+vec4 comic(vec2 p, float t, float hw, vec2 ac){
+  vec2 d = p - ac; float a = atan(d.y, d.x), r = length(d);
+  float rays = step(.5, fract(a*7./TAU*4. + t*.05))*smoothstep(.05, .5, r);
+  vec2 g = rot(p, .5)*55.; float dotR = .25 + .2*sin(p.x*3. + t)*sin(p.y*2.);
+  float dots = smoothstep(dotR + .06, dotR, length(fract(g) - .5));
+  vec3 col = mix(uC2*.55, uC1*.75, rays*.45); col = mix(col*.8, col*1.12, dots*.7);
+  col = mix(col, uC3*.6, smoothstep(.0, hw, p.y)*.55);
+  return vec4(col*.94, .94);
+}
+vec4 crt(vec2 p, float t, float hw, vec2 uv){
+  vec2 c = uv - .5; vec2 cu = uv + c*dot(c, c)*.15;
+  float scan = .7 + .3*sin(cu.y*hw*520.); float roll = smoothstep(.06, 0., abs(fract(cu.y - t*.15) - .5))*.25;
+  float n = fbm(p*vec2(4., 30.) + t*.4)*.15;
+  float vig = smoothstep(.75, .2, length(c*vec2(1.1, .9)));
+  vec3 col = mix(uC3*.4, uC1*.75, .25 + n + roll)*scan*vig + uC1*.06;
+  return vec4(col*.95, .95);
+}
+vec4 stage(vec2 p, float t, float hw){
+  vec3 col = uC3*.45 + uC2*.15*fbm(p*2. + t*.08);
+  for (int i = 0; i < 5; i++){ float k = float(i);
+    vec2 o = vec2(.1 + k*.2, hw + .05); float ang = -1.5708 + sin(t*.6 + k*1.7)*.55;
+    vec2 d = p - o; float al = atan(d.y, d.x) - ang; al = mod(al + 3.14159, TAU) - 3.14159;
+    float beam = exp(-al*al*90.)*smoothstep(1.4, .1, length(d))*(.6 + .4*fbm(p*4. + t*.3));
+    col += mix(uC1, uC2, mod(k, 2.))*beam*.75; }
+  col += uC1*exp(-(hw - p.y)*4.)*.2;
+  return vec4(col*.95, .95);
+}
+vec4 police(vec2 p, float t, float hw){
+  float ph = step(.5, fract(t*1.6)); float strobe = .6 + .4*step(.5, fract(t*9.));
+  vec3 red = vec3(1., .12, .15), blue = vec3(.15, .35, 1.);
+  float l = exp(-length(p - vec2(0., .05))*2.6), r = exp(-length(p - vec2(1., .05))*2.6);
+  vec3 col = uC3*.5 + fbm(p*3. + t*.1)*uC3*.3 + red*l*(ph*strobe)*.9 + blue*r*((1. - ph)*strobe)*.9;
+  return vec4(col*.95, .95);
+}
+vec4 tunnel(vec2 p, vec2 c, float t){
+  vec2 d = p - c; float r = length(d), a = atan(d.y, d.x);
+  float z = .25/(r + .02) + t*1.2; float tw = a + z*.25;
+  float n = fbm(vec2(cos(tw), sin(tw))*1.5 + vec2(z*.6, 0.));
+  float bands = .5 + .5*sin(z*6. + n*4.);
+  vec3 col = mix(uC3*.6, mix(uC2, uC1, bands), smoothstep(.0, .8, n))*smoothstep(0., .25, r)*(.6 + .6*n);
+  col += uC1*exp(-r*7.)*.8;
+  return vec4(col*.95, .95);
+}
+vec4 clouds(vec2 p, float t, float hw){
+  vec3 sky = mix(mix(mix(uC1, vec3(.5, .72, 1.), .55), vec3(1.), .15), mix(uC2, vec3(.3, .5, .9), .4), smoothstep(0., hw, p.y));
+  float c1 = smoothstep(.5, .75, fbm(p*vec2(2.2, 4.) + vec2(t*.03, 0.)));
+  float c2 = smoothstep(.55, .8, fbm(p*vec2(3.5, 6.) + vec2(t*.05, 3.)));
+  vec3 col = mix(sky, vec3(1.), c1*.85); col = mix(col, vec3(.97), c2*.6);
+  col = mix(col, uC3*.8, smoothstep(.45*hw, hw, p.y)*.75);
+  return vec4(col*.94, .94);
+}
+vec4 lava(vec2 p, float t, float hw){
+  float n = fbm(p*3. + vec2(0., t*.06)); float n2 = fbm(p*7. - t*.04 + n);
+  float crack = smoothstep(.04, 0., abs(n2 - .5))*(.6 + .4*sin(t*1.5 + n*9.));
+  float pool = smoothstep(.62, .75, n)*.8;
+  vec3 col = uC3*(.35 + n2*.3) + mix(uC2, uC1, crack)*(crack + pool)*1.2;
+  col += uC2*exp(-(hw - p.y)*3.)*.35;
+  return vec4(col*.95, .95);
+}
+vec4 hexgrid(vec2 p, float t, float hw){
+  vec2 q = p*14.; vec2 r = vec2(1., 1.732); vec2 h = r*.5;
+  vec2 a = mod(q, r) - h, b = mod(q - h, r) - h; vec2 g = dot(a, a) < dot(b, b) ? a : b;
+  vec2 id = q - g;
+  float edge = smoothstep(.06, 0., .5 - max(abs(g.x)*.866 + abs(g.y)*.5, abs(g.y)));
+  float pulse = pow(.5 + .5*sin(length(id)*.4 - t*2.5 + h21(id)*2.), 6.);
+  vec3 col = uC3*.6 + mix(uC2, uC1, pulse)*(edge*(.18 + pulse*.5) + pulse*.1*(1. - edge));
+  col *= .7 + .3*fbm(p*2. + t*.1);
+  return vec4(col*.95, .95);
+}
+vec4 split(vec2 p, float t, float hw){
+  float s = p.x + p.y*.55 - .55 - hw*.1 + (fbm(vec2(p.y*4., t*.3)) - .5)*.12;
+  vec3 col = s < 0. ? uC1*.55 : uC2*.55; col *= .7 + .4*fbm(p*3. + t*.05);
+  col += mix(uC1, uC2, step(0., s))*exp(-abs(s)*35.)*1.2 + vec3(1.)*exp(-abs(s)*140.)*.8;
+  col = mix(col, uC3*.6, smoothstep(.4*hw, hw, p.y)*.6);
+  return vec4(col*.95, .95);
+}
+vec4 glass(vec2 p, float t, float hw){
+  vec2 q = p*7.; vec2 i = floor(q), f = fract(q); float md = 8., md2 = 8.; vec2 mid = vec2(0);
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){ vec2 g = vec2(x, y); vec2 o = vec2(h21(i + g), h21(i + g + 7.)); float d = length(g + o - f);
+    if (d < md){ md2 = md; md = d; mid = i + g; } else if (d < md2) md2 = d; }
+  float lead = smoothstep(.06, .02, md2 - md);
+  float hsel = h21(mid);
+  vec3 c = hsel < .33 ? uC1 : hsel < .66 ? uC2 : mix(uC1, vec3(1.), .5);
+  float light = .55 + .45*sin(t*.6 + hsel*6.);
+  vec3 col = mix(c*light*.6, uC3*.12, lead);
+  col *= mix(1., .55, smoothstep(.35*hw, hw, p.y));
+  return vec4(col*.95, .95);
+}
+
 // ---- hero objects ----
 vec4 hero(vec2 p, vec2 c, float r, float t){
   vec2 d = (p - c)/r; float l = length(d); vec4 o = vec4(0);
@@ -271,6 +370,18 @@ vec4 hero(vec2 p, vec2 c, float r, float t){
     vec3 col = mix(uC1, vec3(1.), .4)*(cor + bead) + uC2*exp(-(l - 1.)*1.2)*.25*step(1., l);
     float disk = smoothstep(1.01, .99, l);
     o = vec4(col*(1. - disk) + uC3*.08*disk, max(disk, clamp(cor + bead, 0., 1.)*.9));
+  }
+  else if (uHero == 8){ // glowing ring
+    float ring = exp(-pow((l - .8)*14., 2.)); float ins = fbm(vec2(atan(d.y, d.x)*4. - t*.8, 1.));
+    vec3 col = mix(uC2, mix(uC1, vec3(1.), .5), ins)*ring*1.4 + uC1*exp(-max(l - .9, 0.)*4.)*.25*step(.9, l);
+    o = vec4(col, clamp(ring + exp(-max(l - .9, 0.)*4.)*.15*step(.9, l), 0., 1.));
+  } else if (uHero == 9){ // flaming eye
+    vec2 e = vec2(d.x, d.y*1.9); float el = length(e); float ang = atan(e.y, e.x);
+    float n = fbm(vec2(ang*3. - t*.6, el*3. - t*1.5));
+    float fire = smoothstep(1.15 + n*.35, .3, el);
+    float slit = smoothstep(.09, .03, abs(d.x))*smoothstep(.6, .2, abs(d.y));
+    vec3 col = mix(uC2, uC1, fire)*fire*1.4; col = mix(col, vec3(1., .95, .7), smoothstep(.6, .95, fire)*.5); col = mix(col, vec3(0.), slit);
+    o = vec4(col, clamp(fire*1.1, 0., 1.));
   }
   return o;
 }
@@ -355,6 +466,17 @@ void main(){
   else if (uMode == 14) s = ink(p, t, uHW);
   else if (uMode == 15) s = dreamy(p, t, uHW);
   else if (uMode == 16) s = space(p, t);
+  else if (uMode == 17) s = film(p, t, uHW, vUv);
+  else if (uMode == 18) s = comic(p, t, uHW, vec2(uAnchor.x, uAnchor.y*uHW));
+  else if (uMode == 19) s = crt(p, t, uHW, vUv);
+  else if (uMode == 20) s = stage(p, t, uHW);
+  else if (uMode == 21) s = police(p, t, uHW);
+  else if (uMode == 22) s = tunnel(p, uHero > 0 ? hc : vec2(.6, .14*uHW), t);
+  else if (uMode == 23) s = clouds(p, t, uHW);
+  else if (uMode == 24) s = lava(p, t, uHW);
+  else if (uMode == 25) s = hexgrid(p, t, uHW);
+  else if (uMode == 26) s = split(p, t, uHW);
+  else if (uMode == 27) s = glass(p, t, uHW);
   // Keep the text area calm: the atmosphere is strongest across the banner and eases off down the card.
   float calm = mix(1., .62, smoothstep(.3*uHW, .75*uHW, p.y));
   s *= uIntensity*calm;
