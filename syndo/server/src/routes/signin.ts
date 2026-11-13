@@ -160,7 +160,7 @@ export async function signinRoutes(app: FastifyInstance) {
       const rows = await q<any>("select type, external_id, name, verified, visible, show_activity, metadata from user_connections where user_id = $1 order by created_at", [uid(req)]);
       return {
         connections: rows.map((c) => ({ type: c.type, id: c.external_id, name: c.name, verified: c.verified, visible: c.visible, show_activity: c.show_activity, url: c.metadata?.url ?? null })),
-        available: [...Object.entries(PROVIDERS).map(([k, p]) => ({ type: k, name: p.name, ready: !!creds(p).id && k !== "xbox" })), { type: "steam", name: "Steam", ready: true }],
+        available: [...Object.entries(PROVIDERS).map(([k, p]) => ({ type: k, name: p.name, ready: !!creds(p).id && !!creds(p).secret && k !== "xbox" })), { type: "steam", name: "Steam", ready: true }],
       };
     });
     r.get<{ Params: { type: string } }>("/api/connections/:type/authorize", async (req) => {
@@ -174,7 +174,7 @@ export async function signinRoutes(app: FastifyInstance) {
       const p = PROVIDERS[t];
       if (!p) throw notFound("Service");
       const c = creds(p);
-      if (!c.id) throw new ApiError(503, "connection_unavailable", `${p.name} connections aren't set up on this server yet.`);
+      if (!c.id || !c.secret) throw new ApiError(503, "connection_unavailable", `${p.name} connections aren't set up on this server yet.`);
       const qs = new URLSearchParams({ client_id: c.id, redirect_uri: callback(t), response_type: "code", scope: p.scope, state, ...(t === "reddit" ? { duration: "temporary" } : {}), ...(t === "youtube" ? { access_type: "online", prompt: "select_account" } : {}) });
       return { url: `${p.authorize}?${qs}` };
     });
