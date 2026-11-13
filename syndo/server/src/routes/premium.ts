@@ -24,6 +24,10 @@ const STRIPE_KEY = process.env.STRIPE_SECRET_KEY ?? "";
 const STRIPE_WEBHOOK = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const STRIPE_PRICE = process.env.STRIPE_PRICE_ID ?? "";
 export const stripeReady = () => !!(STRIPE_KEY && STRIPE_PRICE);
+/** Stripe Managed Payments (Stripe as merchant of record, handles tax, costs extra) is on by default for new
+ *  accounts. SEND turns it off for the lowest fees unless SEND_STRIPE_MANAGED_PAYMENTS=1. */
+export const checkoutTaxParams = (): Record<string, string> => process.env.SEND_STRIPE_MANAGED_PAYMENTS === "1"
+  ? { "line_items[0][price_data][product_data][tax_code]": "txcd_10103000" } : { "managed_payments[enabled]": "false" };
 const SLOTS_PER_UNIT = 2;
 const ID = z.string().regex(/^\d{1,20}$/);
 
@@ -159,6 +163,7 @@ export async function premiumRoutes(app: FastifyInstance) {
         await stripe(`coupons/${coupon}`, {}, "GET").catch(() => stripe("coupons", { id: coupon!, percent_off: String(codeRow.percent_off ?? 100), duration: codeRow.duration_days ? "repeating" : "forever", ...(codeRow.duration_days ? { duration_in_months: String(Math.max(1, Math.round(codeRow.duration_days / 30))) } : {}) }));
       }
       const s = await stripe("checkout/sessions", {
+        ...(process.env.SEND_STRIPE_MANAGED_PAYMENTS === "1" ? {} : { "managed_payments[enabled]": "false" }),
         mode: "subscription", "line_items[0][price]": STRIPE_PRICE, "line_items[0][quantity]": String(b.units),
         success_url: `${config.publicUrl}/settings/boosts?status=success`, cancel_url: `${config.publicUrl}/settings/boosts?status=cancel`,
         client_reference_id: me, "metadata[user_id]": me, "metadata[units]": String(b.units), "subscription_data[metadata][user_id]": me,

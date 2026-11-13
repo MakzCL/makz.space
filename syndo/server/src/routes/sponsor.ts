@@ -5,7 +5,7 @@ import { requireUser, uid } from "../auth.ts";
 import { config } from "../config.ts";
 import { bad, notFound } from "../errors.ts";
 import { newId } from "../ids.ts";
-import { stripe } from "./premium.ts";
+import { checkoutTaxParams, stripe } from "./premium.ts";
 
 /**
  * Sponsor the developer: a monthly Stripe subscription for an amount the sponsor picks (£1, £5, £10 or custom).
@@ -63,7 +63,7 @@ export async function sponsorRoutes(app: FastifyInstance) {
     if (await q1(`select 1 from sponsorships where user_id = $1 and ${ACTIVE}`, [me])) throw bad("You're already a sponsor. Use Manage to change the amount or cancel.");
     const back = `${config.publicUrl}/channels/@me`;
     const s = await stripe("checkout/sessions", {
-      mode: "subscription", client_reference_id: me,
+      mode: "subscription", client_reference_id: me, ...checkoutTaxParams(),
       "line_items[0][quantity]": "1",
       "line_items[0][price_data][currency]": SPONSOR.currency,
       "line_items[0][price_data][unit_amount]": String(amount_pence),
