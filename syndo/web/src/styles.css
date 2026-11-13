@@ -2102,7 +2102,7 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 /* Ongoing call in a DM / group DM that you're not in (ChannelView OngoingCall): Discord's dark call strip */
 .ongoing-call { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 34px 16px 26px; background: #000; color: #fff; border-bottom: 1px solid #ffffff14; }
 .ongoing-avatars { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
-.ongoing-av { position: relative; border-radius: 50%; }
+.ongoing-av { position: relative; border-radius: 50%; padding: 0; border: 0; background: none; cursor: pointer; transition: transform .15s; } .ongoing-av:hover { transform: translateY(-2px); } .ongoing-av:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .ongoing-av .avatar { box-shadow: 0 6px 24px #0008; }
 .ongoing-muted { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #1e1f22; color: #f23f43; border: 3px solid #000; }
 .ongoing-av .live { position: absolute; bottom: -6px; left: 50%; translate: -50% 0; }

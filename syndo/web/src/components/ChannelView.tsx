@@ -223,6 +223,7 @@ function OngoingCall({ channel }: { channel: Channel }) {
   const users = useStore((s) => s.users);
   const ringingMe = useStore((s) => { const c = s.calls?.[channel.id]; return !!c && !!s.me && c.ringing.includes(s.me.id); });
   const [now, setNow] = useState(() => Date.now());
+  const [profile, setProfile] = useState<{ id: string; el: HTMLElement } | null>(null);
   useEffect(() => { if (!states.length) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [states.length]);
   if (!states.length || ringingMe) return null; // the incoming-call banner covers ringing
   const since = Math.min(...states.map((v) => v.joined_at ?? now));
@@ -231,17 +232,19 @@ function OngoingCall({ channel }: { channel: Channel }) {
   return (
     <div className="ongoing-call" role="region" aria-label="Ongoing call">
       <div className="ongoing-avatars">{states.slice(0, 8).map((v) => (
-        <span key={v.user_id} className="ongoing-av" title={displayName(users[v.user_id] ?? v.user ?? undefined)}>
+        <button key={v.user_id} type="button" className="ongoing-av" title={displayName(users[v.user_id] ?? v.user ?? undefined)} aria-label={`View ${displayName(users[v.user_id] ?? v.user ?? undefined)}'s profile`}
+          onClick={(e) => { const el = e.currentTarget; setProfile((p) => (p?.id === v.user_id ? null : { id: v.user_id, el })); }}>
           <Avatar user={users[v.user_id] ?? v.user ?? null} size={80} />
           {(v.self_mute || v.server_mute) && <span className="ongoing-muted" aria-label="muted"><MicOff size={14} /></span>}
           {v.self_stream && <span className="live">LIVE</span>}
-        </span>))}
+        </button>))}
         {states.length > 8 && <span className="ongoing-more">+{states.length - 8}</span>}
       </div>
       <div className="ongoing-actions">
         <button className="btn ongoing-join" onClick={() => joinVoice(channel.id)}><Phone size={18} /> Join Call</button>
         <span className="ongoing-meta">{states.length} in the call · <time>{dur}</time></span>
       </div>
+      {profile && <ProfileCard userId={profile.id} guildId={channel.guild_id ?? null} anchor={profile.el} onClose={() => setProfile(null)} />}
     </div>
   );
 }
