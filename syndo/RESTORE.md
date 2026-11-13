@@ -1,5 +1,22 @@
 # SEND restore points
 
+## 2026-11-13: SEND Motion, phone redesign and desktop 0.7.1 (commit `0e5ede2`)
+
+| Part | Before | Live now |
+|---|---|---|
+| Web (Pages `syndo-app`) | `285e7789` (commit `1c4d174`) | `4fe9cd28` (commit `0e5ede2`) |
+| Website (Pages `send-site`) | previous deployment | `b2bf2333` (commit `0e5ede2`) |
+| Backend worker `send-beta-api` | code sha `587fe25d`, SOURCE_COMMIT `b059d19` | code sha `1157f78e` (download link 0.7.1), SOURCE_COMMIT `0e5ede2`, deployment `fe20dcd4` |
+| Desktop feed (R2 `syndo-desktop`) | `latest.yml` 0.7.0 (backup `latest-0.7.0.yml`) | `latest.yml` 0.7.1, `SEND-Setup-0.7.1.exe` 1,807,839 bytes, sha512 `Ebsa5/mW...`, CI run 43411987626 |
+
+Note: one interim worker deployment (`6f08e2f1`) briefly had a mistyped SOURCE_COMMIT; it was replaced within a
+minute by `1050e29f` with the correct hash.
+
+Roll back:
+1. Web: Pages `syndo-app` Deployments `285e7789`, Rollback.
+2. Desktop: copy `latest-0.7.0.yml` back over `latest.yml`.
+3. Backend: redeploy worker code sha `587fe25d` with SOURCE_COMMIT `b059d197274c241e66c246d1d351d2ce946c7be6`.
+
 ## 2026-11-12 — desktop 0.7.0 (SEND's own screen sharing, game capture, popout calls)
 
 | Layer | Restore point (before this release) |
