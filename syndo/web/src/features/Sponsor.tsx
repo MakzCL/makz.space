@@ -31,7 +31,7 @@ export function SponsorTab() {
       <section className="sponsor-hero">
         <span className="sponsor-heart" aria-hidden><Heart size={26} fill="currentColor" /></span>
         <h2>Sponsor {info.recipient}</h2>
-        <p>SEND is free, has no ads and never sells your data. It's built by {info.recipient}. A monthly sponsorship helps pay for the servers and keeps it that way.</p>
+        <p>SEND is made by {info.recipient}. It's free, has no ads, and your data is never sold. If you'd like to help, a monthly sponsorship pays for the servers that keep SEND running for everyone.</p>
       </section>
 
       {m ? (
