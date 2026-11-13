@@ -1,5 +1,13 @@
 # SEND restore points
 
+## 2026-11-13: Push notifications (commit `70d5611`)
+
+Backend SOURCE_COMMIT `70d56118070e7e2e24e8c30ab1122575a68a7ab2`, worker code sha `85b22163` (previous `a28e9b37`): the only code change is five more optional secret names (SEND_FCM_SERVICE_ACCOUNT, SEND_APNS_*).
+Secrets added: `SEND_VAPID_PUBLIC`, `SEND_VAPID_PRIVATE`, `SEND_VAPID_SUBJECT` (browser push keys, generated inside Cloudflare). Deleting them turns browser push off again.
+Database: `012_device_push.sql` applied by hand (new `device_push_tokens` table; grants for it and for `reports`, which the backend role was missing).
+Android: `android/SEND.apk` is the 0.7.1 build with push code (sha256 `1ecd53af`), push stays off in the app until the Firebase variables exist.
+Roll back: set SOURCE_COMMIT to `e88f57414de5e34c159712f1f3b0fc1b54bc9f6a`; the table can stay.
+
 ## 2026-11-13: Faster images, mobile apps, super reactions (commits `5624164`, `252d954`, `e88f574`)
 
 Backend SOURCE_COMMIT `e88f57414de5e34c159712f1f3b0fc1b54bc9f6a` (worker code sha `a28e9b37`, previously `562416486296d15ae5f37505b273064770388833`). The worker serves `/api/media/` from R2 with the edge cache.

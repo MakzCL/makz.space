@@ -41,7 +41,16 @@ Owner: MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3
 - **Google Play**: one-off US$25. New personal accounts must run a closed test with at least 12 testers for 14 days; organisation accounts skip that but need a D-U-N-S number. Fill in the Data safety form to match the Privacy Policy. Use Play App Signing and upload `SEND-play.aab`.
 - **iOS app (done in code)**: `syndo/ios`, a native WKWebView app (bundle id `space.makz.send`, iOS 16+, iPhone and iPad). Generate with `brew install xcodegen && xcodegen generate` on a Mac, open `SEND.xcodeproj`, set your Team, run. CI builds an unsigned IPA (artifact `send-ios-unsigned`) you can sign and install with Sideloadly or AltStore using a free Apple ID (re-sign every 7 days).
 - **Apple App Store**: Apple Developer Program, US$99 a year; needs a D-U-N-S number for an organisation account. Then archive in Xcode and upload to TestFlight. Requirements met: report, block, Terms acceptance, account deletion in app, privacy policy URL. Still to do: App Privacy "nutrition label" answers (match the Privacy Policy), age rating, the export compliance question (SEND uses standard encryption only). Apple's guideline 4.2 rejects apps that are "just a website": SEND's app adds calls, camera, downloads and offline handling, but native push notifications (APNs) would make approval much more likely and are the next step.
-- **Push notifications in the apps**: WebView apps cannot receive web push. Native push needs Firebase Cloud Messaging (Android) and APNs (iOS, needs the paid Apple account); both are free to use.
+- **Push notifications**: browsers (desktop, Android Chrome, iPhone home-screen app) work now. The apps have all the code; each needs its free push service connected once:
+  - **Android (Firebase, free)**:
+    1. console.firebase.google.com, Add project "SEND" (Google Analytics can be off).
+    2. Add an Android app with package name `space.makz.send` (skip the google-services.json download).
+    3. Project settings, General, Your apps: copy the App ID, Web API key, Project ID and Project number.
+    4. GitHub repo, Settings, Secrets and variables, Actions, **Variables**: add `SEND_FCM_APP_ID`, `SEND_FCM_API_KEY`, `SEND_FCM_PROJECT_ID`, `SEND_FCM_SENDER_ID` (the Project number). These are public values.
+    5. Project settings, Service accounts, Generate new private key. In Cloudflare: Workers, `send-beta-api`, Settings, Variables and Secrets, add a **Secret** `SEND_FCM_SERVICE_ACCOUNT` and paste the whole JSON file. Never commit or share this file.
+    6. Re-run the "SEND Android beta" workflow and install the new APK.
+  - **iOS (Apple push, needs the paid Apple Developer account)**: developer.apple.com, Certificates, Identifiers and Profiles, Keys, add a key with Apple Push Notifications service. Download the `.p8` (only once) and note its Key ID and your Team ID. Add Cloudflare secrets `SEND_APNS_KEY` (the file's contents), `SEND_APNS_KEY_ID` and `SEND_APNS_TEAM_ID`. In Xcode, set your Team and add the Push Notifications capability (the entitlements file is already there).
+  - After adding secrets the backend restarts on its own within a minute or two.
 - **Linux and macOS desktop**: CI builds them now. macOS distribution outside the App Store needs Developer ID signing and notarisation (included in the US$99 programme).
 
 ## Connections (linking other accounts to a profile)
