@@ -26,18 +26,12 @@ const getJson = async (url: string, token: string) => {
   return r.json() as Promise<any>;
 };
 export const PROVIDERS: Record<string, Provider> = {
-  github: { name: "GitHub", authorize: "https://github.com/login/oauth/authorize", token: "https://github.com/login/oauth/access_token", scope: "read:user", env: "GITHUB",
-    profile: async (t) => { const j = await getJson("https://api.github.com/user", t); return { id: String(j.id), name: j.login, url: j.html_url }; } },
   twitch: { name: "Twitch", authorize: "https://id.twitch.tv/oauth2/authorize", token: "https://id.twitch.tv/oauth2/token", scope: "", env: "TWITCH",
     profile: async (t) => { const j = (await getJson("https://api.twitch.tv/helix/users", t)).data?.[0]; return { id: String(j.id), name: j.display_name ?? j.login, url: `https://twitch.tv/${j.login}` }; } },
   spotify: { name: "Spotify", authorize: "https://accounts.spotify.com/authorize", token: "https://accounts.spotify.com/api/token", scope: "user-read-private user-read-currently-playing", env: "SPOTIFY",
     profile: async (t) => { const j = await getJson("https://api.spotify.com/v1/me", t); return { id: String(j.id), name: j.display_name ?? j.id, url: j.external_urls?.spotify ?? null }; } },
-  reddit: { name: "Reddit", authorize: "https://www.reddit.com/api/v1/authorize", token: "https://www.reddit.com/api/v1/access_token", scope: "identity", env: "REDDIT",
-    profile: async (t) => { const j = await getJson("https://oauth.reddit.com/api/v1/me", t); return { id: String(j.id), name: `u/${j.name}`, url: `https://reddit.com/user/${j.name}` }; } },
   youtube: { name: "YouTube", authorize: "https://accounts.google.com/o/oauth2/v2/auth", token: "https://oauth2.googleapis.com/token", scope: "https://www.googleapis.com/auth/youtube.readonly", env: "GOOGLE",
     profile: async (t) => { const j = (await getJson("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", t)).items?.[0]; if (!j) throw bad("No YouTube channel on that account."); return { id: j.id, name: j.snippet?.title ?? j.id, url: `https://youtube.com/channel/${j.id}` }; } },
-  xbox: { name: "Xbox", authorize: "https://login.live.com/oauth20_authorize.srf", token: "https://login.live.com/oauth20_token.srf", scope: "XboxLive.signin offline_access", env: "XBOX",
-    profile: async () => { throw bad("Xbox connections need Microsoft partner approval and aren't available yet."); } },
 };
 const creds = (p: Provider) => ({ id: process.env[`SEND_${p.env}_CLIENT_ID`] ?? "", secret: process.env[`SEND_${p.env}_CLIENT_SECRET`] ?? "" });
 const STATE_KEY = process.env.SEND_SECRET || randomToken(32);
@@ -160,7 +154,7 @@ export async function signinRoutes(app: FastifyInstance) {
       const rows = await q<any>("select type, external_id, name, verified, visible, show_activity, metadata from user_connections where user_id = $1 order by created_at", [uid(req)]);
       return {
         connections: rows.map((c) => ({ type: c.type, id: c.external_id, name: c.name, verified: c.verified, visible: c.visible, show_activity: c.show_activity, url: c.metadata?.url ?? null })),
-        available: [...Object.entries(PROVIDERS).map(([k, p]) => ({ type: k, name: p.name, ready: !!creds(p).id && !!creds(p).secret && k !== "xbox" })), { type: "steam", name: "Steam", ready: true }],
+        available: [...Object.entries(PROVIDERS).map(([k, p]) => ({ type: k, name: p.name, ready: !!creds(p).id && !!creds(p).secret })), { type: "steam", name: "Steam", ready: true }],
       };
     });
     r.get<{ Params: { type: string } }>("/api/connections/:type/authorize", async (req) => {
@@ -175,7 +169,7 @@ export async function signinRoutes(app: FastifyInstance) {
       if (!p) throw notFound("Service");
       const c = creds(p);
       if (!c.id || !c.secret) throw new ApiError(503, "connection_unavailable", `${p.name} connections aren't set up on this server yet.`);
-      const qs = new URLSearchParams({ client_id: c.id, redirect_uri: callback(t), response_type: "code", scope: p.scope, state, ...(t === "reddit" ? { duration: "temporary" } : {}), ...(t === "youtube" ? { access_type: "online", prompt: "select_account" } : {}) });
+      const qs = new URLSearchParams({ client_id: c.id, redirect_uri: callback(t), response_type: "code", scope: p.scope, state, ...(t === "youtube" ? { access_type: "online", prompt: "select_account" } : {}) });
       return { url: `${p.authorize}?${qs}` };
     });
     r.patch<{ Params: { type: string; id: string } }>("/api/connections/:type/:id", async (req) => {
@@ -212,7 +206,7 @@ export async function signinRoutes(app: FastifyInstance) {
         if (!p) return done(false);
         const c = creds(p);
         const body = new URLSearchParams({ grant_type: "authorization_code", code: String(req.query.code ?? ""), redirect_uri: callback(st.type), client_id: c.id, client_secret: c.secret });
-        const r = await fetch(p.token, { method: "POST", body, headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json", ...(st.type === "reddit" || st.type === "spotify" ? { authorization: `Basic ${Buffer.from(`${c.id}:${c.secret}`).toString("base64")}` } : {}) }, signal: AbortSignal.timeout(10000) });
+        const r = await fetch(p.token, { method: "POST", body, headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json", ...(st.type === "spotify" ? { authorization: `Basic ${Buffer.from(`${c.id}:${c.secret}`).toString("base64")}` } : {}) }, signal: AbortSignal.timeout(10000) });
         const tok: any = await r.json().catch(() => ({}));
         if (!tok.access_token) return done(false, `${p.name} didn't approve the connection.`);
         profile = await p.profile(tok.access_token);
