@@ -13,13 +13,20 @@ export interface PushPayload { title: string; body: string; tag?: string; url?: 
 
 /* ---------------------------------------------------------------- Firebase (Android) */
 interface ServiceAccount { project_id: string; client_email: string; private_key: string; token_uri?: string }
+/** Why Firebase isn't usable, for /api/push/key (never includes the key itself). */
+export let fcmProblem: null | "missing" | "not_json" | "missing_fields" | "bad_key" = null;
 const fcmAccount: ServiceAccount | null = (() => {
-  const raw = process.env.SEND_FCM_SERVICE_ACCOUNT ?? "";
-  if (!raw) return null;
-  try {
-    const j = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
-    return j.project_id && j.client_email && j.private_key ? j : null;
-  } catch { console.error("push: SEND_FCM_SERVICE_ACCOUNT isn't valid JSON"); return null; }
+  let raw = (process.env.SEND_FCM_SERVICE_ACCOUNT ?? "").trim();
+  if (!raw) { fcmProblem = "missing"; return null; }
+  // Accept the file pasted as-is, wrapped in quotes, or base64-encoded.
+  if (/^['"`]/.test(raw) && raw.at(-1) === raw[0]) raw = raw.slice(1, -1).trim();
+  if (!raw.startsWith("{")) { try { const d = Buffer.from(raw, "base64").toString("utf8").trim(); if (d.startsWith("{")) raw = d; } catch { /* not base64 */ } }
+  let j: any;
+  try { j = JSON.parse(raw); } catch { fcmProblem = "not_json"; console.error("push: SEND_FCM_SERVICE_ACCOUNT must be the whole service account JSON file"); return null; }
+  if (!j?.project_id || !j?.client_email || !j?.private_key) { fcmProblem = "missing_fields"; return null; }
+  j.private_key = String(j.private_key).replace(/\\n/g, "\n");
+  try { createPrivateKey(j.private_key); } catch { fcmProblem = "bad_key"; return null; }
+  return j as ServiceAccount;
 })();
 export const fcmReady = !!fcmAccount;
 

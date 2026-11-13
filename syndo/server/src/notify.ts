@@ -9,7 +9,7 @@ import { newId } from "./ids.ts";
 import { isOnline, presenceOf, toUser } from "./gateway.ts";
 import { viewers, type ChanRow } from "./perms.ts";
 import { PREFIX } from "./routes/encryption.ts";
-import { apnsReady, fcmReady, nativeReady, sendNative, type PushPayload } from "./nativePush.ts";
+import { apnsReady, fcmProblem, fcmReady, nativeReady, sendNative, type PushPayload } from "./nativePush.ts";
 
 /**
  * Notification settings (levels, timed mutes, suppress @everyone/@here and role mentions,
@@ -152,7 +152,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     return row;
   });
 
-  app.get("/api/push/key", async () => ({ key: pushReady ? VAPID_PUBLIC : null, native: { android: fcmReady, ios: apnsReady } }));
+  app.get("/api/push/key", async () => ({ key: pushReady ? VAPID_PUBLIC : null, native: { android: fcmReady, ios: apnsReady, android_problem: fcmProblem } }));
 
   /** The Android and iOS apps register their push token here (one row per device; a token moves to whoever signs in on it). */
   app.post("/api/push/devices", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
