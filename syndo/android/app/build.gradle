@@ -10,8 +10,8 @@ android {
         applicationId 'space.makz.send'
         minSdk 26
         targetSdk 36
-        versionCode 7
-        versionName '0.7.1'
+        versionCode 8
+        versionName '0.8.0'
         // Firebase client settings for push (public values, the same ones google-services.json would hold). Empty = push off.
         // Defaults are SEND's Firebase project (space-makz-send); -PfcmAppId=... etc. override them.
         def fcmDefaults = [fcmAppId: '1:610969623014:android:02478a5377a7a296209e27', fcmApiKey: 'AIzaSyCQZoS8Cbo2Exb-wgOP8rs209OhbCmcF38',
