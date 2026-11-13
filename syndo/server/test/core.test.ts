@@ -142,7 +142,7 @@ describe("Scenario 2/17 — roles, private channels, and no leaks via messages, 
     assert.equal((await owner.patch(`/api/guilds/${guild.id}/members/${member.user.id}`, { roles: [role.id] })).status, 200);
     await sync;
     assert.equal((await member.get(`/api/channels/${secret.id}/messages`)).status, 200);
-    assert.equal((await member.get(att.url)).status, 200);
+    assert.equal((await member.get(att.url)).status, 302); // allowed: redirected to a signed direct read
     assert.equal((await member.get(`/api/search?guild_id=${guild.id}&q=pineapple`)).body.total, 1);
     const live = member.sockets[0]!.next("MESSAGE_CREATE", (d) => d.channel_id === secret.id);
     await owner.post(`/api/channels/${secret.id}/messages`, { content: "welcome to staff" });

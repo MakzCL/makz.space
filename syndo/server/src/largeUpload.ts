@@ -43,10 +43,12 @@ export function checkTicket(t: { key?: unknown; size?: unknown; exp?: unknown; s
  * signed for one key and one set of response headers, valid for an hour. The Worker serves it from R2 (ranges
  * included, so video seeking works); the bytes never pass through this server.
  */
-export const DIRECT_READ_FROM = 8 * 1024 * 1024;
+/** Every attachment is read straight from storage by the edge worker after the permission check (0 = always). */
+export const DIRECT_READ_FROM = 0;
 const readPayload = (key: string, type: string, disp: string, exp: number) => `read\n${key}\n${type}\n${disp}\n${exp}`;
 export function signedRead(key: string, type: string, disposition: string): string {
-  const exp = Math.floor(Date.now() / 1000) + 3600;
+  // Stable for an hour so browsers can reuse cached files; always valid for at least another hour.
+  const exp = (Math.floor(Date.now() / 3600000) + 2) * 3600;
   const sig = createHmac("sha256", SECRET).update(readPayload(key, type, disposition, exp)).digest("base64url");
   return `/api/files/read?${new URLSearchParams({ key, type, disp: disposition, exp: String(exp), sig })}`;
 }

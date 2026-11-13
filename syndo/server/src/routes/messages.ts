@@ -801,7 +801,7 @@ export async function attachmentDownloadRoute(app: FastifyInstance) {
     const disposition = `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(a.filename)}`;
     reply.header("content-disposition", disposition);
     // Big files: hand the browser a short-lived signed link and let storage serve the bytes directly.
-    if (total >= DIRECT_READ_FROM) return reply.code(302).header("location", signedRead(a.storage_key, a.content_type, disposition)).header("cache-control", "private, max-age=3000").send();
+    if (total >= DIRECT_READ_FROM) return reply.code(302).header("location", signedRead(a.storage_key, a.content_type, disposition)).header("cache-control", "private, max-age=3000").send(); // eslint-disable-line
     const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
     if (range && total > 0) {
       const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));

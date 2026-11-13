@@ -255,9 +255,29 @@ export async function storage(request: Request, env: Env) {
   }
   return new Response(null,{status:405});
 }
+/* Public profile media (avatars, banners, server icons, emoji, stickers, sounds): unguessable, never-changing keys,
+   served straight from R2 and cached at the edge for a year, so they load without touching the backend. */
+const MEDIA_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", webm: "audio/webm", m4a: "audio/mp4" };
+export async function media(request: Request, env: Env, ctx: ExecutionContext) {
+  if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405 });
+  const url = new URL(request.url), key = url.pathname.slice("/api/media/".length);
+  const ok = /^(avatars|banners|member-avatars|member-banners|guild-icons|guild-banners|role-icons|emoji|stickers|channel-banners)\/\d+\/\d+\.(png|jpg|gif|webp|avif)$/.test(key) || /^sounds\/\d+\/\d+\.(mp3|ogg|wav|webm|m4a)$/.test(key);
+  if (!ok) return Response.json({ code: "not_found", message: "File doesn't exist." }, { status: 404 });
+  const cache = (caches as unknown as { default: Cache }).default, cacheKey = new Request(`${url.origin}/api/media/${key}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return request.method === "HEAD" ? new Response(null, { headers: hit.headers }) : hit;
+  const obj = await env.UPLOADS.get(key);
+  if (!obj) return Response.json({ code: "not_found", message: "File doesn't exist." }, { status: 404, headers: { "cache-control": "no-store" } });
+  const headers = new Headers({ "content-type": MEDIA_TYPES[key.split(".").pop()!] ?? "application/octet-stream", "cache-control": "public, max-age=31536000, immutable",
+    "content-security-policy": "default-src 'none'; sandbox", "x-content-type-options": "nosniff", "etag": obj.httpEtag, "content-length": String(obj.size), "access-control-allow-origin": "*" });
+  const res = new Response(obj.body, { headers });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return request.method === "HEAD" ? new Response(null, { headers }) : res;
+}
 export default {
-  async fetch(request:Request,env:Env) {
+  async fetch(request:Request,env:Env,ctx:ExecutionContext) {
     const path = new URL(request.url).pathname;
+    if (path.startsWith("/api/media/")) return media(request,env,ctx);
     if (path === "/api/downloads/windows") return releaseDownload(request,env);
     if (path === "/api/downloads/android") return androidDownload(request,env);
     if (path.startsWith("/__release/")) return releaseUpload(request,env);

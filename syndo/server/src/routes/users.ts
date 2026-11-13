@@ -10,7 +10,7 @@ import { newId } from "../ids.ts";
 import { broadcastPresence, closeUser, isOnline, onlineUserIds, presenceOf, toUser, toUsers } from "../gateway.ts";
 import { USER_COLS, mediaUrl, selfOut, userOut } from "../serialize.ts";
 import * as storage from "../storage.ts";
-import { readImage } from "../uploads.ts";
+import { readImage, shrinkImage, IMAGE_MAX } from "../uploads.ts";
 
 const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 /** Public profile cosmetics are validated by the shared schema (no markup, no URLs, bounded values). */
@@ -116,7 +116,7 @@ export async function userRoutes(app: FastifyInstance) {
 
   for (const kind of ["avatar", "banner"] as const) {
     app.post(`/api/users/@me/${kind}`, async (req) => {
-      const img = await readImage(req, config.maxAvatarBytes);
+      const img = await shrinkImage(await readImage(req, config.maxAvatarBytes), kind === "banner" ? IMAGE_MAX.banner : IMAGE_MAX.avatar);
       const key = `${kind}s/${uid(req)}/${newId()}.${img.ext}`;
       await storage.put(key, img.buf);
       const old = await q1<any>(`select ${kind}_key as k from users where id = $1`, [uid(req)]);

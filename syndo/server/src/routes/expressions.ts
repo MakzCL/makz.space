@@ -10,7 +10,7 @@ import { newId } from "../ids.ts";
 import { requireChannel, requireGuild } from "../perms.ts";
 import { mediaUrl } from "../serialize.ts";
 import * as storage from "../storage.ts";
-import { readImage } from "../uploads.ts";
+import { readImage, shrinkImage, IMAGE_MAX } from "../uploads.ts";
 import { audit, resyncGuild } from "./guilds.ts";
 
 /**
@@ -87,7 +87,7 @@ export async function expressionRoutes(app: FastifyInstance) {
     const lim = await slotLimit(req.params.id, "emoji");
     if (n.n >= lim) throw bad(`A server can have up to ${lim} emoji at its boost level.`);
     if (await q1("select 1 from guild_emojis where guild_id = $1 and name = $2", [guild.id, name])) throw bad(`There's already an emoji called :${name}:.`);
-    const img = await readImage(req, EXPRESSION_LIMITS.emojiBytes);
+    const img = await shrinkImage(await readImage(req, EXPRESSION_LIMITS.emojiBytes), IMAGE_MAX.emoji);
     const id = newId(), key = `emoji/${guild.id}/${id}.${img.ext}`;
     await storage.put(key, img.buf);
     const row = await q1<any>("insert into guild_emojis(id, guild_id, name, animated, storage_key, creator_id) values ($1,$2,$3,$4,$5,$6) returning *", [id, guild.id, name, img.animated, key, uid(req)]);
@@ -138,7 +138,7 @@ export async function expressionRoutes(app: FastifyInstance) {
     const n = await q1<any>("select count(*)::int as n from guild_stickers where guild_id = $1", [guild.id]);
     const lim = await slotLimit(req.params.id, "stickers");
     if (n.n >= lim) throw bad(`A server can have up to ${lim} stickers at its boost level.`);
-    const img = await readImage(req, EXPRESSION_LIMITS.stickerBytes);
+    const img = await shrinkImage(await readImage(req, EXPRESSION_LIMITS.stickerBytes), IMAGE_MAX.sticker);
     if (!["png", "gif", "webp"].includes(img.ext)) throw bad("Stickers can be PNG, APNG, GIF or WebP.", "bad_type");
     const format = img.ext === "png" && img.animated ? "apng" : img.ext;
     const id = newId(), key = `stickers/${guild.id}/${id}.${img.ext}`;

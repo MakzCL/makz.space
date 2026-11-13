@@ -17,7 +17,7 @@ import { getChannel, guildPermData, loadMember, overwritesFor, permsFor, require
 import { guildFor } from "../ready.ts";
 import { USER_COLS, channelOut, mediaUrl, roleOut, userOut } from "../serialize.ts";
 import * as storage from "../storage.ts";
-import { readImage } from "../uploads.ts";
+import { readImage, shrinkImage, IMAGE_MAX } from "../uploads.ts";
 import { validateProfileTheme } from "@send/shared";
 import { createSystemMessage } from "./messages.ts";
 
@@ -211,7 +211,7 @@ export async function guildRoutes(app: FastifyInstance) {
   for (const kind of ["icon", "banner"] as const) {
     app.post<{ Params: { id: string } }>(`/api/guilds/:id/${kind}`, async (req) => {
       const { guild } = await requireGuild(uid(req), req.params.id, P.MANAGE_GUILD);
-      const img = await readImage(req, config.maxAvatarBytes);
+      const img = await shrinkImage(await readImage(req, config.maxAvatarBytes), kind === "banner" ? IMAGE_MAX.banner : IMAGE_MAX.avatar);
       const key = `guild-${kind}s/${guild.id}/${newId()}.${img.ext}`;
       await storage.put(key, img.buf);
       await q(`update guilds set ${kind}_key = $2 where id = $1`, [guild.id, key]);
@@ -379,7 +379,7 @@ export async function guildRoutes(app: FastifyInstance) {
   for (const kind of ["avatar", "banner"] as const) {
     app.post<{ Params: { id: string } }>(`/api/guilds/:id/members/@me/${kind}`, async (req) => {
       const ctx = await requireGuild(uid(req), req.params.id);
-      const img = await readImage(req, config.maxAvatarBytes);
+      const img = await shrinkImage(await readImage(req, config.maxAvatarBytes), kind === "banner" ? IMAGE_MAX.banner : IMAGE_MAX.avatar);
       const key = `member-${kind}s/${uid(req)}/${newId()}.${img.ext}`;
       await storage.put(key, img.buf);
       const old = await q1<any>(`select ${kind}_key as k from members where guild_id = $1 and user_id = $2`, [ctx.guild.id, uid(req)]);

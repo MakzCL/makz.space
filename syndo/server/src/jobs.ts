@@ -27,6 +27,9 @@ export async function runMaintenance() {
   await q("delete from guild_daily_active where day < current_date - 120");
   await q("delete from guild_daily_stats where day < current_date - 400");
   await q("delete from auth_challenges where expires_at < now() - interval '1 hour'");
+  // Old full-size profile images become small WebP files, a few per minute.
+  const { shrinkStoredImages } = await import("./uploads.ts");
+  await shrinkStoredImages().catch((e) => console.error("[jobs images]", e));
   await q("delete from interactions where created_at < now() - interval '1 day'");
   await q("update notification_settings set muted = false, muted_until = null where muted and muted_until is not null and muted_until < now()");
   const { expirePremium } = await import("./routes/premium.ts");
