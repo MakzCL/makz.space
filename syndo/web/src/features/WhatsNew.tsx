@@ -10,6 +10,27 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-motion",
+    title: "Profiles that come alive",
+    date: "2026-11-13",
+    intro: "Every profile effect and avatar decoration, rebuilt with real motion. Still free for everyone.",
+    sections: [
+      { title: "Profile effects", items: [
+        "432 collections, each with its own animated scene: storms, auroras, fireworks, lightsabers, lava and more.",
+        "Animated avatar decorations: flame, ice, gold, neon and floral rings, with things orbiting your avatar.",
+        "Brand logos and artwork on cards, plus new KATSEYE and BIGBANG collections.",
+      ] },
+      { title: "On your phone", items: [
+        "A new phone app layout: Messages home, a channel page with Media, Links and Files, and a You page.",
+        "New voice screens with a big Join Voice button and a simpler call dock.",
+      ] },
+      { title: "Fixes", items: [
+        "Open profiles from the member list in group chats, even during a call.",
+        "The pop-out call opens as a proper SEND window in the Windows app (update to 0.7.1).",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-call-tiles",
     title: "Arrange your call",
     date: "2026-11-12",

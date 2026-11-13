@@ -1,5 +1,15 @@
 # SEND changelog
 
+## 2026-11-13: SEND Motion, phone redesign, desktop 0.7.1
+
+- **SEND Motion:** a WebGL engine renders every profile effect and avatar decoration (shader skies, hero objects,
+  animated sprites). All 432 collections have a hand-written scene, logos and artwork show on cards and avatars,
+  and KATSEYE and BIGBANG are new.
+- **Phone app** follows Discord mobile: Messages home, floating account card, You page, channel page with Members,
+  Media, Pins, Links and Files, new voice join sheet and call dock, springy press feedback.
+- **Fixes:** profiles open from group DM member lists and ongoing call strips; long dashes removed from the UI.
+- **Desktop 0.7.1:** the pop-out call opens as a native SEND window instead of a browser-style pop-up.
+
 ## 2026-11-12 — Discord-style pop-out for every call
 
 - **Pop Out and Full Screen** sit at the bottom right of every call (server voice channels, DMs and group DMs), with
