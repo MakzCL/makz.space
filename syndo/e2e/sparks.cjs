@@ -15,7 +15,7 @@ const seen = (l, ms = 6000) => l.waitFor({ state: 'visible', timeout: ms }).then
   await A.goto(BASE + '/login');
   const a = (await api(A, 'POST', '/api/auth/register', { email: `sk_a_${SFX}@example.test`, username: `sk_a_${SFX}`, password: 'correct horse battery' })).body.user;
   let s = (await api(A, 'GET', '/api/sparks')).body;
-  check('Six challenges, 0 Sparks to start', s.challenges.length === 6 && s.balance === 0, s.challenges.map((c) => c.key).join(','));
+  check('14 challenges (enough for Level 3), 0 Sparks to start', s.challenges.length === 14 && s.balance === 0, s.challenges.map((c) => c.key).join(','));
   check('Invite link includes your username', s.invite_link.endsWith(`/register?ref=sk_a_${SFX}`));
   check('Claiming an unfinished challenge is refused', (await api(A, 'POST', '/api/sparks/claim/messages')).status === 400);
   // B joins through A's invite link and sends 5 messages

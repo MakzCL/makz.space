@@ -153,7 +153,7 @@ export function SparksCard() {
     <div className="card sparks">
       <div className="sparks-head">
         <span className="sparks-coin" aria-hidden>✦</span>
-        <div className="grow"><h3>{s.balance} Sparks</h3><p className="muted small">Finish challenges to earn Sparks. {s.per_boost} Sparks buys a boost that lasts a year.</p></div>
+        <div className="grow"><h3>{s.balance} Sparks</h3><p className="muted small">Finish challenges to earn Sparks. {s.per_boost} Sparks buys a boost that lasts a year. Finish all {s.challenges.length} and you can take a server to Level 3 on your own.</p></div>
         <button className="btn primary sparks-buy" disabled={!canBuy || !!busy} onClick={() => buy(1)}>Get a boost · {s.per_boost} ✦</button>
         {canBuy > 1 && <button className="btn" disabled={!!busy} onClick={() => buy(canBuy)}>Get {canBuy}</button>}
       </div>

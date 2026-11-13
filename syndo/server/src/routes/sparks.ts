@@ -17,18 +17,30 @@ const seasonLive = () => { const t = Date.now(); return t >= Date.parse(SEASON.s
 
 interface Challenge { key: string; title: string; detail: string; goal: number; unit: string; progress: (me: string) => Promise<number> }
 const minutes = (key: string) => async (me: string) => (await q1<any>("select progress from challenge_progress where user_id = $1 and season = $2 and key = $3", [me, SEASON.id, key]))?.progress ?? 0;
+const invited = (goal: number) => async (me: string) => (await q1<any>(`select count(*)::int as n from (select 1 from users u where u.referred_by = $1 and u.deleted_at is null and u.created_at >= $2
+  and (select count(*) from (select 1 from messages m where m.author_id = u.id and m.deleted_at is null limit 5) x) >= 5 limit $3) y`, [me, SEASON.starts, goal]))?.n ?? 0;
+const sent = (goal: number) => async (me: string) => (await q1<any>("select count(*)::int as n from (select 1 from messages where author_id = $1 and deleted_at is null and created_at >= $2 limit $3) x", [me, SEASON.starts, goal]))?.n ?? 0;
+const grown = async (me: string) => (await q1<any>("select coalesce(max(n), 0)::int as n from (select count(*) as n from members m join guilds g on g.id = m.guild_id where g.owner_id = $1 group by g.id) x", [me]))?.n ?? 0;
+/** 14 a season: enough for one person to take a server to Level 3 (14 boosts) on their own. */
 const CHALLENGES: Challenge[] = [
-  { key: "invite", title: "Invite 3 friends to SEND", detail: "Share your invite link. A friend counts once they've joined with it and sent 5 messages.", goal: 3, unit: "friends",
-    progress: async (me) => (await q1<any>(`select count(*)::int as n from users u where u.referred_by = $1 and u.deleted_at is null and u.created_at >= $2
-      and (select count(*) from (select 1 from messages m where m.author_id = u.id and m.deleted_at is null limit 5) x) >= 5`, [me, SEASON.starts]))?.n ?? 0 },
-  { key: "bigcall", title: "Join a call with 5 or more people", detail: "Stay in a voice call with at least 5 people for 10 minutes.", goal: 10, unit: "minutes", progress: minutes("bigcall") },
-  { key: "golive", title: "Go live for 15 minutes", detail: "Share your screen in a call with someone else watching.", goal: 15, unit: "minutes", progress: minutes("golive") },
-  { key: "messages", title: "Send 100 messages", detail: "In servers, groups or direct messages, this season.", goal: 100, unit: "messages",
-    progress: async (me) => (await q1<any>("select count(*)::int as n from (select 1 from messages where author_id = $1 and deleted_at is null and created_at >= $2 limit 100) x", [me, SEASON.starts]))?.n ?? 0 },
-  { key: "community", title: "Grow a server to 10 members", detail: "Any server you own counts, you included.", goal: 10, unit: "members",
-    progress: async (me) => (await q1<any>("select coalesce(max(n), 0)::int as n from (select count(*) as n from members m join guilds g on g.id = m.guild_id where g.owner_id = $1 group by g.id) x", [me]))?.n ?? 0 },
   { key: "profile", title: "Make your profile yours", detail: "Add an avatar, a banner and a bio.", goal: 3, unit: "done",
     progress: async (me) => { const u = await q1<any>("select avatar_key, banner_key, bio from users where id = $1", [me]); return u ? [u.avatar_key, u.banner_key, (u.bio ?? "").trim()].filter(Boolean).length : 0; } },
+  { key: "messages", title: "Send 100 messages", detail: "In servers, groups or direct messages, this season.", goal: 100, unit: "messages", progress: sent(100) },
+  { key: "invite", title: "Invite 3 friends to SEND", detail: "Share your invite link. A friend counts once they've joined with it and sent 5 messages.", goal: 3, unit: "friends", progress: invited(3) },
+  { key: "bigcall", title: "Join a call with 5 or more people", detail: "Stay in a voice call with at least 5 people for 10 minutes.", goal: 10, unit: "minutes", progress: minutes("bigcall") },
+  { key: "golive", title: "Go live for 15 minutes", detail: "Share your screen in a call with someone else watching.", goal: 15, unit: "minutes", progress: minutes("golive") },
+  { key: "community", title: "Grow a server to 10 members", detail: "Any server you own counts, you included.", goal: 10, unit: "members", progress: grown },
+  { key: "reactions", title: "Get 50 reactions", detail: "Reactions other people add to your messages this season.", goal: 50, unit: "reactions",
+    progress: async (me) => (await q1<any>(`select count(*)::int as n from (select 1 from reactions r join messages m on m.id = r.message_id
+      where m.author_id = $1 and r.user_id <> $1 and r.created_at >= $2 limit 50) x`, [me, SEASON.starts]))?.n ?? 0 },
+  { key: "calltime", title: "Spend 5 hours in calls", detail: "Any voice call with at least one other person.", goal: 300, unit: "minutes", progress: minutes("calltime") },
+  { key: "days", title: "Chat on 30 different days", detail: "Send at least one message on 30 separate days this season.", goal: 30, unit: "days",
+    progress: async (me) => (await q1<any>("select count(distinct (created_at at time zone 'utc')::date)::int as n from messages where author_id = $1 and deleted_at is null and created_at >= $2", [me, SEASON.starts]))?.n ?? 0 },
+  { key: "messages1000", title: "Send 1,000 messages", detail: "Keep the conversation going all season.", goal: 1000, unit: "messages", progress: sent(1000) },
+  { key: "bigcall60", title: "An hour in big calls", detail: "Spend 60 minutes in voice calls with at least 5 people.", goal: 60, unit: "minutes", progress: minutes("bigcall60") },
+  { key: "golive60", title: "Go live for an hour", detail: "Share your screen for 60 minutes in total, with someone watching.", goal: 60, unit: "minutes", progress: minutes("golive60") },
+  { key: "invite10", title: "Invite 10 friends to SEND", detail: "Same as before, ten friends who joined with your link and sent 5 messages.", goal: 10, unit: "friends", progress: invited(10) },
+  { key: "community25", title: "Grow a server to 25 members", detail: "Any server you own counts, you included.", goal: 25, unit: "members", progress: grown },
 ];
 
 const balanceOf = async (me: string, c?: any) => {
@@ -48,8 +60,9 @@ export async function tickChallenges() {
              on conflict (user_id, season, key) do update set progress = least(challenge_progress.progress + 1, $4)`, [users, SEASON.id, key, cap]);
   };
   for (const list of byChannel.values()) {
-    if (list.length >= 5) await bump(list.map((v) => v.user_id), "bigcall", 10);
-    if (list.length >= 2) await bump(list.filter((v) => v.self_stream).map((v) => v.user_id), "golive", 15);
+    const all = list.map((v) => v.user_id), streaming = list.filter((v) => v.self_stream).map((v) => v.user_id);
+    if (list.length >= 2) { await bump(all, "calltime", 300); await bump(streaming, "golive", 15); await bump(streaming, "golive60", 60); }
+    if (list.length >= 5) { await bump(all, "bigcall", 10); await bump(all, "bigcall60", 60); }
   }
 }
 
