@@ -2509,6 +2509,7 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .conn-tile:disabled { filter: grayscale(1); }
 .conn-logo { flex: none; display: block; }
 .conn-row .conn-logo, .conn-row > svg { margin-right: 4px; }
-.pc-conns { flex-direction: row !important; flex-wrap: wrap; gap: 6px !important; }
-.pc-conn { gap: 8px !important; padding: 6px 10px !important; border-radius: 999px !important; max-width: 100%; }
-.pc-conn .conn-logo { width: 18px; height: 18px; }
+.pc-conns { flex-direction: row !important; flex-wrap: wrap; gap: 8px !important; }
+.pc-conn { width: 40px; height: 40px; flex: none; justify-content: center; gap: 0 !important; padding: 0 !important; border-radius: 50% !important; transition: background .12s, transform .12s; }
+.pc-conn:hover { transform: translateY(-1px); }
+.pc-conn .conn-logo { width: 22px; height: 22px; }
