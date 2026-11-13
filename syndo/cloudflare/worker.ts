@@ -70,6 +70,13 @@ function optionalEnv(env: Record<string, unknown>): Record<string, string> {
   return out;
 }
 
+/** A hash of the optional settings (never the values themselves) so a changed secret restarts the backend. */
+async function envFingerprint(extra: Record<string, string>) {
+  const text = Object.keys(extra).sort().map((k) => `${k}=${extra[k]}`).join("\n");
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  return Array.from(d.slice(0, 12), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export class SENDBackend extends DurableObject<Env> {
   private starting?: Promise<void>;
   private ready = false;
@@ -82,7 +89,10 @@ export class SENDBackend extends DurableObject<Env> {
   private async ensureReady() {
     const c = this.ctx.container;
     if (!c) throw new Error("Container not configured");
-    if (c.running && await this.ctx.storage.get("active-source-commit") !== this.env.SOURCE_COMMIT) {
+    // Restart on a new commit, and also when optional secrets change (adding a key in the dashboard must take effect).
+    const extra = optionalEnv(this.env as unknown as Record<string, unknown>);
+    const fingerprint = await envFingerprint(extra);
+    if (c.running && (await this.ctx.storage.get("active-source-commit") !== this.env.SOURCE_COMMIT || await this.ctx.storage.get("active-env") !== fingerprint)) {
       // Record the revision before stopping; a transient allocation failure must
       // not repeatedly destroy the replacement instance on subsequent retries.
       await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
@@ -94,9 +104,10 @@ export class SENDBackend extends DurableObject<Env> {
       SEND_PUBLIC_URL:"https://syndo.makz.space", SEND_COOKIE_SECURE:"1", SEND_TRUST_PROXY:"1",
       SEND_AUTO_MIGRATE:"0", SEND_REQUIRE_DM_E2EE:"0", SEND_SFU_APP_ID:this.env.SFU_APP_ID, SEND_SFU_SECRET:this.env.SFU_APP_SECRET, SEND_MAX_UPLOAD_MB:"25", SEND_STORAGE_ORIGIN:this.env.STORAGE_ORIGIN,
       SEND_STORAGE_TOKEN:this.env.STORAGE_TOKEN, SEND_SOURCE_COMMIT:this.env.SOURCE_COMMIT, SEND_TURN_KEY_ID:this.env.TURN_KEY_ID ?? "", SEND_TURN_KEY_TOKEN:this.env.TURN_KEY_TOKEN ?? "",
-      ...optionalEnv(this.env as unknown as Record<string, unknown>),
+      ...extra,
     }});
     await this.ctx.storage.put("active-source-commit", this.env.SOURCE_COMMIT);
+    await this.ctx.storage.put("active-env", fingerprint);
     await c.setInactivityTimeout(TIMEOUT);
     const deadline = Date.now() + 150000;
     while (Date.now() < deadline) {
