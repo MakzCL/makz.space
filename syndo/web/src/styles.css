@@ -2444,3 +2444,28 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .sponsor-heart.small { width: 40px; height: 40px; }
 @keyframes sponsor-spin { to { transform: rotate(360deg); } }
 .spin { animation: sponsor-spin 1s linear infinite; }
+
+/* ---------------------------------------------------------------- boosts grouped + Sparks */
+.boost-group { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.boost-group:first-of-type { border-top: 0; }
+.boost-group select { max-width: 220px; }
+.boost-count { display: inline-flex; align-items: center; gap: 4px; min-width: 52px; justify-content: center; padding: 4px 10px; border-radius: 999px; font-weight: 800; background: linear-gradient(90deg, #B05CFF33, #FF8FD133); }
+.boost-group.unused .boost-count { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.sparks-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sparks-head h3 { margin: 0; }
+.sparks-coin { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; font-size: 22px; color: #fff; background: radial-gradient(circle at 35% 30%, #ffd36a, #ff9f6b 55%, #ff5c8a); box-shadow: 0 6px 20px -6px #ff9f6b; }
+[data-motion="full"] .sparks-coin { animation: sparks-glint 3.5s ease-in-out infinite; }
+@keyframes sparks-glint { 0%, 100% { transform: rotate(0) scale(1); } 50% { transform: rotate(18deg) scale(1.06); } }
+.btn.primary.sparks-buy, .sparks-buy { background: linear-gradient(90deg, #ff9f6b, #ff5c8a); border: 0; color: #fff; }
+.sparks-season { margin: 10px 0 4px; }
+.challenges { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.challenge { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--text) 4%, transparent); }
+.challenge.ready { box-shadow: inset 0 0 0 1.5px #ff9f6b; }
+.challenge.claimed { opacity: .65; }
+.challenge-bar { height: 6px; margin: 8px 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
+.challenge-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff9f6b, #ff5c8a); transition: width .4s; }
+.challenge-claim { white-space: nowrap; }
+.challenge.ready .challenge-claim { background: linear-gradient(90deg, #ff9f6b, #ff5c8a); border: 0; color: #fff; }
+.challenge-done { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+@media (max-width: 760px) { .boost-group { flex-wrap: wrap; } .boost-group select { max-width: none; width: 100%; } }
+.challenge .link.small { margin-left: 10px; }

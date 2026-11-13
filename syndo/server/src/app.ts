@@ -33,6 +33,7 @@ import { onboardingRoutes } from "./routes/onboarding.ts";
 import { appRoutes } from "./routes/apps.ts";
 import { premiumRoutes } from "./routes/premium.ts";
 import { sponsorRoutes } from "./routes/sponsor.ts";
+import { sparksRoutes } from "./routes/sparks.ts";
 import { signinRoutes } from "./routes/signin.ts";
 import { notificationRoutes } from "./notify.ts";
 
@@ -132,6 +133,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(appRoutes);
   await app.register(premiumRoutes);
   await app.register(sponsorRoutes);
+  await app.register(sparksRoutes);
   await app.register(signinRoutes);
   await app.register(notificationRoutes);
   await app.register(reportRoutes);

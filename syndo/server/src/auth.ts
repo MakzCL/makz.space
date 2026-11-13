@@ -145,13 +145,15 @@ export async function authRoutes(app: FastifyInstance) {
   const strict = { config: { rateLimit: { max: Number(process.env.SEND_AUTH_RATE_LIMIT ?? 10), timeWindow: "1 minute" } } };
 
   app.post("/api/auth/register", strict, async (req, reply) => {
-    const body = z.object({ email: EMAIL, username: USERNAME, password: PASSWORD, display_name: z.string().trim().max(32).optional() }).parse(req.body);
+    const body = z.object({ email: EMAIL, username: USERNAME, password: PASSWORD, display_name: z.string().trim().max(32).optional(), ref: z.string().trim().max(40).optional() }).parse(req.body);
     const exists = await q1<any>("select username = $1 as u, email = $2 as e from users where username = $1 or email = $2 limit 1", [body.username, body.email]);
     if (exists?.u) throw conflict("That username is taken.", "username_taken");
     if (exists?.e) throw conflict("An account already uses that email. Try signing in or resetting your password.", "email_taken");
     const id = newId();
-    await q("insert into users(id, username, email, password_hash, display_name) values ($1,$2,$3,$4,$5)",
-      [id, body.username, body.email, await hashPassword(body.password), body.display_name || null]);
+    // Invited by someone (their invite link has ?ref=username): counts toward their Sparks challenge.
+    const ref = body.ref ? await q1<any>("select id from users where lower(username) = lower($1) and deleted_at is null and bot = false", [body.ref]) : null;
+    await q("insert into users(id, username, email, password_hash, display_name, referred_by) values ($1,$2,$3,$4,$5,$6)",
+      [id, body.username, body.email, await hashPassword(body.password), body.display_name || null, ref?.id ?? null]);
     
     const s = await createSession(id, req, false);
     setCookie(reply, s.token);

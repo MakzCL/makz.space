@@ -90,6 +90,8 @@ initMobile();
 initShortcuts();
 registerDefaultShortcuts();
 initNotifications();
+// Remember who invited this visitor until they sign up.
+try { const r = new URLSearchParams(location.search).get("ref"); if (r && /^[\w.]{2,40}$/.test(r)) localStorage.setItem("send.ref", r); } catch { /* storage blocked */ }
 import("./features/Sponsor.tsx").then((m) => m.initSponsorReturn());
 initCallSounds();
 initSoundboard();

@@ -64,7 +64,7 @@ async function activeSubs(userId: string) {
   return q<any>(`select * from premium_subscriptions where user_id = $1 and status in ('active', 'past_due') and (current_period_end is null or current_period_end > now()) order by created_at`, [userId]);
 }
 /** Make sure a subscription has exactly `slots` boost rows. */
-async function ensureSlots(c: any, subId: string, userId: string, slots: number) {
+export async function ensureSlots(c: any, subId: string, userId: string, slots: number) {
   const have = (await c.query("select count(*)::int as n from guild_boosts where subscription_id = $1", [subId])).rows[0].n;
   for (let i = have; i < slots; i++) await c.query("insert into guild_boosts(id, subscription_id, user_id) values ($1,$2,$3)", [newId(), subId, userId]);
   if (have > slots) await c.query("delete from guild_boosts where id in (select id from guild_boosts where subscription_id = $1 order by guild_id nulls first limit $2)", [subId, have - slots]);
@@ -77,7 +77,7 @@ async function endSubscription(subId: string, status: "canceled" | "past_due") {
 
 /** Expire time-limited grants and codes (maintenance job). */
 export async function expirePremium() {
-  const rows = await q<any>("select id::text from premium_subscriptions where status = 'active' and current_period_end is not null and current_period_end < now() and provider in ('grant', 'code')");
+  const rows = await q<any>("select id::text from premium_subscriptions where status = 'active' and current_period_end is not null and current_period_end < now() and provider in ('grant', 'code', 'sparks')");
   for (const r of rows) await endSubscription(r.id, "canceled");
 }
 

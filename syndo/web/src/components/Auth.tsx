@@ -74,7 +74,10 @@ export function Register() {
   const up = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { await api.post("/api/auth/register", { ...f, display_name: f.display_name || undefined }); afterAuth(); }
+    // Came from a friend's invite link (?ref=username): it counts toward their Sparks challenge.
+    let ref = new URLSearchParams(location.search).get("ref") ?? undefined;
+    try { ref ??= localStorage.getItem("send.ref") ?? undefined; } catch { /* storage blocked */ }
+    try { await api.post("/api/auth/register", { ...f, display_name: f.display_name || undefined, ...(ref ? { ref } : {}) }); afterAuth(); }
     catch (e) {
       const code = e instanceof ApiError ? e.code : "";
       setErr({ field: code === "username_taken" ? "username" : code === "email_taken" ? "email" : undefined, msg: errMsg(e) });

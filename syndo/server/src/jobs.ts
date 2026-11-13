@@ -18,6 +18,8 @@ export async function runMaintenance() {
   // Expired custom statuses.
   await q("update users set custom_status = null where custom_status ? 'expires_at' and custom_status->>'expires_at' is not null and (custom_status->>'expires_at')::timestamptz < now()");
   await q("delete from jobs where done_at < now() - interval '7 days'");
+  // Sparks challenges measured in minutes (big calls, going live).
+  await import("./routes/sparks.ts").then((m) => m.tickChallenges()).catch((e) => console.error("[jobs sparks]", e));
   // Major update: threads, polls, previews, stats, sign-in challenges, timed mutes, events.
   const { archiveIdleThreads } = await import("./routes/threads.ts");
   await archiveIdleThreads().catch((e) => console.error("[jobs threads]", e));

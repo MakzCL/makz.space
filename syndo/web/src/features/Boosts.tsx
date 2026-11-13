@@ -75,21 +75,8 @@ export function BoostSettings() {
     <div className="settings-section">
       <h2><Sparkles size={20} /> Server Boosts</h2>
       <p className="muted">Boosts unlock bigger uploads, more emoji, sticker and sound slots, and higher voice and screen-share quality for a server. Everything SEND already gives every server stays free.</p>
-      <div className="card">
-        <h3>Your boosts ({p.boosts.length})</h3>
-        {!p.boosts.length && <p className="muted">You don't have any boosts yet.</p>}
-        {p.boosts.map((b) => (
-          <div key={b.id} className="boost-slot">
-            <Sparkles size={16} />
-            {b.guild_id ? <span className="grow">Boosting <strong>{b.guild_name}</strong>{b.cooldown_until && new Date(b.cooldown_until) > new Date() ? <small className="muted"> · can move on {new Date(b.cooldown_until).toLocaleDateString()}</small> : null}</span> : <span className="grow muted">Not used yet</span>}
-            <select value={b.guild_id ?? ""} onChange={(e) => (e.target.value ? api.put(`/api/premium/boosts/${b.id}`, { guild_id: e.target.value }) : api.del(`/api/premium/boosts/${b.id}`)).then(load).catch((x) => toast(errMsg(x), "error"))} aria-label="Server to boost">
-              <option value="">{b.guild_id ? "Remove boost" : "Choose a server…"}</option>
-              {Object.values(guilds).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-            {b.current_period_end && <small className="muted">until {new Date(b.current_period_end).toLocaleDateString()}</small>}
-          </div>
-        ))}
-      </div>
+      <SparksCard />
+      <BoostList p={p} guilds={guilds} onChange={load} />
       <div className="card">
         <h3><Gift size={18} /> Redeem a code</h3>
         <div className="row"><input placeholder="SEND-XXXX-XXXX" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Code" /><button className="btn primary" disabled={code.trim().length < 4} onClick={redeem}>Redeem</button></div>
@@ -104,6 +91,90 @@ export function BoostSettings() {
         </> : <p className="muted">Paid boosts aren't available on this server yet. Ask the SEND team for a code.</p>}
       </div>
       {p.staff && <StaffPremium />}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- boosts, grouped by server -- */
+function BoostList({ p, guilds, onChange }: { p: Premium; guilds: Record<string, Guild>; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const groups = new Map<string, Premium["boosts"]>();
+  for (const b of p.boosts) { const k = b.guild_id ?? ""; groups.set(k, [...(groups.get(k) ?? []), b]); }
+  const order = [...groups.keys()].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : (groups.get(b)!.length - groups.get(a)!.length)));
+  const movable = (list: Premium["boosts"]) => list.filter((b) => !b.cooldown_until || new Date(b.cooldown_until) <= new Date());
+  const run = async (fn: () => Promise<unknown>) => { setBusy(true); try { await fn(); } catch (e) { toast(errMsg(e), "error"); } finally { setBusy(false); onChange(); } };
+  const move = (list: Premium["boosts"], n: number, to: string) => run(async () => {
+    const pick = movable(list).slice(0, n);
+    if (!pick.length) throw new Error("Those boosts were moved recently and can't move again yet.");
+    for (const b of pick) to ? await api.put(`/api/premium/boosts/${b.id}`, { guild_id: to }) : await api.del(`/api/premium/boosts/${b.id}`);
+  });
+  const soonest = (list: Premium["boosts"]) => list.map((b) => b.current_period_end).filter(Boolean).sort()[0];
+  return (
+    <div className="card">
+      <h3>Your boosts ({p.boosts.length})</h3>
+      {!p.boosts.length && <p className="muted">You don't have any boosts yet. Earn them with Sparks above.</p>}
+      {order.map((gid) => {
+        const list = groups.get(gid)!, n = list.length, end = soonest(list), free = movable(list).length;
+        return (
+          <div key={gid || "free"} className={`boost-group ${gid ? "" : "unused"}`}>
+            <span className="boost-count" aria-label={`${n} boosts`}><Sparkles size={15} />{n}</span>
+            <span className="grow">
+              {gid ? <>Boosting <strong>{list[0]!.guild_name ?? guilds[gid]?.name ?? "a server"}</strong></> : <strong>Not used yet</strong>}
+              <small className="muted block">{end ? `Next ends ${new Date(end).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : "No end date"}{gid && free < n ? ` · ${n - free} can't move yet` : ""}</small>
+            </span>
+            <select disabled={busy || !free} value="" aria-label={gid ? "Move boosts" : "Use boosts"} onChange={(e) => {
+              const [to, count] = e.target.value.split("|"); if (to === undefined) return; void move(list, count === "all" ? free : 1, to);
+            }}>
+              <option value="" disabled>{gid ? "Move…" : "Use on…"}</option>
+              {Object.values(guilds).filter((g) => g.id !== gid).map((g) => <optgroup key={g.id} label={g.name}><option value={`${g.id}|1`}>1 boost to {g.name}</option>{free > 1 && <option value={`${g.id}|all`}>All {free} to {g.name}</option>}</optgroup>)}
+              {gid && <optgroup label="Remove"><option value="|1">Remove 1 boost</option>{free > 1 && <option value="|all">Remove all {free}</option>}</optgroup>}
+            </select>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- Sparks -- */
+interface Sparks { balance: number; per_boost: number; season: { id: string; ends: string; live: boolean }; invite_link: string;
+  challenges: { key: string; title: string; detail: string; goal: number; unit: string; reward: number; progress: number; claimed: boolean }[] }
+export function SparksCard() {
+  const [s, setS] = useState<Sparks | null>(null);
+  const [busy, setBusy] = useState("");
+  const load = () => api.get<Sparks>("/api/sparks").then(setS).catch(() => {});
+  useEffect(() => { load(); const a = onEvent("SPARKS_UPDATE", load); const t = setInterval(load, 60_000); return () => { a(); clearInterval(t); }; }, []);
+  if (!s) return null;
+  const claim = async (key: string) => { setBusy(key); try { await api.post(`/api/sparks/claim/${key}`); toast(`+${s.per_boost} Sparks! That's a boost.`, "success"); await load(); } catch (e) { toast(errMsg(e), "error"); } finally { setBusy(""); } };
+  const buy = async (count: number) => { setBusy("buy"); try { await api.post("/api/sparks/boosts", { count }); toast(count === 1 ? "Boost added. Pick a server below." : `${count} boosts added. Pick servers below.`, "success"); await load(); } catch (e) { toast(errMsg(e), "error"); } finally { setBusy(""); } };
+  const canBuy = Math.floor(s.balance / s.per_boost);
+  const done = s.challenges.filter((c) => c.claimed).length;
+  return (
+    <div className="card sparks">
+      <div className="sparks-head">
+        <span className="sparks-coin" aria-hidden>✦</span>
+        <div className="grow"><h3>{s.balance} Sparks</h3><p className="muted small">Finish challenges to earn Sparks. {s.per_boost} Sparks buys a boost that lasts a year.</p></div>
+        <button className="btn primary sparks-buy" disabled={!canBuy || !!busy} onClick={() => buy(1)}>Get a boost · {s.per_boost} ✦</button>
+        {canBuy > 1 && <button className="btn" disabled={!!busy} onClick={() => buy(canBuy)}>Get {canBuy}</button>}
+      </div>
+      <div className="sparks-season muted small">Season {s.season.id}: {done} of {s.challenges.length} done · ends {new Date(s.season.ends).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</div>
+      <ul className="challenges">
+        {s.challenges.map((c) => {
+          const pct = Math.round((c.progress / c.goal) * 100), ready = c.progress >= c.goal && !c.claimed;
+          return (
+            <li key={c.key} className={`challenge ${c.claimed ? "claimed" : ready ? "ready" : ""}`}>
+              <div className="grow">
+                <b>{c.title}</b><small className="muted block">{c.detail}</small>
+                <div className="challenge-bar" role="progressbar" aria-valuemin={0} aria-valuemax={c.goal} aria-valuenow={c.progress}><i style={{ width: `${pct}%` }} /></div>
+                <small className="muted">{c.progress} / {c.goal} {c.unit}</small>
+                {c.key === "invite" && !c.claimed && <button className="link small" onClick={() => { navigator.clipboard?.writeText(s.invite_link).then(() => toast("Invite link copied.", "success")).catch(() => toast(s.invite_link, "info")); }}>Copy your invite link</button>}
+              </div>
+              {c.claimed ? <span className="challenge-done">Claimed ✓</span>
+                : <button className="btn sm challenge-claim" disabled={!ready || busy === c.key || !s.season.live} onClick={() => claim(c.key)}>+{c.reward} ✦</button>}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
