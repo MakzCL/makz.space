@@ -54,7 +54,7 @@ jobs:
           SEND_KEYSTORE_PASSWORD: ${{ secrets.SEND_ANDROID_KEYSTORE_PASSWORD }}
           SEND_KEY_ALIAS: ${{ secrets.SEND_ANDROID_KEY_ALIAS }}
           SEND_KEY_PASSWORD: ${{ secrets.SEND_ANDROID_KEY_PASSWORD }}
-          # Firebase client settings for push (Project settings > Your apps in the Firebase console). Public values, so repository variables.
+          # Optional overrides for the Firebase client settings (build.gradle has SEND's project as the default).
           FCM_APP_ID: ${{ vars.SEND_FCM_APP_ID }}
           FCM_API_KEY: ${{ vars.SEND_FCM_API_KEY }}
           FCM_PROJECT_ID: ${{ vars.SEND_FCM_PROJECT_ID }}

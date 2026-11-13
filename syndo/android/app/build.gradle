@@ -13,8 +13,11 @@ android {
         versionCode 7
         versionName '0.7.1'
         // Firebase client settings for push (public values, the same ones google-services.json would hold). Empty = push off.
+        // Defaults are SEND's Firebase project (space-makz-send); -PfcmAppId=... etc. override them.
+        def fcmDefaults = [fcmAppId: '1:610969623014:android:02478a5377a7a296209e27', fcmApiKey: 'AIzaSyCQZoS8Cbo2Exb-wgOP8rs209OhbCmcF38',
+                           fcmProjectId: 'space-makz-send', fcmSenderId: '610969623014']
         ['fcmAppId': 'FCM_APP_ID', 'fcmApiKey': 'FCM_API_KEY', 'fcmProjectId': 'FCM_PROJECT_ID', 'fcmSenderId': 'FCM_SENDER_ID'].each { prop, field ->
-            def v = providers.gradleProperty(prop).getOrElse('')
+            def v = providers.gradleProperty(prop).getOrElse('') ?: fcmDefaults[prop]
             if (!(v ==~ /[A-Za-z0-9:._-]*/)) throw new GradleException("${prop} has unexpected characters")
             buildConfigField 'String', field, '"' + v + '"'
         }
