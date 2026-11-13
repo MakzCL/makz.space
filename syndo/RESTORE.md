@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-13: Sponsorships live on Stripe (commit `9ffb081`)
+
+Backend SOURCE_COMMIT `9ffb08182b17b76851396737c2ef0238dcd44fb1`, worker code sha `3274d27d`. Checkouts turn Stripe Managed Payments off (standard fees).
+Stripe (live, account MAKZ Labs `acct_1UbObTGvsTVuhaqL`): webhook `we_1UbOtwGvsTVuhaqLkaPW1zCX` to `/api/stripe/webhook` (checkout.session.completed, customer.subscription.updated/deleted), customer portal `bpc_1UbOtxGvsTVuhaqLNVMRYEFP`. Cloudflare secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` hold the live values. A test sandbox (`acct_1Ub2umK58BiZOi4v`) also has a webhook, unused now.
+To pause sponsorships: delete `STRIPE_SECRET_KEY` in Cloudflare (the button then says it opens soon); existing subscriptions keep billing in Stripe until cancelled there.
+
 ## 2026-11-13: Android push on, sponsorships (commit `63a5298`)
 
 Backend SOURCE_COMMIT `63a52985165bad7630363574ed9fc95ec189661d`, worker code sha `fb64c163` (previous `85b22163`). The worker now also restarts the backend when its optional secrets change (it stores a hash, never the values).
