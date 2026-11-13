@@ -197,7 +197,8 @@ export interface Attachment {
   waveform: string | null;
 }
 
-export interface Reaction { emoji: string; count: number; me: boolean }
+/** `burst` marks a super reaction (animated); it is counted separately from the normal reaction with the same emoji. */
+export interface Reaction { emoji: string; count: number; me: boolean; burst?: boolean }
 
 export interface Message {
   id: string;

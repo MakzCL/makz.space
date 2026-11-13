@@ -263,16 +263,19 @@ export function dispatch(t: string, d: any) {
     case "MESSAGE_REACTION_ADD": case "MESSAGE_REACTION_REMOVE": {
       const add = t === "MESSAGE_REACTION_ADD";
       const mine = d.user_id === s.me?.id;
+      // Someone else's super reaction plays its burst for everyone looking at the message (yours plays on click).
+      if (add && d.burst && !mine && typeof window !== "undefined") setTimeout(() => window.dispatchEvent(new CustomEvent("send:burst", { detail: d })), 60);
       set((st) => {
         const cur = st.messages[d.channel_id];
         if (!cur) return {};
         const list = cur.list.map((m) => {
           if (m.id !== d.message_id) return m;
           const rs = [...m.reactions];
-          const i = rs.findIndex((r) => r.emoji === d.emoji);
+          const burst = !!d.burst;
+          const i = rs.findIndex((r) => r.emoji === d.emoji && !!r.burst === burst);
           if (add) {
             if (i >= 0) { if (mine && rs[i]!.me) return m; rs[i] = { ...rs[i]!, count: rs[i]!.count + 1, me: rs[i]!.me || mine }; }
-            else rs.push({ emoji: d.emoji, count: 1, me: mine });
+            else rs.push(burst ? { emoji: d.emoji, count: 1, me: mine, burst: true } : { emoji: d.emoji, count: 1, me: mine });
           } else if (i >= 0) {
             const c = rs[i]!.count - 1;
             if (c <= 0) rs.splice(i, 1); else rs[i] = { ...rs[i]!, count: c, me: mine ? false : rs[i]!.me };

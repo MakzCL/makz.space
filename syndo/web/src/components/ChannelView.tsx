@@ -10,7 +10,7 @@ import { MoreHorizontal,
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChannelType, MessageType, P, boostPerks, has, type Channel, type Message, type Sticker } from "@send/shared";
 import { api, errMsg } from "../api.ts";
-import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, toggleReaction, type PendingUpload } from "../actions.ts";
+import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
 import { AttachSheet, CameraCapture } from "./AttachSheet.tsx";
 import { VoiceStage } from "./VoiceStage.tsx";
@@ -35,7 +35,8 @@ import { createContext, useContext } from "react";
 import { create } from "zustand";
 import { Smile, Sticker as StickerIcon } from "lucide-react";
 import { ChannelType as CT } from "@send/shared";
-import { Palette } from "lucide-react";
+import { Palette, LogOut, Sparkles } from "lucide-react";
+import { Reactions, toggleReaction, openReactionsViewer } from "../features/SuperReactions.tsx";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { customReaction, emojiText, myEmojis, myStickers, reactionKey } from "../expressions.ts";
 import { ThirdPartyEmote, emoteGroups, emoteToken, emoteUrl, loadEmotes, parseEmoteToken, useEmotes } from "../features/Emotes.tsx";
@@ -397,6 +398,8 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
   const editing = useEditing((s) => s.id === m.id);
   const setEditing = (v: boolean) => { useEditing.setState({ id: v ? m.id : null }); if (!v) document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus({ preventScroll: true }); };
   const [picker, setPicker] = useState<HTMLElement | null>(null);
+  const [pickBurst, setPickBurst] = useState(false);
+  const openPicker = (el: HTMLElement, burst: boolean) => { setPickBurst(burst); setPicker((p) => (p === el ? null : el)); };
   const media = useRef(new Map<number, MediaItem>());
   const mine = m.author.id === me.id;
   const canManage = !!guildId && can(channel, P.MANAGE_MESSAGES);
@@ -435,7 +438,9 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
     else {
       if (canReact) items.push(
         { kind: "custom", render: (close) => <div className="ctx-emoji-row" role="group" aria-label="Quick reactions">{QUICK.slice(0, 4).map((x) => <button key={x} aria-label={`React ${x}`} onClick={() => { close(); toggleReaction(m, x); }}>{x}</button>)}</div> },
-        { label: "Add reaction", submenu: QUICK.map((x) => ({ label: x, checked: m.reactions.some((r) => r.emoji === x && r.me), onSelect: () => toggleReaction(m, x) })) }, sep);
+        { label: "Add reaction", submenu: QUICK.map((x) => ({ label: x, checked: m.reactions.some((r) => r.emoji === x && !r.burst && r.me), onSelect: () => toggleReaction(m, x) })) },
+        { label: "Super reaction", icon: <Sparkles size={15} />, submenu: QUICK.map((x) => ({ label: x, checked: m.reactions.some((r) => r.emoji === x && r.burst && r.me), onSelect: () => toggleReaction(m, x, true) })) },
+        ...(m.reactions.length ? [{ label: "View reactions", onSelect: () => openReactionsViewer(m) }] : []), sep);
       if (mine && m.type === 0) items.push({ label: "Edit message", onSelect: () => setEditing(true) });
       if (canSend) items.push({ label: "Reply", onSelect: () => onReply(m) });
       items.push({ label: "Forward", onSelect: () => forwardMessage(m) });
@@ -497,22 +502,14 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
               <button className="link" onClick={() => discardFailed(channel.id, m.id)}>Discard</button>
             </div>
           )}
-          {m.reactions.length > 0 && (
-            <div className="reactions">
-              {m.reactions.map((r) => (
-                <button key={r.emoji} className={`reaction ${r.me ? "me" : ""}`} aria-pressed={r.me} aria-label={`${customReaction(r.emoji) ? `:${customReaction(r.emoji)!.name}:` : r.emoji} ${r.count} reaction${r.count === 1 ? "" : "s"}`} onClick={() => toggleReaction(m, r.emoji)}>
-                  <span className="r-emoji">{customReaction(r.emoji) ? <CustomEmoji id={customReaction(r.emoji)!.id} name={customReaction(r.emoji)!.name} /> : r.emoji}</span> {r.count}
-                </button>
-              ))}
-              {can(channel, P.ADD_REACTIONS) || !guildId ? <button className="reaction add" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={14} /></button> : null}
-            </div>
-          )}
+          <Reactions m={m} canAdd={can(channel, P.ADD_REACTIONS) || !guildId} onAdd={openPicker} />
         </div>
       </div>
       {!m._state && !editing && (
         <div className="msg-tools" role="toolbar" aria-label="Message actions">
           {QUICK.slice(0, 3).map((e) => <button key={e} className="icon-btn sm" aria-label={`React ${e}`} onClick={() => toggleReaction(m, e)}>{e}</button>)}
-          <button className="icon-btn sm" aria-label="Add reaction" onClick={(e) => { const el = e.currentTarget; setPicker((p) => (p === el ? null : el)); }}><SmilePlus size={16} /></button>
+          <button className="icon-btn sm" aria-label="Add reaction" onClick={(e) => openPicker(e.currentTarget, false)}><SmilePlus size={16} /></button>
+          <button className="icon-btn sm super-btn" aria-label="Add super reaction" title="Super reaction" onClick={(e) => openPicker(e.currentTarget, true)}><Sparkles size={16} /></button>
           <button className="icon-btn sm" aria-label="Reply" onClick={() => onReply(m)}><CornerUpLeft size={16} /></button>
           <button className="icon-btn sm" aria-label="Forward" title="Forward" onClick={() => forwardMessage(m)}><CornerUpRight size={16} /></button>
           {guildId && !m.thread && !isThreadType(channel.type) && (channel.type === ChannelType.TEXT || channel.type === ChannelType.ANNOUNCEMENT) && can(channel, P.CREATE_PUBLIC_THREADS) && <button className="icon-btn sm" aria-label="Create thread" title="Create thread" onClick={() => openCreateThread(channel, m)}><MessageSquare size={16} /></button>}
@@ -522,7 +519,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {(mine || canManage) && <button className="icon-btn sm danger" aria-label="Delete" title="Delete (hold Shift to skip confirmation)" onClick={(e) => del(e.shiftKey)}><Trash2 size={16} /></button>}
         </div>
       )}
-      {picker && <EmojiPicker anchor={picker} guildId={guildId} onPick={(e) => { toggleReaction(m, reactionKey(e)); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {picker && <EmojiPicker anchor={picker} guildId={guildId} onPick={(e) => { toggleReaction(m, reactionKey(e), pickBurst); setPicker(null); }} onClose={() => setPicker(null)} />}
     </article>
   );
 });
@@ -1047,8 +1044,17 @@ function Recipients({ channel, onClose, onProfile }: { channel: Channel; onClose
           {channel.owner_id === me.id && u.id !== me.id && <button className="icon-btn sm danger" aria-label={`Remove ${displayName(u)}`} onClick={() => api.del(`/api/channels/${channel.id}/recipients/${u.id}`).catch((e) => toast(errMsg(e), "error"))}><X size={14} /></button>}
         </div>
       ))}
-      <button className="btn danger sm" onClick={async () => (await askConfirm({ title: "Leave this group?", body: "You won't get its messages unless someone adds you back.", confirmLabel: "Leave group", danger: true })) && api.del(`/api/channels/${channel.id}`).then(() => navigate("/channels/@me"))}>Leave group</button>
-      <button className="btn sm" onClick={async () => { const name = await askText({ title: "Rename group", label: "Group name", initial: channel.name ?? "", optional: true }); if (name !== null) await api.patch(`/api/channels/${channel.id}`, { name }).catch((e) => toast(errMsg(e), "error")); }}>Rename group</button>
+      <div className="group-actions" role="group" aria-label="Group options">
+        <button type="button" className="group-action" onClick={() => openDialog({ kind: "groupDm" })}>
+          <span className="group-action-ico"><UserPlus size={17} /></span><span className="group-action-txt"><b>Add friends</b><small>Bring more friends into this group</small></span>
+        </button>
+        <button type="button" className="group-action" onClick={async () => { const name = await askText({ title: "Rename group", label: "Group name", initial: channel.name ?? "", optional: true }); if (name !== null) await api.patch(`/api/channels/${channel.id}`, { name }).catch((e) => toast(errMsg(e), "error")); }}>
+          <span className="group-action-ico"><Pencil size={17} /></span><span className="group-action-txt"><b>Rename group</b><small>Give the group a name everyone sees</small></span>
+        </button>
+        <button type="button" className="group-action danger" onClick={async () => (await askConfirm({ title: "Leave this group?", body: "You won't get its messages unless someone adds you back.", confirmLabel: "Leave group", danger: true })) && api.del(`/api/channels/${channel.id}`).then(() => navigate("/channels/@me"))}>
+          <span className="group-action-ico"><LogOut size={17} /></span><span className="group-action-txt"><b>Leave group</b><small>You can be added back by a member</small></span>
+        </button>
+      </div>
     </aside>
   );
 }

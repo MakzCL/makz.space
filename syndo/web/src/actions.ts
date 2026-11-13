@@ -119,11 +119,8 @@ export function sendTyping(channelId: string) {
   api.post(`/api/channels/${channelId}/typing`).catch(() => {});
 }
 
-export async function toggleReaction(m: Message, emoji: string) {
-  const mine = m.reactions.find((r) => r.emoji === emoji)?.me;
-  const path = `/api/channels/${m.channel_id}/messages/${m.id}/reactions/${encodeURIComponent(emoji)}/@me`;
-  try { mine ? await api.del(path) : await api.put(path); } catch (e) { toast(errMsg(e), "error"); }
-}
+/** Moved to features/SuperReactions.tsx (normal and super reactions, with the burst animation). */
+export { toggleReaction } from "./features/SuperReactions.tsx";
 
 export interface PendingUpload { key: string; file: File; progress: number; status: "uploading" | "done" | "error"; error?: string; id?: string; cancel?: () => void; spoiler?: boolean }
 

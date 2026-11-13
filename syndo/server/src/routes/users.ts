@@ -264,7 +264,7 @@ export async function userRoutes(app: FastifyInstance) {
       memberships: await q("select g.id::text, g.name, m.nick, m.joined_at from members m join guilds g on g.id = m.guild_id where m.user_id = $1", [me]),
       messages: await q("select id::text, channel_id::text, guild_id::text, content, created_at, edited_at from messages where author_id = $1 and deleted_at is null order by id limit 200000", [me]),
       attachments: await q("select id::text, filename, content_type, size, created_at from attachments where uploader_id = $1", [me]),
-      reactions: await q("select message_id::text, emoji, created_at from reactions where user_id = $1", [me]),
+      reactions: await q("select message_id::text, emoji, burst, created_at from reactions where user_id = $1", [me]),
     };
     reply.header("content-disposition", `attachment; filename="send-export-${me}.json"`);
     return data;

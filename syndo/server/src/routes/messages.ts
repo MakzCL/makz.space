@@ -30,8 +30,8 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
   const ids = rows.map((r) => r.id);
   const atts = await q<any>("select * from attachments where message_id = any($1::bigint[]) order by id", [ids]);
   const reacts = await q<any>(
-    `select message_id::text, emoji, count(*)::int as count, bool_or(user_id = $2) as me, min(created_at) as first
-       from reactions where message_id = any($1::bigint[]) group by message_id, emoji order by first`, [ids, viewerId ?? "0"]);
+    `select message_id::text, emoji, burst, count(*)::int as count, bool_or(user_id = $2) as me, min(created_at) as first
+       from reactions where message_id = any($1::bigint[]) group by message_id, emoji, burst order by first`, [ids, viewerId ?? "0"]);
   const stickerIds = rows.map((r) => r.sticker_id).filter(Boolean);
   const stickers = stickerIds.length ? await q<any>("select * from guild_stickers where id = any($1::bigint[])", [stickerIds]) : [];
   const pollRows = await q<any>("select * from polls where message_id = any($1::bigint[])", [ids]);
@@ -66,7 +66,7 @@ export async function hydrate(rows: any[], viewerId: string | null): Promise<Mes
       attachments: atts.filter((a) => a.message_id === r.id).map((a) => ({
         id: a.id, filename: a.filename, content_type: a.content_type, size: Number(a.size), url: attUrl(a), width: a.width, height: a.height, duration: a.duration, waveform: a.waveform,
       })),
-      reactions: reacts.filter((x) => x.message_id === r.id).map((x) => ({ emoji: x.emoji, count: x.count, me: !!x.me })),
+      reactions: reacts.filter((x) => x.message_id === r.id).map((x) => (x.burst ? { emoji: x.emoji, count: x.count, me: !!x.me, burst: true } : { emoji: x.emoji, count: x.count, me: !!x.me })),
       nonce: r.nonce ?? null,
       stickers: r.sticker_id && !r.deleted_at ? stickers.filter((s) => String(s.id) === String(r.sticker_id)).map(stickerOut) : [],
       flags: r.flags ?? 0,
@@ -458,9 +458,12 @@ export async function messageRoutes(app: FastifyInstance) {
   }
 
   /* ------------------------------------------------------- reactions -- */
+  // ?type=burst is a super reaction: an animated reaction counted separately from the normal one.
+  const isBurst = (req: { query: unknown }) => (req.query as { type?: string } | undefined)?.type === "burst";
   app.put<{ Params: { cid: string; mid: string; emoji: string } }>("/api/channels/:cid/messages/:mid/reactions/:emoji/@me", { config: { rateLimit: { max: 30, timeWindow: "10 seconds" } } }, async (req) => {
     const me = uid(req);
     const emoji = decodeURIComponent(req.params.emoji);
+    const burst = isBurst(req);
     if (!validEmoji(emoji)) throw bad("That isn't a valid emoji.");
     const { channel, perms } = await requireChannel(me, req.params.cid, P.READ_MESSAGE_HISTORY);
     const m = await q1<any>("select id from messages where id = $1 and channel_id = $2 and deleted_at is null", [req.params.mid, channel.id]);
@@ -470,27 +473,35 @@ export async function messageRoutes(app: FastifyInstance) {
     if (channel.type === ChannelType.DM && !has(perms, P.SEND_MESSAGES)) throw forbidden();
     const distinct = await q1<any>("select count(distinct emoji)::int as n from reactions where message_id = $1", [m.id]);
     if (!existing && distinct.n >= 20) throw bad("A message can have up to 20 different reactions.");
-    const ins = await q1("insert into reactions(message_id, user_id, emoji) values ($1,$2,$3) on conflict do nothing returning 1", [m.id, me, emoji]);
-    if (ins) await toChannel(channel, "MESSAGE_REACTION_ADD", { channel_id: channel.id, message_id: m.id, user_id: me, emoji });
+    if (burst) {
+      const recent = await q1<any>("select count(*)::int as n from reactions where user_id = $1 and burst and created_at > now() - interval '1 hour'", [me]);
+      if (recent.n >= 30) throw bad("That's a lot of super reactions. Try again in a little while.");
+    }
+    const ins = await q1("insert into reactions(message_id, user_id, emoji, burst) values ($1,$2,$3,$4) on conflict do nothing returning 1", [m.id, me, emoji, burst]);
+    if (ins) await toChannel(channel, "MESSAGE_REACTION_ADD", { channel_id: channel.id, message_id: m.id, user_id: me, emoji, ...(burst ? { burst: true } : {}) });
     return { ok: true };
   });
 
   app.delete<{ Params: { cid: string; mid: string; emoji: string; who: string } }>("/api/channels/:cid/messages/:mid/reactions/:emoji/:who", async (req) => {
     const me = uid(req);
     const emoji = decodeURIComponent(req.params.emoji);
+    const burst = isBurst(req);
     const target = req.params.who === "@me" ? me : req.params.who;
     const { channel, perms } = await requireChannel(me, req.params.cid, P.READ_MESSAGE_HISTORY);
     if (target !== me && !(channel.guild_id && has(perms, P.MANAGE_MESSAGES))) throw forbidden();
-    const del = await q1("delete from reactions where message_id = $1 and user_id = $2 and emoji = $3 returning 1", [req.params.mid, target, emoji]);
-    if (del) await toChannel(channel, "MESSAGE_REACTION_REMOVE", { channel_id: channel.id, message_id: req.params.mid, user_id: target, emoji });
+    const del = await q1("delete from reactions where message_id = $1 and user_id = $2 and emoji = $3 and burst = $4 returning 1", [req.params.mid, target, emoji, burst]);
+    if (del) await toChannel(channel, "MESSAGE_REACTION_REMOVE", { channel_id: channel.id, message_id: req.params.mid, user_id: target, emoji, ...(burst ? { burst: true } : {}) });
     return { ok: true };
   });
 
+  /** Who reacted: ?type=burst for super reactions, ?type=all for both (each user marked with burst). */
   app.get<{ Params: { cid: string; mid: string; emoji: string } }>("/api/channels/:cid/messages/:mid/reactions/:emoji", async (req) => {
     const { channel } = await requireChannel(uid(req), req.params.cid, P.READ_MESSAGE_HISTORY);
-    const rows = await q<any>(`select ${prefixedCols("u", "a_")} from reactions r join users u on u.id = r.user_id join messages m on m.id = r.message_id
-      where r.message_id = $1 and m.channel_id = $2 and r.emoji = $3 order by r.created_at limit 100`, [req.params.mid, channel.id, decodeURIComponent(req.params.emoji)]);
-    return rows.map((r) => prefixedUser(r, "a_"));
+    const type = (req.query as { type?: string } | undefined)?.type;
+    const filter = type === "all" ? "" : type === "burst" ? "and r.burst" : "and not r.burst";
+    const rows = await q<any>(`select ${prefixedCols("u", "a_")}, r.burst as r_burst from reactions r join users u on u.id = r.user_id join messages m on m.id = r.message_id
+      where r.message_id = $1 and m.channel_id = $2 and r.emoji = $3 ${filter} order by r.created_at limit 100`, [req.params.mid, channel.id, decodeURIComponent(req.params.emoji)]);
+    return rows.map((r) => (type === "all" ? { ...prefixedUser(r, "a_"), burst: !!r.r_burst } : prefixedUser(r, "a_")));
   });
 
   /* ------------------------------------------------------------ pins -- */
