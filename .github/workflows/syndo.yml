@@ -54,6 +54,8 @@ jobs:
       - run: npm run build
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && !startsWith(github.ref, 'refs/tags/')
+        # Cloudflare's own GitHub connection already deploys syndo-app, so this extra deploy is a backup and never fails the check.
+        continue-on-error: true
         working-directory: syndo/web
         run: |
             DEPLOY_BRANCH="$GITHUB_REF_NAME"
