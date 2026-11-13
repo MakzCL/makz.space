@@ -107,7 +107,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
     <div className="channel">
       <header className="ch-h" data-region="header">
         <MobileNavButton />
-        {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : <ChannelGlyph c={channel} size={22} className="muted" />}
+        {isDm && channel.type === ChannelType.DM ? <Avatar user={channel.recipients?.[0]} size={26} status="" /> : channel.type === ChannelType.GROUP_DM ? <span className="gdm-icon" aria-hidden><Users size={16} /></span> : <ChannelGlyph c={channel} size={22} className="muted" />}
         <div className="ch-title" onClick={() => { if (isPhone() && (guildId || channel.type === ChannelType.GROUP_DM)) setPanel(panel === "members" ? null : "members"); }}>
         <h1 className="ellipsis">{isDm ? (label && channel.type === ChannelType.DM ? <><span className="local-label" title="Your private label: only you see it">{label}</span> <span className="muted small">{dmTitle(channel)}</span></> : dmTitle(channel)) : channel.name}</h1>
         {guildId && <OnlineCount guildId={guildId} />}
@@ -157,7 +157,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
-        {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} onClose={() => setPanel(null)} />)}
+        {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} />)}
         {panel === "pins" && <Pins channel={channel} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
         {panel === "threads" && <ThreadsPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "appearance" && <ConversationPanel channel={channel} onClose={() => setPanel(null)} />}
@@ -1022,15 +1022,18 @@ function MemberActivity({ id, status }: { id: string; status?: { text: string; e
   return <small className="muted ellipsis block member-act">{["Playing", "Streaming", "Listening to", "Watching", "", "Competing in"][a.type] ?? "Playing"} <strong>{a.name}</strong></small>;
 }
 
-function Recipients({ channel, onClose }: { channel: Channel; onClose: () => void }) {
+function Recipients({ channel, onClose, onProfile }: { channel: Channel; onClose: () => void; onProfile: (id: string, el: HTMLElement) => void }) {
   const me = useStore((s) => s.me!);
   return (
     <aside className="side-panel members" data-region="members" aria-label="Members">
       <header className="panel-h m-only"><h3>Members</h3><button className="icon-btn sm" data-panel-close onClick={onClose} aria-label="Close"><X size={18} /></button></header>
       <h3 className="side-sec">Members: {(channel.recipients?.length ?? 0) + 1}</h3>
       {[me, ...(channel.recipients ?? [])].map((u) => (
-        <div key={u.id} className="member">
-          <Avatar user={u} size={32} status="" /><span className="ellipsis">{displayName(u)}{channel.owner_id === u.id && " 👑"}</span>
+        <div key={u.id} className="member recipient">
+          <button type="button" className="recipient-open" aria-label={`View ${displayName(u)}'s profile`} onClick={(e) => onProfile(u.id, e.currentTarget)}
+            onContextMenu={(e) => { const el = e.currentTarget; openContextMenu(e, userMenuItems(u, { guildId: null, onProfile: () => onProfile(u.id, el) })); }}>
+            <Avatar user={u} size={32} status="" /><span className="ellipsis">{displayName(u)}{channel.owner_id === u.id && " 👑"}</span>
+          </button>
           {u.id !== me.id && <button className="icon-btn sm" aria-label={`Message ${displayName(u)}`} onClick={() => openDm(u.id)}><AtSign size={14} /></button>}
           {channel.owner_id === me.id && u.id !== me.id && <button className="icon-btn sm danger" aria-label={`Remove ${displayName(u)}`} onClick={() => api.del(`/api/channels/${channel.id}/recipients/${u.id}`).catch((e) => toast(errMsg(e), "error"))}><X size={14} /></button>}
         </div>
