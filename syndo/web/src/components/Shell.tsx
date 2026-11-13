@@ -39,7 +39,7 @@ import { ForumView, SidebarThreads, useActiveThreads } from "../features/Threads
 import { openServerNotifications } from "../features/Notifications.tsx";
 import { EventsButton, openEvents } from "../features/Events.tsx";
 import { Discovery } from "../features/Discovery.tsx";
-import { openBoostServer } from "../features/Boosts.tsx";
+import { openBoostServer, ServerBoostBar } from "../features/Boosts.tsx";
 import { InboxHost } from "../features/Inbox.tsx";
 import { OnboardingGate } from "../features/Onboarding.tsx";
 import { isMutedScope } from "../store.ts";
@@ -349,6 +349,7 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
           </Popover>
         )}
       </header>
+      {guild.show_boost_bar && <ServerBoostBar guild={guild} />}
       {/* Phones: search and invite under the server name, like Discord's app. */}
       <div className="guild-quick">
         <button className="guild-search" onClick={() => window.dispatchEvent(new Event("send:quickswitcher"))}><Search size={16} aria-hidden /> Search</button>

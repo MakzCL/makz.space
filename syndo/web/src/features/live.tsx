@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useState } from "react";
 import { EmojiPicker } from "../components/ChannelView.tsx";
 import { api, errMsg } from "../api.ts";
@@ -48,6 +49,6 @@ function CustomStatus({ onClose }: { onClose: () => void }) {
     <div className="row"><button className="btn" aria-label="Pick an emoji" onClick={(e) => { const el = e.currentTarget; setPick((p) => (p ? null : el)); }}>{emoji ?? "🙂"}</button>
       <input autoFocus className="grow" maxLength={128} value={text} onChange={(e) => setText(e.target.value)} placeholder="What's happening?" onKeyDown={(e) => { if (e.key === "Enter") save(); }} /></div>
     {pick && <EmojiPicker anchor={pick} onPick={(x) => { setEmoji(x); setPick(null); }} onClose={() => setPick(null)} onClear={emoji ? () => { setEmoji(null); setPick(null); } : undefined} />}
-    <Field label="Clear after"><select value={clear ?? ""} onChange={(e) => setClear(e.target.value === "" ? null : Number(e.target.value))}>{CLEAR.map((c) => <option key={c.label} value={c.minutes ?? ""}>{c.label}</option>)}</select></Field>
+    <Field label="Clear after"><Select value={clear ?? ""} onChange={(e) => setClear(e.target.value === "" ? null : Number(e.target.value))}>{CLEAR.map((c) => <option key={c.label} value={c.minutes ?? ""}>{c.label}</option>)}</Select></Field>
   </Modal>;
 }

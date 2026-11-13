@@ -34,7 +34,7 @@ export async function guildFor(userId: string, guildId: string): Promise<Guild |
     emojis: expressions.emojis,
     sounds: expressions.sounds,
     stickers: expressions.stickers,
-    premium_tier: g.premium_tier ?? 0, premium_count: g.premium_count ?? 0,
+    premium_tier: g.premium_tier ?? 0, premium_count: g.premium_count ?? 0, show_boost_bar: !!g.show_boost_bar,
     discovery_category: g.discovery_category ?? null, discovery_keywords: g.discovery_keywords ?? [],
     stage_instances: (await q<any>("select channel_id::text, guild_id::text, topic, started_by::text, created_at from stage_instances where guild_id = $1", [guildId])),
     me: {

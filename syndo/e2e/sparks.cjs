@@ -53,8 +53,11 @@ const seen = (l, ms = 6000) => l.waitFor({ state: 'visible', timeout: ms }).then
   await A.locator('.sparks').screenshot({ path: `${OUT}/sparks.png` });
   await A.locator('.boost-group').first().screenshot({ path: `${OUT}/boost-group.png` });
   // move 1 boost from the unused group via the select
-  const unused = A.locator('.boost-group.unused select');
-  await unused.selectOption({ label: '1 boost to Spark Lab' }); await A.waitForTimeout(1500);
+  await A.locator('.boost-group.unused .send-select-trigger').click();
+  const menu = A.locator('.send-select-menu');
+  check('Boost dropdown uses SEND styling (not the browser list)', await seen(menu, 3000) && (await menu.evaluate((e) => getComputedStyle(e).backgroundColor)) !== 'rgb(255, 255, 255)');
+  await A.screenshot({ path: `${OUT}/boost-dropdown.png` });
+  await menu.getByRole('option', { name: '1 boost to Spark Lab' }).click(); await A.waitForTimeout(1500);
   const after = await A.locator('.boost-group').allTextContents();
   check('Using 1 unused boost moves it to the server', after.some((t) => /^11.*Spark Lab/.test(t)) && after.some((t) => /^2.*Not used yet/.test(t)), after.join(' | '));
   check('No page errors', !A.errs.length && !B.errs.length, [...A.errs, ...B.errs].join(' | '));

@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useState } from "react";
 import { Bot, Code2, Copy, Eye, EyeOff, Fingerprint, Gamepad2, Link2, Music, Plus, PlaySquare, QrCode, RefreshCw, Search, Smartphone, Trash2, Tv, Radio } from "lucide-react";
@@ -149,7 +150,7 @@ function Install({ app, onClose }: { app: Application; onClose: () => void }) {
   return <Modal title={`Add ${app.name}`} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!gid} onClick={add}>Authorize</button></>}>
     <p className="muted">{app.description}</p>
     {cmds.length > 0 && <p className="small">Commands: {cmds.map((c) => `/${c.name}`).join(" ")}</p>}
-    {guilds.length ? <Field label="Add to server"><select value={gid} onChange={(e) => setGid(e.target.value)}>{guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Field> : <p className="muted">You need Manage Server in a server to add apps.</p>}
+    {guilds.length ? <Field label="Add to server"><Select value={gid} onChange={(e) => setGid(e.target.value)}>{guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</Select></Field> : <p className="muted">You need Manage Server in a server to add apps.</p>}
     <fieldset className="radio-list"><legend>It can</legend>
       {([["read", "See channels and read history"], ["send", "Send messages"], ["embed", "Post links, embeds and files"], ["react", "Add reactions"], ["manage", "Manage messages"], ["admin", "Administrator (everything)"]] as const).map(([k, l]) => <label key={k}><input type="checkbox" checked={perms[k]} onChange={(e) => setPerms({ ...perms, [k]: e.target.checked })} /> {l}</label>)}
     </fieldset>

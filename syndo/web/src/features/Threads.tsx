@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState } from "react";
 import { Archive, BarChart3, ChevronLeft, Hash, LayoutGrid, List, Lock, MessageSquare, Plus, Search, Tag, Trash2, Unlock, Users, X } from "lucide-react";
@@ -38,9 +39,9 @@ function CreateThread({ parent, from, onClose }: { parent: Channel; from?: Messa
       <Field label="Thread name"><input autoFocus value={name} maxLength={100} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) go(); }} /></Field>
       {!from && <Field label="Starter message (optional)"><textarea rows={3} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Say something to get it going" /></Field>}
       <Field label="Hide after inactivity">
-        <select value={archive} onChange={(e) => setArchive(Number(e.target.value))}>
+        <Select value={archive} onChange={(e) => setArchive(Number(e.target.value))}>
           <option value={60}>1 hour</option><option value={1440}>24 hours</option><option value={4320}>3 days</option><option value={10080}>1 week</option>
-        </select>
+        </Select>
       </Field>
       {canPrivate && <Toggle label="Private thread" hint="Only people you invite (and moderators) can see it." checked={priv} onChange={setPriv} />}
     </Modal>
@@ -125,9 +126,9 @@ function PollComposer({ channel, onClose }: { channel: Channel; onClose: () => v
       </Field>
       <div className="row">
         <Field label="Duration">
-          <select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+          <Select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
             <option value={1}>1 hour</option><option value={4}>4 hours</option><option value={8}>8 hours</option><option value={24}>24 hours</option><option value={72}>3 days</option><option value={168}>1 week</option><option value={336}>2 weeks</option>
-          </select>
+          </Select>
         </Field>
         <Toggle label="Allow multiple answers" checked={multi} onChange={setMulti} />
       </div>
@@ -222,7 +223,7 @@ export function ForumView({ channel }: { channel: Channel }) {
       <div className="forum-tools">
         {tags.length > 0 && <div className="tag-filter" role="group" aria-label="Filter by tag">{tags.map((t) => <button key={t.id} className={`ftag ${tagFilter.includes(t.id) ? "on" : ""}`} aria-pressed={tagFilter.includes(t.id)} onClick={() => setTagFilter((x) => (x.includes(t.id) ? x.filter((y) => y !== t.id) : [...x, t.id]))}>{t.emoji} {t.name}</button>)}</div>}
         <span className="grow" />
-        <select value={sort} onChange={(e) => setSort(Number(e.target.value) as 0 | 1)} aria-label="Sort"><option value={0}>Recently active</option><option value={1}>Date posted</option></select>
+        <Select value={sort} onChange={(e) => setSort(Number(e.target.value) as 0 | 1)} aria-label="Sort"><option value={0}>Recently active</option><option value={1}>Date posted</option></Select>
         <button className={`icon-btn sm ${layout === "list" ? "active" : ""}`} aria-label="List view" onClick={() => setLayout("list")}><List size={16} /></button>
         <button className={`icon-btn sm ${layout === "gallery" ? "active" : ""}`} aria-label="Gallery view" onClick={() => setLayout("gallery")}><LayoutGrid size={16} /></button>
         <button className={`btn sm ${archived ? "active" : ""}`} onClick={() => setArchived((v) => !v)}><Archive size={14} /> {archived ? "Showing archived" : "Archived"}</button>

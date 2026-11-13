@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useEffect, useState } from "react";
 import { CalendarDays, Clock, MapPin, Plus, Radio, Share2, Star, Trash2, Users, Volume2 } from "lucide-react";
 import { ChannelType, P, type Guild, type GuildEvent } from "@send/shared";
@@ -113,13 +114,13 @@ function EventForm({ guild, edit, onClose }: { guild: Guild; edit?: GuildEvent; 
         <label><input type="radio" checked={type === 3} onChange={() => setType(3)} /> <MapPin size={16} /> Somewhere else</label>
       </fieldset>
       {type === 3 ? <Field label="Location"><input value={location} maxLength={100} onChange={(e) => setLocation(e.target.value)} placeholder="Add a location, link or something." /></Field>
-        : <Field label="Channel"><select value={channel} onChange={(e) => setChannel(e.target.value)}><option value="">Pick a channel</option>{voiceLike.filter((c) => c.type === (type === 1 ? ChannelType.STAGE : ChannelType.VOICE)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
+        : <Field label="Channel"><Select value={channel} onChange={(e) => setChannel(e.target.value)}><option value="">Pick a channel</option>{voiceLike.filter((c) => c.type === (type === 1 ? ChannelType.STAGE : ChannelType.VOICE)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
       <Field label="Event topic"><input autoFocus maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="What's your event?" /></Field>
       <div className="row">
         <Field label="Start"><input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
         <Field label={type === 3 ? "End" : "End (optional)"}><input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
       </div>
-      <Field label="Repeats"><select value={repeat} onChange={(e) => setRepeat(e.target.value)}><option value="">Does not repeat</option><option value="daily">Every day</option><option value="weekly">Every week</option><option value="biweekly">Every other week</option><option value="monthly">Every month</option><option value="yearly">Every year</option></select></Field>
+      <Field label="Repeats"><Select value={repeat} onChange={(e) => setRepeat(e.target.value)}><option value="">Does not repeat</option><option value="daily">Every day</option><option value="weekly">Every week</option><option value="biweekly">Every other week</option><option value="monthly">Every month</option><option value="yearly">Every year</option></Select></Field>
       <Field label="Description"><textarea rows={3} maxLength={1000} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Tell people a little more about your event." /></Field>
       <Field label="Cover image"><input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] ?? null)} /></Field>
     </Modal>

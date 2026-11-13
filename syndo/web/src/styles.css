@@ -2448,7 +2448,7 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 /* ---------------------------------------------------------------- boosts grouped + Sparks */
 .boost-group { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .boost-group:first-of-type { border-top: 0; }
-.boost-group select { max-width: 220px; }
+.boost-group .send-select { max-width: 240px; min-width: 180px; }
 .boost-count { display: inline-flex; align-items: center; gap: 4px; min-width: 52px; justify-content: center; padding: 4px 10px; border-radius: 999px; font-weight: 800; background: linear-gradient(90deg, #B05CFF33, #FF8FD133); }
 .boost-group.unused .boost-count { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .sparks-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -2467,5 +2467,38 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .challenge-claim { white-space: nowrap; }
 .challenge.ready .challenge-claim { background: linear-gradient(90deg, #ff9f6b, #ff5c8a); border: 0; color: #fff; }
 .challenge-done { color: var(--muted); font-size: .85rem; white-space: nowrap; }
-@media (max-width: 760px) { .boost-group { flex-wrap: wrap; } .boost-group select { max-width: none; width: 100%; } }
+@media (max-width: 760px) { .boost-group { flex-wrap: wrap; } .boost-group .send-select { max-width: none; width: 100%; } }
 .challenge .link.small { margin-left: 10px; }
+.boost-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.boost-title h2 { margin: 0; }
+.boost-wallet { display: flex; gap: 8px; }
+.boost-wallet span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: .85rem; font-weight: 700; background: linear-gradient(90deg, #B05CFF2e, #FF8FD12e); }
+.boost-wallet .wallet-sparks { background: linear-gradient(90deg, #ff9f6b2e, #ff5c8a2e); }
+.boost-wallet .wallet-sparks b { color: #ffb86a; font-weight: 800; }
+/* challenges as a grid: 3 columns, 2 on narrower screens, 1 on phones */
+.challenges { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.challenge { flex-direction: column; align-items: stretch; gap: 10px; }
+.challenge .grow { display: flex; flex-direction: column; }
+.challenge .grow small.block { min-height: 2.6em; }
+.challenge-claim, .challenge-done { align-self: flex-end; }
+.challenge .link.small { margin: 4px 0 0; align-self: flex-start; }
+@media (max-width: 1100px) { .challenges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .challenges { grid-template-columns: 1fr; } }
+[data-motion="full"] .challenge-claim:active { transform: scale(.92); }
+.challenge.ready .challenge-claim { animation: claim-glow 1.8s ease-in-out infinite; }
+@keyframes claim-glow { 0%, 100% { box-shadow: 0 0 0 0 #ff9f6b00; } 50% { box-shadow: 0 0 18px 2px #ff9f6b88; } }
+.spark-fly { position: fixed; z-index: 9500; pointer-events: none; font-size: 18px; color: #ffd36a; text-shadow: 0 0 10px #ff9f6b, 0 0 2px #fff; }
+.wallet-pop { animation: wallet-pop .5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes wallet-pop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .challenge.ready .challenge-claim { animation: none; } }
+/* server boost bar under the banner */
+.server-boost-bar { display: flex; flex-direction: column; gap: 6px; width: calc(100% - 16px); margin: 8px 8px 4px; padding: 8px 10px; border: 0; border-radius: 10px; background: linear-gradient(90deg, #B05CFF1f, #FF8FD11f); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background .15s; }
+.server-boost-bar:hover { background: linear-gradient(90deg, #B05CFF33, #FF8FD133); }
+.sbb-top { display: flex; align-items: center; gap: 6px; font-size: .8rem; min-width: 0; }
+.sbb-top svg { color: #FF8FD1; flex: none; }
+.sbb-count { margin-left: auto; white-space: nowrap; font-size: .74rem; font-weight: 700; color: var(--muted); }
+.sbb-next { font-size: .7rem; color: var(--muted); }
+.sbb-track { position: relative; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+.sbb-track i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #B05CFF, #FF8FD1); transition: width .5s; }
+.sbb-track em { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--bg2, #1a2035); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--text) 30%, transparent); }
+.sbb-track em.on { background: #FF8FD1; box-shadow: 0 0 6px #FF8FD1; }

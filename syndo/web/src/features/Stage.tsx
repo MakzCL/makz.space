@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Hand, Mic, MicOff, PhoneOff, Radio, Rss, UserMinus, UserPlus } from "lucide-react";
@@ -104,7 +105,7 @@ export function FollowButton({ channel }: { channel: Channel }) {
         <strong>Follow #{channel.name}</strong>
         <p className="muted small">Its published messages will be posted in a channel of your choice. You need Manage Webhooks there.</p>
         {options.length ? <>
-          <select value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Post into"><option value="">Pick a channel…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
+          <Select value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Post into"><option value="">Pick a channel…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</Select>
           <button className="btn primary sm" disabled={!target} onClick={follow}>Follow</button>
         </> : <p className="muted small">You don't manage webhooks in any channel.</p>}
       </div>

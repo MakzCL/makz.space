@@ -176,6 +176,8 @@ export interface Guild {
   /** Boost level 0–3 and number of boosts. */
   premium_tier?: number;
   premium_count?: number;
+  /** Show the boost progress bar under the server banner (server setting). */
+  show_boost_bar?: boolean;
   discovery_category?: string | null;
   discovery_keywords?: string[];
   /** Stage instances currently live in this server. */

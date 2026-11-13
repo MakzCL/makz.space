@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy, Plus, RefreshCw, ShieldCheck, Trash2, Webhook as WebhookIcon } from "lucide-react";
 import { ChannelType, P, has, type Application, type AutomodRule, type Channel, type ForumTag, type Guild, type Onboarding, type Webhook } from "@send/shared";
@@ -56,12 +57,12 @@ export function AutoModTab({ guild }: { guild: Guild }) {
         <Toggle label="Block the message" checked={hasAct(1)} onChange={(v) => toggleAct(1, v)} />
         {hasAct(1) && <Field label="Custom reply (optional)"><input maxLength={150} value={actions.find((a) => a.type === 1)?.message ?? ""} onChange={(e) => patchAct(1, { message: e.target.value })} placeholder="Your message was blocked by AutoMod." /></Field>}
         <Toggle label="Send an alert to a channel" checked={hasAct(2)} onChange={(v) => toggleAct(2, v, { channel_id: textChannels(guild)[0]?.id })} />
-        {hasAct(2) && <select value={actions.find((a) => a.type === 2)?.channel_id ?? ""} onChange={(e) => patchAct(2, { channel_id: e.target.value })} aria-label="Alert channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select>}
+        {hasAct(2) && <Select value={actions.find((a) => a.type === 2)?.channel_id ?? ""} onChange={(e) => patchAct(2, { channel_id: e.target.value })} aria-label="Alert channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select>}
         <Toggle label="Time out the member" checked={hasAct(3)} onChange={(v) => toggleAct(3, v, { duration_seconds: 60 })} />
-        {hasAct(3) && <select value={actions.find((a) => a.type === 3)?.duration_seconds ?? 60} onChange={(e) => patchAct(3, { duration_seconds: Number(e.target.value) })} aria-label="Timeout length">{[[60, "60 seconds"], [300, "5 minutes"], [600, "10 minutes"], [3600, "1 hour"], [86400, "1 day"], [604800, "1 week"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+        {hasAct(3) && <Select value={actions.find((a) => a.type === 3)?.duration_seconds ?? 60} onChange={(e) => patchAct(3, { duration_seconds: Number(e.target.value) })} aria-label="Timeout length">{[[60, "60 seconds"], [300, "5 minutes"], [600, "10 minutes"], [3600, "1 hour"], [86400, "1 day"], [604800, "1 week"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>}
         <h4>Exceptions</h4>
-        <Field label="Roles that skip this rule"><select multiple value={edit.exempt_roles ?? []} onChange={(e) => setEdit({ ...edit, exempt_roles: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.roles.filter((r) => r.id !== guild.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></Field>
-        <Field label="Channels where it doesn't apply"><select multiple value={edit.exempt_channels ?? []} onChange={(e) => setEdit({ ...edit, exempt_channels: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.channels.filter((c) => c.type !== ChannelType.CATEGORY).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="Roles that skip this rule"><Select multiple value={edit.exempt_roles ?? []} onChange={(e) => setEdit({ ...edit, exempt_roles: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.roles.filter((r) => r.id !== guild.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select></Field>
+        <Field label="Channels where it doesn't apply"><Select multiple value={edit.exempt_channels ?? []} onChange={(e) => setEdit({ ...edit, exempt_channels: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.channels.filter((c) => c.type !== ChannelType.CATEGORY).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
         <div className="row"><button className="btn" onClick={() => setEdit(null)}>Cancel</button><button className="btn primary" onClick={save}>Save rule</button></div>
       </div>}
       {rules?.map((r) => <div key={r.id} className="card rule-row">
@@ -108,13 +109,13 @@ export function OnboardingTab({ guild }: { guild: Guild }) {
           {p.options.map((o, k) => <div key={o.id ?? k} className="row wrap">
             <input style={{ width: 52 }} placeholder="🙂" value={o.emoji ?? ""} onChange={(e) => setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: x.options.map((y, l) => (l === k ? { ...y, emoji: e.target.value || null } : y)) } : x)) })} aria-label="Emoji" />
             <input placeholder="Answer" value={o.title} onChange={(e) => setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: x.options.map((y, l) => (l === k ? { ...y, title: e.target.value } : y)) } : x)) })} />
-            <select multiple value={o.role_ids} onChange={(e) => { const ids = [...e.target.selectedOptions].map((x) => x.value); setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: x.options.map((y, l) => (l === k ? { ...y, role_ids: ids } : y)) } : x)) }); }} aria-label="Roles given">{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+            <Select multiple value={o.role_ids} onChange={(e) => { const ids = [...e.target.selectedOptions].map((x) => x.value); setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: x.options.map((y, l) => (l === k ? { ...y, role_ids: ids } : y)) } : x)) }); }} aria-label="Roles given">{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>
             <button className="icon-btn sm" aria-label="Remove answer" onClick={() => setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: x.options.filter((_, l) => l !== k) } : x)) })}><Trash2 size={14} /></button>
           </div>)}
           <button className="btn sm" onClick={() => setOb({ ...ob, prompts: ob.prompts.map((x, j) => (j === i ? { ...x, options: [...x.options, { id: String(Date.now()), title: "", description: null, emoji: null, role_ids: [], channel_ids: [] }] } : x)) })}><Plus size={14} /> Add an answer</button>
         </div>)}
         <button className="btn sm" onClick={() => setOb({ ...ob, prompts: [...ob.prompts, { id: String(Date.now()), title: "", single_select: false, required: false, options: [{ id: String(Date.now() + 1), title: "", description: null, emoji: null, role_ids: [], channel_ids: [] }] }] })}><Plus size={14} /> Add a question</button>
-        <Field label="Default channels everyone sees"><select multiple value={ob.default_channel_ids} onChange={(e) => setOb({ ...ob, default_channel_ids: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.channels.filter((c) => c.type !== ChannelType.CATEGORY).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="Default channels everyone sees"><Select multiple value={ob.default_channel_ids} onChange={(e) => setOb({ ...ob, default_channel_ids: [...e.target.selectedOptions].map((o) => o.value) })}>{guild.channels.filter((c) => c.type !== ChannelType.CATEGORY).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
       </div>
       <div className="card">
         <h3>Welcome screen</h3>
@@ -123,7 +124,7 @@ export function OnboardingTab({ guild }: { guild: Guild }) {
           <Field label="Description"><textarea rows={2} maxLength={300} value={ob.welcome.description} onChange={(e) => setOb({ ...ob, welcome: { ...ob.welcome!, description: e.target.value } })} /></Field>
           {ob.welcome.channels.map((w, i) => <div key={i} className="row wrap">
             <input style={{ width: 52 }} value={w.emoji ?? ""} placeholder="👋" onChange={(e) => setOb({ ...ob, welcome: { ...ob.welcome!, channels: ob.welcome!.channels.map((x, j) => (j === i ? { ...x, emoji: e.target.value || null } : x)) } })} aria-label="Emoji" />
-            <select value={w.channel_id} onChange={(e) => setOb({ ...ob, welcome: { ...ob.welcome!, channels: ob.welcome!.channels.map((x, j) => (j === i ? { ...x, channel_id: e.target.value } : x)) } })} aria-label="Channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select>
+            <Select value={w.channel_id} onChange={(e) => setOb({ ...ob, welcome: { ...ob.welcome!, channels: ob.welcome!.channels.map((x, j) => (j === i ? { ...x, channel_id: e.target.value } : x)) } })} aria-label="Channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select>
             <input className="grow" maxLength={60} placeholder="What it's for" value={w.description} onChange={(e) => setOb({ ...ob, welcome: { ...ob.welcome!, channels: ob.welcome!.channels.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)) } })} />
             <button className="icon-btn sm" aria-label="Remove" onClick={() => setOb({ ...ob, welcome: { ...ob.welcome!, channels: ob.welcome!.channels.filter((_, j) => j !== i) } })}><Trash2 size={14} /></button>
           </div>)}
@@ -147,7 +148,7 @@ export function InsightsTab({ guild }: { guild: Guild }) {
   return (
     <div className="settings-section">
       <h2>Server Insights</h2>
-      <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select>
+      <Select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></Select>
       {!d ? <p className="muted">Loading…</p> : <>
         <div className="stat-row">
           <div className="stat"><strong>{d.members}</strong><span>Members</span></div>
@@ -198,7 +199,7 @@ function WebhookRow({ w, guild, onChange, onUrl }: { w: Webhook; guild: Guild; o
     <Avatar user={{ id: w.id, username: w.name, display_name: w.name, avatar: w.avatar, banner: null, bio: "", pronouns: "", accent_color: null, profile_theme: null }} size={32} />
     {w.type === 2 ? <span className="grow">Following <strong>{w.source_channel?.guild_name} #{w.source_channel?.name}</strong> → #{guild.channels.find((c) => c.id === w.channel_id)?.name}</span> : <>
       <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== w.name && run(() => api.patch(`/api/webhooks/${w.id}`, { name })).then(onChange)} aria-label="Webhook name" />
-      <select value={w.channel_id} onChange={(e) => run(() => api.patch(`/api/webhooks/${w.id}`, { channel_id: e.target.value })).then(onChange)} aria-label="Channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select>
+      <Select value={w.channel_id} onChange={(e) => run(() => api.patch(`/api/webhooks/${w.id}`, { channel_id: e.target.value })).then(onChange)} aria-label="Channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select>
       <button className="btn sm" title="Make a new URL (the old one stops working)" onClick={() => api.post<Webhook>(`/api/webhooks/${w.id}/reset-token`).then((x) => onUrl(location.origin + x.url!)).catch((e) => toast(errMsg(e), "error"))}><RefreshCw size={14} /> New URL</button>
     </>}
     <button className="icon-btn sm danger" aria-label="Delete webhook" onClick={async () => { if (await askConfirm({ title: `Delete ${w.name}?`, confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/webhooks/${w.id}`)).then(onChange); }}><Trash2 size={14} /></button>
@@ -215,7 +216,7 @@ export function DiscoveryTab({ guild }: { guild: Guild }) {
     <h2>Discovery</h2>
     <p className="muted">List {guild.name} in Server Discovery so anyone can find and join it. Needs a description (Overview) and at least 3 members.</p>
     <Toggle label="Show in Server Discovery" checked={guild.discoverable} onChange={(v) => save(v)} />
-    <Field label="Category"><select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Pick one</option>{CATS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}</select></Field>
+    <Field label="Category"><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Pick one</option>{CATS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}</Select></Field>
     <Field label="Keywords" hint="Up to 10, comma separated."><input value={kw} onChange={(e) => setKw(e.target.value)} /></Field>
     <button className="btn primary" onClick={() => save()}>Save</button>
   </div>;
@@ -234,7 +235,7 @@ export function PruneSection({ guild }: { guild: Guild }) {
   if (!has(guildPerms(guild), P.KICK_MEMBERS)) return null;
   return <div className="card"><h3>Prune inactive members</h3>
     <p className="muted small">Removes members without roles who haven't said anything or joined voice for this long. They can rejoin with an invite.</p>
-    <div className="row"><select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Inactive for">{[7, 30, 90, 180].map((d) => <option key={d} value={d}>{d} days</option>)}</select>
+    <div className="row"><Select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Inactive for">{[7, 30, 90, 180].map((d) => <option key={d} value={d}>{d} days</option>)}</Select>
       <span className="muted">{count === null ? "Counting…" : `${count} member${count === 1 ? "" : "s"} would be removed`}</span>
       <button className="btn danger sm" disabled={!count} onClick={async () => { if (await askConfirm({ title: `Remove ${count} inactive members?`, confirmLabel: "Prune", danger: true })) run(() => api.post(`/api/guilds/${guild.id}/prune`, { days }), "Done.").then(() => setCount(0)); }}>Prune</button></div>
   </div>;
@@ -256,7 +257,7 @@ function ForumEditor({ c }: { c: Channel }) {
     {tags.map((t, i) => <div key={t.id} className="row"><input style={{ width: 52 }} value={t.emoji ?? ""} placeholder="🏷️" onChange={(e) => setTags(tags.map((x, j) => (j === i ? { ...x, emoji: e.target.value || null } : x)))} aria-label="Emoji" /><input maxLength={20} value={t.name} onChange={(e) => setTags(tags.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} aria-label="Tag name" /><label className="small"><input type="checkbox" checked={t.moderated} onChange={(e) => setTags(tags.map((x, j) => (j === i ? { ...x, moderated: e.target.checked } : x)))} /> Moderators only</label><button className="icon-btn sm" aria-label="Remove tag" onClick={() => setTags(tags.filter((_, j) => j !== i))}><Trash2 size={14} /></button></div>)}
     {tags.length < 20 && <button className="btn sm" onClick={() => setTags([...tags, { id: `new${Date.now()}`, name: "", emoji: null, moderated: false }])}><Plus size={14} /> Add a tag</button>}
     <Toggle label="Posts need a tag" checked={req} onChange={setReq} />
-    <Field label="Default sort"><select value={sort} onChange={(e) => setSort(Number(e.target.value) as 0 | 1)}><option value={0}>Recently active</option><option value={1}>Date posted</option></select></Field>
+    <Field label="Default sort"><Select value={sort} onChange={(e) => setSort(Number(e.target.value) as 0 | 1)}><option value={0}>Recently active</option><option value={1}>Date posted</option></Select></Field>
     <Field label="Default reaction (optional)"><input value={react} onChange={(e) => setReact(e.target.value)} placeholder="👍" /></Field>
     <button className="btn primary sm" onClick={save}>Save</button>
   </div>;

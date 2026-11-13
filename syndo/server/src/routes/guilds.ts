@@ -187,6 +187,7 @@ export async function guildRoutes(app: FastifyInstance) {
       tag: z.string().regex(/^[A-Za-z0-9]{2,4}$/).nullable().optional(),
       verification_level: z.number().int().min(0).max(4).optional(),
       discoverable: z.boolean().optional(),
+      show_boost_bar: z.boolean().optional(),
     }).strict().parse(req.body);
     for (const k of ["system_channel_id", "afk_channel_id", "rules_channel_id"] as const) {
       if (b[k]) {

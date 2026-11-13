@@ -1,3 +1,4 @@
+import { Select } from "../components/Select.tsx";
 import { useMemo, useState } from "react";
 import { BarChart3, Check, CornerUpRight, Hash, MessageSquare, Play, ShieldAlert, Sparkles, Radio, X } from "lucide-react";
 import { MessageType, P, type Channel, type Embed, type Message, type MessageComponent } from "@send/shared";
@@ -177,10 +178,10 @@ export function Components({ m, channel }: { m: Message; channel: Channel }) {
               ? <a key={j} className="comp-btn s5" href={c.url} target="_blank" rel="noopener noreferrer nofollow">{c.emoji} {c.label}</a>
               : <button key={j} className={`comp-btn s${c.style ?? 2}`} disabled={c.disabled || busy === c.custom_id} onClick={() => fire(c)}>{c.emoji} {c.label}</button>
           ) : c.type === 3 ? (
-            <select key={j} className="comp-select" disabled={c.disabled || !!busy} defaultValue="" onChange={(e) => fire(c, [e.target.value])} aria-label={c.placeholder ?? "Choose"}>
+            <Select key={j} className="comp-select" disabled={c.disabled || !!busy} defaultValue="" onChange={(e) => fire(c, [e.target.value])} aria-label={c.placeholder ?? "Choose"}>
               <option value="" disabled>{c.placeholder ?? "Make a selection"}</option>
               {(c.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.emoji ? `${o.emoji} ` : ""}{o.label}</option>)}
-            </select>
+            </Select>
           ) : null)}
         </div>
       ))}

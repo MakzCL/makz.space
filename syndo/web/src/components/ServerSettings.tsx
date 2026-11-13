@@ -107,6 +107,8 @@ function Overview({ guild }: { guild: Guild }) {
         <Field label="Inactive (AFK) channel"><Select value={f.afk_channel_id} onChange={(e) => setF({ ...f, afk_channel_id: e.target.value })}><option value="">None</option>{voice.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
         <Field label="Inactive timeout"><Select value={f.afk_timeout} onChange={(e) => setF({ ...f, afk_timeout: +e.target.value })}>{[60, 300, 900, 1800, 3600].map((s) => <option key={s} value={s}>{s / 60} min</option>)}</Select></Field>
       </div>
+      <Toggle label="Show boost progress under the banner" hint="Members see the server's boost level and how many boosts it has, under the server name."
+        checked={!!guild.show_boost_bar} onChange={(v) => { void run(() => api.patch(`/api/guilds/${guild.id}`, { show_boost_bar: v }), v ? "Boost progress is now shown." : "Boost progress is hidden."); }} />
       <button className="btn primary" onClick={save}>Save changes</button>
       <UnsavedBar dirty={JSON.stringify(f) !== JSON.stringify(base)} onReset={() => setF(base)} onSave={save} />
     </div>
