@@ -2434,3 +2434,13 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .sponsor-active h3 { display: flex; align-items: center; gap: 8px; }
 .danger-text { color: var(--danger, #f0606a); margin: 8px 0 0; }
 @media (max-width: 520px) { .sponsor-options { grid-template-columns: repeat(2, 1fr); } }
+.sponsor-pay { display: flex; flex-direction: column; gap: 10px; }
+.sponsor-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+.sponsor-stripe { min-height: 420px; border-radius: 16px; overflow: hidden; background: #0B1020; box-shadow: 0 10px 40px -18px rgba(0,0,0,.6); }
+.sponsor-stripe:empty { background: transparent; box-shadow: none; min-height: 0; }
+.sponsor-loading { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 30px 0; }
+.sponsor-thanks { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 16px; }
+.sponsor-thanks p { display: flex; align-items: center; gap: 6px; }
+.sponsor-heart.small { width: 40px; height: 40px; }
+@keyframes sponsor-spin { to { transform: rotate(360deg); } }
+.spin { animation: sponsor-spin 1s linear infinite; }

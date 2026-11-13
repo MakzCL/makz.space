@@ -1,19 +1,54 @@
 /** Sponsor the developer: a monthly amount (£1, £5, £10 or your own), paid through Stripe. Web and desktop only. */
-import { useEffect, useState } from "react";
-import { Heart, ExternalLink, Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Heart, ExternalLink, Check, ArrowLeft, Loader2 } from "lucide-react";
 import { api, errMsg } from "../api.ts";
 import { toast, useStore } from "../store.ts";
 import { Toggle } from "../components/ui.tsx";
 
-interface Info { available: boolean; recipient: string; presets: number[]; min: number; max: number; currency: string; mine: { amount_pence: number; status: string; current_period_end: string | null; show_badge: boolean; started_at: string } | null }
+interface Info { available: boolean; publishable_key?: string | null; recipient: string; presets: number[]; min: number; max: number; currency: string; mine: { amount_pence: number; status: string; current_period_end: string | null; show_badge: boolean; started_at: string } | null }
 const day = (d: string) => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 const money = (p: number) => `£${(p / 100).toFixed(p % 100 ? 2 : 0)}`;
+
+/* Stripe.js, loaded only when someone actually starts sponsoring. */
+let stripeJs: Promise<any> | null = null;
+const loadStripe = () => stripeJs ??= new Promise((resolve, reject) => {
+  if ((window as any).Stripe) return resolve((window as any).Stripe);
+  const sc = document.createElement("script");
+  sc.src = "https://js.stripe.com/v3/"; sc.async = true;
+  sc.onload = () => resolve((window as any).Stripe); sc.onerror = () => { stripeJs = null; reject(new Error("Couldn't load the payment form. Check your connection and try again.")); };
+  document.head.appendChild(sc);
+});
+
+/** Stripe's checkout, mounted inside SEND. Calls onDone when payment succeeds without leaving the app. */
+function EmbeddedCheckout({ pk, clientSecret, onDone, onBack }: { pk: string; clientSecret: string; onDone: () => void; onBack: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let checkout: any, gone = false;
+    loadStripe().then(async (Stripe) => {
+      if (gone) return;
+      checkout = await Stripe(pk).initEmbeddedCheckout({ fetchClientSecret: async () => clientSecret, onComplete: () => onDone() });
+      if (gone) { checkout.destroy(); return; }
+      checkout.mount(box.current!); setReady(true);
+    }).catch((e) => { toast(errMsg(e), "error"); onBack(); });
+    return () => { gone = true; try { checkout?.destroy(); } catch { /* already gone */ } };
+  }, [pk, clientSecret]); // eslint-disable-line
+  return (
+    <section className="sponsor-pay">
+      <button className="link sponsor-back" onClick={onBack}><ArrowLeft size={15} /> Change amount</button>
+      {!ready && <p className="muted sponsor-loading"><Loader2 size={16} className="spin" /> Opening secure payment…</p>}
+      <div ref={box} className="sponsor-stripe" />
+    </section>
+  );
+}
 
 export function SponsorTab() {
   const [info, setInfo] = useState<Info | null>(null);
   const [pick, setPick] = useState<number | "custom">(500);
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
+  const [thanks, setThanks] = useState(false);
   const load = () => api.get<Info>("/api/sponsor").then(setInfo).catch(() => setInfo(null));
   useEffect(() => { void load(); const on = () => void load(); window.addEventListener("send:sponsor", on); return () => window.removeEventListener("send:sponsor", on); }, []);
   if (!info) return <div className="card"><p className="muted">Loading…</p></div>;
@@ -22,8 +57,17 @@ export function SponsorTab() {
   const valid = Number.isFinite(amount) && amount >= info.min && amount <= info.max;
   const go = async (path: string, body?: unknown) => {
     setBusy(true);
-    try { const r = await api.post<{ url: string }>(path, body); location.assign(r.url); }
-    catch (e) { toast(errMsg(e), "error"); setBusy(false); }
+    try {
+      const r = await api.post<{ url?: string; client_secret?: string }>(path, body);
+      if (r.client_secret) { setPaying(r.client_secret); setBusy(false); } else if (r.url) location.assign(r.url);
+    } catch (e) { toast(errMsg(e), "error"); setBusy(false); }
+  };
+  // Paid inside SEND: thank them, then wait for Stripe's confirmation to switch the page to "You're sponsoring".
+  const done = () => {
+    setPaying(null); setThanks(true);
+    let n = 0;
+    const tick = () => api.get<Info>("/api/sponsor").then((i) => { setInfo(i); if (!i.mine && ++n < 30) setTimeout(tick, 1500); else setThanks(false); }).catch(() => setThanks(false));
+    tick();
   };
   const m = info.mine;
   return (
@@ -34,7 +78,15 @@ export function SponsorTab() {
         <p>SEND is made by {info.recipient}. It's free, has no ads, and your data is never sold. If you'd like to help, a monthly sponsorship pays for the servers that keep SEND running for everyone.</p>
       </section>
 
-      {m ? (
+      {thanks ? (
+        <section className="card sponsor-thanks">
+          <span className="sponsor-heart small" aria-hidden><Heart size={20} fill="currentColor" /></span>
+          <h3>Thank you!</h3>
+          <p className="muted small"><Loader2 size={14} className="spin" /> Confirming your sponsorship…</p>
+        </section>
+      ) : paying && info.publishable_key ? (
+        <EmbeddedCheckout pk={info.publishable_key} clientSecret={paying} onDone={done} onBack={() => setPaying(null)} />
+      ) : m ? (
         <section className="card sponsor-active">
           <h3><Check size={18} /> You're sponsoring {money(m.amount_pence)}/month</h3>
           <p className="muted small">Since {day(m.started_at)}{m.status === "past_due" ? ". Your last payment didn't go through: update your card in Manage." : m.current_period_end ? `. Next payment ${day(m.current_period_end)}.` : "."} Thank you.</p>
@@ -61,7 +113,7 @@ export function SponsorTab() {
             </label>
           )}
           {pick === "custom" && custom && !valid && <p className="small danger-text">Choose between {money(info.min)} and {money(info.max)} a month.</p>}
-          <button className="btn primary sponsor-go" disabled={!info.available || !valid || busy} onClick={() => go("/api/sponsor/checkout", { amount_pence: amount })}>
+          <button className="btn primary sponsor-go" disabled={!info.available || !valid || busy} onClick={() => go("/api/sponsor/checkout", { amount_pence: amount, embedded: true })}>
             <Heart size={16} /> {info.available ? (valid ? `Sponsor ${money(amount)}/month` : "Sponsor") : "Sponsoring opens soon"}
           </button>
           <p className="muted small sponsor-fine">Paid monthly to MAKZ Labs through Stripe. Cancel any time from this page. Sponsoring is a gift: it doesn't unlock features, but you get a Sponsor badge on your profile (you can hide it). See the <a href="https://send.makz.space/terms#sponsor" target="_blank" rel="noopener">Terms</a>.</p>

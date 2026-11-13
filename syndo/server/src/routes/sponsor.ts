@@ -13,6 +13,8 @@ import { checkoutTaxParams, stripe } from "./premium.ts";
  */
 const READY = () => !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
 const NAME = process.env.SEND_SPONSOR_NAME || "makz";
+/** Publishable key (public) for the checkout embedded inside SEND; without it, sponsors go to Stripe's page instead. */
+const PUBLISHABLE = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
 export const SPONSOR = { presets: [100, 500, 1000], min: 100, max: 50000, currency: "gbp" } as const;
 
 const ACTIVE = "status in ('active', 'past_due') and (current_period_end is null or current_period_end > now() - interval '3 days')";
@@ -53,13 +55,14 @@ export async function sponsorRoutes(app: FastifyInstance) {
   app.get("/api/sponsor", async (req) => {
     const mine = await q1<any>(`select amount_pence, currency, status, current_period_end, show_badge, started_at from sponsorships
       where user_id = $1 and ${ACTIVE} order by started_at desc limit 1`, [uid(req)]);
-    return { available: READY(), recipient: NAME, ...SPONSOR, mine: mine ?? null };
+    return { available: READY(), recipient: NAME, ...SPONSOR, publishable_key: READY() && PUBLISHABLE ? PUBLISHABLE : null, mine: mine ?? null };
   });
 
   app.post("/api/sponsor/checkout", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req) => {
     if (!READY()) throw bad("Sponsoring isn't set up yet.");
     const me = uid(req);
-    const { amount_pence } = z.object({ amount_pence: z.number().int().min(SPONSOR.min).max(SPONSOR.max) }).parse(req.body);
+    const { amount_pence, embedded } = z.object({ amount_pence: z.number().int().min(SPONSOR.min).max(SPONSOR.max), embedded: z.boolean().optional() }).parse(req.body);
+    const inApp = !!(embedded && PUBLISHABLE);
     if (await q1(`select 1 from sponsorships where user_id = $1 and ${ACTIVE}`, [me])) throw bad("You're already a sponsor. Use Manage to change the amount or cancel.");
     const back = `${config.publicUrl}/channels/@me`;
     const s = await stripe("checkout/sessions", {
@@ -77,16 +80,20 @@ export async function sponsorRoutes(app: FastifyInstance) {
       "branding_settings[button_color]": "#FF5C8A",
       "branding_settings[border_style]": "rounded",
       "branding_settings[font_family]": "inter",
-      "branding_settings[icon][type]": "url",
-      "branding_settings[icon][url]": "https://send.makz.space/assets/send-icon-512.png",
+
       "custom_text[submit][message]": "Thank you for supporting SEND. You can cancel any time in Settings, Sponsor.",
       // Always charge in pounds (Stripe's currency conversion adds about 4% for the sponsor).
       "adaptive_pricing[enabled]": "false",
       "metadata[kind]": "sponsor", "metadata[user_id]": me,
       "subscription_data[metadata][kind]": "sponsor", "subscription_data[metadata][user_id]": me,
-      success_url: `${back}?sponsor=thanks`, cancel_url: `${back}?sponsor=cancelled`,
+      // Embedded: the payment form opens inside SEND and finishes there (a redirect only for bank apps that need one).
+      ...(inApp
+        ? { ui_mode: "embedded", redirect_on_completion: "if_required", return_url: `${back}?sponsor=thanks&session_id={CHECKOUT_SESSION_ID}` }
+        // Stripe's own page also shows SEND's icon (not allowed in embedded mode, where SEND's page is around it).
+        : { success_url: `${back}?sponsor=thanks`, cancel_url: `${back}?sponsor=cancelled`,
+            "branding_settings[icon][type]": "url", "branding_settings[icon][url]": "https://send.makz.space/assets/send-icon-512.png" }),
     });
-    return { url: s.url };
+    return inApp ? { client_secret: s.client_secret } : { url: s.url };
   });
 
   /** Stripe's billing page: change card, change amount (via cancel and re-sponsor) or cancel. */
