@@ -90,6 +90,7 @@ initMobile();
 initShortcuts();
 registerDefaultShortcuts();
 initNotifications();
+import("./features/Sponsor.tsx").then((m) => m.initSponsorReturn());
 initCallSounds();
 initSoundboard();
 initDesktop();

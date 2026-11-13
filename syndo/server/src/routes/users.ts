@@ -161,6 +161,7 @@ export async function userRoutes(app: FastifyInstance) {
       activity: presenceOf(u.id) === "offline" ? null : activityOf(u.id),
       premium_since: premium?.since ?? null,
       staff: !!u.staff,
+      sponsor: await (await import("./sponsor.ts")).isSponsor(u.id),
       custom_status: u.custom_status,
       presence: presenceOf(u.id),
       relationship: await rel(me, u.id),

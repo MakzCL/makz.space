@@ -27,7 +27,7 @@ export const stripeReady = () => !!(STRIPE_KEY && STRIPE_PRICE);
 const SLOTS_PER_UNIT = 2;
 const ID = z.string().regex(/^\d{1,20}$/);
 
-async function stripe(path: string, params: Record<string, string> = {}, method: "POST" | "GET" = "POST") {
+export async function stripe(path: string, params: Record<string, string> = {}, method: "POST" | "GET" = "POST") {
   const body = new URLSearchParams(params).toString();
   const r = await fetch(`https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`, {
     method, headers: { authorization: `Bearer ${STRIPE_KEY}`, "content-type": "application/x-www-form-urlencoded", "stripe-version": "2024-06-20" },
@@ -98,6 +98,9 @@ export async function premiumRoutes(app: FastifyInstance) {
       if (!v1.some((v) => v.length === want.length && timingSafeEqual(Buffer.from(v), Buffer.from(want)))) throw bad("Bad signature.");
       const ev = JSON.parse(raw.toString("utf8"));
       const obj = ev.data?.object ?? {};
+      // Sponsorships share this webhook; they're told apart by metadata.kind = "sponsor".
+      const { handleSponsorEvent } = await import("./sponsor.ts");
+      if (await handleSponsorEvent(ev)) return { received: true };
       if (ev.type === "checkout.session.completed" && obj.mode === "subscription") {
         const userId = String(obj.metadata?.user_id ?? obj.client_reference_id ?? "");
         const units = Math.max(1, Math.min(10, Number(obj.metadata?.units ?? 1)));

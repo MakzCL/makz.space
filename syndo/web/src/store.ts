@@ -260,6 +260,7 @@ export function dispatch(t: string, d: any) {
       });
       break;
     }
+    case "SPONSOR_UPDATE": window.dispatchEvent(new CustomEvent("send:sponsor")); break;
     case "MESSAGE_REACTION_ADD": case "MESSAGE_REACTION_REMOVE": {
       const add = t === "MESSAGE_REACTION_ADD";
       const mine = d.user_id === s.me?.id;

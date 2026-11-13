@@ -24,10 +24,12 @@ import { playSound } from "../voice/sounds.ts";
 import { resetAppearance, setSafeMode, updateGlobal, useAppearance } from "../appearance/store.ts";
 import { AppsTab, ConnectionsTab, PasskeysCard, PushCard, StreamerCard } from "../features/AccountExtras.tsx";
 import { BoostSettings } from "../features/Boosts.tsx";
+import { SponsorTab } from "../features/Sponsor.tsx";
+import { inIosApp } from "../mobile.ts";
 import { LanguageTab } from "../features/i18n.tsx";
 import { openWhatsNew } from "../features/WhatsNew.tsx";
 
-const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["connections", "Connections"], ["boosts", "Server Boosts"], ["apps", "Apps"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["language", "Language"], ["streamer", "Streamer mode"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
+const TABS = [...(desktop ? [["desktop", "System"]] as const : []), ["account", "My account"], ["profile", "Profile"], ["effects", "Profile effects"], ["privacy", "Privacy & safety"], ["connections", "Connections"], ["boosts", "Server Boosts"], ...(inAndroidApp || inIosApp ? [] : [["sponsor", "Sponsor"]] as const), ["apps", "Apps"], ["appearance", "Appearance"], ["accessibility", "Accessibility"], ["voice", "Voice & video"], ["keybinds", "Keybinds"], ["notifications", "Notifications"], ["language", "Language"], ["streamer", "Streamer mode"], ["advanced", "Advanced"], ["about", `About ${BRAND.name}`]] as const;
 
 export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose: () => void }) {
   const [tab, setTab] = useState(initial ?? "account");
@@ -45,6 +47,7 @@ export function UserSettings({ tab: initial, onClose }: { tab?: string; onClose:
           {tab === "account" && <><Account /><PasskeysCard /></>}
           {tab === "connections" && <ConnectionsTab />}
           {tab === "boosts" && <BoostSettings />}
+          {tab === "sponsor" && <SponsorTab />}
           {tab === "apps" && <AppsTab />}
           {tab === "language" && <LanguageTab />}
           {tab === "streamer" && <StreamerCard />}
