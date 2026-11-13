@@ -1,5 +1,12 @@
 # SEND restore points
 
+## 2026-11-13: Faster images, mobile apps, super reactions (commits `5624164`, `252d954`, `e88f574`)
+
+Backend SOURCE_COMMIT `e88f57414de5e34c159712f1f3b0fc1b54bc9f6a` (worker code sha `a28e9b37`, previously `562416486296d15ae5f37505b273064770388833`). The worker serves `/api/media/` from R2 with the edge cache.
+Database: `011_super_reactions.sql` adds `reactions.burst` (default false) and widens the primary key to include it. Existing reactions are untouched. To roll back the backend, delete burst rows first (`delete from syndo.reactions where burst`), then the old code works unchanged; the column can stay.
+Android: `android/SEND.apk` in R2 bucket `syndo-desktop` is now 0.7.1 (`space.makz.send`, sha256 `108cb31e`). The previous 0.3.0 APK is kept as `android/SEND-0.3.0-backup.apk`; the Play bundle is `android/SEND-0.7.1-play.aab` (debug signed until a release key exists).
+iOS: unsigned IPA from the "SEND iOS beta" workflow artifact `send-ios-unsigned`.
+
 ## 2026-11-13: Launch readiness (commit `931009d`)
 
 Web `0f8fb89c`, website `2b0bc6a6`, backend SOURCE_COMMIT `931009d` (worker code sha `1157f78e`, deployment `d85a8f3d`).
