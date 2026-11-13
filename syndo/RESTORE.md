@@ -1,5 +1,12 @@
 # SEND restore points
 
+## 2026-11-13: Launch readiness (commit `931009d`)
+
+Web `0f8fb89c`, website `2b0bc6a6`, backend SOURCE_COMMIT `931009d` (worker code sha `1157f78e`, deployment `d85a8f3d`).
+Database: migration `010_reports.sql` applied to production (new `reports` table only, nothing else changed).
+Email: Cloudflare Email Routing rule "SEND support" forwards send@makz.space to the same inbox as business@makz.space.
+Roll back: redeploy the previous Pages deployments (`4fe9cd28`, `b2bf2333`) and set SOURCE_COMMIT back to `0e5ede2cb4fe479b4f3e82f9a06f25146cde6ae5`. The reports table can stay.
+
 ## 2026-11-13: SEND Motion, phone redesign and desktop 0.7.1 (commit `0e5ede2`)
 
 | Part | Before | Live now |
