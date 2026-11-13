@@ -127,7 +127,7 @@ export function screenAudioMayEcho(track: MediaStreamTrack | null | undefined) {
   // A browser tab only carries that tab's sound; whole screens and windows carry the system's.
   return st.displaySurface !== "browser" && st.restrictOwnAudio !== true;
 }
-export const SCREEN_ECHO_NOTE = "This browser can't keep SEND's own sound out of a shared screen, so people may hear the call echo. Share a tab, or use Chrome, Edge or the SEND desktop app.";
+export const SCREEN_ECHO_NOTE = "Sharing without sound: this browser can't keep SEND's own sound out of a shared screen, so the call would echo. To share sound, share a tab, or use an up to date Chrome or Edge, or the SEND desktop app.";
 
 /**
  * What to share. "window", "browser" (a tab) and "monitor" open the system picker with that tab chosen first (browsers and
@@ -156,15 +156,33 @@ export async function captureShare(st: StreamSettings, src: ShareSource = { kind
       audio: mic ? { deviceId: { exact: mic.deviceId }, ...screenAudioConstraints() } : false,
     });
   }
-  return navigator.mediaDevices.getDisplayMedia({
+  const stream = await navigator.mediaDevices.getDisplayMedia({
     video: { ...(h ? { height: { ideal: h } } : {}), frameRate: { ideal: st.fps }, displaySurface: src.kind },
     audio: st.audio ? screenAudioConstraints() : false,
     ...(st.audio ? { systemAudio: "include" } : {}),
     selfBrowserSurface: "exclude", surfaceSwitching: "include", preferCurrentTab: false,
   } as DisplayMediaStreamOptions);
+  return dropEchoingAudio(stream);
 }
+/**
+ * Never stream SEND's own sound back to the call. When a shared screen or window's sound can't be captured without
+ * SEND's (the call, notification sounds), the sound is left out and only the picture is shared. SEND itself can still
+ * be seen in the picture.
+ */
+export function dropEchoingAudio(stream: MediaStream): MediaStream {
+  const echoing = stream.getAudioTracks().filter((t) => screenAudioMayEcho(t));
+  if (!echoing.length) return stream;
+  for (const t of echoing) { stream.removeTrack(t); t.stop(); }
+  shareAudioDropped = true;
+  return stream;
+}
+/** Set when the last capture had its sound removed; the caller shows SCREEN_ECHO_NOTE once. */
+let shareAudioDropped = false;
+export const takeShareAudioDropped = () => { const v = shareAudioDropped; shareAudioDropped = false; return v; };
 /** Device captures don't carry SEND's sound, so only screen captures can echo. */
 export function shareMayEcho(src: ShareSource | undefined, track: MediaStreamTrack | null | undefined) {
-  // Devices carry no SEND sound; the desktop app's own capture leaves SEND's sound out itself.
-  return src?.kind !== "device" && src?.kind !== "native" && screenAudioMayEcho(track);
+  // Devices carry no SEND sound; the desktop app's own capture leaves SEND's sound out itself; screen captures
+  // that would carry it have their sound removed in captureShare, which this reports once.
+  void src; void track;
+  return takeShareAudioDropped();
 }

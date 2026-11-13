@@ -474,9 +474,10 @@ export async function startScreenShare(src?: ShareSource) {
     } as any);
     screenPubs = [pub];
     const audio = tracks.find((t) => t.kind === LK.Track.Kind.Audio);
-    if (shareMayEcho(src, audio?.mediaStreamTrack)) toast(SCREEN_ECHO_NOTE, "info");
+    const echoDropped = shareMayEcho(src, audio?.mediaStreamTrack);
+    if (echoDropped) toast(SCREEN_ECHO_NOTE, "info");
     if (audio) screenPubs.push(await room.localParticipant.publishTrack(audio, { source: LK.Track.Source.ScreenShareAudio, dtx: false, red: false, audioPreset: { maxBitrate: 128_000 }, forceStereo: true } as any));
-    else if (st.audio && src?.kind !== "device") toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
+    else if (st.audio && !echoDropped && src?.kind !== "device") toast("The shared surface didn't include audio. Tab audio needs a Chromium browser; system audio is only available on Windows.", "info");
     video.mediaStreamTrack.addEventListener("ended", () => stopScreenShare());
     set({ sharing: true, localScreen: video.mediaStreamTrack });
   } catch (e) {

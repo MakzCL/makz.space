@@ -349,8 +349,9 @@ export class MeshCall {
       const stream = await captureShare(st, src);
       this.screenTrack = stream.getVideoTracks()[0]!;
       this.screenSound = stream.getAudioTracks()[0] ?? null;
-      if (shareMayEcho(src, this.screenSound)) toast(SCREEN_ECHO_NOTE, "info");
-      if (st.audio && !this.screenSound && src?.kind !== "device") toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
+      const echoDropped = shareMayEcho(src, this.screenSound);
+      if (echoDropped) toast(SCREEN_ECHO_NOTE, "info");
+      if (st.audio && !echoDropped && !this.screenSound && src?.kind !== "device") toast("The shared screen didn't include sound. Tab audio needs a Chromium browser; whole-system audio is Windows-only (or the SEND desktop app).", "info");
       this.screenTrack.contentHint = st.contentHint;
       this.screenTrack.onended = () => { this.stopScreen().catch(() => {}); };
       useVoice.setState({ sharing: true, localScreen: this.screenTrack });
