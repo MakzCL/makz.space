@@ -1,4 +1,4 @@
-import { inAndroidApp } from "../mobile.ts";
+import { inAndroidApp, inIosApp } from "../mobile.ts";
 import { useState } from "react";
 import { Download, X, Share, SquarePlus } from "lucide-react";
 import { desktop } from "../desktop.ts";
@@ -15,7 +15,7 @@ const isIos = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.
 const standalone = () => (window.navigator as any).standalone === true || matchMedia("(display-mode: standalone)").matches;
 /** iPhone/iPad Safari (not yet on the home screen): how to install SEND — no App Store needed. */
 function IosPrompt() {
-  const [show,setShow]=useState(()=>{ if(previewMode||standalone())return false; try{return !localStorage.getItem("send.ios-prompt.dismissed.v1")}catch{return false} });
+  const [show,setShow]=useState(()=>{ if(inIosApp||previewMode||standalone())return false; try{return !localStorage.getItem("send.ios-prompt.dismissed.v1")}catch{return false} });
   const dismiss=()=>{try{localStorage.setItem("send.ios-prompt.dismissed.v1","1")}catch{}setShow(false)};
   if(!show)return null;
   return <Modal label="Install SEND on your iPhone" onClose={dismiss}><div className="desktop-download-prompt ios-install"><Wordmark/><span className="eyebrow">SEND FOR IPHONE</span><h2>Put SEND on<br/>your home screen.</h2><p>It opens full-screen like an app, with no App Store needed, and updates itself whenever SEND does.</p>

@@ -30,10 +30,10 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: "8.11.1" }
+        with: { gradle-version: "8.13" }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:web
@@ -42,15 +42,30 @@ jobs:
           npm run build
           mkdir -p android/app/src/main/assets
           cp -R web/dist/. android/app/src/main/assets/
-      - name: Build installable preview APK
+      - name: Load the release signing key (optional)
+        env: { KEYSTORE_B64: "${{ secrets.SEND_ANDROID_KEYSTORE_B64 }}" }
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/send.jks"
+          echo "SEND_KEYSTORE=$RUNNER_TEMP/send.jks" >> "$GITHUB_ENV"
+      - name: Build the APK and the Play Store bundle
         working-directory: syndo/android
-        run: gradle --no-daemon assembleDebug -PsendAppUrl="$SEND_APP_URL"
-      - name: Name the download
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk SEND-beta.apk
+        env:
+          SEND_KEYSTORE_PASSWORD: ${{ secrets.SEND_ANDROID_KEYSTORE_PASSWORD }}
+          SEND_KEY_ALIAS: ${{ secrets.SEND_ANDROID_KEY_ALIAS }}
+          SEND_KEY_PASSWORD: ${{ secrets.SEND_ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease bundleRelease -PsendAppUrl="$SEND_APP_URL"
+      - name: Name the downloads
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk SEND-beta.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab SEND-play.aab
+          [ -n "${SEND_KEYSTORE:-}" ] || echo "::notice::No signing key secrets, so the APK and AAB are signed with a debug key. Fine for sideloading; Google Play needs SEND_ANDROID_KEYSTORE_B64 and its passwords."
       - uses: actions/upload-artifact@v4
         with:
           name: send-android-beta
-          path: syndo/SEND-beta.apk
+          path: |
+            syndo/SEND-beta.apk
+            syndo/SEND-play.aab
           if-no-files-found: error
       - name: Publish APK to Cloudflare R2
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''

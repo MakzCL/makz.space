@@ -142,6 +142,8 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        // Android 13+: system back (and Android 16's predictive back) arrives here, not in onBackPressed.
+        if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::goBack);
         if (state == null) { if (getPreferences(MODE_PRIVATE).getBoolean("hosted", true)) openLive(false); else web.loadUrl(LOCAL); }
         else if (web.restoreState(state) == null) openLive(false);
     }
@@ -172,7 +174,8 @@ public class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state) { super.onSaveInstanceState(state); web.saveState(state); }
     @Override protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
     @SuppressWarnings("deprecation")
-    @Override public void onBackPressed() {
+    @Override public void onBackPressed() { goBack(); }
+    private void goBack() {
         // Let the page close its topmost sheet/panel or go back to the channel list first.
         web.evaluateJavascript("(function(){try{return !!(window.__sendBack&&window.__sendBack())}catch(e){return false}})()", handled -> {
             if ("true".equals(handled)) return;

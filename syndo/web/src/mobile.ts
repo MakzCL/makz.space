@@ -11,11 +11,13 @@ export const phoneQuery = typeof window !== "undefined" ? window.matchMedia("(ma
 export const isPhone = () => !!phoneQuery?.matches;
 export const setNav = (open?: boolean) => window.dispatchEvent(new CustomEvent("send:nav", { detail: { open } }));
 export const inAndroidApp = typeof navigator !== "undefined" && /SENDAndroid\//.test(navigator.userAgent);
+export const inIosApp = typeof navigator !== "undefined" && /SENDiOS\//.test(navigator.userAgent);
 
 let installed = false;
 export function initMobile() {
   if (installed || typeof window === "undefined") return; installed = true;
   if (inAndroidApp) document.documentElement.dataset.app = "android";
+  if (inIosApp) document.documentElement.dataset.app = "ios";
 
   /* ---------------- long-press → contextmenu (one consistent gesture for every menu) */
   let timer = 0, start: { x: number; y: number; t: Element } | null = null, fired = false;

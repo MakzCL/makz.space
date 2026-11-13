@@ -1,0 +1,26 @@
+# SEND for iPhone and iPad: a native WKWebView shell around https://syndo.makz.space.
+# Generate the Xcode project with:  brew install xcodegen && xcodegen generate
+name: SEND
+options:
+  bundleIdPrefix: space.makz
+  deploymentTarget: { iOS: "16.0" }
+settings:
+  base:
+    MARKETING_VERSION: "0.7.1"
+    CURRENT_PROJECT_VERSION: "7"
+    SWIFT_VERSION: "5.0"
+targets:
+  SEND:
+    type: application
+    platform: iOS
+    sources: [SEND]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: space.makz.send
+        PRODUCT_NAME: SEND
+        INFOPLIST_FILE: SEND/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SEND_APP_URL: https://syndo.makz.space
+        # Set DEVELOPMENT_TEAM to your Apple team ID to sign for devices and the App Store.
+        CODE_SIGN_STYLE: Automatic

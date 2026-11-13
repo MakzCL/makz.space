@@ -5,14 +5,26 @@ if (!(hosted ==~ /https:\/\/[A-Za-z0-9.-]+(:443)?\/?/)) throw new GradleExceptio
 
 android {
     namespace 'space.makz.syndo.preview'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
-        applicationId 'space.makz.syndo.preview'
+        applicationId 'space.makz.send'
         minSdk 26
-        targetSdk 35
-        versionCode 3
-        versionName '0.3.0'
+        targetSdk 36
+        versionCode 7
+        versionName '0.7.1'
         buildConfigField 'String', 'HOSTED_URL', '"' + hosted.replaceAll('/$', '') + '"'
+    }
+    // Release signing: set SEND_KEYSTORE (path), SEND_KEYSTORE_PASSWORD, SEND_KEY_ALIAS, SEND_KEY_PASSWORD.
+    // Without them the release build is signed with the debug key: fine for sideloading, not for Google Play.
+    def ks = System.getenv('SEND_KEYSTORE')
+    signingConfigs {
+        if (ks) release {
+            storeFile file(ks); storePassword System.getenv('SEND_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('SEND_KEY_ALIAS'); keyPassword System.getenv('SEND_KEY_PASSWORD')
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig ks ? signingConfigs.release : signingConfigs.debug }
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
