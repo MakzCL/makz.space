@@ -31,6 +31,8 @@ import { useSoundboardActivity } from "../expressions.ts";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
 import { EmojiPicker } from "./ChannelView.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
+import { usePhone } from "../mobile.ts";
+import { MobileMessages, MobileUserCard, MobileYou } from "../mobile/MobileHome.tsx";
 import { setContext, updateGlobal, useAppearance } from "../appearance/store.ts";
 import { Palette, PanelLeftOpen, Link as LinkIcon, Bell, CalendarDays, Sparkles, Inbox as InboxIcon } from "lucide-react";
 import { ForumView, SidebarThreads, useActiveThreads } from "../features/Threads.tsx";
@@ -134,8 +136,15 @@ export function Shell() {
       {dialog?.kind === "userSettings" && <UserSettings tab={dialog.tab} onClose={() => setDialog(null)} />}
       {dialog?.kind === "serverSettings" && <ServerSettings guildId={dialog.guildId} tab={dialog.tab} onClose={() => setDialog(null)} />}
       <InboxHost />
+      <YouHost onDialog={setDialog} />
     </div>
   );
+}
+
+function YouHost({ onDialog }: { onDialog: (d: Dialog) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { const on = () => setOpen(true); window.addEventListener("send:you", on); return () => window.removeEventListener("send:you", on); }, []);
+  return open ? <MobileYou onClose={() => setOpen(false)} onDialog={onDialog} /> : null;
 }
 
 export const openDialog = (d: Dialog) => window.dispatchEvent(new CustomEvent("send:dialog", { detail: d }));
@@ -248,7 +257,10 @@ function RailItem({ active, unread, badge, label, onClick, children, accent, onC
 }
 
 /* ------------------------------------------------------- DM sidebar -- */
-function DmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialog) => void }) {
+function DmSidebar(props: { current: string; onDialog: (d: Dialog) => void }) {
+  return usePhone() ? <MobileMessages {...props} /> : <DesktopDmSidebar {...props} />;
+}
+function DesktopDmSidebar({ current, onDialog }: { current: string; onDialog: (d: Dialog) => void }) {
   const dms = useStore((s) => s.dms);
   const readStates = useStore((s) => s.readStates);
   const pending = useStore((s) => Object.values(s.relationships).filter((r) => r.type === 3).length);
@@ -501,7 +513,10 @@ function VoiceBar() {
 }
 
 /* ------------------------------------------------------- user panel -- */
-function UserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
+function UserPanel(props: { onDialog: (d: Dialog) => void }) {
+  return usePhone() ? <MobileUserCard /> : <DesktopUserPanel {...props} />;
+}
+function DesktopUserPanel({ onDialog }: { onDialog: (d: Dialog) => void }) {
   const me = useStore((s) => s.me)!;
   const v = useVoice();
   const [menu, setMenu] = useState(false);

@@ -66,8 +66,8 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
 
     // Members page full-screen with its own close; back closes it.
     await p.locator('.ch-h .ch-title').tap();
-    const mem = p.locator('.side-panel.members'); await mem.waitFor(); await p.waitForTimeout(350);
-    check(L('Member list opens as a full-screen page'), await seen(mem) && await mem.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left <= 0 && r.top <= 0 && r.width >= innerWidth - 1 && r.height >= innerHeight - 1; }));
+    const mem = p.locator('.m-info'); await mem.waitFor(); await p.waitForTimeout(350);
+    check(L('Channel page (with members) opens full-screen'), await seen(mem) && await mem.locator('.member').count() > 0 && await mem.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left <= 0 && r.top <= 0 && r.width >= innerWidth - 1 && r.height >= innerHeight - 1; }));
     check(L('Back closes the member list'), await p.evaluate(() => window.__sendBack()) && await gone(mem));
 
     // Back from the conversation returns to the channel list; tapping a channel returns to the chat.
@@ -84,7 +84,7 @@ const gone = (loc, ms = 4000) => loc.waitFor({ state: 'hidden', timeout: ms }).t
 
     // Settings: section list → section → back.
     await p.locator('.m-nav-btn').first().tap(); await p.waitForTimeout(300);
-    await p.locator('.user-panel [aria-label="User settings"]').tap();
+    await p.locator('.m-usercard-me').tap(); await p.locator('.m-you [aria-label="Settings"]').first().tap(); await p.waitForTimeout(300);
     const dlg = p.locator('[role=dialog][aria-modal=true]').first();
     check(L('Settings open full-screen on the section list'), await seen(dlg) && await dlg.evaluate((e) => e.getBoundingClientRect().height >= innerHeight - 1) && await seen(p.getByRole('tab', { name: 'Profile', exact: true })));
     await p.getByRole('tab', { name: 'Profile', exact: true }).tap();

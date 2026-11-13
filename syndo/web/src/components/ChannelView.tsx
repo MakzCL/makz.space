@@ -24,6 +24,8 @@ import { openDialog } from "./Shell.tsx";
 import { Avatar, fmtBytes, fmtTime, MobileNavButton } from "./ui.tsx";
 import { MoreVertical, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { ProfileCard } from "./Dialogs.tsx";
+import { ChannelInfo } from "../mobile/ChannelInfo.tsx";
+import { usePhone } from "../mobile.ts";
 import { LayerBox, openContextMenu, openMediaViewer, type MediaItem, type MenuItem } from "./overlay.tsx";
 import { copy, developerMode, userMenuItems } from "./menus.tsx";
 import { useLayer } from "../layers.ts";
@@ -66,6 +68,7 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
   const call = useStore((s) => s.calls[channelId]);
   const inVoiceHere = useVoice((s) => s.channelId === channelId);
   const muted = useStore((s) => { const ids = s.me?.settings?.muted_channels; return Array.isArray(ids) && ids.includes(channelId); });
+  const phone = usePhone();
   const [muteBusy, setMuteBusy] = useState(false);
   const title = channel ? (channel.guild_id ? `#${channel.name}` : dmTitle(channel)) : "";
 
@@ -157,7 +160,11 @@ export function ChannelView({ channelId, guildId, highlight }: { channelId: stri
           <Typing channelId={channel.id} guildId={guildId} />
           <Composer channel={channel} title={title} reply={reply} onClearReply={() => setReply(null)} />
         </div>
-        {panel === "members" && (guildId ? <MemberList guildId={guildId} channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} />)}
+        {panel === "members" && (() => {
+          const list = guildId ? <MemberList guildId={guildId} channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} /> : <Recipients channel={channel} onClose={() => setPanel(null)} onProfile={(id, el) => setProfile((p) => (p && p.el === el ? null : { id, el }))} />;
+          return phone ? <ChannelInfo channel={channel} members={list} onClose={() => setPanel(null)} onSearch={() => setPanel("search")} muted={muted}
+            onMute={() => setConversationMuted(channelId, !muted).catch((x) => toast(errMsg(x), "error"))} /> : list;
+        })()}
         {panel === "pins" && <Pins channel={channel} mdCtx={mdCtx} onClose={() => setPanel(null)} />}
         {panel === "threads" && <ThreadsPanel channel={channel} onClose={() => setPanel(null)} />}
         {panel === "appearance" && <ConversationPanel channel={channel} onClose={() => setPanel(null)} />}

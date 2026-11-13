@@ -26,6 +26,7 @@ import { StageView } from "../features/Stage.tsx";
 import { ActivityButton, ActivityHost } from "../features/Activities.tsx";
 import { VoiceStatusEditor } from "../features/VoiceExtras.tsx";
 import { ChannelType } from "@send/shared";
+import { MobileAddPeople, MobileCallTop, MobileVoiceIdle } from "../mobile/MobileCall.tsx";
 import { CameraGroup, ChatToggle, InviteCard, MessagePreviews, MicGroup, MoreButton } from "../features/CallControls.tsx";
 import { CallChat } from "./ChannelView.tsx";
 
@@ -55,6 +56,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
 
   if (!here) return (
     <div className="stage-idle">
+    <MobileVoiceIdle channel={channel} guild={guild} onChat={guild ? () => { setChat(true); joinVoice(channel.id); } : undefined} />
     <header className="ch-h m-only"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1></header>
     <div className="stage-empty">
       <h1>{channel.name}</h1>
@@ -110,6 +112,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   return (
     <div className={`stage ${chatOn ? "with-chat" : ""}`} data-region="call">
       <div className="stage-main">
+      <MobileCallTop channel={channel} guild={guild} onChat={guild ? () => setChat(!chatOn) : undefined} />
       <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1>
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         {guild && <VoiceStatusEditor channel={channel} />}
@@ -131,6 +134,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
           {alone && guild && <InviteCard channel={channel} guild={guild} />}
         </div>}
       </div>
+      {alone && <MobileAddPeople channel={channel} guild={guild} />}
       <ActivityHost channel={channel} />
       {diag && <DiagPanel />}
       {guild && <MessagePreviews channel={channel} chatOpen={chatOn} onOpen={() => setChat(true)} />}

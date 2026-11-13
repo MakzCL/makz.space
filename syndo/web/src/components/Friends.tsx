@@ -15,6 +15,8 @@ const FRIEND_TABS = { online: "Online", all: "All", pending: "Pending", blocked:
 
 export function Friends({ onDialog }: { onDialog: (d: Dialog) => void }) {
   const [tab, setTab] = useState<Tab>("online");
+  // Other screens (the phone "Add Friends" button) can open a tab directly.
+  useEffect(() => { const on = (e: Event) => setTab((e as CustomEvent<Tab>).detail); window.addEventListener("send:friends-tab", on); return () => window.removeEventListener("send:friends-tab", on); }, []);
   const rels = useStore((s) => s.relationships);
   const presences = useStore((s) => s.presences);
   useEffect(() => setTitle("Friends"), []);

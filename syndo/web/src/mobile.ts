@@ -59,7 +59,7 @@ export function initMobile() {
   /* ---------------- hardware/gesture back (called by the Android shell) */
   (window as any).__sendBack = () => {
     if (hasLayers()) { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); return true; }
-    const panelClose = document.querySelector<HTMLElement>(".side-panel [data-panel-close]");
+    const panelClose = [...document.querySelectorAll<HTMLElement>(".m-you [data-panel-close], .m-info > .m-info-top [data-panel-close], .side-panel [data-panel-close]")].find((b) => b.offsetParent !== null) ?? null;
     if (isPhone() && panelClose && panelClose.offsetParent !== null) { panelClose.click(); return true; }
     const shell = document.querySelector(".shell");
     if (isPhone() && shell && !shell.classList.contains("nav-open")) { setNav(true); return true; }
@@ -67,3 +67,7 @@ export function initMobile() {
   };
 }
 const isTouchContext = () => window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+/** React hook: true on phone-sized screens, updating when the window crosses the breakpoint. */
+import { useSyncExternalStore } from "react";
+export const usePhone = () => useSyncExternalStore((cb) => { phoneQuery?.addEventListener("change", cb); return () => phoneQuery?.removeEventListener("change", cb); }, isPhone, () => false);
