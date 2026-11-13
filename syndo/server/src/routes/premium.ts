@@ -205,6 +205,29 @@ export async function premiumRoutes(app: FastifyInstance) {
       });
       return { ok: true, slots: c.slots, days: c.duration_days ?? null };
     });
+/**
+ * One message per boosting spree: boosting again within 10 minutes, while your boost message is still the newest
+ * message in the channel, updates that message ("boosted the server 5 times! It reached Level 2!") instead of adding another.
+ * Content is JSON {count, tier, level}: level is the highest level reached during the spree, or null.
+ */
+async function postBoostMessage(channelId: string, guildId: string, userId: string, tier: number, levelUp: boolean) {
+  const { createSystemMessage, messageById } = await import("./messages.ts");
+  const last = await q1<any>(`select id::text, author_id::text, type, content, created_at > now() - interval '10 minutes' as recent
+    from messages where channel_id = $1 and deleted_at is null order by id desc limit 1`, [channelId]);
+  if (last && last.author_id === userId && last.recent && (last.type === MessageType.BOOST || last.type === MessageType.BOOST_TIER)) {
+    let prev: { count?: number; level?: number | null } = {};
+    try { prev = last.content.startsWith("{") ? JSON.parse(last.content) : { count: 1, level: last.type === MessageType.BOOST_TIER ? Number(last.content) : null }; } catch { /* old format */ }
+    const level = levelUp ? tier : (prev.level ?? null);
+    const content = JSON.stringify({ count: (prev.count ?? 1) + 1, tier, level });
+    await q("update messages set content = $2, type = $3 where id = $1", [last.id, content, level != null ? MessageType.BOOST_TIER : MessageType.BOOST]);
+    const [{ getChannel }, { toChannel }] = await Promise.all([import("../perms.ts"), import("../gateway.ts")]);
+    const ch = await getChannel(channelId), msg = await messageById(last.id, null);
+    if (ch && msg) { const { reactions: _r, ...rest } = msg; await toChannel(ch, "MESSAGE_UPDATE", rest); }
+    return;
+  }
+  await createSystemMessage(channelId, guildId, userId, levelUp ? MessageType.BOOST_TIER : MessageType.BOOST, JSON.stringify({ count: 1, tier, level: levelUp ? tier : null }));
+}
+
 
     /** Put a boost on a server, or take it off (moving a boost has a 7-day cooldown). */
     r.put<{ Params: { bid: string } }>("/api/premium/boosts/:bid", async (req) => {
@@ -218,10 +241,7 @@ export async function premiumRoutes(app: FastifyInstance) {
       await q("update guild_boosts set guild_id = $2, applied_at = now(), cooldown_until = case when $3::bigint is not null then now() + interval '7 days' else null end where id = $1", [b.id, guild_id, prev]);
       if (prev && prev !== guild_id) await recomputeGuild(prev);
       const res = await recomputeGuild(guild_id);
-      if (res?.channel) {
-        const { createSystemMessage } = await import("./messages.ts");
-        await createSystemMessage(res.channel, guild_id, me, res.levelUp ? MessageType.BOOST_TIER : MessageType.BOOST, String(res.tier));
-      }
+      if (res?.channel) await postBoostMessage(res.channel, guild_id, me, res.tier, !!res.levelUp);
       return { ok: true, premium_count: res?.count, premium_tier: res?.tier };
     });
     r.delete<{ Params: { bid: string } }>("/api/premium/boosts/:bid", async (req) => {

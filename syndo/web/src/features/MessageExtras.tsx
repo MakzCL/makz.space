@@ -204,8 +204,12 @@ export function extraSystemText(m: Message, channel: Channel, who: React.ReactNo
     case MessageType.STAGE_END: return <><Radio size={14} aria-hidden /> {who} ended the stage.</>;
     case MessageType.STAGE_SPEAKER: return <>{who} is now a speaker.</>;
     case MessageType.STAGE_TOPIC: return <>{who} changed the stage topic to <strong>{m.content}</strong>.</>;
-    case MessageType.BOOST: return <>✨ {who} just boosted the server!</>;
-    case MessageType.BOOST_TIER: return <>✨ {who} just boosted the server! It reached <strong>Level {m.content}</strong>!</>;
+    case MessageType.BOOST: case MessageType.BOOST_TIER: {
+      // Newer messages hold {count, tier, level}; older ones just the level as text.
+      const count = Number(j.count) || 1;
+      const level = m.content.startsWith("{") ? j.level : m.type === MessageType.BOOST_TIER ? m.content : null;
+      return <>✨ {who} just boosted the server{count > 1 ? <> <strong>{count} times</strong></> : null}!{level != null && <> It reached <strong>Level {level}</strong>!</>}</>;
+    }
     case MessageType.CHANNEL_FOLLOW_ADD: return <>{who} added <strong>{m.content}</strong> to this channel. Its most important updates will show up here.</>;
     default: return null;
   }
