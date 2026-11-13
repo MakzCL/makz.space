@@ -1,4 +1,5 @@
 import { Select } from "../components/Select.tsx";
+import { ConnectionLogo, connectionName } from "./connectionLogos.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useState } from "react";
 import { Bot, Code2, Copy, Eye, EyeOff, Fingerprint, Gamepad2, Link2, Music, Plus, PlaySquare, QrCode, RefreshCw, Search, Smartphone, Trash2, Tv, Radio } from "lucide-react";
@@ -97,8 +98,7 @@ export function QrApprove({ id }: { id: string }) {
 }
 
 /* ---------------------------------------------------------------------------- connections -- */
-const ICONS: Record<string, React.ReactNode> = { github: <Code2 size={18} />, twitch: <Radio size={18} />, spotify: <Music size={18} />, youtube: <PlaySquare size={18} />, steam: <Gamepad2 size={18} />, xbox: <Gamepad2 size={18} />, reddit: <Tv size={18} /> };
-export const connectionIcon = (t: string) => ICONS[t] ?? <Link2 size={18} />;
+export const connectionIcon = (t: string, size = 18) => <ConnectionLogo type={t} size={size} />;
 export function ConnectionsTab() {
   const [d, setD] = useState<{ connections: (Connection & { url?: string | null })[]; available: { type: string; name: string; ready: boolean }[] } | null>(null);
   const load = () => api.get("/api/connections").then(setD).catch(() => {});
@@ -108,8 +108,8 @@ export function ConnectionsTab() {
   return <div className="settings-section">
     <h2>Connections</h2>
     <p className="muted">Connect accounts to show them on your profile.</p>
-    <div className="conn-grid">{d?.available.map((a) => <button key={a.type} className="conn-tile" disabled={!a.ready} title={a.ready ? `Connect ${a.name}` : `${a.name} isn't set up on this server yet`} onClick={() => connect(a.type)}>{connectionIcon(a.type)}<span>{a.name}</span></button>)}</div>
-    {d?.connections.map((c) => <div key={`${c.type}:${c.id}`} className="card conn-row">{connectionIcon(c.type)}<span className="grow"><strong>{c.name}</strong><small className="muted block">{c.type}</small></span>
+    <div className="conn-grid">{d?.available.map((a) => <button key={a.type} className="conn-tile" disabled={!a.ready} aria-label={a.ready ? `Connect ${a.name}` : `${a.name} isn't set up yet`} title={a.ready ? `Connect ${a.name}` : `${a.name}: not set up yet`} onClick={() => connect(a.type)}>{connectionIcon(a.type, 30)}</button>)}</div>
+    {d?.connections.map((c) => <div key={`${c.type}:${c.id}`} className="card conn-row">{connectionIcon(c.type, 26)}<span className="grow"><strong>{c.name}</strong><small className="muted block">{connectionName(c.type)}</small></span>
       <Toggle label="On profile" checked={c.visible} onChange={(v) => run(() => api.patch(`/api/connections/${c.type}/${encodeURIComponent(c.id)}`, { visible: v })).then(load)} />
       <button className="icon-btn sm danger" aria-label="Disconnect" onClick={() => run(() => api.del(`/api/connections/${c.type}/${encodeURIComponent(c.id)}`)).then(load)}><Trash2 size={14} /></button></div>)}
     <h3>Activity</h3>

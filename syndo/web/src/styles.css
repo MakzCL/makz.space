@@ -2502,3 +2502,13 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .sbb-track i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #B05CFF, #FF8FD1); transition: width .5s; }
 .sbb-track em { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--bg2, #1a2035); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--text) 30%, transparent); }
 .sbb-track em.on { background: #FF8FD1; box-shadow: 0 0 6px #FF8FD1; }
+/* connections: real logos */
+.conn-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)) !important; }
+.conn-tile { aspect-ratio: 1; justify-content: center; padding: 0 !important; border-radius: 14px !important; transition: transform .15s var(--ease-spring, ease), background .15s, border-color .15s; }
+.conn-tile:not(:disabled):hover { transform: translateY(-2px); background: var(--bg3); border-color: color-mix(in srgb, var(--text) 25%, transparent); }
+.conn-tile:disabled { filter: grayscale(1); }
+.conn-logo { flex: none; display: block; }
+.conn-row .conn-logo, .conn-row > svg { margin-right: 4px; }
+.pc-conns { flex-direction: row !important; flex-wrap: wrap; gap: 6px !important; }
+.pc-conn { gap: 8px !important; padding: 6px 10px !important; border-radius: 999px !important; max-width: 100%; }
+.pc-conn .conn-logo { width: 18px; height: 18px; }
