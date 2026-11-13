@@ -51,6 +51,13 @@ Owner: MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3
     6. Re-run the "SEND Android beta" workflow and install the new APK.
   - **iOS (Apple push, needs the paid Apple Developer account)**: developer.apple.com, Certificates, Identifiers and Profiles, Keys, add a key with Apple Push Notifications service. Download the `.p8` (only once) and note its Key ID and your Team ID. Add Cloudflare secrets `SEND_APNS_KEY` (the file's contents), `SEND_APNS_KEY_ID` and `SEND_APNS_TEAM_ID`. In Xcode, set your Team and add the Push Notifications capability (the entitlements file is already there).
   - After adding secrets the backend restarts on its own within a minute or two.
+- **Sponsorships (Settings, Sponsor)**: built and live, waiting for Stripe. To switch on:
+  1. Create a Stripe account for MAKZ Labs (stripe.com, UK, business type matching Companies House or sole trader). Stripe charges about 1.5% + 20p per UK card payment.
+  2. Developers, API keys: copy the **Secret key** (`sk_live_...`, or `sk_test_...` to try it first). Add it as the Cloudflare secret `STRIPE_SECRET_KEY` on `send-beta-api`.
+  3. Developers, Webhooks, Add endpoint: URL `https://syndo.makz.space/api/stripe/webhook`, events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy its **Signing secret** (`whsec_...`) into the Cloudflare secret `STRIPE_WEBHOOK_SECRET`.
+  4. Settings, Billing, Customer portal: turn it on and allow cancelling subscriptions, so the Manage button works.
+  The backend restarts by itself within a minute of adding the secrets. Sponsorships are hidden in the Android and iOS apps, because both stores require their own billing for payments made inside apps.
+  Sponsorship income is taxable income of MAKZ Labs; keep it in your accounts.
 - **Linux and macOS desktop**: CI builds them now. macOS distribution outside the App Store needs Developer ID signing and notarisation (included in the US$99 programme).
 
 ## Connections (linking other accounts to a profile)

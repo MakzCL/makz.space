@@ -1,5 +1,13 @@
 # SEND restore points
 
+## 2026-11-13: Android push on, sponsorships (commit `63a5298`)
+
+Backend SOURCE_COMMIT `63a52985165bad7630363574ed9fc95ec189661d`, worker code sha `fb64c163` (previous `85b22163`). The worker now also restarts the backend when its optional secrets change (it stores a hash, never the values).
+Secrets: `SEND_FCM_SERVICE_ACCOUNT` added by the owner (Firebase project `space-makz-send`).
+Database: `013_sponsors.sql` applied by hand (new `sponsorships` table with grants).
+Android: `android/SEND.apk` is the push-enabled 0.7.1 build (sha256 `19c510ab`).
+Roll back: set SOURCE_COMMIT to `77b382776acc034f6a9ec7e2f288d2e0ade7a67a` (the sponsorships table can stay).
+
 ## 2026-11-13: Push notifications (commit `70d5611`)
 
 Backend SOURCE_COMMIT `70d56118070e7e2e24e8c30ab1122575a68a7ab2`, worker code sha `85b22163` (previous `a28e9b37`): the only code change is five more optional secret names (SEND_FCM_SERVICE_ACCOUNT, SEND_APNS_*).
