@@ -59,8 +59,8 @@ export async function loadMessages(channelId: string, opts: { before?: string; a
     const qs = opts.before ? `&before=${opts.before}` : opts.after ? `&after=${opts.after}` : opts.around ? `&around=${opts.around}` : "";
     const list = await api.get<Message[]>(`/api/channels/${channelId}/messages?limit=50${qs}`);
     // Newer messages (scrolling down after a jump): merge them in, keeping the "older left" flag.
-    if (opts.after) { messagesApi.upsertMessages(channelId, list); return; }
-    messagesApi.upsertMessages(channelId, list, { hasMore: opts.around ? true : list.length === 50, replace: !!opts.around || !!opts.latest });
+    if (opts.after) { messagesApi.upsertMessages(channelId, list, { fetched: true }); return; }
+    messagesApi.upsertMessages(channelId, list, { hasMore: opts.around ? true : list.length === 50, replace: !!opts.around || !!opts.latest, fetched: true });
   } catch (e) {
     set((s) => ({ messages: { ...s.messages, [channelId]: { ...(s.messages[channelId] ?? { list: [], hasMore: false, loaded: true }), loading: false, loaded: true } } }));
     if (!(e instanceof ApiError && e.status === 404)) toast(errMsg(e), "error");

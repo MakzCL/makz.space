@@ -115,7 +115,9 @@ function remember(users: (User | null | undefined)[]) {
 }
 
 /* ------------------------------------------------------------- messages -- */
-function upsertMessages(channelId: string, incoming: UIMessage[], opts: { hasMore?: boolean; replace?: boolean } = {}) {
+/** `fetched` marks a page loaded from the server. Live messages and sends alone don't count as the channel's history
+ *  being loaded, or opening the channel later would show only those and skip the older messages. */
+function upsertMessages(channelId: string, incoming: UIMessage[], opts: { hasMore?: boolean; replace?: boolean; fetched?: boolean } = {}) {
   set((s) => {
     const cur = s.messages[channelId] ?? { list: [], hasMore: true, loaded: false, loading: false };
     const byId = new Map<string, UIMessage>(opts.replace ? [] : cur.list.map((m) => [m.id, m]));
@@ -130,7 +132,7 @@ function upsertMessages(channelId: string, incoming: UIMessage[], opts: { hasMor
       if (!a._state && b._state) return -1;
       return BigInt(a.id.replace(/\D/g, "") || "0") < BigInt(b.id.replace(/\D/g, "") || "0") ? -1 : 1;
     });
-    return { messages: { ...s.messages, [channelId]: { ...cur, list, loaded: true, loading: false, hasMore: opts.hasMore ?? cur.hasMore } } };
+    return { messages: { ...s.messages, [channelId]: { ...cur, list, loaded: opts.fetched ? true : cur.loaded, loading: opts.fetched ? false : cur.loading, hasMore: opts.hasMore ?? cur.hasMore } } };
   });
   remember(incoming.flatMap((m) => [m.author, m.reply_to?.author]));
 }
