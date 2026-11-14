@@ -71,10 +71,17 @@ export function Modal({ title, onClose, children, wide, footer, label, className
   }, []);
   // Close only when both press and release land on the backdrop (dragging a text selection out of a field must not close it).
   const down = useRef<EventTarget | null>(null);
+  // Always open above whatever is already on screen (the Studio, phone pages, another dialog), so a dialog opened from
+  // inside one of them, like the avatar crop editor in the Studio, never ends up underneath it.
+  const [z] = useState(() => {
+    let top = 60;
+    for (const el of document.querySelectorAll<HTMLElement>(".modal-back, .studio-back, .m-you, .m-info")) { const v = Number(getComputedStyle(el).zIndex); if (Number.isFinite(v)) top = Math.max(top, v + 1); }
+    return top;
+  });
   // Portalled to <body>: a dialog opened from inside another (e.g. the crop editor in Settings) must not be clipped or
   // positioned by its parent's backdrop-filter, which would make it a containing block for fixed elements.
   return createPortal(
-    <div className="modal-back" onPointerDown={(e) => { down.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && down.current === e.currentTarget) onClose(); }}>
+    <div className="modal-back" style={z > 60 ? { zIndex: z } : undefined} onPointerDown={(e) => { down.current = e.target; }} onClick={(e) => { if (e.target === e.currentTarget && down.current === e.currentTarget) onClose(); }}>
       <div ref={ref} data-region="overlay" data-layer className={`modal ${wide ? "wide" : ""} ${className ?? ""}`} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
         {title && <header className="modal-h"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>}
         <div className="modal-b">{children}</div>
