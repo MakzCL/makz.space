@@ -1,12 +1,12 @@
 // Offline app shell: everything the app needs is cached on first load.
 // Records never pass through here — they live in IndexedDB on the device.
-const VERSION = 'dairy-herd-v1';
+const VERSION = 'dairy-herd-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './js/app.js', './js/db.js', './js/time.js', './js/logic.js', './js/ui.js', './js/store.js', './js/actions.js',
-  './js/components.js', './js/sample.js',
-  './js/views/today.js', './js/views/animal.js', './js/views/herd.js', './js/views/breeding.js', './js/views/milk.js', './js/views/more.js',
+  './js/components.js', './js/sample.js', './js/i18n.js', './js/pl.js', './js/auth.js',
+  './js/views/today.js', './js/views/animal.js', './js/views/herd.js', './js/views/breeding.js', './js/views/milk.js', './js/views/more.js', './js/views/users.js',
 ];
 
 self.addEventListener('install', (e) => {

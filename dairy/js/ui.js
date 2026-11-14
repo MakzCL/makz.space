@@ -2,6 +2,7 @@
 
 import { toInputDateTime, fromInputDateTime, todayKey, addDays } from './time.js';
 import { uid } from './db.js';
+import { t } from './i18n.js';
 
 class Raw { constructor(s) { this.s = s; } toString() { return this.s; } }
 export const raw = (s) => new Raw(String(s));
@@ -46,7 +47,7 @@ export function openSheet(title, body, { onMount } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
   wrap.innerHTML = `<section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <header class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></header>
+    <header class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="${t('Close')}">✕</button></header>
     <div class="sheet-body">${fmt(body)}</div></section>`;
   document.body.append(wrap);
   document.body.classList.add('sheet-open');
@@ -74,11 +75,12 @@ export function dropSheet() { if (current) { current.remove(); current = null; d
 
 // ---------- forms ----------
 
-function opt(o) { return Array.isArray(o) ? o : [o, o]; }
+function opt(o) { return Array.isArray(o) ? [o[0], t(o[1])] : [o, t(o)]; }
 
 function fieldHtml(f, v, tz) {
   const id = `f_${f.name}`;
-  const req = f.required ? html` <span class="req">required</span>` : '';
+  f = { ...f, label: t(f.label), help: t(f.help), placeholder: t(f.placeholder) };
+  const req = f.required ? html` <span class="req">${t('required')}</span>` : '';
   const help = f.help ? html`<p class="help">${f.help}</p>` : '';
   const show = f.showIf ? html` data-show-name="${f.showIf.name}" data-show-is="${JSON.stringify(f.showIf.is)}"` : '';
   const wrap = (inner, cls = '') => html`<div class="field ${cls}" data-field="${f.name}"${show}>${inner}</div>`;
@@ -89,11 +91,11 @@ function fieldHtml(f, v, tz) {
       return html`<div class="form-info"${show}>${f.html || f.label}</div>`;
     case 'datetime': {
       const val = v ? toInputDateTime(v, tz) : '';
-      const chips = f.quick ? html`<div class="chips" role="group" aria-label="Quick dates">
-        <button type="button" class="chip" data-quick="0">Now</button>
-        <button type="button" class="chip" data-quick="1">Yesterday</button>
-        <button type="button" class="chip" data-quick="2">2 days ago</button>
-        <button type="button" class="chip" data-quick="3">3 days ago</button></div>` : '';
+      const chips = f.quick ? html`<div class="chips" role="group" aria-label="${t('Quick dates')}">
+        <button type="button" class="chip" data-quick="0">${t('Now')}</button>
+        <button type="button" class="chip" data-quick="1">${t('Yesterday')}</button>
+        <button type="button" class="chip" data-quick="2">${t('2 days ago')}</button>
+        <button type="button" class="chip" data-quick="3">${t('3 days ago')}</button></div>` : '';
       return wrap(html`<label for="${id}">${f.label}${req}</label>${chips}
         <input id="${id}" name="${f.name}" type="datetime-local" value="${val}" data-type="datetime" ${f.required ? raw('required') : ''}>${help}`);
     }
@@ -116,12 +118,15 @@ function fieldHtml(f, v, tz) {
         return html`<label class="seg-opt"><input type="radio" name="${f.name}" value="${val}" data-type="choice" ${String(val) === String(v ?? '') ? raw('checked') : ''}><span>${lab}</span></label>`;
       })}</div></fieldset>${help}`);
     case 'multi':
-      return wrap(html`<fieldset class="multi"><legend>${f.label}${req}</legend>${(f.options || []).length ? '' : html`<p class="help">Nothing to choose yet.</p>`}${(f.options || []).map((o) => {
+      return wrap(html`<fieldset class="multi"><legend>${f.label}${req}</legend>${(f.options || []).length ? '' : html`<p class="help">${t('Nothing to choose yet.')}</p>`}${(f.options || []).map((o) => {
         const [val, lab] = opt(o);
         return html`<label class="check"><input type="checkbox" name="${f.name}" value="${val}" data-type="multi" ${(v || []).includes(val) ? raw('checked') : ''}><span>${lab}</span></label>`;
       })}</fieldset>${help}`);
     case 'checkbox':
       return wrap(html`<label class="check"><input type="checkbox" name="${f.name}" data-type="checkbox" ${v ? raw('checked') : ''}><span>${f.label}</span></label>${help}`);
+    case 'password':
+      return wrap(html`<label for="${id}">${f.label}${req}</label>
+        <input id="${id}" name="${f.name}" type="password" autocomplete="new-password" data-type="text">${help}`);
     case 'textarea':
       return wrap(html`<label for="${id}">${f.label}${req}</label><textarea id="${id}" name="${f.name}" rows="3" data-type="text">${v || ''}</textarea>${help}`);
     default:
@@ -153,14 +158,14 @@ export function openForm(opts) {
     <form class="form" novalidate>
       <div class="form-error" role="alert" hidden></div>
       ${main.map((f) => fieldHtml(f, values[f.name], tz))}
-      ${details.length ? html`<details class="more" ${detailsHaveValues ? raw('open') : ''}><summary>Add details <span class="muted">(optional)</span></summary>
+      ${details.length ? html`<details class="more" ${detailsHaveValues ? raw('open') : ''}><summary>${t('Add details')} <span class="muted">${t('(optional)')}</span></summary>
         ${details.map((f) => fieldHtml(f, values[f.name], tz))}</details>` : ''}
       <div class="form-actions">
-        <button type="submit" class="btn primary big">${opts.submitLabel || 'Save'}</button>
-        ${opts.onDelete ? html`<button type="button" class="btn danger" data-delete>${opts.deleteLabel || 'Delete this record'}</button>` : ''}
+        <button type="submit" class="btn primary big">${t(opts.submitLabel || 'Save')}</button>
+        ${opts.onDelete ? html`<button type="button" class="btn danger" data-delete>${t(opts.deleteLabel || 'Delete this record')}</button>` : ''}
       </div>
     </form>`;
-  openSheet(opts.title, body, {
+  openSheet(t(opts.title), body, {
     onMount(el) {
       const form = el.querySelector('form');
       const errBox = form.querySelector('.form-error');
@@ -201,7 +206,7 @@ export function openForm(opts) {
           const hidden = node && (node.hidden || node.closest('[hidden]'));
           v[f.name] = hidden ? null : readField(form, f, tz);
           if (f.required && !hidden && (v[f.name] == null || v[f.name] === '' || (Array.isArray(v[f.name]) && !v[f.name].length))) {
-            showErr(`${f.label} is required.`);
+            showErr(t('{label} is required.', { label: t(f.label) }));
             return;
           }
         }
@@ -209,16 +214,16 @@ export function openForm(opts) {
         const btn = form.querySelector('[type=submit]');
         btn.disabled = true;
         btn.dataset.label = btn.textContent;
-        btn.textContent = 'Saving…';
+        btn.textContent = t('Saving…');
         try {
           const res = await opts.onSubmit(v, recordId);
           await closeSheet();
           const r = typeof res === 'object' && res ? res : { msg: res };
           if (r.go) location.hash = r.go;
-          if (r.msg !== false) toast(typeof r.msg === 'string' ? r.msg : 'Saved', r.action ? { action: r.action } : {});
+          if (r.msg !== false) toast(typeof r.msg === 'string' ? r.msg : t('Saved'), r.action ? { action: r.action } : {});
         } catch (err) {
           console.error(err);
-          showErr(err.message || 'Could not save');
+          showErr(err.message || t('Could not save'));
           saving = false;
           btn.disabled = false;
           btn.textContent = btn.dataset.label;
@@ -226,7 +231,7 @@ export function openForm(opts) {
       });
 
       form.querySelector('[data-delete]')?.addEventListener('click', async () => {
-        if (!confirm(opts.deleteConfirm || 'Delete this record? This cannot be undone.')) return;
+        if (!confirm(t(opts.deleteConfirm || 'Delete this record? This cannot be undone.'))) return;
         try { const r = await opts.onDelete(); await closeSheet(); if (r?.go) location.hash = r.go; } catch (err) { showErr(err.message); }
       });
       opts.onMount?.(el, form);

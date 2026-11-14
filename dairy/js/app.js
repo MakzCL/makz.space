@@ -9,6 +9,9 @@ import { milkView } from './views/milk.js';
 import { moreView, healthView, bullsView, tasksView, reportsView, settingsView, dataView, helpView, openSettingsForm } from './views/more.js';
 import { milkHolds } from './logic.js';
 import { D } from './store.js';
+import { t, setLang, detectLang } from './i18n.js';
+import { currentUser, hasUsers, isAdmin, resumeSession, showLogin, startIdleWatch, createOwnerForm } from './auth.js';
+import { usersView } from './views/users.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -28,18 +31,49 @@ function route() {
     case 'bulls': return ['more', bullsView()];
     case 'tasks': return ['more', tasksView()];
     case 'reports': return ['more', reportsView()];
-    case 'settings': return ['more', settingsView()];
-    case 'data': return ['more', dataView()];
+    case 'settings': return ['more', isAdmin() ? settingsView() : adminOnly()];
+    case 'data': return ['more', isAdmin() ? dataView() : adminOnly()];
+    case 'users': return ['more', usersView()];
     case 'help': return ['more', helpView()];
     default: return ['today', todayView()];
   }
 }
 
+function adminOnly() {
+  return { html: html`<header class="top"><h1>${t('Admin only')}</h1></header><p>${t('Only an admin can open this. Ask the farm owner.')}</p><a class="btn" href="#/more">${t('Back')}</a>` };
+}
+
+let gateOpen = false;
+/** Nothing from the herd is drawn until someone is logged in. */
+async function gate() {
+  if (gateOpen) return;
+  gateOpen = true;
+  dropSheet();
+  nav.hidden = true;
+  if (!hasUsers()) {
+    view.innerHTML = String(html`<section class="login"><img src="icons/icon.svg" alt="" class="login-logo" width="72" height="72"><h1>Dairy Herd</h1>
+      <p>${t('Set up a login before using the app.')}</p><button type="button" class="btn primary big" data-setup>${t('Set up')}</button></section>`);
+    const open = () => (S().setupDone ? createOwnerForm({ onDone: unlock }) : openSettingsForm(true, {}, unlock));
+    view.querySelector('[data-setup]').onclick = open;
+    open();
+    return;
+  }
+  await showLogin(view);
+  unlock();
+}
+function unlock() {
+  gateOpen = false;
+  nav.hidden = false;
+  render({ scroll: true });
+}
+window.addEventListener('locked', () => { document.getElementById('toast')?.classList.remove('show'); gateOpen = false; gate(); });
+
 function renderNav(active) {
   const holds = milkHolds(D()).length;
   const items = [['today', '#/', 'Today'], ['herd', '#/herd', 'Herd'], ['breeding', '#/breeding/awaiting', 'Breeding'], ['milk', '#/milk', 'Milk'], ['more', '#/more', 'More']];
+  nav.setAttribute('aria-label', t('Main'));
   nav.innerHTML = String(html`${items.map(([k, href, label]) => html`<a href="${href}" class="${active === k ? 'on' : ''}" ${active === k ? html`aria-current="page"` : ''}>
-    <span class="nav-ico" aria-hidden="true">${ICONS[k]}</span><span>${label}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${holds} milk holds">${holds}</span>` : ''}</a>`)}`);
+    <span class="nav-ico" aria-hidden="true">${ICONS[k]}</span><span>${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}</a>`)}`);
 }
 
 const ICONS = {
@@ -47,6 +81,7 @@ const ICONS = {
 };
 
 export function render({ scroll = false } = {}) {
+  if (!currentUser()) { gate(); return; }
   const focusId = document.activeElement?.id;
   const caret = document.activeElement?.selectionStart;
   const y = window.scrollY;
@@ -86,27 +121,30 @@ window.addEventListener('hashchange', () => {
 function updateNet() {
   const n = document.querySelector('[data-net]');
   if (!n) return;
-  n.textContent = navigator.onLine ? '' : 'Offline · saving on phone';
+  n.textContent = navigator.onLine ? '' : t('Offline · saving on phone');
   n.hidden = navigator.onLine;
 }
 window.addEventListener('online', updateNet);
 window.addEventListener('offline', updateNet);
 
 async function boot() {
+  setLang(detectLang());
   try {
     await db.open();
   } catch (err) {
-    view.innerHTML = `<div class="card"><h1>Storage problem</h1><p>${String(err.message || err)}</p><p>Private browsing can block storage. Open the app in a normal window.</p></div>`;
+    view.innerHTML = `<div class="card"><h1>${t('Storage problem')}</h1><p>${String(err.message || err)}</p><p>${t('Private browsing can block storage. Open the app in a normal window.')}</p></div>`;
     return;
   }
   let redraw = 0;
   db.onChange(() => { cancelAnimationFrame(redraw); redraw = requestAnimationFrame(() => render()); });
   if (!db.get('settings', 'farm')) {
     const { defaultTimeZone } = await import('./time.js');
-    await db.put('settings', { id: 'farm', timeZone: defaultTimeZone(), currency: 'EUR', setupDone: false });
+    await db.put('settings', { id: 'farm', timeZone: defaultTimeZone(), currency: detectLang() === 'pl' ? 'PLN' : 'EUR', language: detectLang(), setupDone: false });
   }
+  setLang(S().language || detectLang());
+  startIdleWatch();
+  resumeSession();
   render();
-  if (!S().setupDone) openSettingsForm(true);
   navigator.storage?.persist?.().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Offline mode unavailable', err));
@@ -114,6 +152,6 @@ async function boot() {
   window.__dairyReady = true;
 }
 
-window.addEventListener('error', (e) => toast(`Something went wrong: ${e.message}`, { kind: 'err' }));
-window.addEventListener('unhandledrejection', (e) => toast(`Could not complete: ${e.reason?.message || e.reason}`, { kind: 'err' }));
+window.addEventListener('error', (e) => toast(t('Something went wrong: {m}', { m: e.message }), { kind: 'err' }));
+window.addEventListener('unhandledrejection', (e) => toast(t('Could not complete: {m}', { m: e.reason?.message || e.reason }), { kind: 'err' }));
 boot();

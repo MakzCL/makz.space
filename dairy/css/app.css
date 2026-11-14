@@ -234,3 +234,17 @@ fieldset { border: 0; padding: 0; margin: 0; }
 .toast.err { background: var(--danger-bg); color: #fff; }
 .toast-btn { font: inherit; font-weight: 800; background: none; border: 2px solid currentColor; color: inherit; border-radius: 8px; min-height: 44px; padding: 4px 12px; }
 body.sheet-open .toast { bottom: 16px; }
+
+/* login */
+.login { max-width: 420px; margin: 8vh auto 0; text-align: center; display: grid; gap: 8px; }
+.login-logo { margin: 0 auto; border-radius: 16px; }
+.login .form { text-align: left; }
+.login-name { font-size: 1.4rem; font-weight: 800; margin: 4px 0; }
+.login input[type=password] { font-size: 1.6rem; letter-spacing: .2em; text-align: center; }
+.center-row { display: flex; justify-content: center; gap: 8px; }
+.forgot { text-align: left; margin-top: 16px; }
+.forgot summary { cursor: pointer; font-weight: 700; min-height: 44px; padding: 10px 0; }
+.lang { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.user-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tl-by { font-size: .82rem; color: var(--ink-2); }
+#nav[hidden] { display: none; }

@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   dryOffSoonDays: 14,      // show dry-offs due within this window
   upcomingDays: 7,         // show checks / vet visits due within this window
   defaultMilkSource: 'sessions',
+  language: null,
   setupDone: false,
 };
 

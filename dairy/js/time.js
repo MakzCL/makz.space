@@ -79,13 +79,24 @@ export function dayStartIso(key, tz) {
   return new Date(zonedToMs(y, m, d, 0, 0, tz)).toISOString();
 }
 
-const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-const shortFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const dowFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+// Display language for dates and relative days: 'en' or 'pl'.
+let LANG = 'en';
+export function setTimeLang(l) { LANG = l === 'pl' ? 'pl' : 'en'; }
+const fmts = new Map();
+function f(kind) {
+  const key = `${LANG}:${kind}`;
+  if (!fmts.has(key)) {
+    const loc = LANG === 'pl' ? 'pl-PL' : 'en-GB';
+    const o = { timeZone: 'UTC', ...(kind === 'date' ? { day: 'numeric', month: 'short', year: 'numeric' }
+      : kind === 'short' ? { day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric', month: 'short' }) };
+    fmts.set(key, new Intl.DateTimeFormat(loc, o));
+  }
+  return fmts.get(key);
+}
 
-export const fmtDay = (key) => (key ? dateFmt.format(new Date(keyToUTC(key))) : '');
-export const fmtDayShort = (key) => (key ? shortFmt.format(new Date(keyToUTC(key))) : '');
-export const fmtDow = (key) => (key ? dowFmt.format(new Date(keyToUTC(key))) : '');
+export const fmtDay = (key) => (key ? f('date').format(new Date(keyToUTC(key))) : '');
+export const fmtDayShort = (key) => (key ? f('short').format(new Date(keyToUTC(key))) : '');
+export const fmtDow = (key) => (key ? f('dow').format(new Date(keyToUTC(key))) : '');
 
 export function fmtDateTime(iso, tz) {
   if (!iso) return '';
@@ -93,7 +104,17 @@ export function fmtDateTime(iso, tz) {
   return `${fmtDay(`${p.y}-${pad(p.m)}-${pad(p.d)}`)}, ${pad(p.h)}:${pad(p.mi)}`;
 }
 
+/** Polish: 1 dzień, otherwise dni. */
+const plDays = (n) => (n === 1 ? '1 dzień' : `${n} dni`);
+
 export function agoText(days) {
+  if (LANG === 'pl') {
+    if (days === 0) return 'dzisiaj';
+    if (days === 1) return 'wczoraj';
+    if (days === -1) return 'jutro';
+    if (days < 0) return `za ${plDays(-days)}`;
+    return `${plDays(days)} temu`;
+  }
   if (days === 0) return 'today';
   if (days === 1) return '1 day ago';
   if (days === -1) return 'tomorrow';
@@ -102,6 +123,12 @@ export function agoText(days) {
 }
 
 export function inText(days) {
+  if (LANG === 'pl') {
+    if (days === 0) return 'dzisiaj';
+    if (days === 1) return 'jutro';
+    if (days < 0) return `${plDays(-days)} po terminie`;
+    return `za ${plDays(days)}`;
+  }
   if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';
   if (days === -1) return '1 day overdue';

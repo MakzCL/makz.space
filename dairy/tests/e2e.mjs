@@ -42,12 +42,16 @@ try {
   step('First start: settings with farm time zone and sample data');
   await p.goto(BASE);
   await p.waitForSelector('.sheet');
+  await choose('language', 'en');
+  await p.fill('#f_ownerName', 'Anna');
+  await p.fill('#f_pin', '1234');
+  await p.fill('#f_pin2', '1234');
   await p.selectOption('#f_timeZone', FARM_TZ);
   await p.selectOption('#f_currency', 'EUR');
   await p.check('.sheet input[name=sample]');
   await save();
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});
-  ok('set up');
+  ok('set up with an owner login');
 
   step('Scenario 1: find 0042, inseminate 18 days ago, reload');
   const ins0 = await countOf('count-inseminated');
@@ -216,9 +220,12 @@ try {
   watch(p);
   await p.goto(BASE);
   await p.waitForFunction(() => window.__dairyReady);
+  await p.fill('[data-testid=login-pin]', '1234');
+  await p.click('[data-testid=login-submit]');
+  await p.waitForSelector('#find');
   await p.fill('#find', '0500');
   await p.click('[data-testid=search-results] a.row >> nth=0');
-  assert.match(await text('[data-testid=timeline]'), /lameness · LH/);
+  assert.match(await text('[data-testid=timeline]'), /Lameness · LH[\s\S]*entered by Anna/);
   ok('record saved offline is there after closing and reopening with no network');
 
   step('Backup → restore round trip');
@@ -233,6 +240,40 @@ try {
   await go('#/'); await p.fill('#find', '0500');
   assert.equal(await p.locator('[data-testid=search-results] a.row').count(), 1);
   ok('backup downloaded and restored');
+
+  step('Login keeps strangers out');
+  await go('#/more');
+  await p.click('[data-testid=lock]');
+  await p.waitForSelector('[data-testid=login-pin]');
+  assert.equal(await p.locator('#find').count(), 0);
+  assert.doesNotMatch(await text('main'), /0042|0500|WITHHOLD/);
+  assert.equal(await p.isVisible('#nav'), false);
+  await go('#/animal/s-0042');
+  assert.equal(await p.locator('[data-testid=animal-code]').count(), 0, 'deep link stays locked');
+  await p.fill('[data-testid=login-pin]', '9999');
+  await p.click('[data-testid=login-submit]');
+  await p.waitForSelector('.login .form-error:not([hidden])');
+  assert.match(await text('.login .form-error'), /Wrong PIN/);
+  await p.fill('[data-testid=login-pin]', '1234');
+  await p.click('[data-testid=login-submit]');
+  await p.waitForSelector('#nav:not([hidden])');
+  ok('locked screen shows no records; wrong PIN refused; right PIN opens');
+
+  step('Polish');
+  await go('#/more');
+  await p.click('[data-act=lang][data-v=pl]');
+  await openCow('0500');
+  assert.match(await text('main'), /Historia/);
+  assert.match(await text('main'), /Kulawizna/);
+  await go('#/');
+  assert.match(await text('[data-testid=count-inseminated]'), /Krowy zainseminowane/);
+  assert.match(await text('[data-testid=count-awaiting]'), /Czeka na wynik cielności/);
+  await p.click('[data-act=period][data-v=month]');
+  assert.match(await text('[data-testid=t-expected]'), /460,00/);
+  await p.reload();
+  await p.waitForFunction(() => window.__dairyReady);
+  assert.match(await text('.find-label'), /Znajdź krowę po numerze/);
+  ok('switches to Polish, numbers in Polish format, language kept after reload');
 
   assert.deepEqual(errors, [], 'no page errors');
   console.log('\nALL SCENARIOS PASSED');

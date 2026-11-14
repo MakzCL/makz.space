@@ -3,17 +3,18 @@ import * as db from './db.js';
 import { html, openForm, toast } from './ui.js';
 import { D, S, tz, bulls, groups, distinct, notFuture, removeWithUndo, animal as getAnimal } from './store.js';
 import {
-  animalLabel, breedingAttempts, breedingStatus, isActive, isFemale, TYPES, sireLabel,
+  animalLabel, breedingAttempts, breedingStatus, isActive, isFemale, TYPES, STATUS, sireLabel,
   treatmentMilkEnd, withdrawals,
 } from './logic.js';
 import { fmtDay, fmtDateTime, todayKey, dayKey, addDays, fromInputDateTime } from './time.js';
+import { t as tr, plural } from './i18n.js';
 
 const nowIso = () => new Date().toISOString();
 
 export function cowBanner(a, sub = '') {
-  return html`<div class="cow-banner"><span class="cow-banner-label">${TYPES[a.type] || 'Animal'}</span>
+  return html`<div class="cow-banner"><span class="cow-banner-label">${tr(TYPES[a.type] || 'Animal')}</span>
     <span class="code-xl">${animalLabel(a)}</span>
-    <span class="cow-banner-sub">${a.tag && a.tag !== a.code ? `Tag ${a.tag}` : ''}${a.group ? ` · ${a.group}` : ''}${sub}</span></div>`;
+    <span class="cow-banner-sub">${a.tag && a.tag !== a.code ? tr('Tag {tag}', { tag: a.tag }) : ''}${a.group ? ` · ${a.group}` : ''}${sub}</span></div>`;
 }
 
 async function saveEvent(rec) {
@@ -21,7 +22,7 @@ async function saveEvent(rec) {
 }
 
 function delEvent(e, label) {
-  return () => removeWithUndo('events', e, label || 'Record deleted');
+  return () => removeWithUndo('events', e, tr(label || 'Record deleted'));
 }
 
 const bullOptions = () => [['', '— Not on farm records / unknown —'], ...bulls().filter(isActive).map((b) => [b.id, `${animalLabel(b)}${b.name ? ` ${b.name}` : ''}`])];
@@ -52,10 +53,10 @@ export function recordInsemination(a, existing) {
       if (!existing) {
         const dup = D().events.find((e) => e.id !== id && e.animalId === a.id && e.kind === 'ai'
           && Math.abs(Date.parse(e.at) - Date.parse(v.at)) < 60000);
-        if (dup) return { msg: `Already saved for ${animalLabel(a)} — not added twice` };
+        if (dup) return { msg: tr('Already saved for {code} — not added twice', { code: animalLabel(a) }) };
       }
       await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'ai' });
-      return `Insemination saved for ${animalLabel(a)}`;
+      return tr('Insemination saved for {code}', { code: animalLabel(a) });
     },
     onDelete: existing && delEvent(existing, 'Insemination deleted'),
   });
@@ -70,7 +71,7 @@ export function recordHeat(a, existing) {
       { name: 'sign', label: 'Sign', type: 'select', detail: true, options: [['', '—'], 'Standing to be mounted', 'Mounting others', 'Clear mucus', 'Activity monitor alert', 'Other'] },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'heat' }); return 'Heat saved'; },
+    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'heat' }); return tr('Heat saved'); },
     onDelete: existing && delEvent(existing),
   });
 }
@@ -85,14 +86,14 @@ export function recordNatural(a, existing) {
       { name: 'bullText', label: 'Bull name (if not on farm records)', showIf: { name: 'bullId', is: [''] } },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'natural' }); return 'Natural service saved'; },
+    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'natural' }); return tr('Natural service saved'); },
     onDelete: existing && delEvent(existing),
   });
 }
 
-function attemptLabel(t) {
-  if (t.kind === 'exposure') return `Bull exposure ${fmtDay(t.start)} – ${t.end ? fmtDay(t.end) : 'ongoing'}${t.sire ? ` (${t.sire})` : ''}`;
-  return `${t.kind === 'ai' ? 'AI' : 'Natural service'} ${fmtDay(t.start)}${t.sire ? ` (${t.sire})` : ''}`;
+function attemptLabel(x) {
+  if (x.kind === 'exposure') return `${tr('Bull exposure')} ${fmtDay(x.start)} – ${x.end ? fmtDay(x.end) : tr('ongoing')}${x.sire ? ` (${x.sire})` : ''}`;
+  return `${x.kind === 'ai' ? tr('AI') : tr('Natural service')} ${fmtDay(x.start)}${x.sire ? ` (${x.sire})` : ''}`;
 }
 
 export function recordPregCheck(a, existing) {
@@ -109,7 +110,7 @@ export function recordPregCheck(a, existing) {
       { name: 'method', label: 'Method', type: 'select', detail: true, options: [['', '—'], 'Ultrasound', 'Rectal palpation', 'Blood test', 'Milk test', 'Other'] },
       { name: 'examiner', label: 'Examiner (vet or technician)', detail: true, list: examiners },
       { name: 'vetDueDate', label: "Vet's expected calving date", type: 'date', detail: true, showIf: { name: 'result', is: ['pregnant'] }, help: 'Overrides the calculated date.' },
-      { name: 'nextCheck', label: 'Set a reminder for the next check', type: 'date', detail: true, showIf: { name: 'result', is: ['inconclusive', 'pregnant'] }, help: `Inconclusive results are rechecked after ${S().recheckDays} days unless you pick a date.` },
+      { name: 'nextCheck', label: 'Set a reminder for the next check', type: 'date', detail: true, showIf: { name: 'result', is: ['inconclusive', 'pregnant'] }, help: tr('Inconclusive results are rechecked after {n} days unless you pick a date.', { n: S().recheckDays }) },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
     async onSubmit(v, id) {
@@ -117,9 +118,9 @@ export function recordPregCheck(a, existing) {
       const ops = [{ store: 'events', put: { ...(existing || {}), ...v, nextCheck: undefined, id, animalId: a.id, kind: 'pregcheck' } }];
       // A check closes any open check reminder for this animal.
       for (const t of D().tasks) if (!t.done && t.kind === 'pregcheck' && t.animalId === a.id) ops.push({ store: 'tasks', put: { ...t, done: true, doneAt: nowIso() } });
-      if (v.nextCheck) ops.push({ store: 'tasks', put: { id: `${id}-next`, kind: 'pregcheck', animalId: a.id, date: v.nextCheck, title: `Pregnancy check ${animalLabel(a)}`, done: false } });
+      if (v.nextCheck) ops.push({ store: 'tasks', put: { id: `${id}-next`, kind: 'pregcheck', animalId: a.id, date: v.nextCheck, title: `${tr('Pregnancy check')} ${animalLabel(a)}`, done: false } });
       await db.write(ops);
-      return `Pregnancy check saved: ${v.result}`;
+      return tr('Pregnancy check saved: {r}', { r: tr({ pregnant: 'pregnant', open: 'open', inconclusive: 'inconclusive' }[v.result]) });
     },
     onDelete: existing && delEvent(existing),
   });
@@ -132,14 +133,14 @@ export function setCheckReminder(a) {
     title: 'Pregnancy check reminder', header: cowBanner(a), tz: tz(), recordId: existing?.id,
     values: existing || { date: st.checkDue || addDays(todayKey(tz()), 7) },
     fields: [
-      { name: 'date', label: 'Check on', type: 'date', required: true, help: `Default follows your vet's schedule: first check ${S().firstCheckDays} days after service, recheck ${S().recheckDays} days after an inconclusive result.` },
+      { name: 'date', label: 'Check on', type: 'date', required: true, help: tr("Default follows your vet's schedule: first check {a} days after service, recheck {b} days after an inconclusive result.", { a: S().firstCheckDays, b: S().recheckDays }) },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
     async onSubmit(v, id) {
-      await db.put('tasks', { ...(existing || {}), ...v, id, kind: 'pregcheck', animalId: a.id, title: `Pregnancy check ${animalLabel(a)}`, done: false });
-      return 'Reminder set';
+      await db.put('tasks', { ...(existing || {}), ...v, id, kind: 'pregcheck', animalId: a.id, title: `${tr('Pregnancy check')} ${animalLabel(a)}`, done: false });
+      return tr('Reminder set');
     },
-    onDelete: existing && (() => removeWithUndo('tasks', existing, 'Reminder removed')),
+    onDelete: existing && (() => removeWithUndo('tasks', existing, tr('Reminder removed'))),
     deleteLabel: 'Remove reminder (use vet schedule)',
   });
 }
@@ -152,7 +153,7 @@ export function recordDryOff(a, existing) {
       { name: 'at', label: 'Dried off', type: 'datetime', required: true, quick: true },
       { name: 'notes', label: 'Notes (record dry-cow tubes as a treatment)', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'dryoff' }); return 'Dry-off saved'; },
+    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'dryoff' }); return tr('Dry-off saved'); },
     onDelete: existing && delEvent(existing),
   });
 }
@@ -166,7 +167,7 @@ export function recordLoss(a, existing) {
       { name: 'cause', label: 'Suspected cause', detail: true },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'loss' }); return 'Pregnancy loss saved'; },
+    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'loss' }); return tr('Pregnancy loss saved'); },
     onDelete: existing && delEvent(existing),
   });
 }
@@ -188,7 +189,7 @@ export function recordCalving(a, existing) {
   for (let n = 1; n <= 3; n++) {
     const showIf = { name: 'calfCount', is: n === 1 ? ['1', '2', '3'] : n === 2 ? ['2', '3'] : ['3'] };
     calfFields.push(
-      { type: 'heading', label: `Calf ${n}`, showIf },
+      { type: 'heading', label: tr('Calf {n}', { n }), showIf },
       { name: `c${n}_outcome`, label: 'Outcome', type: 'choice', options: [['alive', 'Alive'], ['stillborn', 'Stillborn'], ['died', 'Died soon after']], showIf },
       { name: `c${n}_sex`, label: 'Sex', type: 'choice', options: [['F', 'Heifer (F)'], ['M', 'Bull (M)']], showIf },
       { name: `c${n}_tag`, label: 'Ear tag', showIf },
@@ -238,7 +239,7 @@ export function recordCalving(a, existing) {
       ops.push({ store: 'events', put: { ...(existing || {}), at: v.at, calfCount: count, assistance: v.assistance, bullId: v.bullId, sire: v.sire, notes: v.notes, calves, id, animalId: a.id, kind: 'calving' } });
       if (a.type === 'heifer') ops.push({ store: 'animals', put: { ...a, type: 'cow' } });
       await db.write(ops);
-      return `Calving saved — ${count === 2 ? 'twins' : count === 3 ? 'triplets' : '1 calf'}`;
+      return tr('Calving saved — {what}', { what: tr(count === 2 ? 'twins' : count === 3 ? 'triplets' : '1 calf') });
     },
     onDelete: existing && delEvent(existing, 'Calving deleted (calf records kept)'),
   });
@@ -262,7 +263,7 @@ export function recordHealth(a, existing, condition) {
     async onSubmit(v, id) {
       notFuture(v.at);
       await saveEvent({ ...(existing || {}), ...v, id, animalId: a.id, kind: 'health' });
-      return { msg: 'Health record saved', action: !existing && { label: 'Add treatment', fn: () => recordTreatment(a) } };
+      return { msg: tr('Health record saved'), action: !existing && { label: tr('Add treatment'), fn: () => recordTreatment(a) } };
     },
     onDelete: existing && delEvent(existing),
   });
@@ -285,9 +286,9 @@ export function recordVaccination(a, existing) {
     async onSubmit(v, id) {
       notFuture(v.at);
       const ops = [{ store: 'events', put: { ...(existing || {}), ...v, id, animalId: a.id, kind: 'vaccination' } }];
-      if (v.booster) ops.push({ store: 'tasks', put: { id: `${id}-booster`, kind: 'other', animalId: a.id, date: v.booster, title: `Booster: ${v.product} for ${animalLabel(a)}`, done: false } });
+      if (v.booster) ops.push({ store: 'tasks', put: { id: `${id}-booster`, kind: 'other', animalId: a.id, date: v.booster, title: tr('Booster: {p} for {code}', { p: v.product, code: animalLabel(a) }), done: false } });
       await db.write(ops);
-      return 'Vaccination saved';
+      return tr('Vaccination saved');
     },
     onDelete: existing && delEvent(existing),
   });
@@ -332,7 +333,7 @@ export function recordTreatment(a, existing) {
           milkEndManual: conv('milkEndManual'),
         };
         const end = t.at ? treatmentMilkEnd(t) : null;
-        calc.textContent = end ? `Milk hold until ${fmtDateTime(end, tz())}` : 'Milk hold stays on until an end time is entered.';
+        calc.textContent = end ? tr('Milk hold until {d}', { d: fmtDateTime(end, tz()) }) : tr('Milk hold stays on until an end time is entered.');
       };
       form.addEventListener('input', upd); form.addEventListener('change', upd); upd();
     },
@@ -344,7 +345,7 @@ export function recordTreatment(a, existing) {
       if (!rec.meatRequired) { rec.meatPeriod = null; rec.meatEndManual = null; }
       await saveEvent(rec);
       const w = withdrawals({ ...D() }, a.id);
-      return w.milk.active ? `Saved — WITHHOLD MILK from ${animalLabel(a)}` : 'Treatment saved';
+      return w.milk.active ? tr('Saved — WITHHOLD MILK from {code}', { code: animalLabel(a) }) : tr('Treatment saved');
     },
     onDelete: existing && delEvent(existing, 'Treatment deleted'),
   });
@@ -366,21 +367,21 @@ export function recordMovement(a, existing) {
     ],
     async onSubmit(v, id) {
       notFuture(v.at);
-      if (v.direction === 'off' && !v.reasonOff) throw new Error('Choose a reason.');
+      if (v.direction === 'off' && !v.reasonOff) throw new Error(tr('Choose a reason.'));
       if (v.direction === 'off' && v.reasonOff !== 'deceased') {
         const w = withdrawals(D(), a.id);
-        if ((w.meat.active || w.milk.active) && !confirm(`${animalLabel(a)} has an active withdrawal. Move her off anyway?`)) return { msg: false };
+        if ((w.meat.active || w.milk.active) && !confirm(tr('{code} has an active withdrawal. Move off anyway?', { code: animalLabel(a) }))) return { msg: false };
       }
       const status = v.direction === 'off' ? v.reasonOff : 'active';
       await db.write([
         { store: 'events', put: { ...(existing || {}), ...v, id, animalId: a.id, kind: 'movement' } },
         { store: 'animals', put: { ...getAnimal(a.id), status, statusDate: dayKey(v.at, tz()) } },
       ]);
-      return status === 'active' ? 'Movement saved' : `${animalLabel(a)} moved to the archive (${status})`;
+      return status === 'active' ? tr('Movement saved') : tr('{code} moved to the archive ({s})', { code: animalLabel(a), s: tr(STATUS[status]) });
     },
     onDelete: existing && (() => {
       const before = getAnimal(a.id);
-      return removeWithUndo('events', existing, 'Movement deleted — status set back to active',
+      return removeWithUndo('events', existing, tr('Movement deleted — status set back to active'),
         [{ store: 'animals', put: { ...before, status: 'active', statusDate: null } }],
         [{ store: 'animals', put: before }]);
     }),
@@ -400,7 +401,7 @@ export function recordBSE(b, existing) {
       { name: 'examiner', label: 'Vet', detail: true },
       { name: 'notes', label: 'Findings / notes', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: b.id, kind: 'bse' }); return 'Exam saved'; },
+    async onSubmit(v, id) { notFuture(v.at); await saveEvent({ ...(existing || {}), ...v, id, animalId: b.id, kind: 'bse' }); return tr('Exam saved'); },
     onDelete: existing && delEvent(existing),
   });
 }
@@ -410,7 +411,7 @@ export function recordExposure(existing, preset = {}) {
   const fem = females();
   openForm({
     title: existing ? 'Edit bull exposure' : 'Bull with a group', tz: tz(), recordId: existing?.id,
-    header: html`<p class="lead">Use this when a bull runs with cows and you did not see the service. Calving is shown as a date range.</p>`,
+    header: html`<p class="lead">${tr('Use this when a bull runs with cows and you did not see the service. Calving is shown as a date range.')}</p>`,
     values: existing || { start: todayKey(tz()), ...preset },
     fields: [
       { name: 'bullId', label: 'Bull', type: 'select', options: bullOptions() },
@@ -429,12 +430,12 @@ export function recordExposure(existing, preset = {}) {
       });
     },
     async onSubmit(v, id) {
-      if (v.end && v.end < v.start) throw new Error('The end date is before the start date.');
-      if (v.start > todayKey(tz())) throw new Error('The start date is in the future.');
+      if (v.end && v.end < v.start) throw new Error(tr('The end date is before the start date.'));
+      if (v.start > todayKey(tz())) throw new Error(tr('The start date is in the future.'));
       await db.put('exposures', { ...(existing || {}), ...v, id });
-      return `Exposure saved for ${v.animalIds.length} animal${v.animalIds.length === 1 ? '' : 's'}`;
+      return tr('Exposure saved for {n}', { n: plural(v.animalIds.length, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt']) });
     },
-    onDelete: existing && (() => removeWithUndo('exposures', existing, 'Exposure deleted')),
+    onDelete: existing && (() => removeWithUndo('exposures', existing, tr('Exposure deleted'))),
   });
 }
 
@@ -444,7 +445,7 @@ export function editAnimal(existing, preset = {}) {
   const fem = D().animals.filter((a) => isFemale(a) && a.id !== existing?.id)
     .sort((a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true }));
   openForm({
-    title: existing ? `Edit ${animalLabel(existing)}` : 'Add animal', tz: tz(), recordId: existing?.id,
+    title: existing ? tr('Edit {code}', { code: animalLabel(existing) }) : 'Add animal', tz: tz(), recordId: existing?.id,
     values: existing || { type: 'cow', ...preset },
     fields: [
       { name: 'code', label: 'Farm code', inputmode: 'text', help: 'Typed exactly as written: 0042 stays 0042.' },
@@ -460,16 +461,16 @@ export function editAnimal(existing, preset = {}) {
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
     async onSubmit(v, id) {
-      if (!v.code && !v.tag) throw new Error('Enter a farm code or an ear tag.');
+      if (!v.code && !v.tag) throw new Error(tr('Enter a farm code or an ear tag.'));
       const clash = D().animals.find((x) => x.id !== id && isActive(x) && v.code && x.code === v.code);
-      if (clash) throw new Error(`Code ${v.code} is already used by another active animal.`);
+      if (clash) throw new Error(tr('Code {code} is already used by another active animal.', { code: v.code }));
       if (v.type !== 'calf') v.sex = ['cow', 'heifer'].includes(v.type) ? 'F' : 'M';
       await db.put('animals', { status: 'active', ...(existing || {}), ...v, id });
-      return { msg: existing ? 'Animal updated' : `${v.code || v.tag} added`, go: existing ? undefined : `#/animal/${id}` };
+      return { msg: existing ? tr('Animal updated') : tr('{code} added', { code: v.code || v.tag }), go: existing ? undefined : `#/animal/${id}` };
     },
     onDelete: existing && (() => {
       const evs = D().events.filter((e) => e.animalId === existing.id);
-      if (!confirm(`Delete ${animalLabel(existing)} and ${evs.length} record(s) about her/him completely? To keep history, record a movement off the farm instead.`)) throw new Error('Not deleted.');
+      if (!confirm(tr('Delete {code} and {n} record(s) completely? To keep history, record a movement off the farm instead.', { code: animalLabel(existing), n: evs.length }))) throw new Error(tr('Not deleted.'));
       return db.write([{ store: 'animals', del: existing.id }, ...evs.map((e) => ({ store: 'events', del: e.id }))]).then(() => ({ go: '#/herd' }));
     }),
     deleteLabel: 'Delete animal completely',
@@ -489,14 +490,14 @@ export function editTask(existing, preset = {}) {
       { name: 'animalId', label: 'Animal (optional)', type: 'select', detail: true, options: [['', '—'], ...all.map((a) => [a.id, animalLabel(a)])] },
       { name: 'notes', label: 'Notes', type: 'textarea', detail: true },
     ],
-    async onSubmit(v, id) { await db.put('tasks', { done: false, ...(existing || {}), ...v, id }); return 'Reminder saved'; },
-    onDelete: existing && (() => removeWithUndo('tasks', existing, 'Reminder deleted')),
+    async onSubmit(v, id) { await db.put('tasks', { done: false, ...(existing || {}), ...v, id }); return tr('Reminder saved'); },
+    onDelete: existing && (() => removeWithUndo('tasks', existing, tr('Reminder deleted'))),
   });
 }
 
-export async function completeTask(t) {
-  await db.put('tasks', { ...t, done: true, doneAt: nowIso() });
-  toast('Marked done', { action: { label: 'Undo', fn: () => db.put('tasks', { ...t, done: false }) } });
+export async function completeTask(task) {
+  await db.put('tasks', { ...task, done: true, doneAt: nowIso() });
+  toast(tr('Marked done'), { action: { label: tr('Undo'), fn: () => db.put('tasks', { ...task, done: false }) } });
 }
 
 /** Open the right edit form for any event. */

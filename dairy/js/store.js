@@ -2,6 +2,7 @@
 import * as db from './db.js';
 import { settingsOf } from './logic.js';
 import { toast } from './ui.js';
+import { t } from './i18n.js';
 
 let cache = null;
 db.onChange(() => { cache = null; });
@@ -25,11 +26,11 @@ export async function saveSettings(patch) {
 /** Save with undo for deletes. */
 export async function removeWithUndo(store, rec, label = 'Record deleted', extraOps = [], undoOps = []) {
   await db.write([{ store, del: rec.id }, ...extraOps]);
-  toast(label, { action: { label: 'Undo', fn: () => db.write([{ store, put: rec }, ...undoOps]) } });
+  toast(t(label), { action: { label: t('Undo'), fn: () => db.write([{ store, put: rec }, ...undoOps]) } });
 }
 
 export function notFuture(iso, what = 'date') {
-  if (iso && Date.parse(iso) > Date.now() + 10 * 60000) throw new Error(`The ${what} is in the future. Check the date and time.`);
+  if (iso && Date.parse(iso) > Date.now() + 10 * 60000) throw new Error(t('The date is in the future. Check the date and time.'));
 }
 
 export function distinct(values) {
@@ -46,5 +47,5 @@ export function periodRange() {
   if (ui.period === 'custom' && ui.from && ui.to) return { from: ui.from, to: ui.to, label: 'Custom' };
   if (ui.period === 'month') return { from: `${t.slice(0, 8)}01`, to: t, label: 'This month' };
   const n = +ui.period || 30;
-  return { from: _add(t, -(n - 1)), to: t, label: `Last ${n} days` };
+  return { from: _add(t, -(n - 1)), to: t, label: `Last ${n} days`, n };
 }

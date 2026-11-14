@@ -10,6 +10,9 @@ export const STORES = [
 ];
 
 let idb = null;
+let actor = null;
+/** Name of the logged-in person, stamped on new records. */
+export function setActor(name) { actor = name; }
 const mem = {};
 const listeners = new Set();
 
@@ -60,7 +63,7 @@ export async function write(ops) {
   for (const o of ops) {
     if (o.put) {
       o.put.updatedAt = now;
-      if (!o.put.createdAt) o.put.createdAt = now;
+      if (!o.put.createdAt) { o.put.createdAt = now; if (actor && o.store !== 'settings' && o.store !== 'meta') o.put.createdBy = actor; }
       tx.objectStore(o.store).put(o.put);
     } else tx.objectStore(o.store).delete(o.del);
   }

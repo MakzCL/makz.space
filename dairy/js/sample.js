@@ -2,6 +2,7 @@
 import * as db from './db.js';
 import { D, tz } from './store.js';
 import { todayKey, addDays, dayStartIso } from './time.js';
+import { t as tr } from './i18n.js';
 
 export async function addSampleData() {
   const z = tz();
@@ -11,39 +12,39 @@ export async function addSampleData() {
   const A = (id, rec) => ops.push({ store: 'animals', put: { id: `s-${id}`, status: 'active', sample: true, breed: 'Holstein Friesian', ...rec } });
   const E = (id, rec) => ops.push({ store: 'events', put: { id: `s-e-${id}`, sample: true, ...rec } });
 
-  A('bull', { code: 'B01', tag: 'IE 900111 0001', type: 'bull', sex: 'M', name: 'Duke', breed: 'Hereford', group: 'Heifers' });
-  A('0042', { code: '0042', tag: 'IE 123456 0042', type: 'cow', sex: 'F', group: 'Milkers', birthDate: addDays(t, -4 * 365) });
-  A('0007', { code: '0007', tag: 'IE 123456 0007', type: 'cow', sex: 'F', group: 'Milkers', birthDate: addDays(t, -6 * 365) });
-  A('0108', { code: '0108', tag: 'IE 123456 0108', type: 'cow', sex: 'F', group: 'Milkers' });
-  A('0115', { code: '0115', tag: 'IE 123456 0115', type: 'cow', sex: 'F', group: 'Milkers' });
-  A('0123', { code: '0123', tag: 'IE 123456 0123', type: 'cow', sex: 'F', group: 'Milkers' });
-  A('0131', { code: '0131', tag: 'IE 123456 0131', type: 'cow', sex: 'F', group: 'Milkers' });
-  A('0420', { code: '0420', tag: 'IE 123456 0420', type: 'cow', sex: 'F', group: 'Milkers' });
-  A('h201', { code: '201', tag: 'IE 123456 0201', type: 'heifer', sex: 'F', group: 'Heifers' });
-  A('h202', { code: '202', tag: 'IE 123456 0202', type: 'heifer', sex: 'F', group: 'Heifers' });
-  A('sold', { code: '0099', tag: 'IE 123456 0099', type: 'cow', sex: 'F', group: 'Milkers', status: 'sold', statusDate: addDays(t, -40) });
+  A('bull', { code: 'B01', tag: 'IE 900111 0001', type: 'bull', sex: 'M', name: 'Duke', breed: 'Hereford', group: tr('Heifers') });
+  A('0042', { code: '0042', tag: 'IE 123456 0042', type: 'cow', sex: 'F', group: tr('Milkers'), birthDate: addDays(t, -4 * 365) });
+  A('0007', { code: '0007', tag: 'IE 123456 0007', type: 'cow', sex: 'F', group: tr('Milkers'), birthDate: addDays(t, -6 * 365) });
+  A('0108', { code: '0108', tag: 'IE 123456 0108', type: 'cow', sex: 'F', group: tr('Milkers') });
+  A('0115', { code: '0115', tag: 'IE 123456 0115', type: 'cow', sex: 'F', group: tr('Milkers') });
+  A('0123', { code: '0123', tag: 'IE 123456 0123', type: 'cow', sex: 'F', group: tr('Milkers') });
+  A('0131', { code: '0131', tag: 'IE 123456 0131', type: 'cow', sex: 'F', group: tr('Milkers') });
+  A('0420', { code: '0420', tag: 'IE 123456 0420', type: 'cow', sex: 'F', group: tr('Milkers') });
+  A('h201', { code: '201', tag: 'IE 123456 0201', type: 'heifer', sex: 'F', group: tr('Heifers') });
+  A('h202', { code: '202', tag: 'IE 123456 0202', type: 'heifer', sex: 'F', group: tr('Heifers') });
+  A('sold', { code: '0099', tag: 'IE 123456 0099', type: 'cow', sex: 'F', group: tr('Milkers'), status: 'sold', statusDate: addDays(t, -40) });
 
   // 0007: inseminated 40 days ago, no check yet -> overdue check
-  E('1', { animalId: 's-0007', kind: 'ai', at: at(40), sire: 'Sample Sire A', technician: 'Sample AI tech' });
+  E('1', { animalId: 's-0007', kind: 'ai', at: at(40), sire: tr('Sample Sire A'), technician: tr('Sample AI tech') });
   // 0108: pregnant, calving due in ~12 days, not dried off
-  E('2', { animalId: 's-0108', kind: 'ai', at: at(271), sire: 'Sample Sire B' });
-  E('3', { animalId: 's-0108', kind: 'pregcheck', at: at(230), result: 'pregnant', method: 'Ultrasound', examiner: 'Sample Vet' });
+  E('2', { animalId: 's-0108', kind: 'ai', at: at(271), sire: tr('Sample Sire B') });
+  E('3', { animalId: 's-0108', kind: 'pregcheck', at: at(230), result: 'pregnant', method: tr('Ultrasound'), examiner: tr('Sample Vet') });
   // 0115: pregnant, dry-off due soon
-  E('4', { animalId: 's-0115', kind: 'ai', at: at(215), sire: 'Sample Sire A' });
-  E('5', { animalId: 's-0115', kind: 'pregcheck', at: at(180), result: 'pregnant', method: 'Ultrasound', examiner: 'Sample Vet' });
+  E('4', { animalId: 's-0115', kind: 'ai', at: at(215), sire: tr('Sample Sire A') });
+  E('5', { animalId: 's-0115', kind: 'pregcheck', at: at(180), result: 'pregnant', method: tr('Ultrasound'), examiner: tr('Sample Vet') });
   // 0123: inconclusive check -> stays on follow-up
-  E('6', { animalId: 's-0123', kind: 'ai', at: at(33), sire: 'Sample Sire B' });
-  E('7', { animalId: 's-0123', kind: 'pregcheck', at: at(3), result: 'inconclusive', method: 'Ultrasound', examiner: 'Sample Vet' });
+  E('6', { animalId: 's-0123', kind: 'ai', at: at(33), sire: tr('Sample Sire B') });
+  E('7', { animalId: 's-0123', kind: 'pregcheck', at: at(3), result: 'inconclusive', method: tr('Ultrasound'), examiner: tr('Sample Vet') });
   // 0131: mastitis + treatment with active milk withdrawal
-  E('8', { animalId: 's-0131', kind: 'health', at: at(1, 6), condition: 'mastitis', quarters: ['LF'], severity: 'Moderate' });
-  E('9', { animalId: 's-0131', kind: 'treatment', at: at(1, 7), product: 'Sample intramammary tube', dose: '1 tube LF', by: 'Farmer', milkRequired: true, milkPeriod: 84, milkUnit: 'hours', meatRequired: true, meatPeriod: 4 });
-  E('10', { animalId: 's-0420', kind: 'heat', at: at(2, 18), sign: 'Standing to be mounted' });
-  E('11', { animalId: 's-bull', kind: 'bse', at: at(300), result: 'satisfactory', examiner: 'Sample Vet', recheckDate: addDays(t, 5) });
-  ops.push({ store: 'exposures', put: { id: 's-x1', sample: true, bullId: 's-bull', group: 'Heifers', start: addDays(t, -50), end: null, animalIds: ['s-h201', 's-h202'] } });
-  ops.push({ store: 'tasks', put: { id: 's-t1', sample: true, kind: 'vet', title: 'Sample: vet herd scan', date: addDays(t, 2), done: false } });
+  E('8', { animalId: 's-0131', kind: 'health', at: at(1, 6), condition: 'mastitis', quarters: ['LF'], severity: tr('Moderate') });
+  E('9', { animalId: 's-0131', kind: 'treatment', at: at(1, 7), product: tr('Sample intramammary tube'), dose: tr('1 tube LF'), by: tr('Farmer'), milkRequired: true, milkPeriod: 84, milkUnit: 'hours', meatRequired: true, meatPeriod: 4 });
+  E('10', { animalId: 's-0420', kind: 'heat', at: at(2, 18), sign: tr('Standing to be mounted') });
+  E('11', { animalId: 's-bull', kind: 'bse', at: at(300), result: 'satisfactory', examiner: tr('Sample Vet'), recheckDate: addDays(t, 5) });
+  ops.push({ store: 'exposures', put: { id: 's-x1', sample: true, bullId: 's-bull', group: tr('Heifers'), start: addDays(t, -50), end: null, animalIds: ['s-h201', 's-h202'] } });
+  ops.push({ store: 'tasks', put: { id: 's-t1', sample: true, kind: 'vet', title: tr('Sample: vet herd scan'), date: addDays(t, 2), done: false } });
 
   // Milk: two sessions a day for 10 days, a collection every 2 days.
-  ops.push({ store: 'buyers', put: { id: 's-buyer', sample: true, name: 'Sample Creamery', defaultPrice: 0.42 } });
+  ops.push({ store: 'buyers', put: { id: 's-buyer', sample: true, name: tr('Sample Creamery'), defaultPrice: 0.42 } });
   for (let d = 1; d <= 10; d++) {
     const date = addDays(t, -d);
     ops.push({ store: 'milk', put: { id: `s-m-${d}-am`, sample: true, kind: 'session', date, session: 'AM', litres: 410 + (d % 3) * 5 } });
