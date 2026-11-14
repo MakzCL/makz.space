@@ -11,3 +11,4 @@ npm-debug.log*
 .vercel
 next-env.d.ts
 *.tsbuildinfo
+dairy/e2e-failure.png

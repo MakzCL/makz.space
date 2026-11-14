@@ -1,0 +1,1 @@
+{ "name": "dairy-herd", "private": true, "type": "module", "scripts": { "start": "node serve.mjs", "test": "node --test tests/logic.test.mjs", "e2e": "node tests/e2e.mjs" } }
