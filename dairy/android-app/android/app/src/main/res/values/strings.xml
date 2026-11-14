@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dairy Herd</string>
+    <string name="title_activity_main">Dairy Herd</string>
+    <string name="package_name">space.makz.dairyherd</string>
+    <string name="custom_url_scheme">space.makz.dairyherd</string>
+</resources>

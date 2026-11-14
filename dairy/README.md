@@ -6,7 +6,53 @@ payment, milk quality, herd health and withdrawals. Records are saved on the
 phone the moment you tap Save, so it works in the barn with no signal.
 
 No build step and no dependencies: plain HTML, CSS and JavaScript modules,
-IndexedDB for records, a service worker for offline use.
+IndexedDB for records, a service worker for offline use. English and Polish
+(switch in More, Settings or on the login screen).
+
+## Login
+
+The first start creates the owner's login (name + PIN or password). Nothing
+from the herd is shown until someone logs in. The owner (admin) can add
+workers in **More → Users & login**; workers can enter records but cannot open
+settings, backup/restore or user management. The app locks after 15 minutes
+without use (adjustable) and whenever it is closed; 5 wrong PINs in a row
+cause an increasing wait. PINs are stored only as salted PBKDF2 hashes.
+
+This keeps strangers out of the app. It is not encryption of the phone's
+storage: keep backup files private, because they contain the farm records.
+If the only admin forgets the PIN, the data cannot be opened — the login
+screen offers to erase the device so a backup file can be restored.
+
+## Android app (APK)
+
+`android-app/` wraps the same files with Capacitor into an Android app that
+works fully offline. Backups and CSV files open the Android share sheet
+(save to Drive, Files, e-mail…).
+
+Install: copy `DairyHerd-1.0.apk` to the phone, open it and allow
+"Install unknown apps" for the app you opened it with.
+
+Build it yourself (needs Node 22, JDK 21 and the Android SDK):
+
+```bash
+cd dairy/android-app
+npm install
+npm run apk          # signed release if keystore.properties exists
+```
+
+The APK is in `android/app/build/outputs/apk/release/`. Release signing reads
+`android-app/keystore.properties` (not in git):
+
+```
+storeFile=dairy-herd-release.keystore
+storePassword=…
+keyAlias=dairyherd
+keyPassword=…
+```
+
+**Keep the keystore safe.** Updates must be signed with the same key, or
+Android refuses to install them over the old version — and uninstalling
+deletes the app's records. Always back up before reinstalling.
 
 ## Start it
 

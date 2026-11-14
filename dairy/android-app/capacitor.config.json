@@ -1,0 +1,6 @@
+{
+  "appId": "space.makz.dairyherd",
+  "appName": "Dairy Herd",
+  "webDir": "www",
+  "android": { "allowMixedContent": false, "captureInput": true }
+}

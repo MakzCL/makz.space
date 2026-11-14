@@ -264,7 +264,19 @@ function readField(form, f, tz) {
   }
 }
 
+/** In the Android app (Capacitor) files are written to the cache and handed to the share sheet. */
+async function nativeSave(name, text) {
+  const call = (plugin, method, opts) => window.Capacitor.nativePromise(plugin, method, opts);
+  const res = await call('Filesystem', 'writeFile', { path: name, data: text, directory: 'CACHE', encoding: 'utf8', recursive: true });
+  try {
+    await call('Share', 'share', { title: name, files: [res.uri], dialogTitle: name });
+  } catch (err) {
+    if (!/cancel/i.test(err?.message || '')) throw err;
+  }
+}
+
 export function download(name, text, type = 'text/csv') {
+  if (window.Capacitor?.isNativePlatform?.()) return nativeSave(name, text);
   const blob = new Blob([text], { type: `${type};charset=utf-8` });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

@@ -181,7 +181,7 @@ export function reportsView() {
       ${days.map((d) => { const md = milkDay(D(), d); return html`<tr><td>${fmtDay(d)}</td><td>${L(md.official)}</td><td>${tr(MILK_SOURCES[md.source])}</td><td>${L(md.kept.withheld + md.kept.discarded + md.kept.onfarm)}</td></tr>`; })}
     </tbody></table>` : empty('No milk in this period.')}`,
     actions: {
-      csv: (d) => { download(`dairy-herd-${d.k}-${todayKey(tz())}.csv`, '\uFEFF' + sets[d.k]()); toast(tr('CSV downloaded')); },
+      csv: async (d) => { await download(`dairy-herd-${d.k}-${todayKey(tz())}.csv`, '\uFEFF' + sets[d.k]()); toast(tr('CSV downloaded')); },
     },
   };
 }
@@ -293,7 +293,7 @@ export function dataView() {
     actions: {
       async backup() {
         const data = { app: 'dairy-herd', version: 1, exportedAt: new Date().toISOString(), data: db.dump() };
-        download(`dairy-herd-backup-${todayKey(tz())}.json`, JSON.stringify(data, null, 1), 'application/json');
+        await download(`dairy-herd-backup-${todayKey(tz())}.json`, JSON.stringify(data, null, 1), 'application/json');
         await db.put('meta', { id: 'lastBackup', at: new Date().toISOString() });
         toast(tr('Backup downloaded'));
       },

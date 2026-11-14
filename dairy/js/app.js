@@ -146,7 +146,7 @@ async function boot() {
   resumeSession();
   render();
   navigator.storage?.persist?.().catch(() => {});
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.Capacitor?.isNativePlatform?.()) {
     navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Offline mode unavailable', err));
   }
   window.__dairyReady = true;

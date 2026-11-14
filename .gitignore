@@ -12,3 +12,4 @@ npm-debug.log*
 next-env.d.ts
 *.tsbuildinfo
 dairy/e2e-failure.png
+dairy/dist/
