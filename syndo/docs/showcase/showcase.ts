@@ -109,7 +109,7 @@ const studioShots = ["studio-gallery", "theme-send-neon", "theme-send-paper", "t
     rise(el.querySelector(".kicker"), lt, .1); rise(el.querySelector("h2"), lt, .25, .6, 30); rise(el.querySelector("p"), lt, 1);
     const per = 1.45, idx = (lt - .5) / per;
     el.querySelectorAll<HTMLElement>(".st").forEach((im, i) => { const d = idx - i, k = ease(d * 2.2), leave = clamp(d - 1);
-      set(im, d < 0 ? 0 : 1, `translate(${(1 - k) * 380 - leave * 60}px, ${-leave * 40}px) rotate(${(1 - k) * 8 - leave * 4}deg) scale(${.92 + .08 * k - leave * .06})`); im.style.zIndex = String(10 + i); im.style.filter = `brightness(${1 - leave * .45})`; });
+      set(im, d < 0 ? 0 : 1, `translate(${(1 - k) * 380 + leave * 30}px, ${-leave * 40}px) rotate(${(1 - k) * 8 - leave * 4}deg) scale(${.92 + .08 * k - leave * .06})`); im.style.zIndex = String(10 + i); im.style.filter = `brightness(${1 - leave * .45})`; });
   }); }
 
 // 7 screen share
