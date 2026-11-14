@@ -1918,8 +1918,6 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .gif-picker .gif-credit { margin: 0; padding: 4px 10px 8px; text-align: right; font-size: .7rem; font-weight: 700; letter-spacing: .04em; color: var(--textMuted); }
 
 /* New web build available (browser and Android; the desktop app uses its title-bar button). */
-.web-update-bar { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 9000; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; border-radius: 999px; background: #1f8b4c; color: #fff; font-weight: 600; font-size: .9rem; box-shadow: 0 6px 24px #0006; max-width: calc(100vw - 24px); }
-.web-update-bar .btn { background: #fff; color: #1f8b4c; border: 0; display: inline-flex; gap: 6px; align-items: center; }
 
 /* Call layout: the grid's columns come from useBestGrid (VoiceStage); tiles fill their cell at 16:9. */
 .stage .tile-grid > .tile, .stage .tile-grid > .invite-card { width: var(--tile-w, 100%); flex: none; }
@@ -2533,3 +2531,18 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .collection-blurb { margin: 0 0 10px; }
 .bundle-contents { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .bundle-contents li { font-size: .7rem; padding: 3px 9px; border-radius: 99px; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--textMuted); }
+
+/* "Update ready" card */
+.web-update { position: fixed; z-index: 9000; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 24px));
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 14px 14px 16px; border-radius: 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg1, #11131a) 92%, var(--accent)), var(--bg1, #11131a));
+  box-shadow: 0 18px 50px #0009, inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); animation: web-update-in .35s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes web-update-in { from { opacity: 0; transform: translate(-50%, -14px) scale(.98); } }
+.web-update-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--on-accent, #fff); background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ff7ad9)); box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+.web-update-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; } .web-update-text strong { font-size: .98rem; } .web-update-text span { font-size: .82rem; color: var(--textMuted); line-height: 1.35; }
+.web-update-actions { display: flex; gap: 8px; } .web-update-actions .btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  .web-update { grid-template-columns: auto 1fr; row-gap: 14px; padding: 16px; border-radius: 20px; }
+  .web-update-text strong { font-size: 1.05rem; } .web-update-text span { font-size: .9rem; }
+  .web-update-actions { grid-column: 1 / -1; } .web-update-actions .btn { flex: 1; justify-content: center; min-height: 46px; font-size: 1rem; border-radius: 14px; }
+}
