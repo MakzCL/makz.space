@@ -6,7 +6,8 @@ import {
 
 export type SendState = "pending" | "failed";
 export type UIMessage = Message & { _state?: SendState; _error?: string };
-export interface MusicTrack { id: string; title: string; artist: string | null; duration: number | null; source: string; page: string | null; requester: { id: string; name: string }; stream_url: string }
+export interface MusicTrack { id: string; title: string; artist: string | null; duration: number | null; source: string; page: string | null; requester: { id: string; name: string }; stream_url: string;
+  /** "youtube": plays in YouTube's own player; "audio": SEND's stream; null: still being matched. */ kind?: "audio" | "youtube" | null; video_id?: string | null; via?: string | null }
 export interface MusicState { channel_id: string; guild_id: string | null; bot_id: string | null; controls?: boolean; active: boolean; playing: MusicTrack | null; paused: boolean; position_ms: number; server_time: number; queue: MusicTrack[]; received_at: number }
 export interface ChannelMessages { list: UIMessage[]; hasMore: boolean; loaded: boolean; loading: boolean }
 export interface CallInfo { channel_id: string; message_id: string; ringing: string[]; started_at: number }

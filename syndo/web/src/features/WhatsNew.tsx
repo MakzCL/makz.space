@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Music2, Sparkles } from "lucide-react";
 import { Modal } from "../components/ui.tsx";
 import { currentLocale } from "./i18n.tsx";
 
@@ -6,20 +7,50 @@ import { currentLocale } from "./i18n.tsx";
  * "What's new" changelog. It opens once after each update (when the newest entry hasn't been seen on this device),
  * waits until no other dialog is open, and can be reopened from Settings. Both the X and Dismiss close it.
  */
-interface Release { id: string; title: string; date: string; intro: string; sections: { title: string; items: string[] }[] }
+type BannerIcon = "music" | "sparkles";
+interface Release {
+  id: string; title: string; date: string; intro: string; sections: { title: string; items: string[] }[];
+  /** Artwork at the top of the entry: an icon on a two-colour gradient. Entries without one get the accent colours. */
+  banner?: { icon: BannerIcon; from: string; to: string; tagline?: string };
+}
+
+/** The changelog banner: a gradient card with floating shapes, the icon and the release name. */
+function Banner({ r, big }: { r: Release; big: boolean }) {
+  const b = r.banner;
+  const Icon = b?.icon === "music" ? Music2 : Sparkles;
+  const style = { "--wn-from": b?.from ?? "var(--accent)", "--wn-to": b?.to ?? "color-mix(in srgb, var(--accent) 50%, #ff7ad9)" } as React.CSSProperties;
+  return <div className={`wn-banner ${big ? "big" : ""}`} style={style} aria-hidden>
+    <span className="wn-orb a" /><span className="wn-orb b" />
+    {b?.icon === "music" && <><Music2 className="wn-float f1" size={22} /><Music2 className="wn-float f2" size={16} /><Music2 className="wn-float f3" size={28} /></>}
+    {b?.icon !== "music" && <><Sparkles className="wn-float f1" size={18} /><Sparkles className="wn-float f2" size={14} /><Sparkles className="wn-float f3" size={22} /></>}
+    <span className="wn-badge"><Icon size={big ? 30 : 18} /></span>
+    {big && <span className="wn-banner-text"><small>{b?.tagline ?? "Update"}</small><strong>{r.title}</strong></span>}
+  </div>;
+}
 
 export const CHANGELOG: Release[] = [
   {
-    id: "2026-11-music",
-    title: "SEND Music",
+    id: "2026-11-music-2",
+    title: "SEND Music is here",
     date: "2026-11-14",
-    intro: "A music bot for your voice rooms.",
+    intro: "A music bot for your voice rooms. Listen together, in sync, from YouTube, Spotify and more.",
+    banner: { icon: "music", from: "#5865f2", to: "#eb459e", tagline: "New bot" },
     sections: [
-      { title: "Music", items: [
-        "Join a voice room and type !play with a song name or a link in any chat of that server.",
-        "Everyone in the room hears the same song at the same moment, with a queue for what's next.",
+      { title: "Play anything", items: [
+        "Type !play with a song name or a link in any chat, or press the music button on the call screen.",
+        "YouTube videos and playlists play in YouTube's own player, in sync for everyone in the room.",
+        "Paste a Spotify or Deezer song, album or playlist and SEND Music looks for a playable version of each song.",
+        "Audius tracks and playlists, and direct links to audio files, work too.",
+      ] },
+      { title: "On the call screen", items: [
+        "A now-playing card with progress, pause, skip, the queue and stop.",
+        "Add songs from the card without typing a command.",
+        "Your own music volume slider, without changing it for anyone else.",
+        "The song shows in your voice panel with pause and skip.",
+      ] },
+      { title: "Commands", items: [
         "Use !queue, !nowplaying, !pause, !resume, !skip and !stop. Type !help for the full list.",
-        "Songs come from Audius or from a direct link to an audio file.",
+        "Skipping someone else's song or stopping the bot needs a DJ role, or Move Members.",
       ] },
     ],
   },
@@ -325,7 +356,8 @@ export function WhatsNewHost() {
       <div className="whats-new">
         {CHANGELOG.map((r, i) => (
           <article key={r.id} className={i ? "older" : ""}>
-            <header><h3>{r.title}</h3><time dateTime={r.date}>{new Date(r.date + "T12:00:00").toLocaleDateString(currentLocale(), { day: "numeric", month: "long", year: "numeric" })}</time></header>
+            <Banner r={r} big={i === 0} />
+            <header>{i ? <h3>{r.title}</h3> : <h3 className="sr-only">{r.title}</h3>}<time dateTime={r.date}>{new Date(r.date + "T12:00:00").toLocaleDateString(currentLocale(), { day: "numeric", month: "long", year: "numeric" })}</time></header>
             <p className="wn-intro">{r.intro}</p>
             {r.sections.map((s) => (
               <section key={s.title}>

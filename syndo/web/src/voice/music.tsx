@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ListMusic, Music2, Pause, Play, Plus, SkipForward, Square, Volume2, VolumeX } from "lucide-react";
+import { ListMusic, Music2, Pause, Play, Plus, SkipForward, Square, Volume2, VolumeX, X } from "lucide-react";
 import { api, errMsg } from "../api.ts";
 import { toast, useStore, type MusicState, type MusicTrack } from "../store.ts";
 import { Range } from "../components/Range.tsx";
@@ -14,7 +14,7 @@ let el: HTMLAudioElement | null = null;
 let loaded: string | null = null;
 const VOL_KEY = "send.music.volume";
 export const musicVolume = () => { try { const v = Number(localStorage.getItem(VOL_KEY)); return Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.6; } catch { return 0.6; } };
-export function setMusicVolume(v: number) { try { localStorage.setItem(VOL_KEY, String(v)); } catch { /* */ } if (el) el.volume = v; }
+export function setMusicVolume(v: number) { try { localStorage.setItem(VOL_KEY, String(v)); } catch { /* */ } if (el) el.volume = v; try { yt?.setVolume(Math.round(v * 100)); } catch { /* */ } }
 
 const expected = (s: MusicState) => (s.position_ms + (s.paused ? 0 : Date.now() - s.received_at)) / 1000;
 
@@ -44,7 +44,7 @@ function current(): MusicState | null {
 function sync() {
   const s = current();
   const v = useVoice.getState();
-  if (!s?.playing) { if (el) { el.pause(); el.removeAttribute("src"); el.load(); } loaded = null; return; }
+  if (!s?.playing || s.playing.kind === "youtube") { if (el) { el.pause(); el.removeAttribute("src"); el.load(); } loaded = null; return; }
   const a = audio();
   const out = v.settings.outputDeviceId;
   if (typeof (a as any).setSinkId === "function") (a as any).setSinkId(out && out !== "default" ? out : "").catch(() => {});
@@ -57,6 +57,78 @@ function sync() {
   } else if (Math.abs(a.currentTime - expected(s)) > 1.5 && a.readyState >= 1) a.currentTime = Math.max(0, expected(s));
   if (s.paused) a.pause();
   else if (a.paused) a.play().catch(() => { /* blocked until the next click: retried on the next sync */ });
+}
+
+/* ---------------------------------------------------------------------- YouTube -- */
+/* YouTube tracks play in YouTube's own embedded player (its IFrame API), on each listener's screen, at the server's
+   position. YouTube requires the player to stay visible (at least 200 x 200), so it's a small dock you can hide;
+   hiding it stops YouTube tracks for you only. Nothing is downloaded from YouTube. */
+let yt: any = null;
+let ytLoading: Promise<any> | null = null;
+function loadYouTube(): Promise<any> {
+  const w = window as any;
+  if (w.YT?.Player) return Promise.resolve(w.YT);
+  ytLoading ??= new Promise((resolve, reject) => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => { prev?.(); resolve(w.YT); };
+    const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.async = true;
+    s.onerror = () => { ytLoading = null; reject(new Error("YouTube's player couldn't load.")); };
+    document.head.appendChild(s);
+  });
+  return ytLoading;
+}
+const HIDE_KEY = "send.music.ytHidden";
+
+function YouTubeDock({ s }: { s: MusicState }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState(() => { try { return sessionStorage.getItem(HIDE_KEY) === "1"; } catch { return false; } });
+  const [failed, setFailed] = useState<string | null>(null);
+  const deafened = useVoice((v) => v.deafened);
+  const t = s.playing!;
+  const stateRef = useRef(s); stateRef.current = s;
+  const loadedId = useRef<string | null>(null);
+  const reported = useRef<string | null>(null);
+  const align = () => {
+    const p = yt, cur = stateRef.current, tr = cur.playing;
+    if (!p?.getPlayerState || !tr?.video_id) return;
+    const want = Math.max(0, expected(cur));
+    if (loadedId.current !== tr.id) { loadedId.current = tr.id; p.loadVideoById({ videoId: tr.video_id, startSeconds: want }); }
+    else if (Math.abs((p.getCurrentTime?.() ?? 0) - want) > 2 && p.getPlayerState() !== 3) p.seekTo(want, true);
+    if (cur.paused) { if (p.getPlayerState() === 1) p.pauseVideo(); }
+    else if (p.getPlayerState() !== 1 && p.getPlayerState() !== 3) p.playVideo();
+    p.setVolume(Math.round(musicVolume() * 100));
+    if (useVoice.getState().deafened) p.mute(); else p.unMute();
+    const d = p.getDuration?.() ?? 0;
+    if (tr.duration == null && d > 0 && reported.current !== tr.id) { reported.current = tr.id; api.post(`/api/music/${cur.channel_id}/duration`, { track_id: tr.id, duration: d }).catch(() => {}); }
+  };
+  useEffect(() => {
+    if (hidden) return;
+    let alive = true;
+    loadYouTube().then((YT) => {
+      if (!alive || !host.current) return;
+      const cur = stateRef.current;
+      loadedId.current = cur.playing?.id ?? null;
+      yt = new YT.Player(host.current, {
+        width: "100%", height: "100%", videoId: cur.playing?.video_id ?? undefined,
+        playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, start: Math.floor(expected(cur)) },
+        events: {
+          onReady: () => { (window as any).__sendYT = yt; align(); },
+          onStateChange: () => align(),
+          onError: (e: any) => { const c = stateRef.current; if (c.playing) api.post(`/api/music/${c.channel_id}/error`, { track_id: c.playing.id, code: Number(e?.data) || 0 }).catch(() => {}); },
+        },
+      });
+    }).catch((e) => setFailed(errMsg(e)));
+    const timer = setInterval(align, 3000);
+    return () => { alive = false; clearInterval(timer); try { yt?.destroy(); } catch { /* */ } yt = null; (window as any).__sendYT = null; loadedId.current = null; };
+  }, [hidden]);
+  useEffect(() => { align(); }, [s, deafened]);
+  const setHide = (v: boolean) => { setHidden(v); try { v ? sessionStorage.setItem(HIDE_KEY, "1") : sessionStorage.removeItem(HIDE_KEY); } catch { /* */ } };
+  if (hidden) return <button className="yt-dock-pill" onClick={() => setHide(false)}><Music2 size={14} aria-hidden /> YouTube player hidden. Show it to listen</button>;
+  return <div className="yt-dock" role="region" aria-label="YouTube player">
+    <div className="yt-dock-bar"><span className="ellipsis" title={t.title}>{t.title}</span>
+      <button className="icon-btn sm" onClick={() => setHide(true)} aria-label="Hide the YouTube player (stops YouTube songs for you)" title="Hide (stops YouTube songs for you)"><X size={14} /></button></div>
+    <div className="yt-dock-frame">{failed ? <p className="muted small">{failed}</p> : <div ref={host} />}</div>
+  </div>;
 }
 
 /** Mounted once at the app root. */
@@ -77,7 +149,7 @@ export function MusicListener() {
     window.addEventListener("pointerdown", resume);
     return () => { clearInterval(t); window.removeEventListener("pointerdown", resume); if (el) el.pause(); };
   }, []);
-  return null;
+  return channelId && state?.active && state.playing?.kind === "youtube" && state.playing.video_id ? <YouTubeDock s={state} /> : null;
 }
 
 /* ------------------------------------------------------------------------- controls -- */
@@ -110,12 +182,14 @@ function AddSong({ channelId, onDone, autoFocus }: { channelId: string; onDone?:
     if (ok) { setQ(""); onDone?.(); }
   };
   return <form className="music-add" onSubmit={submit}>
-    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Song name or audio link" aria-label="Song name or audio link" maxLength={300} autoFocus={autoFocus} disabled={busy} />
+    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Song name, or a YouTube, Spotify or audio link" aria-label="Song name or audio link" maxLength={300} autoFocus={autoFocus} disabled={busy} />
     <button className="btn primary sm" disabled={busy || !q.trim()}>{busy ? "Finding…" : "Play"}</button>
   </form>;
 }
 
-const by = (t: MusicTrack) => [t.artist, `asked by ${t.requester.name}`].filter(Boolean).join(" · ");
+const SOURCE_LABEL: Record<string, string> = { youtube: "YouTube", spotify: "Spotify", deezer: "Deezer", apple: "Apple Music", soundcloud: "SoundCloud", tidal: "Tidal", audius: "Audius" };
+const origin = (t: MusicTrack) => t.via && SOURCE_LABEL[t.source] && t.source !== "youtube" ? `${SOURCE_LABEL[t.source]} via ${t.via}` : SOURCE_LABEL[t.source] ?? null;
+const by = (t: MusicTrack) => [t.artist, origin(t), `asked by ${t.requester.name}`].filter(Boolean).join(" · ");
 
 /** Now-playing card on the call screen, like a music bot's player. Shown while SEND Music is in the room. */
 export function MusicCard({ channelId }: { channelId: string }) {
@@ -171,7 +245,7 @@ export function MusicButton({ channelId, round }: { channelId: string; round?: b
     <button className={round ? `m-round ${open ? "light" : "dark"}` : `icon-btn ${open ? "on" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Play music" title="Play music"><Music2 size={20} /></button>
     {open && <div className="music-start-pop" role="dialog" aria-label="Play music">
       <strong>Play music for the room</strong>
-      <p className="muted small">Search Audius by name, or paste an https audio link. Try "test" for a test track.</p>
+      <p className="muted small">Search by name, or paste a YouTube, Spotify, Deezer or Audius link. Playlists and albums work too.</p>
       <AddSong channelId={channelId} autoFocus onDone={() => setOpen(false)} />
     </div>}
   </div>;

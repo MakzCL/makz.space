@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-14: SEND Music links (YouTube, Spotify, Deezer, playlists) and changelog banners
+
+Backend: SOURCE_COMMIT to this commit. Worker code also changes (passes `YOUTUBE_API_KEY` and `MUSIC_JAMENDO_CLIENT_ID` through when set). No database change.
+Optional secret: `YOUTUBE_API_KEY` (see MUSIC.md). Without it YouTube links and playlists still play; Spotify songs are matched on Audius only.
+Roll back: SOURCE_COMMIT and worker code to the versions recorded in the deploy note below; web to the previous Pages deployment.
+
 ## 2026-11-14: SEND Music controls on the call screen (pushed, backend not deployed yet)
 
 Web: deploys automatically from the branch (Pages). The music buttons stay hidden until the backend reports `controls: true`, so the web going live first is safe.

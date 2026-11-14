@@ -36,17 +36,30 @@ voice room can use it.
 The music state carries `controls: true` from backends that have this endpoint. The web app shows the buttons only then,
 so a web release that goes live before the backend shows the read-only card instead of buttons that fail.
 
-Tested by `e2e/music-ui.cjs` (22 checks, two desktop listeners and a phone).
+Tested by `e2e/music-ui.cjs` (22 checks, two desktop listeners and a phone) and `e2e/music-links.cjs` (19 checks: YouTube video and playlist really playing in sync, hiding the player, Spotify song and playlist, Deezer album).
 
 ## Supported sources
 
 | Source | How | Notes |
 | --- | --- | --- |
-| Audius | `!play <song name>` or an `audius.co` track link | Open music catalogue that allows third-party apps to stream through its API. No key needed. Tracks marked not streamable or gated are skipped |
-| Direct audio links | `!play https://…/song.mp3` | Public https only. The server checks the address isn't private, follows redirects safely and only accepts an audio content type (mp3, ogg, opus, m4a, wav, flac) |
-| Jamendo (optional) | Song-name search falls back to Jamendo | Only when `MUSIC_JAMENDO_CLIENT_ID` is set on the server (free key from developer.jamendo.com). Not tested yet: no key was available |
-| Built-in test tracks | `!play test`, `!play test 2` | Two short synthesized tones bundled with the server (`server/assets/music`), free of any licence |
-| YouTube, Spotify, Apple Music, SoundCloud, Deezer, Tidal, Bandcamp | Not playable | These links only give a title and artwork. The bot says so, shows the title and suggests `!play <title>` to search Audius |
+| YouTube | Video, Shorts, YouTube Music and playlist links | Plays in YouTube's own embedded player (IFrame API) on each listener's screen, kept on the server's clock. Nothing is downloaded. YouTube asks for its player to stay visible (at least 200 x 200), so it's a small dock; hiding it stops YouTube songs for that person only. Playlists: the first 15 videos from YouTube's public feed, or up to 100 with `YOUTUBE_API_KEY`. Videos whose owner blocks other players are replaced by another version of the same song when one is found, otherwise skipped with the reason |
+| Spotify | Song, album and playlist links (also spotify.link) | Spotify never gives out audio. The bot reads titles and artists from Spotify's public link-preview tags (playlists: the first 30 songs, albums: all) and finds a playable version of each song when its turn comes |
+| Deezer | Song, album and playlist links | Read through Deezer's open public API, then matched like Spotify |
+| Apple Music, SoundCloud, Tidal, Bandcamp | Single song links | The page title is read, then matched |
+| Audius | `!play <song name>`, track and playlist links | Open catalogue that allows third-party apps to stream through its API. No key needed |
+| Direct audio links | `!play https://…/song.mp3` | Public https only, checked to be audio |
+| Jamendo (optional) | Song-name search falls back to Jamendo | Only with `MUSIC_JAMENDO_CLIENT_ID` |
+| Built-in test tracks | `!play test`, `!play test 2` | Two short synthesized tones bundled with the server |
+
+**Matching.** A song from Spotify and friends is matched when it comes up, not when it's queued, so a 30-song
+playlist costs nothing until it's played. It's searched on YouTube (only with `YOUTUBE_API_KEY`), then Audius. A result
+only counts if most of the song title's words are in it and it isn't a cover, remix or sped-up edit, unless that's what
+was asked for: a skip is better than the wrong song. Without a YouTube key most mainstream songs have no proper version
+on Audius and are skipped (listed in one message). With a key, song-name searches use YouTube first too.
+
+**YouTube key.** Free from Google Cloud: create a project, enable "YouTube Data API v3", create an API key, restrict it to
+that API, and save it as the Worker secret `YOUTUBE_API_KEY`. The default quota is 10,000 units a day: a search costs 100,
+so about 100 matched songs or song-name searches a day; playlists and lengths cost 1 each.
 
 ## How it works
 
@@ -75,6 +88,7 @@ Nothing to configure for Audius, links and test tracks. Optional server environm
 MUSIC_IDLE_SECONDS=120              # leave after this long with nobody in the room
 MUSIC_JAMENDO_CLIENT_ID=…           # enable Jamendo search (keep it on the server only)
 MUSIC_AUDIUS_HOST=https://discoveryprovider.audius.co
+YOUTUBE_API_KEY=…                   # YouTube search, Spotify matching, full YouTube playlists (Worker secret)
 ```
 
 Local run:
@@ -97,4 +111,5 @@ NODE_PATH=$(npm root -g) node e2e/music.cjs http://localhost:3900 /tmp/out
 - The queue lives in the server's memory, like voice state: restarting the backend clears queues.
 - Slash commands: SEND's slash commands go to external apps over HTTP, so music uses `!` commands. Registering them as
   slash commands would need a built-in app entry; not done yet.
-- Max 100 tracks per room queue. Audius playlists and profiles aren't accepted yet, only track links.
+- Max 100 tracks per room queue. Spotify playlists give their first 30 songs, YouTube playlists their first 15 without a key.
+- YouTube mixes (list=RD…) are personal and can't be read, so only the video in the link plays.

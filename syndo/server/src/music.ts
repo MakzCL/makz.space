@@ -26,9 +26,12 @@ import { allowedUrl, previewFor, safeStream } from "./unfurl.ts";
  * with a message; the bot leaves after MUSIC_IDLE_SECONDS with nobody in the room.
  *
  * Sources: Audius (open catalogue that permits third-party streaming, no key), direct https audio links
- * (validated: public address, audio content type), Jamendo when MUSIC_JAMENDO_CLIENT_ID is set, and two
- * built-in test tracks. YouTube, Spotify, Apple Music, SoundCloud, Deezer and Tidal links only give a title,
- * so the bot explains that and suggests a search instead of pretending to play them.
+ * (validated: public address, audio content type), Jamendo when MUSIC_JAMENDO_CLIENT_ID is set, two built-in
+ * test tracks, and YouTube. YouTube never hands out audio files, so YouTube tracks play through YouTube's own
+ * embedded player on every listener's screen (kind "youtube"), kept on the server's clock like everything else.
+ * Spotify, Deezer, Apple Music, Tidal and SoundCloud don't share audio either: their links (songs, albums,
+ * playlists) are read for titles and artists, and each song is matched to a playable version (YouTube when
+ * YOUTUBE_API_KEY is set, otherwise Audius) when its turn comes. Nothing is downloaded or ripped from any service.
  */
 
 const IDLE_MS = Math.max(10, Number(process.env.MUSIC_IDLE_SECONDS ?? 120)) * 1000;
@@ -36,17 +39,26 @@ const AUDIUS = (process.env.MUSIC_AUDIUS_HOST ?? "https://discoveryprovider.audi
 const AUDIUS_APP = "SEND";
 const JAMENDO_ID = process.env.MUSIC_JAMENDO_CLIENT_ID ?? "";
 const MAX_QUEUE = 100;
+/** Optional YouTube Data API key: YouTube search for song names and Spotify matches, full playlists, durations. */
+const YT_KEY = process.env.YOUTUBE_API_KEY ?? "";
+const UA = "Mozilla/5.0 (compatible; SENDMusic/1.0; +https://syndo.makz.space)";
 const ASSETS = fileURLToPath(new URL("../assets/music/", import.meta.url));
 const TEST_TRACKS = [
   { file: "send-test-a.mp3", title: "SEND Test Tone A", duration: 14 },
   { file: "send-test-b.mp3", title: "SEND Test Tone B", duration: 12 },
 ];
 
-type Source = "test" | "audius" | "jamendo" | "link";
+type Source = "test" | "audius" | "jamendo" | "link" | "youtube" | "spotify" | "deezer" | "apple" | "soundcloud" | "tidal";
 interface Track {
   id: string; token: string; title: string; artist: string | null; duration: number | null; source: Source; page: string | null;
-  /** A file name in assets/music (test tracks) or an https URL. Never sent to clients. */
+  /** How listeners play it: an audio stream through SEND, or YouTube's embedded player. */
+  kind: "audio" | "youtube";
+  /** A file name in assets/music (test tracks), an https URL, or a YouTube video id. Never sent to clients for audio. */
   upstream: string;
+  /** Songs read from Spotify and friends: what to search for when its turn comes (then cleared). */
+  match?: string | null;
+  /** Where a matched song actually plays from, e.g. "YouTube". */
+  via?: string | null;
   requester: { id: string; name: string };
 }
 interface Room {
@@ -85,11 +97,13 @@ export async function musicBotId(): Promise<string> {
 
 /* -------------------------------------------------------------------------------- sources -- */
 const fmt = (s: number | null) => s == null ? "?:??" : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-const METADATA_ONLY: [RegExp, string][] = [
-  [/(^|\.)youtube\.com$|(^|\.)youtu\.be$/i, "YouTube"], [/(^|\.)spotify\.com$/i, "Spotify"], [/(^|\.)music\.apple\.com$/i, "Apple Music"],
-  [/(^|\.)soundcloud\.com$/i, "SoundCloud"], [/(^|\.)deezer\.com$/i, "Deezer"], [/(^|\.)tidal\.com$/i, "Tidal"], [/(^|\.)bandcamp\.com$/i, "Bandcamp"],
+/** Services whose single-song links we read for a title and then match. */
+const TITLE_ONLY: [RegExp, string, Source][] = [
+  [/(^|\.)music\.apple\.com$/i, "Apple Music", "apple"], [/(^|\.)soundcloud\.com$/i, "SoundCloud", "soundcloud"], [/(^|\.)tidal\.com$/i, "Tidal", "tidal"], [/(^|\.)bandcamp\.com$/i, "Bandcamp", "link"],
 ];
-type Resolved = { ok: true; track: Omit<Track, "id" | "token" | "requester"> } | { ok: false; message: string };
+type Item = Omit<Track, "id" | "token" | "requester">;
+type Resolved = { ok: true; tracks: Item[]; list?: string | null } | { ok: false; message: string };
+const one = (track: Item): Resolved => ({ ok: true, tracks: [track] });
 
 async function audiusJson(path: string): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
@@ -97,23 +111,185 @@ async function audiusJson(path: string): Promise<any> {
   if (!r.ok) throw new Error(`Audius ${r.status}`);
   return r.json();
 }
-const audiusTrack = (t: any): Resolved => ({
-  ok: true, track: { title: String(t.title ?? "Untitled").slice(0, 200), artist: t.user?.name ? String(t.user.name).slice(0, 100) : null, duration: Number(t.duration) || null,
-    source: "audius" as const, page: t.permalink ? `https://audius.co${t.permalink}` : null, upstream: `${AUDIUS}/v1/tracks/${encodeURIComponent(t.id)}/stream?app_name=${AUDIUS_APP}` },
-});
+const audiusItem = (t: any): Item => ({ title: String(t.title ?? "Untitled").slice(0, 200), artist: t.user?.name ? String(t.user.name).slice(0, 100) : null, duration: Number(t.duration) || null,
+  source: "audius", kind: "audio", page: t.permalink ? `https://audius.co${t.permalink}` : null, upstream: `${AUDIUS}/v1/tracks/${encodeURIComponent(t.id)}/stream?app_name=${AUDIUS_APP}` });
+const playableAudius = (x: any) => x && x.is_streamable !== false && !x.is_delete && !x.stream_conditions;
 
-async function searchAudius(query: string): Promise<Resolved | null> {
-  const d = await audiusJson(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=10`);
-  const t = (d.data ?? []).find((x: any) => x.is_streamable !== false && !x.is_delete && !x.stream_conditions);
-  return t ? audiusTrack(t) : null;
+/** Words that matter in a song title ("Never Gonna Give You Up (feat. X)" gives never, gonna, give, you, up). */
+const words = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\((?:feat|ft|with)[^)]*\)|\[[^\]]*\]/g, " ").split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1 && !["the", "official", "video", "audio", "lyrics", "feat", "ft", "remastered", "remaster", "version"].includes(w));
+/** Does a found track really look like the song asked for? Most of the title's words must be there. */
+export function sameSong(wantTitle: string, gotTitle: string, gotArtist?: string | null): boolean {
+  const want = words(wantTitle); if (!want.length) return false;
+  // A cover, remix or sped-up edit isn't the song, unless that's what was asked for.
+  const alt = /\b(remix|cover|nightcore|sped ?up|slowed|reverb|instrumental|karaoke|8d|bass ?boosted|mashup|edit)\b/i;
+  if (alt.test(gotTitle) && !alt.test(wantTitle)) return false;
+  const got = new Set(words(`${gotTitle} ${gotArtist ?? ""}`));
+  return want.filter((w) => got.has(w)).length / want.length >= 0.75;
 }
-async function searchJamendo(query: string): Promise<Resolved | null> {
+
+async function searchAudius(query: string, duration?: number | null, title?: string): Promise<Item | null> {
+  const d = await audiusJson(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=10`);
+  const ok = (d.data ?? []).filter(playableAudius).filter((x: any) => !title || sameSong(title, String(x.title ?? ""), x.user?.name));
+  const t = (duration ? ok.find((x: any) => Math.abs(Number(x.duration) - duration) <= 8) : null) ?? ok[0];
+  return t ? audiusItem(t) : null;
+}
+async function searchJamendo(query: string): Promise<Item | null> {
   if (!JAMENDO_ID) return null;
   const r = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${encodeURIComponent(JAMENDO_ID)}&format=json&limit=1&audioformat=mp32&search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) return null;
   const t = ((await r.json()) as any).results?.[0];
   if (!t?.audio) return null;
-  return { ok: true, track: { title: String(t.name).slice(0, 200), artist: t.artist_name ?? null, duration: Number(t.duration) || null, source: "jamendo", page: t.shareurl ?? null, upstream: t.audio } };
+  return { title: String(t.name).slice(0, 200), artist: t.artist_name ?? null, duration: Number(t.duration) || null, source: "jamendo", kind: "audio", page: t.shareurl ?? null, upstream: t.audio };
+}
+
+/* YouTube: titles from oEmbed (public, no key), playlists from YouTube's own feed (first 15) or the Data API. */
+const YT_ID = /^[A-Za-z0-9_-]{11}$/;
+function youtubeRef(u: URL): { video: string | null; list: string | null } | null {
+  const h = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
+  let video: string | null = null;
+  if (h === "youtu.be") video = u.pathname.slice(1).split("/")[0] ?? null;
+  else if (h === "youtube.com" || h === "music.youtube.com" || h === "youtube-nocookie.com") {
+    video = u.searchParams.get("v") ?? (/^\/(shorts|live|embed|v)\/([^/?#]+)/.exec(u.pathname)?.[2] ?? null);
+  } else return null;
+  const list = u.searchParams.get("list");
+  return { video: video && YT_ID.test(video) ? video : null, list: list && /^[A-Za-z0-9_-]{10,64}$/.test(list) ? list : null };
+}
+const ytItem = (id: string, title: string, artist: string | null, duration: number | null): Item =>
+  ({ title: title.slice(0, 200), artist: artist ? artist.replace(/ - Topic$/, "").slice(0, 100) : null, duration, source: "youtube", kind: "youtube", page: `https://www.youtube.com/watch?v=${id}`, upstream: id });
+
+/** Is this video real, public and allowed in other sites' players? (oEmbed says 401 when embedding is off.) */
+async function ytOembed(id: string): Promise<{ ok: true; title: string; author: string | null } | { ok: false; reason: string }> {
+  const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`, { signal: AbortSignal.timeout(8000), headers: { "user-agent": UA } }).catch(() => null);
+  if (!r) return { ok: false, reason: "YouTube couldn't be reached" };
+  if (r.status === 401 || r.status === 403) return { ok: false, reason: "its owner doesn't allow it to play outside YouTube" };
+  if (!r.ok) return { ok: false, reason: "the video doesn't exist or is private" };
+  const j: any = await r.json().catch(() => ({}));
+  return { ok: true, title: String(j.title ?? "YouTube video"), author: j.author_name ? String(j.author_name) : null };
+}
+async function ytApi(path: string): Promise<any> {
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/${path}&key=${encodeURIComponent(YT_KEY)}`, { signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error(`YouTube API ${r.status}`);
+  return r.json();
+}
+const isoSeconds = (d: string) => { const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(d ?? ""); return m ? (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0)) : null; };
+async function ytDurations(ids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!YT_KEY) return out;
+  for (let i = 0; i < ids.length; i += 50) {
+    const d = await ytApi(`videos?part=contentDetails,status&id=${ids.slice(i, i + 50).join(",")}`).catch(() => null);
+    for (const v of d?.items ?? []) { const s = isoSeconds(v.contentDetails?.duration); if (s) out.set(v.id, s); }
+  }
+  return out;
+}
+async function ytVideo(id: string): Promise<Resolved> {
+  const o = await ytOembed(id);
+  if (!o.ok) return { ok: false, message: `I can't play that YouTube video: ${o.reason}.` };
+  return one(ytItem(id, o.title, o.author, (await ytDurations([id])).get(id) ?? null));
+}
+const xmlText = (s: string) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+async function ytPlaylist(list: string): Promise<{ title: string | null; items: Item[] } | null> {
+  if (YT_KEY) {
+    const items: Item[] = []; let page = ""; let title: string | null = null;
+    const meta = await ytApi(`playlists?part=snippet&id=${list}`).catch(() => null);
+    title = meta?.items?.[0]?.snippet?.title ?? null;
+    for (let i = 0; i < 2 && items.length < MAX_QUEUE; i++) {
+      const d = await ytApi(`playlistItems?part=snippet&maxResults=50&playlistId=${list}${page ? `&pageToken=${page}` : ""}`).catch(() => null);
+      if (!d) break;
+      for (const it of d.items ?? []) { const v = it.snippet?.resourceId?.videoId; const t = it.snippet?.title; if (v && t && t !== "Private video" && t !== "Deleted video") items.push(ytItem(v, t, it.snippet?.videoOwnerChannelTitle ?? null, null)); }
+      page = d.nextPageToken ?? ""; if (!page) break;
+    }
+    const durs = await ytDurations(items.map((x) => x.upstream));
+    for (const x of items) x.duration = durs.get(x.upstream) ?? null;
+    if (items.length) return { title, items };
+  }
+  const r = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(list)}`, { signal: AbortSignal.timeout(8000), headers: { "user-agent": UA } }).catch(() => null);
+  if (!r?.ok) return null;
+  const xml = await r.text();
+  const title = /<feed[\s\S]*?<title>([^<]*)<\/title>/.exec(xml)?.[1] ?? null;
+  const items = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => {
+    const e = m[1]!; const v = /<yt:videoId>([^<]+)<\/yt:videoId>/.exec(e)?.[1]; const t = /<title>([^<]*)<\/title>/.exec(e)?.[1];
+    const a = /<author>\s*<name>([^<]*)<\/name>/.exec(e)?.[1];
+    return v && t && YT_ID.test(v) ? ytItem(v, xmlText(t), a ? xmlText(a) : null, null) : null;
+  }).filter(Boolean) as Item[];
+  return items.length ? { title: title ? xmlText(title) : null, items } : null;
+}
+async function ytSearch(query: string, duration?: number | null, title?: string): Promise<Item | null> {
+  if (!YT_KEY) return null;
+  const d = await ytApi(`search?part=snippet&type=video&videoEmbeddable=true&maxResults=5&q=${encodeURIComponent(query)}`).catch((e) => { console.error("[music] youtube search", (e as Error).message); return null; });
+  const hits = (d?.items ?? []).filter((x: any) => x.id?.videoId && (!title || sameSong(title, xmlText(x.snippet?.title ?? ""), x.snippet?.channelTitle)));
+  if (!hits.length) return null;
+  const durs = await ytDurations(hits.map((x: any) => x.id.videoId));
+  const pick = (duration ? hits.find((x: any) => Math.abs((durs.get(x.id.videoId) ?? 0) - duration) <= 10) : null) ?? hits[0];
+  return ytItem(pick.id.videoId, xmlText(pick.snippet?.title ?? "YouTube video"), pick.snippet?.channelTitle ? xmlText(pick.snippet.channelTitle) : null, durs.get(pick.id.videoId) ?? null);
+}
+
+/* Spotify and friends: read the song names, play a matching version when the song's turn comes. */
+async function page(url: string): Promise<string | null> {
+  const r = await fetch(url, { signal: AbortSignal.timeout(9000), headers: { "user-agent": UA, "accept-language": "en" }, redirect: "follow" }).catch(() => null);
+  return r?.ok ? (await r.text()).slice(0, 1_500_000) : null;
+}
+const metas = (html: string, name: string) => [...html.matchAll(new RegExp(`<meta (?:property|name)="${name}" content="([^"]*)"`, "g"))].map((m) => xmlText(m[1]!));
+const matchItem = (source: Source, title: string, artist: string | null, duration: number | null, page: string | null): Item =>
+  ({ title: title.slice(0, 200), artist: artist?.slice(0, 100) ?? null, duration, source, kind: "audio", page, upstream: "", match: `${artist ? `${artist} - ` : ""}${title}`.slice(0, 200) });
+async function spotifyTrack(id: string): Promise<Item | null> {
+  const html = await page(`https://open.spotify.com/track/${id}`);
+  const title = html ? metas(html, "og:title")[0] : null;
+  if (!html || !title) return null;
+  const artist = metas(html, "music:musician_description")[0] ?? metas(html, "og:description")[0]?.split(" · ")[0] ?? null;
+  return matchItem("spotify", title, artist, Number(metas(html, "music:duration")[0]) || null, `https://open.spotify.com/track/${id}`);
+}
+async function pool<T, R>(xs: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(xs.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, xs.length) }, async () => { while (i < xs.length) { const k = i++; out[k] = await fn(xs[k]!); } }));
+  return out;
+}
+async function spotify(u: URL): Promise<Resolved> {
+  const m = /^\/(?:intl-[a-z-]+\/)?(track|album|playlist)\/([A-Za-z0-9]{10,40})/.exec(u.pathname);
+  if (!m) return { ok: false, message: "I can read Spotify song, album and playlist links." };
+  if (m[1] === "track") { const t = await spotifyTrack(m[2]!); return t ? one(t) : { ok: false, message: "I couldn't read that Spotify song." }; }
+  const html = await page(`https://open.spotify.com/${m[1]}/${m[2]}`);
+  const ids = html ? [...new Set(metas(html, "music:song").map((x) => /track\/([A-Za-z0-9]+)/.exec(x)?.[1]).filter(Boolean) as string[])].slice(0, 50) : [];
+  if (!ids.length) return { ok: false, message: `I couldn't read that Spotify ${m[1]}. It may be private.` };
+  const items = (await pool(ids, 8, (id) => spotifyTrack(id).catch(() => null))).filter(Boolean) as Item[];
+  const name = (metas(html!, "og:title")[0] ?? "").replace(/^Listen to /, "").replace(/ - (Album|Playlist) by .*$/, "").replace(/ \| Spotify$/, "") || null;
+  return items.length ? { ok: true, tracks: items, list: name } : { ok: false, message: `I couldn't read the songs in that Spotify ${m[1]}.` };
+}
+/** Deezer has an open public API for songs, albums and playlists. */
+async function deezer(u: URL): Promise<Resolved> {
+  let url = u;
+  if (/^(link\.)?deezer\.page\.link$|^dzr\.page\.link$/i.test(u.hostname)) { const r = await fetch(u, { redirect: "manual", signal: AbortSignal.timeout(8000) }).catch(() => null); const to = r?.headers.get("location"); if (to) try { url = new URL(to); } catch { /* */ } }
+  const m = /\/(track|album|playlist)\/(\d+)/.exec(url.pathname);
+  if (!m) return { ok: false, message: "I can read Deezer song, album and playlist links." };
+  const r = await fetch(`https://api.deezer.com/${m[1]}/${m[2]}`, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+  const d: any = r?.ok ? await r.json().catch(() => null) : null;
+  if (!d || d.error) return { ok: false, message: `I couldn't read that Deezer ${m[1]}.` };
+  const it = (t: any) => matchItem("deezer", String(t.title), t.artist?.name ?? null, Number(t.duration) || null, t.link ?? null);
+  if (m[1] === "track") return one(it(d));
+  return { ok: true, tracks: (d.tracks?.data ?? []).slice(0, MAX_QUEUE).map(it), list: d.title ?? null };
+}
+
+/** "Artist - Song (Official Video) [4K]" to "Artist - Song", for finding another version of a YouTube song. */
+const cleanTitle = (s: string) => s.replace(/[([](?:official|lyrics?|audio|video|visuali[sz]er|music video|hd|4k|remaster(?:ed)?|mv|live)[^)\]]*[)\]]/gi, "").replace(/\s*\|.*$/, "").replace(/\s{2,}/g, " ").trim();
+/** A YouTube video whose owner blocks other players: look for another version of the song instead of skipping it. */
+async function replaceBlocked(t: Track): Promise<boolean> {
+  if (t.via) return false;
+  const original = t.upstream;
+  t.match = `${t.artist && !t.title.toLowerCase().includes(t.artist.toLowerCase()) ? `${t.artist} - ` : ""}${cleanTitle(t.title)}`.slice(0, 200);
+  const ok = await findPlayable(t).catch(() => false);
+  if (!ok || (t.kind === "youtube" && t.upstream === original)) { t.match = null; t.kind = "youtube"; t.upstream = original; t.via = null; return false; }
+  return true;
+}
+
+/** A playable version of a song read from Spotify and friends: YouTube (with a key), then Audius. */
+async function findPlayable(t: Track): Promise<boolean> {
+  // Only accept a result whose title really matches the song (a wrong song is worse than a skip).
+  const title = t.source === "youtube" ? cleanTitle(t.title).replace(/^.*? - /, "") : t.title;
+  const hit = await ytSearch(t.match!, t.duration, title) ?? await searchAudius(t.match!, t.duration, title).catch(() => null);
+  if (!hit) return false;
+  t.kind = hit.kind; t.upstream = hit.upstream; t.via = hit.source === "youtube" ? "YouTube" : "Audius";
+  if (hit.duration) t.duration = hit.duration;
+  t.match = null;
+  return true;
 }
 
 /** Check that a URL really serves audio before we queue it or play it. */
@@ -134,33 +310,62 @@ async function probe(url: string): Promise<{ ok: true; type: string } | { ok: fa
 async function resolve(input: string): Promise<Resolved> {
   const text = input.trim().replace(/^<(.+)>$/, "$1");
   const test = /^test(?:\s*([12ab]))?$/i.exec(text);
-  if (test) { const t = TEST_TRACKS[/[2b]/i.test(test[1] ?? "") ? 1 : 0]!; return { ok: true, track: { title: t.title, artist: "SEND", duration: t.duration, source: "test", page: null, upstream: t.file } }; }
+  if (test) { const t = TEST_TRACKS[/[2b]/i.test(test[1] ?? "") ? 1 : 0]!; return one({ title: t.title, artist: "SEND", duration: t.duration, source: "test", kind: "audio", page: null, upstream: t.file }); }
   if (/^https?:\/\//i.test(text)) {
     let u: URL; try { u = new URL(text); } catch { return { ok: false, message: "That link isn't a valid address." }; }
-    const meta = METADATA_ONLY.find(([re]) => re.test(u.hostname));
-    if (meta) {
-      const title = await previewFor(text).then((e) => e?.title ?? null).catch(() => null);
-      return { ok: false, message: `That's a ${meta[1]} link${title ? ` (**${title}**)` : ""}. ${meta[1]} only shares the title and artwork, not audio SEND is allowed to stream, so I can't play it.${title ? ` Try \`!play ${title.slice(0, 80)}\` to search Audius instead.` : ""}` };
+    const yt = youtubeRef(u);
+    if (yt) {
+      // A playlist link (or a video inside a playlist): queue the playlist, starting with that video.
+      if (yt.list && !/^RD/.test(yt.list)) {
+        const pl = await ytPlaylist(yt.list);
+        if (pl) {
+          let items = pl.items;
+          if (yt.video) { const first = items.find((x) => x.upstream === yt.video); items = first ? [first, ...items.filter((x) => x !== first)] : items; }
+          return { ok: true, tracks: items, list: pl.title };
+        }
+        if (!yt.video) return { ok: false, message: "I couldn't read that YouTube playlist. It may be private, or a mix that only exists for one person." };
+      }
+      return yt.video ? ytVideo(yt.video) : { ok: false, message: "That YouTube link doesn't point to a video or playlist." };
     }
+    if (/(^|\.)spotify\.com$/i.test(u.hostname) || /^spotify\.link$/i.test(u.hostname)) {
+      if (/^spotify\.link$/i.test(u.hostname)) { const r = await fetch(u, { redirect: "follow", signal: AbortSignal.timeout(8000), headers: { "user-agent": UA } }).catch(() => null); if (r?.url) try { u = new URL(r.url); } catch { /* */ } }
+      return spotify(u);
+    }
+    if (/(^|\.)deezer\.com$/i.test(u.hostname) || /page\.link$/i.test(u.hostname)) return deezer(u);
     if (/(^|\.)audius\.co$/i.test(u.hostname)) {
       const d = await audiusJson(`/v1/resolve?url=${encodeURIComponent(text)}`).catch(() => null);
       const t = d?.data;
-      if (t?.id && t.title) return t.is_streamable === false ? { ok: false, message: "That Audius track isn't available for streaming." } : audiusTrack(t);
-      return { ok: false, message: "I couldn't find that Audius track. Only track links work (not playlists or profiles yet)." };
+      if (t?.playlist_name && t.id) {
+        const tr = await audiusJson(`/v1/playlists/${encodeURIComponent(t.id)}/tracks`).catch(() => null);
+        const items = (tr?.data ?? []).filter(playableAudius).slice(0, MAX_QUEUE).map(audiusItem);
+        return items.length ? { ok: true, tracks: items, list: String(t.playlist_name) } : { ok: false, message: "That Audius playlist has no tracks I can stream." };
+      }
+      if (t?.id && t.title) return t.is_streamable === false ? { ok: false, message: "That Audius track isn't available for streaming." } : one(audiusItem(t));
+      return { ok: false, message: "I couldn't find that Audius track or playlist." };
+    }
+    const named = TITLE_ONLY.find(([re]) => re.test(u.hostname));
+    if (named) {
+      const e = await previewFor(text).catch(() => null);
+      const title = e?.title?.replace(/ on Apple Music$| \| Listen online for free on SoundCloud$| on TIDAL$/i, "").trim();
+      if (!title) return { ok: false, message: `I couldn't read that ${named[1]} link.` };
+      return one(matchItem(named[2], title, null, null, text));
     }
     if (!allowedUrl(text) || u.protocol !== "https:") return { ok: false, message: "I can only play public https:// audio links." };
     const p = await probe(text);
-    if (!p.ok) return { ok: false, message: `I can't play that link: ${p.reason}. Send a direct link to an audio file (mp3, ogg, opus, m4a, wav, flac) or search by name.` };
+    if (!p.ok) return { ok: false, message: `I can't play that link: ${p.reason}. Send a YouTube, Spotify, Deezer or Audius link, a direct link to an audio file (mp3, ogg, opus, m4a, wav, flac), or search by name.` };
     const name = decodeURIComponent(u.pathname.split("/").pop() || u.hostname).replace(/\.[a-z0-9]{2,5}$/i, "").slice(0, 120) || u.hostname;
-    return { ok: true, track: { title: name, artist: u.hostname, duration: null, source: "link", page: null, upstream: text } };
+    return one({ title: name, artist: u.hostname, duration: null, source: "link", kind: "audio", page: null, upstream: text });
   }
-  const hit = await searchAudius(text).catch((e) => { console.error("[music] audius", (e as Error).message); return null; }) ?? await searchJamendo(text).catch(() => null);
-  return hit ?? { ok: false, message: `No playable results for **${text.slice(0, 100)}**.` };
+  const hit = await ytSearch(text) ?? await searchAudius(text).catch((e) => { console.error("[music] audius", (e as Error).message); return null; }) ?? await searchJamendo(text).catch(() => null);
+  return hit ? one(hit) : { ok: false, message: `No playable results for **${text.slice(0, 100)}**.` };
 }
 
 /* --------------------------------------------------------------------------------- state -- */
 const position = (r: Room) => r.current ? Math.max(0, (r.pausedAt ?? Date.now()) - r.startedAt) : 0;
-const publicTrack = (t: Track) => ({ id: t.id, title: t.title, artist: t.artist, duration: t.duration, source: t.source, page: t.page, requester: t.requester, stream_url: `/api/music/stream/${t.token}` });
+const publicTrack = (t: Track) => ({ id: t.id, title: t.title, artist: t.artist, duration: t.duration, source: t.source, page: t.page, requester: t.requester,
+  kind: t.match ? null : t.kind, video_id: t.kind === "youtube" && !t.match ? t.upstream : null, via: t.via ?? null, stream_url: `/api/music/stream/${t.token}` });
+const SOURCE_NAME: Partial<Record<Source, string>> = { spotify: "Spotify", deezer: "Deezer", apple: "Apple Music", soundcloud: "SoundCloud", tidal: "Tidal" };
+const from = (t: Track) => t.via && SOURCE_NAME[t.source] ? ` (from ${SOURCE_NAME[t.source]}, playing from ${t.via})` : t.kind === "youtube" ? " (YouTube)" : "";
 function stateOf(r: Room | undefined, channelId: string) {
   // `controls`: this backend accepts /api/music/:cid/control (the web app shows its buttons only then).
   return { channel_id: channelId, guild_id: r?.guildId ?? null, bot_id: botId, controls: true, active: !!r, playing: r?.current ? publicTrack(r.current) : null,
@@ -193,15 +398,31 @@ function armTimer(r: Room) {
 async function next(r: Room, announce: boolean) {
   if (r.current) forget(r.current);
   r.current = null; r.pausedAt = null; clearTimer(r);
+  // Songs with no playable version are listed in one message, not one message each.
+  const unmatched: string[] = [];
+  const flush = async () => {
+    if (!unmatched.length) return;
+    const list = unmatched.slice(0, 5).map((x) => `**${x}**`).join(", ") + (unmatched.length > 5 ? ` and ${unmatched.length - 5} more` : "");
+    await say(r, `⚠️ Skipped ${list}: I couldn't find a version I can play.`);
+    unmatched.length = 0;
+  };
   while (r.queue.length) {
     const t = r.queue.shift()!;
-    const check = t.source === "test" ? (existsSync(ASSETS + t.upstream) ? { ok: true as const } : { ok: false as const, reason: "the file is missing" }) : await probe(t.upstream);
+    if (t.match && !(await findPlayable(t).catch(() => false))) { forget(t); unmatched.push(`${t.title}${t.artist ? ` by ${t.artist}` : ""}`); continue; }
+    let check: { ok: true } | { ok: false; reason: string } = t.source === "test" ? (existsSync(ASSETS + t.upstream) ? { ok: true as const } : { ok: false as const, reason: "the file is missing" })
+      : t.kind === "youtube" ? await ytOembed(t.upstream) : await probe(t.upstream);
+    if (!check.ok && t.source === "youtube" && /outside YouTube/.test(check.reason) && await replaceBlocked(t)) {
+      check = t.kind === "youtube" ? await ytOembed(t.upstream) : await probe(t.upstream);
+      if (check.ok) await say(r, `ℹ️ **${t.title}** can't play outside YouTube, so I found a version on ${t.via}.`);
+    }
     if (!check.ok) { forget(t); await say(r, `⚠️ Skipped **${t.title}** (requested by ${t.requester.name}): it couldn't be played, ${check.reason}.`); continue; }
+    await flush();
     r.current = t; r.startedAt = Date.now();
     armTimer(r);
-    if (announce) await say(r, `🎶 Now playing **${t.title}**${t.artist ? ` by ${t.artist}` : ""} \`${fmt(t.duration)}\`, requested by ${t.requester.name}.`);
+    if (announce) await say(r, `🎶 Now playing **${t.title}**${t.artist ? ` by ${t.artist}` : ""} \`${fmt(t.duration)}\`${from(t)}, requested by ${t.requester.name}.`);
     break;
   }
+  await flush();
   if (!r.current) await say(r, "The queue is empty. Add more with `!play`, or I'll leave when the room is empty.").catch(() => {});
   await broadcast(r.channelId);
 }
@@ -234,7 +455,7 @@ const HELP = [
   "`!stop`: clear the queue and disconnect (needs DJ rights when others are listening)",
   "`!help`: this list",
   "",
-  `**Sources**: song names are searched on Audius${JAMENDO_ID ? " and Jamendo" : ""}. Links: Audius tracks and direct https audio files (mp3, ogg, opus, m4a, wav, flac). \`!play test\` plays a built-in test track. YouTube, Spotify, Apple Music, SoundCloud, Deezer, Tidal and Bandcamp links only provide titles, so they can't be played.`,
+  `**Sources**: song names are searched on ${YT_KEY ? "YouTube, then " : ""}Audius${JAMENDO_ID ? " and Jamendo" : ""}. Links: YouTube videos and playlists (they play in YouTube's player on your screen), Spotify and Deezer songs, albums and playlists, Apple Music, SoundCloud and Tidal songs (matched to a playable version), Audius tracks and playlists, and direct https audio files. \`!play test\` plays a built-in test track.`,
   "**DJ rights**: a role named DJ, or Move Members or Manage Channels permission in the voice room.",
 ].join("\n");
 
@@ -280,13 +501,21 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
         let r = rooms.get(voice.id);
         if (!r) { r = { channelId: voice.id, guildId: voice.guild_id!, textChannelId: text.id, queue: [], current: null, startedAt: 0, pausedAt: null, endTimer: null, idleTimer: null }; rooms.set(voice.id, r); }
         r.textChannelId = text.id;
-        if (r.queue.length >= MAX_QUEUE) { await reply(`The queue is full (${MAX_QUEUE} tracks).`); return; }
-        const t: Track = { ...found.track, id: newId(), token: randomBytes(18).toString("base64url"), requester: { id: userId, name } };
-        tokens.set(t.token, t);
-        r.queue.push(t);
-        const extra = t.source === "link" ? " Length shows once a listener's player reads the file." : "";
-        if (!r.current) await next(r, true);
-        else { await reply(`➕ Queued **${t.title}**${t.artist ? ` by ${t.artist}` : ""} \`${fmt(t.duration)}\` at position ${r.queue.length}, requested by ${name}.${extra}`); await broadcast(r.channelId); }
+        const room = MAX_QUEUE - r.queue.length;
+        if (room <= 0) { await reply(`The queue is full (${MAX_QUEUE} tracks).`); return; }
+        const added: Track[] = found.tracks.slice(0, room).map((x) => ({ ...x, id: newId(), token: randomBytes(18).toString("base64url"), requester: { id: userId, name } }));
+        for (const t of added) { tokens.set(t.token, t); r.queue.push(t); }
+        const cut = found.tracks.length - added.length;
+        if (added.length > 1 || found.list) {
+          const matched = added.some((t) => t.match) ? " Songs from other services are matched to a playable version when their turn comes." : "";
+          await reply(`➕ Added **${added.length}** ${added.length === 1 ? "song" : "songs"}${found.list ? ` from **${found.list}**` : ""}, requested by ${name}.${cut > 0 ? ` ${cut} more didn't fit: the queue holds ${MAX_QUEUE}.` : ""}${matched}`);
+          if (!r.current) await next(r, true); else await broadcast(r.channelId);
+        } else {
+          const t = added[0]!;
+          const extra = t.source === "link" ? " Length shows once a listener's player reads the file." : t.match ? ` I'll find a playable version of this ${SOURCE_NAME[t.source] ?? ""} song when its turn comes.` : "";
+          if (!r.current) await next(r, true);
+          else { await reply(`➕ Queued **${t.title}**${t.artist ? ` by ${t.artist}` : ""} \`${fmt(t.duration)}\` at position ${r.queue.length}, requested by ${name}.${extra}`); await broadcast(r.channelId); }
+        }
         checkIdle(r);
       });
       return true;
@@ -377,11 +606,22 @@ export async function musicRoutes(app: FastifyInstance) {
 
   /** A listener's player couldn't play the track: check it ourselves and skip it if it's really broken. */
   app.post<{ Params: { cid: string } }>("/api/music/:cid/error", { preHandler: requireUser }, async (req) => {
-    const b = z.object({ track_id: z.string().max(24) }).parse(req.body);
+    const b = z.object({ track_id: z.string().max(24), code: z.number().int().optional() }).parse(req.body);
     if (voiceStateOf(uid(req))?.channel_id !== req.params.cid) throw forbidden("Join the voice room first.");
     await withRoom(req.params.cid, async () => {
       const r = rooms.get(req.params.cid); const c = r?.current;
       if (!r || !c || c.id !== b.track_id || c.source === "test") return;
+      if (c.kind === "youtube") {
+        // YouTube's player error codes: 2 bad id, 5 can't play here, 100 removed or private, 101/150/153 not allowed in other players.
+        const why = b.code === 100 ? "it was removed or is private" : b.code === 101 || b.code === 150 || b.code === 153 ? "its owner doesn't allow it to play outside YouTube" : b.code === 2 || b.code === 5 ? "YouTube's player couldn't play it" : null;
+        if (!why) return;
+        if ((b.code === 101 || b.code === 150 || b.code === 153) && await replaceBlocked(c)) {
+          if (c.duration != null) { r.startedAt = Date.now(); r.pausedAt = null; armTimer(r); } else { r.startedAt = Date.now(); r.pausedAt = null; clearTimer(r); }
+          await say(r, `ℹ️ **${c.title}** can't play outside YouTube, so I found a version on ${c.via}.`); await broadcast(r.channelId); return;
+        }
+        await say(r, `⚠️ Skipped **${c.title}**: ${why}.`); await next(r, true);
+        return;
+      }
       const p = await probe(c.upstream);
       if (!p.ok) { await say(r, `⚠️ Skipped **${c.title}**: it stopped playing (${p.reason}).`); await next(r, true); }
     });
@@ -391,7 +631,7 @@ export async function musicRoutes(app: FastifyInstance) {
   /** The audio itself. The token is unguessable and only lives while the track is queued or playing. */
   app.get<{ Params: { token: string } }>("/api/music/stream/:token", async (req, reply) => {
     const t = tokens.get(req.params.token);
-    if (!t) throw notFound("Track");
+    if (!t || t.kind !== "audio" || t.match) throw notFound("Track");
     const range = typeof req.headers.range === "string" && /^bytes=\d*-\d*$/.test(req.headers.range) ? req.headers.range : undefined;
     reply.header("cache-control", "no-store").header("x-content-type-options", "nosniff");
     if (t.source === "test") {

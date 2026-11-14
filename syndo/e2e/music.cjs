@@ -122,7 +122,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const r1b = await musicOf(A, room1.id), r2b = await musicOf(C, room2.id);
   check('commands only affect the sender\'s own room', r1b.active && r1b.playing?.title === 'SEND Test Tone A' && !r2b.active);
 
-  // 7. Unsupported links.
+  // 7. Links: a web page is refused, a YouTube video is queued (it plays in YouTube's player), private addresses are refused.
   since = await lastId();
   await say(A, '!play https://example.com/');
   await say(A, '!play https://www.youtube.com/watch?v=aqz-KE-bpKQ');
@@ -130,7 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1500);
   said = await botSaid(since);
   check('a web page link is refused with the reason', said.some((s) => /can't play that link: it's text\/html, not audio/.test(s)), said.find((s) => /link/.test(s)));
-  check('a YouTube link explains it only has metadata', said.some((s) => /YouTube link.*only shares the title/.test(s)), said.find((s) => /YouTube/.test(s)));
+  check('a YouTube link is queued to play in YouTube\'s player', said.some((s) => /Big Buck Bunny/i.test(s)) || (await musicOf(A, room1.id)).queue.some((t) => t.kind === 'youtube'), said.find((s) => /Bunny|YouTube/.test(s)));
   check('a private or plain-http address is refused', said.some((s) => /only play public https:\/\/ audio links/.test(s)));
 
   // 8. Song-name search through a real catalogue (Audius). Room 1 is idle by now, so it starts straight away.
