@@ -102,7 +102,8 @@ jobs:
           npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/version.json" --file version.json --content-type application/json --cache-control no-cache --remote
       - name: Explain why the in-app update wasn't offered
         if: env.SEND_KEYSTORE == ''
-        run: echo "::notice::In-app updates need the release key: GitHub secrets SEND_ANDROID_KEYSTORE_B64 and friends, or the private send-signing R2 bucket."
+        run: |
+          echo "::notice::In-app updates need the release key, from the GitHub secrets SEND_ANDROID_KEYSTORE_B64 and friends or from the private send-signing R2 bucket."
       - name: Explain missing Cloudflare connection
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
