@@ -4,9 +4,13 @@
 
 Backend: SOURCE_COMMIT to this commit. Worker code also changes (passes `YOUTUBE_API_KEY` and `MUSIC_JAMENDO_CLIENT_ID` through when set). No database change.
 Optional secret: `YOUTUBE_API_KEY` (see MUSIC.md). Without it YouTube links and playlists still play; Spotify songs are matched on Audius only.
-Roll back: SOURCE_COMMIT and worker code to the versions recorded in the deploy note below; web to the previous Pages deployment.
+Released 2026-11-14 at `0ce2965` (also carries the music controls `00aeb3c` and the dialog layering fix):
+- Backend: worker version `ea0d79f2-50bd-474a-ae52-f7742211f939` (was `567512f6-0707-474a-904d-c0dae6edc235`, SOURCE_COMMIT `e1eecc8`). Worker code change: `YOUTUBE_API_KEY` and `MUSIC_JAMENDO_CLIENT_ID` added to the optional secrets list.
+- Web: Pages deployment `f59e7854-a64e-4821-8127-9719f21a9df4` (was `48207609-250e-4ec2-8658-08b9586c76ea`, commit `1bba5fb`). Source backup branch `backup/pre-music-links-20261114`.
+- Checked live with a throwaway account (deleted): controls offered, a YouTube link plays in YouTube's player, a Spotify song is read with title and artist, stop works; the avatar crop editor opens above the Studio and saves.
+Roll back: Workers, `send-beta-api`, Deployments, deploy `567512f6` at 100%. Pages, `syndo-app`, Deployments, `48207609`, Rollback.
 
-## 2026-11-14: SEND Music controls on the call screen (pushed, backend not deployed yet)
+## 2026-11-14: SEND Music controls on the call screen (released with the links update below)
 
 Web: deploys automatically from the branch (Pages). The music buttons stay hidden until the backend reports `controls: true`, so the web going live first is safe.
 Backend: needs SOURCE_COMMIT set to this commit to enable `/api/music/<room>/control`. No database change.
