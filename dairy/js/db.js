@@ -7,10 +7,10 @@
 // has no signal or the app is closed before it uploads.
 
 const DB_NAME = 'dairy-herd';
-const VERSION = 3;
+const VERSION = 4;
 export const STORES = [
   'settings', 'animals', 'events', 'exposures', 'tasks', 'milk', 'milkDays',
-  'buyers', 'collections', 'statements', 'quality', 'photos', 'meta',
+  'buyers', 'collections', 'statements', 'quality', 'photos', 'users', 'messages', 'meta',
 ];
 /** Stores shared with the other phones of the farm. `meta` stays on this phone. */
 export const SYNCED = STORES.filter((s) => s !== 'meta');

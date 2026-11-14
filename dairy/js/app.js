@@ -10,10 +10,10 @@ import { moreView, healthView, bullsView, tasksView, reportsView, settingsView, 
 import { milkHolds } from './logic.js';
 import { D } from './store.js';
 import { t, setLang, detectLang } from './i18n.js';
-import { currentUser, hasUsers, isAdmin, resumeSession, showLogin, startIdleWatch, createOwnerForm } from './auth.js';
+import { currentUser, hasUsers, isAdmin, resumeSession, showLogin, startIdleWatch, createOwnerForm, migrateUsers } from './auth.js';
 import { usersView } from './views/users.js';
 import { syncView, joinForm, statusText } from './views/syncview.js';
-import { startSync, onStatus } from './sync.js';
+import { startSync, onStatus, isConnected } from './sync.js';
 import { icon } from './icons.js';
 import { autoCheck, onUpdate } from './updates.js';
 
@@ -50,8 +50,28 @@ function adminOnly() {
 
 let gateOpen = false;
 /** Nothing from the herd is drawn until someone is logged in. */
+/** Invite code from a link: web ?join=CODE / ?c=CODE, or the Android app's dairyherd://join/CODE. */
+function pendingJoin() {
+  try { return sessionStorage.getItem('dairy-join') || ''; } catch { return ''; }
+}
+function takeJoinCode(url) {
+  const m = /[?&#](?:join|c)=([A-Za-z0-9-]{8,})/.exec(url) || /dairyherd:\/\/join\/([A-Za-z0-9-]{8,})/i.exec(url);
+  if (!m) return false;
+  try { sessionStorage.setItem('dairy-join', m[1]); } catch { /* ignore */ }
+  return true;
+}
+/** A code arrived while the app is in use: offer to join if this phone has no farm yet. */
+function offerJoin() {
+  const code = pendingJoin();
+  if (!code) return;
+  if (!hasUsers()) { gateOpen = false; gate(); return; }
+  if (isConnected()) { toast(t('This phone is already part of a farm.')); try { sessionStorage.removeItem('dairy-join'); } catch { /* ignore */ } return; }
+  if (currentUser()) joinForm({ code, onDone: () => window.dispatchEvent(new Event('locked')) });
+}
+
 async function gate() {
   if (gateOpen) return;
+  if (currentUser()) { unlock(); return; }
   gateOpen = true;
   dropSheet();
   nav.hidden = true;
@@ -62,7 +82,9 @@ async function gate() {
       <button type="button" class="btn big" data-join data-testid="gate-join">${t('Join a farm with a code')}</button></section>`);
     const open = () => (S().setupDone ? createOwnerForm({ onDone: unlock }) : openSettingsForm(true, {}, unlock));
     view.querySelector('[data-setup]').onclick = open;
-    view.querySelector('[data-join]').onclick = () => joinForm({ fromGate: true, onDone: () => { gateOpen = false; gate(); } });
+    const join = () => joinForm({ fromGate: true, code: pendingJoin(), onDone: () => { gateOpen = false; gate(); } });
+    view.querySelector('[data-join]').onclick = join;
+    if (pendingJoin()) join();
     return;
   }
   await showLogin(view);
@@ -151,9 +173,17 @@ async function boot() {
   let savedLang = null;
   try { savedLang = localStorage.getItem('dairy-lang'); } catch { /* ignore */ }
   setLang(savedLang || S().language || detectLang());
+  await migrateUsers();
+  db.onChange(() => { if ((S().users || []).some((u) => !db.get('users', u.id))) migrateUsers(); });
   startIdleWatch();
   resumeSession();
   startSync();
+  // Invite links: web address on start; Android app link on start and while running.
+  if (takeJoinCode(location.href)) history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]?(join|c)=[^&]*/, ''));
+  if (window.Capacitor?.isNativePlatform?.()) {
+    window.Capacitor.nativePromise('App', 'getLaunchUrl', {}).then((r) => { if (r?.url && takeJoinCode(r.url)) offerJoin(); }).catch(() => {});
+    window.Capacitor.addListener?.('App', 'appUrlOpen', (e) => { if (takeJoinCode(e.url)) offerJoin(); });
+  }
   onUpdate(() => render());
   autoCheck();
   onStatus(() => {

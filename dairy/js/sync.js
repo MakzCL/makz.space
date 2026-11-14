@@ -56,6 +56,12 @@ export async function joinFarm(code, label) {
   await saveConfig({ farmId: r.farm_id, farmName: r.farm_name, topic: r.topic, deviceId: r.device_id, token: r.token, lastSeq: 0, label });
   connectLive();
   await syncNow({ throwErrors: true });
+  return { role: r.role || 'worker', farmName: r.farm_name };
+}
+
+/** Farm name and role behind a code, without using it up. */
+export async function inviteInfo(code) {
+  return rpc('dairy_invite_info', { p_code: code });
 }
 
 /** Stop syncing on this phone. Records stay on the phone. */
@@ -66,8 +72,14 @@ export async function disconnect() {
   set({ status: 'off', error: null, live: false });
 }
 
-export async function createInvite() {
-  return rpc('dairy_create_invite', { p_token: config().token });
+export async function createInvite({ role = 'worker', hours = 48, uses = 1, note = '' } = {}) {
+  return rpc('dairy_create_invite', { p_token: config().token, p_role: role, p_hours: hours, p_uses: uses, p_note: note });
+}
+export async function listInvites() {
+  return rpc('dairy_invites', { p_token: config().token });
+}
+export async function revokeInvite(id) {
+  return rpc('dairy_revoke_invite', { p_token: config().token, p_id: id });
 }
 export async function devices() {
   return rpc('dairy_devices', { p_token: config().token });
@@ -160,6 +172,7 @@ function connectLive() {
     try { msg = JSON.parse(m.data); } catch { return; }
     if (msg.event === 'phx_reply' && msg.topic === topicName() && msg.payload?.status === 'ok') set({ live: true });
     if (msg.event === 'broadcast' && msg.payload?.event === 'changed') schedule(200);
+    if (msg.event === 'broadcast' && msg.payload?.event === 'call') for (const fn of signalListeners) fn(msg.payload.payload || {});
   };
   ws.onclose = () => {
     clearInterval(hb);
@@ -174,6 +187,14 @@ function closeLive() {
   clearInterval(hb);
   try { ws?.close(); } catch { /* ignore */ }
   ws = null;
+}
+
+// ---------- call signalling (ringing, WebRTC offers/answers) on the same channel ----------
+const signalListeners = new Set();
+export function onSignal(fn) { signalListeners.add(fn); return () => signalListeners.delete(fn); }
+export const liveReady = () => !!(ws && ws.readyState === 1 && state.live);
+export function signal(payload) {
+  send({ topic: topicName(), event: 'broadcast', payload: { type: 'broadcast', event: 'call', payload } });
 }
 
 function ping() {

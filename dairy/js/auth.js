@@ -26,7 +26,44 @@ async function makeUser(name, secret, role, id = db.uid()) {
   return { id, name: name.trim(), role, salt, iter: ITER, hash: await hashSecret(secret, salt) };
 }
 
-export const users = () => S().users || [];
+/**
+ * People who can log in. One record each in the `users` store (synced), so two
+ * people joining at once cannot overwrite each other. The list is also mirrored
+ * into settings.users for phones still on app 1.4 or older.
+ */
+export function users() {
+  const own = db.all('users');
+  const list = own.length ? own : (S().users || []);
+  return list.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+async function saveUsers(list, removedId) {
+  const ops = list.map((u) => ({ store: 'users', put: { ...u } }));
+  if (removedId) ops.push({ store: 'users', del: removedId });
+  ops.push({ store: 'settings', put: { ...S(), id: 'farm', users: list } });
+  await db.write(ops);
+}
+
+/** Copy users from settings into their own records (installs from before 1.5). */
+export async function migrateUsers() {
+  const legacy = S().users || [];
+  const missing = legacy.filter((u) => !db.get('users', u.id));
+  if (missing.length) await db.write(missing.map((u) => ({ store: 'users', put: { ...u } })));
+}
+
+/** New person joining a farm with an invite. */
+export async function createJoinedUser(name, pin, pin2, role, phone) {
+  checkSecret(pin);
+  if (pin !== pin2) throw new Error(t('The two entries do not match.'));
+  if (users().some((u) => u.name.toLowerCase() === String(name).trim().toLowerCase())) {
+    throw new Error(t('There is already a user called {n}.', { n: name }));
+  }
+  const u = { ...(await makeUser(name, pin, role === 'admin' ? 'admin' : 'worker')), phone: phone || '' };
+  await saveUsers([...users(), u]);
+  setCurrent(u);
+  try { localStorage.setItem('dairy-last-user', u.id); } catch { /* ignore */ }
+  return u;
+}
 export const hasUsers = () => users().length > 0;
 export const currentUser = () => current;
 export const isAdmin = () => current?.role === 'admin';
@@ -173,7 +210,7 @@ export async function createFirstOwner(name, pin, pin2) {
   checkSecret(pin);
   if (pin !== pin2) throw new Error(t('The two entries do not match.'));
   const u = await makeUser(name, pin, 'admin');
-  await saveSettings({ users: [u] });
+  await saveUsers([u]);
   setCurrent(u);
   try { localStorage.setItem('dairy-last-user', u.id); } catch { /* ignore */ }
 }
@@ -194,7 +231,7 @@ export function createOwnerForm({ onDone } = {}) {
       checkSecret(v.pin);
       if (v.pin !== v.pin2) throw new Error(t('The two entries do not match.'));
       const u = await makeUser(v.name, v.pin, 'admin');
-      await saveSettings({ users: [u] });
+      await saveUsers([u]);
       setCurrent(u);
       try { localStorage.setItem('dairy-last-user', u.id); } catch { /* ignore */ }
       onDone?.();
@@ -209,12 +246,13 @@ export function userForm(existing) {
   const self = existing && existing.id === current?.id;
   openForm({
     title: existing ? (self ? 'Change my PIN' : 'Edit user') : 'Add user',
-    values: existing ? { name: existing.name, role: existing.role } : { role: 'worker' },
+    values: existing ? { name: existing.name, role: existing.role, phone: existing.phone } : { role: 'worker' },
     submitLabel: 'Save',
     fields: [
       { name: 'name', label: 'Name', required: true },
       ...(!self ? [{ name: 'role', label: 'Access', type: 'choice', options: [['worker', 'Worker — records only'], ['admin', 'Admin — also users, settings, backup']] }] : []),
       { name: 'pin', label: existing ? 'New PIN or password (leave empty to keep)' : 'PIN or password (at least 4)', type: 'password', required: !existing },
+      { name: 'phone', label: 'Phone number (for calls)', inputmode: 'tel' },
     ],
     async onSubmit(v) {
       if (v.pin) checkSecret(v.pin);
@@ -223,22 +261,23 @@ export function userForm(existing) {
       if (clash) throw new Error(t('There is already a user called {n}.', { n: v.name }));
       let u;
       if (existing) {
-        u = v.pin ? await makeUser(v.name, v.pin, existing.role, existing.id) : { ...existing, name: v.name.trim() };
+        u = v.pin ? { ...existing, ...(await makeUser(v.name, v.pin, existing.role, existing.id)) } : { ...existing, name: v.name.trim() };
+        u.phone = v.phone || '';
         if (!self) u.role = v.role;
         if (existing.role === 'admin' && u.role !== 'admin' && !list.some((x) => x.id !== u.id && x.role === 'admin')) throw new Error(t('Keep at least one admin.'));
         list[list.findIndex((x) => x.id === existing.id)] = u;
       } else {
-        u = await makeUser(v.name, v.pin, v.role || 'worker');
+        u = { ...(await makeUser(v.name, v.pin, v.role || 'worker')), phone: v.phone || '' };
         list.push(u);
       }
-      await saveSettings({ users: list });
+      await saveUsers(list);
       if (self) setCurrent(u);
       return t('User saved');
     },
     onDelete: existing && !self ? async () => {
       const list = users().filter((x) => x.id !== existing.id);
       if (!list.some((x) => x.role === 'admin')) throw new Error(t('Keep at least one admin.'));
-      await saveSettings({ users: list });
+      await saveUsers(list, existing.id);
       toast(t('User removed'));
     } : null,
     deleteLabel: 'Remove user',
