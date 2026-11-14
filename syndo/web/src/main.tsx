@@ -4,12 +4,13 @@ import { initCallSounds } from "./voice/sounds.ts";
 import { initSoundboard } from "./expressions.ts";
 import { DesktopTitlebar } from "./components/DesktopTitlebar.tsx";
 import { InAppNotices } from "./components/InAppNotices.tsx";
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BRAND } from "@send/shared";
 import { boot } from "./actions.ts";
 import { Forgot, Login, Register, Reset, Verify } from "./components/Auth.tsx";
 import { InvitePage } from "./components/Dialogs.tsx";
+const FxLab = lazy(() => import("./appearance/FxLab.tsx"));
 import { Shell } from "./components/Shell.tsx";
 import { Splash } from "./components/Splash.tsx";
 import { QuickSwitcher } from "./components/QuickSwitcher.tsx";
@@ -67,13 +68,14 @@ function App() {
     return () => { window.removeEventListener("send:quickswitcher", qs); window.removeEventListener("send:shortcut-help", help); };
   }, [conn]);
   useEffect(() => {
-    const publicRoute = ["login", "register", "forgot", "reset", "verify", "invite"].includes(route.name);
+    const publicRoute = ["login", "register", "forgot", "reset", "verify", "invite", "fx"].includes(route.name);
     if (conn === "signed_out" && !publicRoute) navigate(`/login${route.name === "channels" || route.name === "qr" ? `?next=${encodeURIComponent(location.pathname)}` : ""}`, true);
     if ((conn === "ready" || conn === "connecting") && (route.name === "login" || route.name === "register" || route.name === "home")) navigate("/channels/@me", true);
   }, [conn, route.name]);
 
   let page;
-  if (route.name === "invite") page = <InvitePage />;
+  if (route.name === "fx") page = <Suspense fallback={null}><FxLab /></Suspense>;
+  else if (route.name === "invite") page = <InvitePage />;
   else if (route.name === "verify") page = <Verify />;
   else if (route.name === "reset") page = <Reset />;
   else if (route.name === "forgot") page = <Forgot />;
@@ -82,6 +84,7 @@ function App() {
   else if (conn === "connecting") page = <Splash />;
   else if (route.name === "qr") page = <main className="auth"><section className="auth-card"><QrApprove id={route.params.id!} /><button className="link" onClick={() => navigate("/channels/@me")}>Back to SEND</button></section></main>;
   else page = <Shell />;
+  if (route.name === "fx") return page;
   return <><DesktopTitlebar /><WebUpdateBar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 

@@ -1,5 +1,5 @@
 import palettes from "./motion/palettes.json";
-import { AVAILABLE_CATALOG, DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
+import { AVAILABLE_CATALOG, COSMETIC_BUNDLES, COSMETIC_COLLECTIONS, DEFAULT_PROFILE_THEME, PROFILE_CATALOG, type ProfileTheme } from "@send/shared";
 const ORIGINAL_COLLECTIONS = [
   { id: "eclipse", name: "Lunar Eclipse", family: "Celestial", primary: "#B8DDF0", secondary: "#344F73", motif: "moon", description: "An eclipsed moon, silver craters and drifting celestial dust." },
   { id: "rosecourt", name: "Rose Court", family: "Botanical", primary: "#F3AFC7", secondary: "#965474", motif: "rose", description: "Pearlescent roses woven through an ornamental silver frame." },
@@ -14,8 +14,21 @@ const ORIGINAL_COLLECTIONS = [
   { id: "wisteria", name: "Wisteria Night", family: "Botanical", primary: "#D2B4FF", secondary: "#625582", motif: "vine", description: "Trailing wisteria, delicate leaves and nocturnal fireflies." },
   { id: "phantom", name: "Phantom Veil", family: "Dark", primary: "#D4D9E8", secondary: "#655C89", motif: "ghost", description: "A spectral ribbon winding through moonlit fragments." },
 ] as const;
-export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"|"badge"; source?:string; artRatio?:number; focusY?:number; artTitle?:string; motion?:string };
-export const COLLECTIONS:Collection[] = [...ORIGINAL_COLLECTIONS, ...AVAILABLE_CATALOG.map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
+export type Collection = { id:NonNullable<ProfileTheme["collection"]>; name:string; family:string; primary:string; secondary:string; motif:typeof ORIGINAL_COLLECTIONS[number]["motif"]; description:string; art?:string; artKind?:"cover"|"logo"|"badge"; source?:string; artRatio?:number; focusY?:number; artTitle?:string; motion?:string; collectionId?:string; flagship?:boolean; legacy?:boolean };
+const LEGACY:Collection[] = [...ORIGINAL_COLLECTIONS, ...AVAILABLE_CATALOG.map(c=>({id:c.id,name:c.name,family:c.category,primary:(palettes as Record<string,string[]>)[c.id]?.[0]??c.primary,secondary:(palettes as Record<string,string[]>)[c.id]?.[1]??c.secondary,motif:c.motif,description:("art"in c?`${c.name} artwork with a SEND ${c.motif} frame and layered motion.`:`A ${c.name.toLowerCase()} palette with a ${c.motif} frame and layered motion.`),art:"art"in c?c.art:undefined,artKind:"kind"in c?c.kind:undefined,source:"source"in c?c.source:undefined,artRatio:"ratio"in c?(c as any).ratio:undefined,focusY:"focusY"in c?(c as any).focusY:undefined,artTitle:"artTitle"in c?c.artTitle:undefined,motion:c.motion}))];
+/** Vector frame motif for the no-WebGL fallback, by collection. */
+const FALLBACK_MOTIF: Record<string, Collection["motif"]> = { supernatural: "ghost", cyber: "star", motorsport: "flame", luxury: "filigree", streetwear: "star", retro: "star", cosmic: "moon", darkfantasy: "thorn",
+  elemental: "flame", anime: "blossom", music: "star", nature: "vine", cute: "star", horror: "ghost", art: "filigree", seasons: "star", industrial: "filigree", signature: "crystal" };
+/** The 2026 catalogue (18 collections × 24 bundles). Earlier bundles keep their IDs and artwork-free scenes. */
+export const COLLECTIONS:Collection[] = COSMETIC_BUNDLES.map((b)=>{
+  const old = LEGACY.find((c)=>c.id===b.id);
+  const col = COSMETIC_COLLECTIONS.find((c)=>c.id===b.collection)!;
+  const pal = b.palette[0] ? b.palette : old ? [old.primary, old.secondary, "#000000"] : ["#ffffff", "#888888", "#000000"];
+  return { ...(old ?? {}), id:b.id, name:b.name, family:col.name, collectionId:col.id, description:b.description, primary:pal[0]!, secondary:pal[1]!, motif:old?.motif ?? FALLBACK_MOTIF[col.id] ?? "star",
+    art:undefined, artKind:undefined, source:undefined, flagship:b.flagship, legacy:b.legacy } as Collection;
+});
+/** Earlier bundles that are no longer in the catalogue but stay valid for people who already chose them. */
+const RETIRED:Collection[] = LEGACY.filter((c)=>!COLLECTIONS.some((x)=>x.id===c.id));
 /** Names are drawn in the collection's colour, so it has to stay readable on a dark card. */
 function readable(hex: string) {
   const n = parseInt(hex.slice(1, 7), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
@@ -24,8 +37,8 @@ function readable(hex: string) {
   const k = (.42 - lum) / (1 - lum) + .08, mix = (c: number) => Math.round(c + (255 - c) * Math.min(1, k * 1.4));
   return `#${[mix(r), mix(g), mix(b)].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
 }
-for (const c of COLLECTIONS) c.primary = readable(c.primary);
-export function collectionById(id: string | null | undefined) { return COLLECTIONS.find(c => c.id === id); }
+for (const c of [...COLLECTIONS, ...RETIRED]) c.primary = readable(c.primary);
+export function collectionById(id: string | null | undefined) { return COLLECTIONS.find(c => c.id === id) ?? RETIRED.find(c => c.id === id); }
 export function collectionTheme(c: Collection): ProfileTheme {
   return { ...DEFAULT_PROFILE_THEME, collection: c.id, primary: c.primary, secondary: c.secondary,
     ring: { style: "none", color: c.primary, speed: .5 }, nameStyle: "gradient", nameColor2: c.primary, nameGlow: 20,

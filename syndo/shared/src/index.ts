@@ -6,3 +6,4 @@ export * from "./theme.ts";
 export * from "./presets.ts";
 export * from "./catalog.ts";
 export * from "./licensing.ts";
+export * from "./cosmetics.ts";

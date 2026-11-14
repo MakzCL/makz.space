@@ -2513,3 +2513,13 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .pc-conn { width: 40px; height: 40px; flex: none; justify-content: center; gap: 0 !important; padding: 0 !important; border-radius: 50% !important; transition: background .12s, transform .12s; }
 .pc-conn:hover { transform: translateY(-1px); }
 .pc-conn .conn-logo { width: 22px; height: 22px; }
+
+/* /fx cosmetic preview page */
+.fx-lab { min-height: 100vh; overflow: auto; padding: 24px; background: #07080c; color: var(--text); }
+.fx-lab header h1 { margin: 0 0 4px; font-size: 22px; } .fx-lab header { margin-bottom: 18px; }
+.fx-lab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--fxw, 300px), 1fr)); gap: 18px; }
+.fx-lab-cell { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.fx-lab-card { position: relative; border-radius: 14px; overflow: hidden; background: var(--bg1, #11131a); height: 440px; }
+.fx-lab-card > .pcv { height: 100%; }
+.fx-lab-cell figcaption { display: flex; align-items: center; gap: 8px; font-size: 13px; } .fx-lab-cell figcaption small { margin-left: auto; opacity: .5; }
+.fx-flag { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 30%, transparent); }

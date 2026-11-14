@@ -7,7 +7,7 @@ void main(){ vUv = vec2(aP.x*.5+.5, .5-aP.y*.5); gl_Position = vec4(aP,0.,1.); }
 export const SKY_FS = `#version 300 es
 precision highp float;
 in vec2 vUv; out vec4 o;
-uniform float uTime, uIntensity, uIntro, uFlash, uSeed, uHW, uSpeed;
+uniform float uTime, uIntensity, uIntro, uFlash, uSeed, uHW, uSpeed, uGlitch;
 uniform int uMode, uHero, uRing, uDeco;
 uniform vec3 uC1, uC2, uC3;
 uniform vec4 uHeroP;   // x, y (uv), radius (width units), spin
@@ -238,7 +238,8 @@ vec4 stage(vec2 p, float t, float hw){
   return vec4(col*.95, .95);
 }
 vec4 police(vec2 p, float t, float hw){
-  float ph = step(.5, fract(t*1.6)); float strobe = .6 + .4*step(.5, fract(t*9.));
+  // Photosensitivity: a soft, slow alternation (about 0.4 Hz), never a hard strobe.
+  float ph = smoothstep(-.6, .6, sin(t*2.6)); float strobe = .8 + .2*sin(t*1.3);
   vec3 red = vec3(1., .12, .15), blue = vec3(.15, .35, 1.);
   float l = exp(-length(p - vec2(0., .05))*2.6), r = exp(-length(p - vec2(1., .05))*2.6);
   vec3 col = uC3*.5 + fbm(p*3. + t*.1)*uC3*.3 + red*l*(ph*strobe)*.9 + blue*r*((1. - ph)*strobe)*.9;
@@ -296,6 +297,163 @@ vec4 glass(vec2 p, float t, float hw){
   float light = .55 + .45*sin(t*.6 + hsel*6.);
   vec3 col = mix(c*light*.6, uC3*.12, lead);
   col *= mix(1., .55, smoothstep(.35*hw, hw, p.y));
+  return vec4(col*.95, .95);
+}
+
+
+// ---- premium atmospheres ----
+// Liquid platinum: a slowly flowing metal surface lit by studio strip lights.
+float liquid(vec2 q, float t){ return fbm3(q + vec2(fbm3(q*1.3 + vec2(t*.05, 0.)), fbm3(q*1.3 + vec2(3.1, t*.04)))*1.3); }
+vec4 chrome(vec2 p, float t, float hw){
+  vec2 q = p*1.6 + vec2(0., t*.02); float e = .012;
+  float h = liquid(q, t), hx = liquid(q + vec2(e, 0.), t), hy = liquid(q + vec2(0., e), t);
+  vec3 n = normalize(vec3((h - hx)/e*.32, (h - hy)/e*.32, 1.));
+  vec3 r = reflect(vec3(0., 0., -1.), n);
+  float strip1 = exp(-pow((r.x - .3 + sin(t*.17)*.12)*8., 2.)), strip2 = exp(-pow((r.x + .5 + cos(t*.13)*.08)*12., 2.))*.6;
+  float sky = smoothstep(-.3, .8, -r.y)*.5;
+  float key = pow(max(0., dot(r, normalize(vec3(.35, -.6, .72)))), 36.)*1.4;
+  float env = sky + strip1*.85 + strip2 + key;
+  vec3 metal = mix(uC3*.45, mix(uC2, uC1, .65), clamp(env, 0., 1.)) + vec3(1.)*pow(clamp(env - .75, 0., 1.), 2.)*.9;
+  metal *= .78 + .3*h;
+  metal = mix(metal, uC3*.55 + metal*.25, smoothstep(.3*hw, .75*hw, p.y)*.7); // keep the text area quiet
+  return vec4(metal*.95, .95);
+}
+// Gothic windows: three pointed arches of stained glass, light shafts falling through dusty air.
+float arch(vec2 d, float w, float ys, float yb){
+  float inBox = step(abs(d.x), w)*step(d.y, yb);
+  float above = step(d.y, ys)*step(length(d - vec2(-w, ys)), 2.*w)*step(length(d - vec2(w, ys)), 2.*w);
+  return inBox*max(step(ys, d.y), above);
+}
+vec3 stained(vec2 p, float t){
+  vec2 q = p*34.; vec2 i = floor(q), f = fract(q); float md = 8., md2 = 8.; vec2 mid = vec2(0);
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){ vec2 g = vec2(x, y); vec2 o = vec2(h21(i + g), h21(i + g + 7.))*.85 + .075; float dd = length(g + o - f);
+    if (dd < md){ md2 = md; md = dd; mid = i + g; } else if (dd < md2) md2 = dd; }
+  float lead = smoothstep(.13, .05, md2 - md); float hs = h21(mid);
+  vec3 c = hs < .35 ? uC2*.9 : hs < .62 ? uC1*.85 : hs < .85 ? mix(uC2, vec3(.1, .2, .7), .5) : mix(uC1, vec3(.8, .1, .15), .5);
+  float sheen = .62 + .38*sin(t*.4 + hs*9. + p.y*6.);
+  return mix(c*sheen*(.7 + .5*fbm3(p*60.)), vec3(.015), lead);
+}
+vec4 cathedral(vec2 p, float t, float hw){
+  vec3 col = uC3*.32*(.8 + .2*fbm(p*4.));
+  float shaft = 0.; vec3 tint = vec3(0);
+  for (int k = 0; k < 3; k++){ float fk = float(k);
+    vec2 c = vec2(.18 + fk*.32, 0.); float w = fk == 1. ? .085 : .065; float ys = fk == 1. ? .17 : .2, yb = fk == 1. ? .5 : .45;
+    float m = arch(p - c, w, ys, yb);
+    col = mix(col, stained(p + fk*3.7, t)*1.25, m);
+    float frame = arch(p - c, w + .012, ys, yb + .012) - m; col = mix(col, uC3*.15 + uC2*.08, clamp(frame, 0., 1.));
+    // shaft: light leaving the window bottom and slanting down to the right
+    float sx = p.x - (p.y - yb)*.35 - c.x; float below = smoothstep(yb, yb + .05, p.y);
+    float s = smoothstep(w, w*.4, abs(sx))*below*exp(-(p.y - yb)*1.6);
+    shaft += s; tint += mix(uC1, uC2, fk*.5)*s; }
+  float dust = .55 + .45*fbm(p*9. + vec2(t*.05, -t*.12));
+  col += tint*.35*dust;
+  float rose = 0.; // candle glow from below
+  col += vec3(1., .6, .25)*exp(-(hw - p.y)*5.)*(.18 + .05*sin(t*7.)*sin(t*3.1));
+  return vec4(col*.96, .96);
+}
+// Circuit board: traces and pads, with light pulses running along them.
+vec4 circuit(vec2 p, float t, float hw){
+  vec2 g = p*34.; vec2 i = floor(g), f = fract(g);
+  float hRow = h21(vec2(i.y, 11.)), hCol = h21(vec2(i.x, 23.));
+  float spanH = step(.42, h21(vec2(floor(i.x/5. + hRow*3.), i.y + 2.)))*step(.3, hRow);
+  float spanV = step(.62, h21(vec2(i.x + 5., floor(i.y/6. + hCol*3.))))*step(.5, hCol);
+  float lineH = smoothstep(.07, .025, abs(f.y - .5))*spanH, lineV = smoothstep(.07, .025, abs(f.x - .5))*spanV;
+  float pad = smoothstep(.24, .17, length(f - .5))*step(.9, h21(i + 4.))*clamp(spanH + spanV, 0., 1.);
+  float via = smoothstep(.12, .08, length(f - .5))*step(.97, h21(i + 9.));
+  float trace = clamp(max(max(lineH, lineV), pad) + via, 0., 1.);
+  float px = fract(t*.09 + hRow*5.)*44. - 6., py = fract(t*.07 + hCol*3.)*60. - 6.;
+  float pulseH = smoothstep(4., 0., px - g.x)*step(g.x, px)*lineH, pulseV = smoothstep(5., 0., py - g.y)*step(g.y, py)*lineV;
+  float pulse = clamp(pulseH + pulseV, 0., 1.);
+  vec3 col = uC3*.55 + uC2*.06*fbm(p*6.);
+  float depth = mix(1., .45, smoothstep(.25*hw, .8*hw, p.y));
+  col += (uC2*trace*.2 + uC1*pulse*1.5 + uC1*pad*.12)*depth;
+  col += uC1*exp(-pow((p.y - fract(t*.07)*hw*1.4 + .2)*30., 2.))*.06; // a faint scan line
+  return vec4(col*.95, .95);
+}
+// Motorsport: track-light streaks at three depths, heat shimmer, a low sun of pit lights.
+vec4 track(vec2 p, float t, float hw){
+  vec2 hp = p + vec2(0., (noise(p*vec2(20., 6.) + vec2(0., t*3.)) - .5)*.006*smoothstep(.4*hw, hw, p.y));
+  vec3 col = mix(uC3*.55, uC3*.18, smoothstep(0., hw, hp.y));
+  for (int i = 0; i < 3; i++){ float k = float(i); float sc = 7. + k*10.;
+    float row = floor(hp.y*sc); float h = h21(vec2(row, k + 1.));
+    float x = fract(hp.x*(.5 + h*.6) + t*(.9 + k*1.1)*(.6 + h) + h*7.);
+    float streak = smoothstep(0., .03, x)*smoothstep(.6, .03, x)*step(.7, h)*smoothstep(.5, .1, abs(fract(hp.y*sc) - .5));
+    col += mix(uC2, uC1, h)*streak*(.22 + k*.22); }
+  float apex = exp(-length((hp - vec2(.82, .1))*vec2(1., 1.8))*4.);
+  col += uC1*apex*.35;
+  col += vec3(1.)*smoothstep(.003, 0., abs(hp.y - hw*.86))*.08; // a kerb line
+  return vec4(col*.95, .95);
+}
+// Crimson Static: rolling fog, a distant red storm that pulses at irregular times, organic shadow, analog noise.
+vec4 crimson(vec2 p, float t, float hw, vec2 uv){
+  float f1 = fbm(p*vec2(1.5, 2.3) + vec2(t*.045, t*.012));
+  float f2 = fbm(p*vec2(3.1, 4.6) + vec2(-t*.07, t*.02) + f1*1.2);
+  float fogd = smoothstep(.32, .95, f1*.6 + f2*.55);
+  float slot = floor(t/2.7); float ph = fract(t/2.7);
+  float on = step(.5, h21(vec2(slot, 7.))); float when = h21(vec2(slot, 9.))*.5;
+  float pulse = on*exp(-max(ph - when, 0.)*7.)*step(when, ph);
+  vec2 src = vec2(.15 + .7*h21(vec2(slot, 3.)), .02);
+  float glowR = exp(-length((p - src)*vec2(1., 1.5))*2.4);
+  float ambient = .55 + .45*sin(t*.35); // the whole sky breathes red
+  vec3 col = uC3*.7 + uC2*fogd*(.55 + ambient*.25) + uC1*glowR*(.22 + pulse*.9) + uC1*fogd*pulse*.35 + uC2*.12*exp(-p.y*3.)*ambient;
+  float sil = smoothstep(.55, .75, fbm(vec2(p.x*2.6, p.y*1.4 - t*.015)) + smoothstep(.6*hw, hw, p.y)*.55 - .25);
+  col *= 1. - sil*.75*smoothstep(.35*hw, hw, p.y);
+  float tear = step(.988, h21(vec2(floor(uv.y*160.), floor(t*14.))));
+  col += uC1*tear*.06 + (h21(uv*vec2(500., 700.) + floor(t*20.)) - .5)*.035;
+  return vec4(col*.96, .96);
+}
+// Concert lasers through haze.
+vec4 lasers(vec2 p, float t, float hw){
+  vec3 col = uC3*.38 + uC2*.1*fbm(p*2. + t*.1);
+  vec2 o = vec2(.5, hw*.98); vec2 d = p - o; float a = atan(d.x, -d.y); float r = length(d);
+  float fan = 0.; for (int i = 0; i < 9; i++){ float k = float(i) - 4.; float ang = k*.15 + sin(t*.55)*.4*sin(t*.21 + 1.); fan += exp(-pow((a - ang)*r*160., 2.)); }
+  float haze = .35 + .65*fbm(p*3. + vec2(0., -t*.18));
+  col += mix(uC1, uC2, .5 + .5*sin(t*.4))*fan*haze*smoothstep(1.5, .1, r)*.9;
+  col += uC1*exp(-r*5.)*.35;
+  return vec4(col*.95, .95);
+}
+// Clockwork: three meshed gears, their speeds set by their tooth counts.
+float gearMask(vec2 q, float R, float teeth, float ang){
+  float a = atan(q.y, q.x) + ang, r = length(q);
+  float rr = R*(1. + .1*smoothstep(-.25, .25, cos(a*teeth)));
+  float body = smoothstep(rr + .003, rr - .003, r)*smoothstep(R*.3 - .003, R*.3 + .003, r);
+  float holes = 0.; for (int k = 0; k < 5; k++){ float ha = float(k)*1.2566 - ang; holes += smoothstep(R*.16, R*.13, length(q - vec2(cos(ha), sin(ha))*R*.6)); }
+  return body*(1. - clamp(holes, 0., 1.));
+}
+vec4 clockwork(vec2 p, float t, float hw){
+  vec3 col = uC3*.45*(.85 + .15*fbm(p*5.));
+  float w = t*.25;
+  vec2 c1 = vec2(.58, .07), c2 = c1 + vec2(.155*.98 + .1*.98, .07), c3 = c1 + vec2(-.04, .2);
+  float g1 = gearMask(p - c1, .155, 20., w), g2 = gearMask(p - c2, .1, 13., -w*20./13. + .12), g3 = gearMask(p - c3, .07, 9., -w*20./9. + .3);
+  float g = max(max(g1, g2), g3);
+  vec2 l = normalize(vec2(-.6, -.8)); float shade = .55 + .45*dot(normalize(p - (g1 > 0. ? c1 : g2 > 0. ? c2 : c3) + 1e-4), l);
+  vec3 brass = mix(uC2*.7, uC1, shade) + vec3(1.)*pow(max(0., shade), 12.)*.25;
+  col = mix(col, brass*.62, g*.85);
+  col += uC1*.05*exp(-length(p - c1)*6.);
+  return vec4(col*.95, .95);
+}
+// Rain on glass over a blurred night city.
+vec4 rainglass(vec2 p, float t, float hw){
+  vec3 col = uC3*.5 + mix(uC2, uC1, .3)*.08*fbm(p*2.);
+  col += bokeh(p, 4., t*.4, .015).rgb*1.6 + bokeh(p + 3.1, 7., t*.4, .025).rgb;
+  vec2 g = p*vec2(12., 6.); vec2 i = floor(g), f = fract(g) - .5; float h = h21(i);
+  float slide = fract(t*.07*(.4 + h) + h); vec2 dp = vec2((h21(i + 2.) - .5)*.6, slide*.9 - .45);
+  float drop = smoothstep(.13, .08, length((f - dp)*vec2(1., 1.35)))*step(.55, h);
+  float trail = smoothstep(.035, .0, abs(f.x - dp.x))*step(f.y, dp.y)*step(.55, h)*.4;
+  float bead = smoothstep(.05, .02, length(fract(p*vec2(40., 30.)) - .5))*step(.82, h21(floor(p*vec2(40., 30.))));
+  col = col*(1. - drop*.25) + (uC1*.55 + .35)*(drop*.55 + bead*.25) + uC2*trail*.25;
+  return vec4(col*.95, .95);
+}
+// Bioluminescent forest: layered tree silhouettes in mist, glowing undergrowth.
+vec4 grove(vec2 p, float t, float hw){
+  vec3 col = mix(uC2*.25, uC3*.4, smoothstep(0., hw, p.y));
+  for (int i = 0; i < 3; i++){ float k = float(i);
+    float x = p.x*(2.5 + k*2.) + k*7.3; float trunk = smoothstep(.5, .46, abs(fract(x) - .5) + .4 - noise(vec2(floor(x), k))*.12);
+    float mist = .35 + .2*fbm(vec2(p.x*3., p.y*2. - t*.03) + k);
+    col = mix(col, uC3*(.15 + k*.08), trunk*(.55 + k*.15)*mist*2.); }
+  float glow = smoothstep(.62, .9, fbm(p*vec2(8., 5.) + vec2(t*.04, 0.)))*smoothstep(.55*hw, hw, p.y);
+  col += uC1*glow*(.6 + .4*sin(t*1.3 + p.x*20.));
+  col += uC1*.08*exp(-(hw - p.y)*3.);
   return vec4(col*.95, .95);
 }
 
@@ -365,9 +523,12 @@ vec4 hero(vec2 p, vec2 c, float r, float t){
     o = vec4(col*body + g, max(body*.9, length(g)*.5));
   } else if (uHero == 7){ // eclipse
     float ang = atan(d.y, d.x);
-    float cor = exp(-(l - 1.)*3.2)*(.6 + .6*pow(noise(vec2(ang*10., t*.3)), 2.))*step(.98, l);
-    float bead = exp(-pow(length(d - vec2(.62, -.78))*7., 2.))*1.6;
-    vec3 col = mix(uC1, vec3(1.), .4)*(cor + bead) + uC2*exp(-(l - 1.)*1.2)*.25*step(1., l);
+    float breathe = .85 + .15*sin(t*.6);
+    float streamers = pow(noise(vec2(ang*5., t*.12)), 3.)*exp(-(l - 1.)*1.1)*1.4;
+    float cor = (exp(-(l - 1.)*2.6)*(.75 + .7*pow(noise(vec2(ang*11., t*.3)), 2.)) + streamers)*step(.985, l)*breathe;
+    float inner = exp(-pow((l - 1.)*18., 2.))*1.4;
+    float bead = exp(-pow(length(d - vec2(.62, -.78))*8., 2.))*1.8*(.7 + .3*sin(t*1.7));
+    vec3 col = mix(uC1, vec3(1.), .45)*(cor + bead + inner) + uC2*exp(-(l - 1.)*1.)*.35*step(1., l);
     float disk = smoothstep(1.01, .99, l);
     o = vec4(col*(1. - disk) + uC3*.08*disk, max(disk, clamp(cor + bead, 0., 1.)*.9));
   }
@@ -382,6 +543,32 @@ vec4 hero(vec2 p, vec2 c, float r, float t){
     float slit = smoothstep(.09, .03, abs(d.x))*smoothstep(.6, .2, abs(d.y));
     vec3 col = mix(uC2, uC1, fire)*fire*1.4; col = mix(col, vec3(1., .95, .7), smoothstep(.6, .95, fire)*.5); col = mix(col, vec3(0.), slit);
     o = vec4(col, clamp(fire*1.1, 0., 1.));
+  }
+  else if (uHero == 10){ // rose window: rotating stone tracery over stained glass
+    if (l < 1.){ float a = atan(d.y, d.x) + t*.03; float petals = .5 + .5*cos(a*12.);
+      float ringT = smoothstep(.03, .0, abs(l - .38)) + smoothstep(.03, .0, abs(l - .72)) + smoothstep(.04, .01, abs(l - .98));
+      float spokes = smoothstep(.05, .02, abs(sin(a*6.))*l)*step(.38, l);
+      float lobes = smoothstep(.02, 0., abs(l - (.55 + .17*petals)))*step(.38, l);
+      vec3 glassC = stained(d*.5 + 4., t);
+      float tracery = clamp(ringT + spokes + lobes, 0., 1.);
+      vec3 col = mix(glassC*1.3, uC3*.25 + vec3(.06), tracery);
+      o = vec4(col, smoothstep(1.02, .98, l)); }
+    o.rgb += mix(uC1, uC2, .5)*exp(-max(l - 1., 0.)*4.)*.35*step(1., l); o.a = max(o.a, exp(-max(l - 1., 0.)*4.)*.25*step(1., l));
+  } else if (uHero == 11){ // clock face: dial, ticking second hand, an open tourbillon cage
+    if (l < 1.){ float a = atan(d.x, -d.y); float r = l;
+      float idx = smoothstep(.04, .0, abs(fract(a/TAU*12. + .5) - .5)*r*1.6)*step(.78, r)*step(r, .9);
+      float mins = smoothstep(.015, .0, abs(fract(a/TAU*60. + .5) - .5)*r*1.6)*step(.86, r)*step(r, .9);
+      float sec = floor(t)*TAU/60. + smoothstep(.0, .12, fract(t))*TAU/60.; // ticks, with a little settle
+      vec2 sd = vec2(sin(sec), -cos(sec)); float hand = smoothstep(.012, .0, abs(dot(d, vec2(-sd.y, sd.x))))*step(0., dot(d, sd))*step(r, .82);
+      float mh = t*TAU/3600.*20.; vec2 md = vec2(sin(mh), -cos(mh)); float minute = smoothstep(.025, .0, abs(dot(d, vec2(-md.y, md.x))))*step(0., dot(d, md))*step(r, .7);
+      vec2 tc = d - vec2(0., .42); float cage = gearMask(rot(tc, t*.9), .22, 10., 0.)*.9 + smoothstep(.02, 0., abs(length(tc) - .25))*.6;
+      vec3 dial = mix(uC3*.6 + vec3(.04), mix(uC2, uC1, .3)*.5, smoothstep(1., .2, r)*.6) + vec3(1.)*pow(max(0., dot(normalize(vec3(d, .6)), normalize(vec3(-.4, -.6, .7)))), 20.)*.25;
+      vec3 metal = mix(uC1, vec3(1.), .4);
+      vec3 col = dial; col = mix(col, metal, clamp(idx + mins*.6 + minute + cage*.8, 0., 1.)); col = mix(col, uC2*1.2 + .2, hand);
+      float bezel = smoothstep(.93, .97, r);
+      col = mix(col, metal*(.6 + .4*cos(a*2. + 1.)), bezel);
+      o = vec4(col, smoothstep(1.01, .99, l)); }
+    o.rgb += uC1*exp(-max(l - 1., 0.)*5.)*.3*step(1., l); o.a = max(o.a, exp(-max(l - 1., 0.)*5.)*.2*step(1., l));
   }
   return o;
 }
@@ -432,6 +619,43 @@ vec4 ring(vec2 uv, float t){
     float l1 = exp(-pow((r - .74)*90., 2.)), l2 = exp(-pow((r - .8)*120., 2.)); float hz = .7 + .3*sin(t*3. + a*2.);
     vec3 cc = mix(uC1, uC2, .5 + .5*sin(a + t*.8));
     col = cc*(l1 + l2*.8)*1.4*hz + cc*exp(-pow((r - .77)*14., 2.))*.35; al = clamp((l1 + l2)*hz + exp(-pow((r - .77)*14., 2.))*.3, 0., 1.);
+  } else if (uRing == 10){ // clockwork: a toothed gear turning, the light catching its teeth
+    float ga = a - t*.22; float tooth = .785 + .04*smoothstep(-.25, .25, cos(ga*26.));
+    float body = smoothstep(tooth + .006, tooth - .006, r)*smoothstep(inner - .01, inner + .01, r);
+    float holes = 0.; for (int i = 0; i < 8; i++){ float ha = float(i)*.785 + t*.22; holes += smoothstep(.03, .022, length(d - vec2(cos(ha), sin(ha))*.748)); }
+    float shade = .55 + .45*cos(a + 2.2);
+    col = mix(uC2*.65, uC1, shade) + vec3(1.)*pow(max(0., cos(a + 2.2)), 16.)*.45 + uC1*smoothstep(.006, 0., abs(r - tooth + .004))*.3;
+    al = body*(1. - clamp(holes, 0., 1.));
+  } else if (uRing == 11){ // liquid platinum: a flowing metal band with moving reflections
+    float n = fbm3(vec2(a*2. - t*.35, r*9.)); float outer = .8 + (n - .5)*.05;
+    al = smoothstep(outer, outer - .012, r)*smoothstep(inner - .008, inner + .008, r);
+    float bev = 1. - abs((r - (inner + outer)*.5)/((outer - inner)*.5));
+    float refl = pow(.5 + .5*cos(a*3. + n*5. - t*.6), 6.) + pow(.5 + .5*cos(a - t*.25 + 2.), 30.)*1.2;
+    col = mix(uC3*.4 + uC2*.25, mix(uC1, vec3(1.), .5), clamp(bev*.6 + refl*.7, 0., 1.)) + vec3(1.)*refl*.35;
+  } else if (uRing == 12){ // circuit: segmented traces with light running round them
+    float seg = fract((a/TAU + .5)*24.); float sid = floor((a/TAU + .5)*24.); float hs = h21(vec2(sid, 5.));
+    float lane = hs < .5 ? .745 : .785; float trace = smoothstep(.009, .003, abs(r - lane))*step(.12, seg)*step(seg, .88 + hs*.12);
+    float pad = smoothstep(.022, .014, length(d - vec2(cos(a), sin(a))*lane))*0.;
+    float run = fract((a/TAU + .5) - t*.18 + hs*.05); float pulse = smoothstep(.06, 0., run)*trace;
+    col = uC2*trace*.7 + uC1*pulse*2.2 + mix(uC1, uC2, .5)*smoothstep(.06, 0., abs(r - .765))*.08;
+    al = clamp(trace*.75 + pulse, 0., 1.);
+  } else if (uRing == 13){ // crimson static: red current that crackles at irregular moments
+    float slot = floor(t*1.7); float burst = step(.55, h21(vec2(slot, 2.)))*exp(-fract(t*1.7)*5.);
+    for (int i = 0; i < 3; i++){ float k = float(i);
+      float off = (fbm3(q*2.6 + vec2(t*4.2 + k*7., k)) - .5)*(.1 + burst*.12); float dl = abs(r - (.765 + off));
+      float v = .0022/(dl + .0018)*(.35 + burst*1.2); col += mix(uC1, vec3(1., .85, .8), k*.3)*v*.55; al += v*.4; }
+    col += uC2*smoothstep(.12, 0., abs(r - .765))*.35; al += smoothstep(.12, 0., abs(r - .765))*.22;
+    al *= smoothstep(inner - .02, inner + .02, r);
+  } else if (uRing == 14){ // crown of light: spires rising above the head
+    float up = clamp(-d.y/r, 0., 1.); float spires = pow(.5 + .5*cos(a*14.), 6.)*smoothstep(.2, .9, up);
+    float h = .78 + spires*.14*(.85 + .15*sin(t*1.4 + a*5.));
+    al = smoothstep(h, h - .02, r)*smoothstep(inner - .01, inner + .01, r)*(.55 + .45*up);
+    col = mix(uC2, mix(uC1, vec3(1.), .5), smoothstep(.76, h, r)) + vec3(1.)*pow(spires, 4.)*.3*(.7 + .3*sin(t*2. + a*9.));
+  } else if (uRing == 15){ // pixel: a stepped ring drawn on a coarse grid, colours cycling
+    vec2 g = floor(uv*28.)/28. + .5/28.; vec2 gd = (g - .5)*2.; float gr = length(gd); float ga2 = atan(gd.y, gd.x);
+    float band = step(inner + .01, gr)*step(gr, .82);
+    float k = fract((ga2/TAU + .5)*6. - t*.4);
+    col = mix(uC1, uC2, step(.5, k))*(.8 + .2*step(.79, gr)); al = band;
   } else if (uRing == 9){ // floral vine (petal lobes)
     float lobes = .5 + .5*cos(a*9. + sin(t*.6)*.4); float outer = .76 + lobes*.07;
     al = smoothstep(outer, outer - .015, r)*smoothstep(inner - .01, inner + .01, r);
@@ -447,7 +671,11 @@ vec4 ring(vec2 uv, float t){
 void main(){
   float t = uTime*uSpeed;
   if (uDeco == 1){ o = ring(vUv, uTime); o *= uIntensity; return; }
-  vec2 p = vec2(vUv.x, vUv.y*uHW);
+  vec2 uv0 = vUv;
+  // Analog tearing during a glitch event: rows slide sideways and the signal rolls.
+  if (uGlitch > 0.){ float row = floor(uv0.y*48.); float hh = h21(vec2(row, floor(uTime*24.)));
+    uv0.x += (hh - .5)*.09*uGlitch*step(.55, hh); uv0.y += sin(uTime*40.)*.004*uGlitch; }
+  vec2 p = vec2(uv0.x, uv0.y*uHW);
   vec2 hc = vec2(uHeroP.x, uHeroP.y*uHW);
   vec4 s = vec4(0);
   if (uMode == 1) s = vortex(p, uHero > 0 ? hc : vec2(.62, .12*uHW), t);
@@ -477,8 +705,18 @@ void main(){
   else if (uMode == 25) s = hexgrid(p, t, uHW);
   else if (uMode == 26) s = split(p, t, uHW);
   else if (uMode == 27) s = glass(p, t, uHW);
+  else if (uMode == 28) s = chrome(p, t, uHW);
+  else if (uMode == 29) s = cathedral(p, t, uHW);
+  else if (uMode == 30) s = circuit(p, t, uHW);
+  else if (uMode == 31) s = track(p, t, uHW);
+  else if (uMode == 32) s = crimson(p, t, uHW, uv0);
+  else if (uMode == 33) s = lasers(p, t, uHW);
+  else if (uMode == 34) s = clockwork(p, t, uHW);
+  else if (uMode == 35) s = rainglass(p, t, uHW);
+  else if (uMode == 36) s = grove(p, t, uHW);
+  if (uGlitch > 0.){ float sl = step(.97, h21(vec2(floor(uv0.y*90.), floor(uTime*30.)))); s.rgb += uC1*sl*.25*uGlitch; s.rgb *= 1. - uGlitch*.25*step(.5, h21(vec2(floor(uv0.y*12.), floor(uTime*18.)))); }
   // Keep the text area calm: the atmosphere is strongest across the banner and eases off down the card.
-  float calm = mix(1., .62, smoothstep(.3*uHW, .75*uHW, p.y));
+  float calm = mix(1., .5, smoothstep(.2*uHW, .42*uHW, p.y)); // name, status and bio stay readable over any atmosphere
   s *= uIntensity*calm;
   if (uHero > 0){ vec4 h = hero(p, hc, uHeroP.z, t); s = h + s*(1. - h.a); }
   // Entrance: the effect blooms outward from the avatar.

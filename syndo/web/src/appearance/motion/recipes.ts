@@ -3,8 +3,8 @@
  * chosen per collection from its name, brief and category, coloured from its own artwork, and given extra details
  * its brief asks for (paw prints, coins, music notes, lightning…). Same collection, same scene, every time.
  */
-import { PROFILE_CATALOG } from "@send/shared";
-import { HERO, RING, SKY, type Col, type Emitter, type Scene } from "./engine.ts";
+import { PROFILE_CATALOG, cosmeticById } from "@send/shared";
+import { HERO, RING, SKY, type Col, type Emitter, type EventKind, type Scene } from "./engine.ts";
 import palettes from "./palettes.json";
 import { SPECS } from "./specs.ts";
 import type { SpriteName } from "./sprites.ts";
@@ -302,6 +302,66 @@ export const ARCHETYPES: Record<string, Arch> = {
     intro: { burst: "bit1", colors: ["c1", "w"], count: 28, flash: true },
     deco: { ring: RING.electric, emitters: [orbit("hex", 3, [4, 6], ["c1"], "add")] },
   }),
+  // ---- premium archetypes (2026 catalogue) ----
+  /** Crimson Static: starts almost still, then the lights stutter on, a distant pulse, lightning crawls the frame, a red flash, an uneasy loop. */
+  crimson: () => ({
+    sky: { mode: SKY.crimson, intensity: .95 },
+    emitters: [
+      { sprite: "orb", behavior: "garland", count: 24, size: [3.6, 3.6], blend: "add", glow: 2.2, layer: "front", delay: .6 },
+      { sprite: "ember", behavior: "rise", count: 12, size: [1.2, 2.6], colors: ["c1", "#ffb38a"], toColor: "c2", blend: "add", glow: .45, speed: .5, delay: 2.2 },
+      { sprite: "dust", behavior: "drift", count: 22, size: [1, 2.2], colors: ["#d9c2b8", "c1"], blend: "add", alpha: .55, layer: "back", delay: 1.8 },
+      { sprite: "smoke", behavior: "rise", count: 3, size: [40, 60], colors: ["c2"], alpha: .18, speed: .25, layer: "back", spin: .15 },
+    ],
+    events: [{ do: "edge", every: [3.5, 8], after: 3 }, { do: "pulse", every: [4, 9], after: 2 }, { do: "glitch", every: [6, 14], after: 4 }],
+    script: [{ at: 1.4, do: "pulse" }, { at: 2.4, do: "edge" }, { at: 3.3, do: "flash" }, { at: 3.35, do: "glitch" }],
+    deco: { ring: RING.crimson, emitters: [{ sprite: "ember", behavior: "rise", count: 5, size: [1.2, 2.4], colors: ["c1"], toColor: "c2", blend: "add", glow: .5, region: "anchor", speed: .4 }] },
+  }),
+  platinum: () => ({
+    sky: { mode: SKY.chrome, intensity: .9, speed: .8 },
+    emitters: [{ sprite: "twinkle", behavior: "twinkle", count: 6, size: [4, 8], colors: ["w"], blend: "add", spin: .3, layer: "front" }],
+    deco: { ring: RING.platinum, emitters: [] },
+  }),
+  cathedral: () => ({
+    sky: { mode: SKY.cathedral, intensity: .95 },
+    emitters: [
+      { sprite: "dust", behavior: "drift", count: 30, size: [1, 2.2], colors: ["#ffe6b8", "c1"], blend: "add", alpha: .6, layer: "front", glow: .3 },
+      { sprite: "feather", behavior: "fall", count: 4, size: [6, 9], colors: ["#16131c"], tumble: true, spin: 1, speed: .45 },
+    ],
+    deco: { ring: RING.shadow, emitters: [] },
+  }),
+  circuit: () => ({
+    sky: { mode: SKY.circuit, intensity: .95 },
+    emitters: [{ sprite: "square", behavior: "twinkle", count: 6, size: [3, 5], colors: ["c1"], blend: "add", glow: .4 }],
+    intro: { burst: "square", colors: ["c1", "w"], count: 18, flash: false },
+    deco: { ring: RING.circuit, emitters: [] },
+  }),
+  track: () => ({
+    sky: { mode: SKY.track, intensity: .95 },
+    emitters: [{ sprite: "streak", behavior: "streak", count: 14, size: [.8, 1.3], stretch: 26, colors: ["w", "c1"], blend: "add", angle: 182, speed: 1.7, alpha: .5 }],
+    deco: { ring: RING.metal, emitters: [] },
+  }),
+  club: () => ({
+    sky: { mode: SKY.lasers, intensity: .95 },
+    emitters: [{ sprite: "dust", behavior: "drift", count: 24, size: [1, 2], colors: ["c1", "c2"], blend: "add", alpha: .6 }],
+    deco: { ring: RING.neon, emitters: [] },
+  }),
+  clockwork: () => ({
+    sky: { mode: SKY.clockwork, intensity: .95 },
+    emitters: [{ sprite: "dust", behavior: "drift", count: 14, size: [1, 2], colors: ["c1"], blend: "add", alpha: .5 }],
+    deco: { ring: RING.gears, emitters: [] },
+  }),
+  rainglass: () => ({
+    sky: { mode: SKY.rainglass, intensity: .95 },
+    emitters: [{ sprite: "streak", behavior: "streak", count: 18, size: [.6, 1], stretch: 12, colors: ["w"], blend: "add", alpha: .25, angle: 98, layer: "back" }],
+    deco: { ring: RING.water, emitters: [] },
+  }),
+  grove: () => ({
+    sky: { mode: SKY.grove, intensity: .95 },
+    emitters: [{ sprite: "firefly", behavior: "drift", count: 14, size: [3, 5], colors: ["c1"], blend: "add", glow: .7 }],
+    deco: { ring: RING.floral, emitters: [] },
+  }),
+  /** Quiet base: no atmosphere, just what the spec adds. For restrained, object-led bundles. */
+  bare: () => ({ sky: { mode: SKY.none, intensity: .9 }, emitters: [], deco: { ring: RING.none, emitters: [] } }),
 };
 
 // ---------------------------------------------------------------- matching --
@@ -420,6 +480,7 @@ function makeEmitter(sprite: SpriteName, behavior: Emitter["behavior"], count: n
     case "pulse": e.size = sprite === "ring" || sprite === "circle" || sprite === "hex" ? [18, 90] : [10, 40]; e.alpha = .8; e.blend = "add"; e.region = o.region ?? "anchor"; break;
     case "lights": e.size = [6, 6]; e.glow = .9; e.blend = "add"; break;
     case "blink": e.size = [4.5, 6]; e.glow = 1.1; e.blend = "add"; break;
+    case "garland": e.size = [3.6, 3.6]; e.glow = 2.2; e.blend = "add"; e.layer = "front"; e.sprite = "orb"; break;
     case "swirl": e.blend = "add"; e.size = [1.2, 2.8]; e.glow = .4; break;
   }
   return e;
@@ -428,7 +489,7 @@ function makeEmitter(sprite: SpriteName, behavior: Emitter["behavior"], count: n
 function applySpec(spec: string, pal: Pal, v: number): { base: Omit<Scene, "palette">; pal: Pal } {
   const [arch, ...toks] = spec.trim().split(/\s+/);
   const base = ARCHETYPES[arch!]!(pal, v);
-  const out: Omit<Scene, "palette"> = { ...base, emitters: [...base.emitters], deco: { ...base.deco, emitters: [...base.deco.emitters] }, sky: { ...base.sky } };
+  const out: Omit<Scene, "palette"> = { ...base, emitters: [...base.emitters], deco: { ...base.deco, emitters: [...base.deco.emitters] }, sky: { ...base.sky }, events: base.events ? [...base.events] : undefined, script: base.script ? [...base.script] : undefined };
   for (const t of toks) {
     let m: RegExpMatchArray | null;
     if ((m = t.match(/^sky=(\w+)(?::([\d.]+))?$/))) { out.sky.mode = (SKY as any)[m[1]!] ?? out.sky.mode; if (m[2]) out.sky.intensity = +m[2]; }
@@ -437,8 +498,15 @@ function applySpec(spec: string, pal: Pal, v: number): { base: Omit<Scene, "pale
     else if ((m = t.match(/^ring=(\w+)$/))) out.deco.ring = (RING as any)[m[1]!] ?? out.deco.ring;
     else if ((m = t.match(/^pal=(#[0-9a-f]{6}),(#[0-9a-f]{6}),(#[0-9a-f]{6})$/i))) pal = [m[1]!, m[2]!, m[3]!];
     else if ((m = t.match(/^-(\w+)$/))) { const sp = m[1]; out.emitters = out.emitters.filter((e) => e.sprite !== sp); }
-    else if ((m = t.match(/^(deco)?\+(\w+)\.(\w+)(?:\*([\d.]+))?(?:@(\d+))?(?:\^([\d.]+))?(?:%(\w))?(?:~(.+))?$/))) {
-      const e = makeEmitter(m[2] as SpriteName, m[3] as Emitter["behavior"], m[4] ? +m[4] : 6, { angle: m[5] ? +m[5] : undefined, speed: m[6] ? +m[6] : undefined, region: m[7] ? REGION[m[7]] : undefined, colors: m[8] ? (m[8].split(",") as Col[]) : undefined });
+    else if ((m = t.match(/^ev=(\w+):([\d.]+)-([\d.]+)(?::([\d.]+))?$/))) (out.events ??= []).push({ do: m[1] as EventKind, every: [+m[2]!, +m[3]!], after: m[4] ? +m[4] : undefined });
+    else if ((m = t.match(/^cue=(\w+)@([\d.]+)$/))) (out.script ??= []).push({ do: m[1] as EventKind, at: +m[2]! });
+    else if ((m = t.match(/^speed=([\d.]+)$/))) out.sky.speed = +m[1]!;
+    else if (t === "intro=none") delete out.intro;
+    else if ((m = t.match(/^intro=(\w+)(?:\*(\d+))?$/))) out.intro = { burst: m[1] as SpriteName, colors: ["c1", "w"], count: m[2] ? +m[2] : 22, flash: false };
+    else if ((m = t.match(/^deco=([\d.]+)$/))) out.deco.intensity = +m[1]!;
+    else if ((m = t.match(/^(deco)?\+(\w+)\.(\w+)(?:\*([\d.]+))?(?:@(\d+))?(?:\^([\d.]+))?(?:%(\w))?(?:&([\d.]+))?(?:~(.+))?$/))) {
+      const e = makeEmitter(m[2] as SpriteName, m[3] as Emitter["behavior"], m[4] ? +m[4] : 6, { angle: m[5] ? +m[5] : undefined, speed: m[6] ? +m[6] : undefined, region: m[7] ? REGION[m[7]] : undefined, colors: m[9] ? (m[9].split(",") as Col[]) : undefined });
+      if (m[8]) e.delay = +m[8];
       if (m[1]) { if (e.behavior === "fall" || e.behavior === "rise") e.region = e.region ?? "anchor"; e.size = [e.size[0] * .9, e.size[1] * .9]; out.deco.emitters.push(e); } else out.emitters.push(e);
     } else if (import.meta.env?.DEV) console.warn("SEND Motion: unknown spec token", t, "in", spec);
   }
@@ -452,6 +520,12 @@ const cache = new Map<string, SceneInfo>();
 export function sceneFor(id: string | null | undefined): SceneInfo | null {
   if (!id) return null;
   const hit = cache.get(id); if (hit) return hit;
+  const bundle = cosmeticById(id);
+  if (bundle?.spec) {
+    const r = applySpec(bundle.spec, bundle.palette[0] ? bundle.palette : (ORIGINAL_PALETTE[id] ?? ["#ffffff", "#888888", "#08080c"]), hash(id));
+    const info = { scene: { ...r.base, palette: r.pal }, archetype: bundle.spec.split(" ")[0]! };
+    cache.set(id, info); return info;
+  }
   let arch: string | undefined = ORIGINAL[id], pal: Pal | undefined = ORIGINAL_PALETTE[id], text = "";
   if (!arch) {
     const c = PROFILE_CATALOG.find((x) => x.id === id); if (!c) return null;

@@ -4,6 +4,8 @@ import { sceneFor } from "./recipes.ts";
 import { collectionById } from "../collections.ts";
 
 const dprCap = (max: number) => Math.min(max, window.devicePixelRatio || 1);
+/** Visual QA (/fx?t=…) fast-forwards effects to their steady state so slow software renderers can capture them. */
+function preroll(sim: Sim) { const s = (window as any).__fxPreroll as number | undefined; if (s) { sim.resize(320, 440); sim.warm(s); sim.t = Math.max(sim.t, s); } return sim; }
 
 function useVisible(ref: React.RefObject<Element | null>) {
   const [v, setV] = useState(false);
@@ -24,7 +26,7 @@ export function ProfileEffect({ id, animate }: { id: string; animate: boolean })
   const info = sceneFor(id);
   const back = useRef<HTMLCanvasElement>(null), front = useRef<HTMLCanvasElement>(null);
   const visible = useVisible(back);
-  const sim = useMemo(() => (info ? new Sim(info.scene, "card") : null), [id]); // eslint-disable-line
+  const sim = useMemo(() => (info ? preroll(new Sim(info.scene, "card")) : null), [id]); // eslint-disable-line
   const [still, setStill] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export function AvatarDecoration({ id, size, live }: { id: string; size: number;
   const info = sceneFor(id);
   const ref = useRef<HTMLCanvasElement>(null);
   const visible = useVisible(ref);
-  const sim = useMemo(() => (info && live ? new Sim(info.scene, "deco") : null), [id, live]); // eslint-disable-line
+  const sim = useMemo(() => (info && live ? preroll(new Sim(info.scene, "deco")) : null), [id, live]); // eslint-disable-line
   const [still, setStill] = useState<string | null>(null);
   const px = Math.round(size * 1.4 * dprCap(2));
 

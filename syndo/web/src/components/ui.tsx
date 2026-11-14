@@ -38,13 +38,15 @@ export function Avatar({ user, size = 40, status, src, serverTheme, plain }: { u
   const { theme, animate } = useCosmetics(plain ? null : user, serverTheme);
   const url = src ?? user?.avatar ?? null;
   const [hover, setHover] = useState(false);
-  const motion = !!theme?.collection && size >= 24 && motionSupported();
+  // Mix and match: the avatar decoration can come from a different bundle than the profile effect.
+  const decoId = theme?.avatarDeco || theme?.collection || null;
+  const motion = !!decoId && size >= 24 && motionSupported();
   return (
     <span className={`avatar ${decorClasses(theme, animate)}`} style={{ width: size, height: size, ...decorVars(theme) }}
       onMouseEnter={motion && animate ? () => setHover(true) : undefined} onMouseLeave={motion && animate ? () => setHover(false) : undefined}>
       {url ? <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
         : <span className="avatar-fallback" style={{ background: hue(user?.id ?? "0"), fontSize: size * 0.38 }} aria-hidden>{initials(user)}</span>}
-      {theme?.collection && (motion ? <AvatarDecoration id={theme.collection} size={size} live={animate && (size >= 64 || hover)} /> : <CollectionArt id={theme.collection} animate={animate} />)}
+      {decoId && (motion ? <AvatarDecoration id={decoId} size={size} live={animate && (size >= 64 || hover)} /> : <CollectionArt id={decoId} animate={animate} />)}
       {status !== undefined && status !== null && <StatusDot status={status || presence} size={Math.max(10, size * 0.3)} />}
     </span>
   );

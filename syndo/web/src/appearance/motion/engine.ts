@@ -11,7 +11,7 @@ import { QUAD_VS, SKY_FS, SPRITE_FS, SPRITE_VS } from "./shaders.ts";
 import { GRID, SPRITES, spriteAtlas, type SpriteName } from "./sprites.ts";
 
 // ---------------------------------------------------------------- scene description --
-export type Behavior = "fall" | "rise" | "drift" | "flock" | "flutter" | "orbit" | "streak" | "twinkle" | "swirl" | "comet" | "fireworks" | "lightning" | "flyby" | "beam" | "pulse" | "lights" | "blink";
+export type Behavior = "fall" | "rise" | "drift" | "flock" | "flutter" | "orbit" | "streak" | "twinkle" | "swirl" | "comet" | "fireworks" | "lightning" | "flyby" | "beam" | "pulse" | "lights" | "blink" | "garland";
 export type Col = "c1" | "c2" | "c3" | "w" | `#${string}`;
 export interface Emitter {
   sprite: SpriteName; behavior: Behavior;
@@ -23,6 +23,8 @@ export interface Emitter {
   region?: "all" | "top" | "bottom" | "anchor" | "hero" | "banner" | "edges";
   spin?: number; tumble?: boolean; glow?: number; trail?: number; stretch?: number;
   alpha?: number; life?: [number, number]; fps?: number; angle?: number;
+  /** Seconds after the card opens before this layer starts (staged entrances). */
+  delay?: number;
 }
 export interface Scene {
   palette: [string, string, string];
@@ -31,10 +33,17 @@ export interface Scene {
   emitters: Emitter[];
   intro?: { burst?: SpriteName; colors?: Col[]; count?: number; shock?: boolean; flash?: boolean };
   deco: { ring: number; intensity?: number; emitters: Emitter[] };
+  /** Recurring moments at irregular intervals (lightning crawling along the card edge, a red flash, signal tearing). */
+  events?: SceneEvent[];
+  /** One-off cues on the opening timeline, in seconds. */
+  script?: { at: number; do: EventKind }[];
 }
-export const SKY = { none: 0, vortex: 1, nebula: 2, aurora: 3, fire: 4, fog: 5, neonrain: 6, rays: 7, caustics: 8, synth: 9, digital: 10, storm: 11, sand: 12, holo: 13, ink: 14, dreamy: 15, space: 16, film: 17, comic: 18, crt: 19, stage: 20, police: 21, tunnel: 22, clouds: 23, lava: 24, hexgrid: 25, split: 26, glass: 27 } as const;
-export const HERO = { none: 0, moon: 1, sun: 2, blackhole: 3, planet: 4, portal: 5, orb: 6, eclipse: 7, ring: 8, eye: 9 } as const;
-export const RING = { none: 0, flame: 1, electric: 2, ice: 3, nebula: 4, metal: 5, shadow: 6, water: 7, neon: 8, floral: 9 } as const;
+export type EventKind = "bolt" | "edge" | "flash" | "glitch" | "pulse";
+export interface SceneEvent { do: EventKind; every: [number, number]; after?: number }
+export const SKY = { none: 0, vortex: 1, nebula: 2, aurora: 3, fire: 4, fog: 5, neonrain: 6, rays: 7, caustics: 8, synth: 9, digital: 10, storm: 11, sand: 12, holo: 13, ink: 14, dreamy: 15, space: 16, film: 17, comic: 18, crt: 19, stage: 20, police: 21, tunnel: 22, clouds: 23, lava: 24, hexgrid: 25, split: 26, glass: 27,
+  chrome: 28, cathedral: 29, circuit: 30, track: 31, crimson: 32, lasers: 33, clockwork: 34, rainglass: 35, grove: 36 } as const;
+export const HERO = { none: 0, moon: 1, sun: 2, blackhole: 3, planet: 4, portal: 5, orb: 6, eclipse: 7, ring: 8, eye: 9, rosewindow: 10, clock: 11 } as const;
+export const RING = { none: 0, flame: 1, electric: 2, ice: 3, nebula: 4, metal: 5, shadow: 6, water: 7, neon: 8, floral: 9, gears: 10, platinum: 11, circuit: 12, crimson: 13, crown: 14, pixel: 15 } as const;
 
 // ---------------------------------------------------------------- simulation --
 const hex = (h: string): [number, number, number] => { const n = parseInt(h.slice(1, 7), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
@@ -51,8 +60,11 @@ interface P {
 export type ViewKind = "back" | "front" | "deco";
 
 export class Sim {
-  t = 0; parts: P[] = []; W = 320; H = 440; anchor = { x: 56, y: 104 }; flash = 0; flashP = { x: .5, y: .2 };
-  bolts: { pts: number[]; age: number; life: number }[] = [];
+  t = 0; parts: P[] = []; W = 320; H = 440; anchor = { x: 56, y: 104 }; flash = 0; flashP = { x: .5, y: .2 }; glitch = 0;
+  bolts: { pts: number[]; age: number; life: number; w?: number }[] = [];
+  private lastFlash = -9; private evT: number[] = []; private cued = 0;
+  /** Bulb states for garland lights: each bulb flickers on its own random schedule. */
+  private bulbs: { on: number; next: number; warm: number }[] = [];
   private cols: Record<string, [number, number, number]>; private boltT = rand(1.5, 4); private fwT = .6;
   constructor(public scene: Scene, public kind: "card" | "deco", public seed = Math.random()) {
     const [c1, c2, c3] = scene.palette;
@@ -130,7 +142,7 @@ export class Sim {
     }
     if (it.shock !== false) this.parts.push({ e: { sprite: "ring", behavior: "drift", count: 0, size: [1, 1], blend: "add", layer: "front" }, s: SPRITES.ring.index, frames: 1, x: this.anchor.x, y: this.anchor.y,
       vx: 0, vy: 0, rot: 0, vr: 0, size: 30 * sc, age: 0, life: .9, ph: 0, c: this.col("c1"), a: 1, flip: 1, ang: 0, rad: 0, av: 0, cx: 0, cy: 0, gen: -2 });
-    if (it.flash) { this.flash = 1; this.flashP = { x: this.anchor.x / this.W, y: this.anchor.y / this.H }; }
+    if (it.flash) this.lightUp(.85, this.anchor.x, this.anchor.y);
   }
 
   step(dt: number, warming = false) {
@@ -142,16 +154,19 @@ export class Sim {
     for (const p of this.parts) if (p.gen >= 0) counts.set(p.e, (counts.get(p.e) ?? 0) + 1);
     for (const e of this.emitters) {
       if (e.behavior === "fireworks" || e.behavior === "lightning") continue;
-      const fixed = e.behavior === "lights" || e.behavior === "blink", want = fixed ? e.count : Math.round(e.count * area * introBoost), have = counts.get(e) ?? 0;
+      if (e.delay && !warming && t < e.delay) continue;
+      const fixed = e.behavior === "lights" || e.behavior === "blink" || e.behavior === "garland", want = fixed ? e.count : Math.round(e.count * area * introBoost), have = counts.get(e) ?? 0;
       const perStep = warming || fixed ? want : Math.max(1, Math.ceil(want * dt * 1.5));
       for (let i = 0; i < Math.min(want - have, perStep); i++) this.parts.push(this.spawn(e, warming || t < .05));
     }
     // fireworks & lightning are timed events
     for (const e of this.emitters) {
       if (e.behavior === "fireworks") { this.fwT -= dt; if (this.fwT <= 0) { this.fwT = rand(.5, 1.2) / Math.max(.3, e.count / 3); this.rocket(e); } }
-      if (e.behavior === "lightning") { this.boltT -= dt; if (this.boltT <= 0) { this.boltT = rand(2.5, 6) / Math.max(.3, e.count / 2); this.bolt(); } }
+      if (e.behavior === "lightning" && !(e.delay && !warming && t < e.delay)) { this.boltT -= dt; if (this.boltT <= 0) { this.boltT = rand(2.5, 6) / Math.max(.3, e.count / 2); this.bolt(); } }
     }
+    this.events(dt, warming);
     this.flash = Math.max(0, this.flash - dt * 2.8);
+    this.glitch = Math.max(0, this.glitch - dt * 3.5);
     for (const b of this.bolts) b.age += dt;
     this.bolts = this.bolts.filter((b) => b.age < b.life);
 
@@ -219,7 +234,7 @@ export class Sim {
           if ((p.vx > 0 && p.x > W + p.size * 3) || (p.vx < 0 && p.x < -p.size * 3)) Object.assign(p, this.spawn(e)); break; }
         case "beam": { p.ang += p.av * dt * Math.sin(t * .7 + p.ph); const k = p.age / p.life; p.a = (e.alpha ?? 1) * Math.min(1, k * 5) * Math.min(1, (1 - k) * 4); break; }
         case "pulse": { const k = p.age / p.life; p.size = (e.size[0] + (e.size[1] - e.size[0]) * (1 - Math.pow(1 - k, 2))) * sc; p.a = (e.alpha ?? 1) * (1 - k); break; }
-        case "lights": case "blink": break;
+        case "lights": case "blink": case "garland": break;
         case "streak": { p.x += p.vx * dt; p.y += p.vy * dt; if (p.y > H + 80 || p.x < -W * .7 || p.x > W * 1.7 || p.y < -100) Object.assign(p, this.spawn(e)); break; }
         case "comet": { p.x += p.vx * dt; p.y += p.vy * dt; const k = p.age / p.life; p.a = Math.sin(Math.PI * Math.min(1, k)); break; }
         case "swirl": {
@@ -239,6 +254,7 @@ export class Sim {
   layoutFixed() {
     const sc = this.scale, W = this.W, t = this.t;
     for (const e of this.emitters) {
+      if (e.behavior === "garland") { this.layoutGarland(e); continue; }
       if (e.behavior !== "lights" && e.behavior !== "blink") continue;
       const ps = this.parts.filter((p) => p.e === e), n = ps.length;
       ps.forEach((p, i) => {
@@ -254,6 +270,73 @@ export class Sim {
     }
   }
 
+  /**
+   * Light up the scene. Photosensitivity: strong flashes are spaced at least 1.2 s apart (well under 3 a second) and capped,
+   * so no effect can strobe; a flash asked for too soon is softened to a glow.
+   */
+  lightUp(k: number, x: number, y: number) {
+    const strong = k > .45, soon = this.t - this.lastFlash < 1.2;
+    const v = strong && soon ? Math.min(k, .3) : Math.min(k, .85);
+    if (v >= this.flash) { this.flash = v; this.flashP = { x: x / this.W, y: y / this.H }; }
+    if (strong && !soon) this.lastFlash = this.t;
+  }
+  fire(kind: EventKind) {
+    if (kind === "bolt") this.bolt();
+    else if (kind === "edge") this.edgeBolt();
+    else if (kind === "flash") this.lightUp(.85, this.W * .5, this.H * .12);
+    else if (kind === "glitch") this.glitch = 1;
+    else if (kind === "pulse") this.lightUp(.4, this.W * (.2 + Math.random() * .6), this.H * .05);
+  }
+  private events(dt: number, warming: boolean) {
+    const sc = this.scene;
+    if (sc.script && !warming) while (this.cued < sc.script.length && sc.script[this.cued]!.at <= this.t) this.fire(sc.script[this.cued++]!.do);
+    if (!sc.events) return;
+    sc.events.forEach((ev, i) => {
+      if (this.evT[i] === undefined) this.evT[i] = (ev.after ?? 0) + rand(ev.every[0], ev.every[1]) * .5;
+      this.evT[i]! -= dt;
+      if (this.evT[i]! <= 0) { this.evT[i] = rand(ev.every[0], ev.every[1]); if (!warming || ev.do === "bolt" || ev.do === "edge") this.fire(ev.do); }
+    });
+  }
+  /** Lightning that crawls along the card's border, forking inwards, briefly lighting the surface near it. */
+  private edgeBolt() {
+    const W = this.W, H = this.H, sc = this.scale;
+    const per = 2 * (W + H), start = rand(0, per), len = rand(.18, .32) * per, dir = Math.random() < .5 ? 1 : -1;
+    const at = (u: number) => { u = ((u % per) + per) % per;
+      if (u < W) return [u, 0, 0, 1]; u -= W; if (u < H) return [W, u, -1, 0]; u -= H; if (u < W) return [W - u, H, 0, -1]; u -= W; return [0, H - u, 1, 0]; };
+    const pts: number[] = []; const steps = Math.round(len / (9 * sc));
+    let jit = 0;
+    for (let i = 0; i <= steps; i++) {
+      const [x, y, nx, ny] = at(start + dir * i * len / steps); jit = Math.max(0, Math.min(16 * sc, jit + rand(-5, 5) * sc));
+      pts.push(x! + nx! * (jit + 2 * sc), y! + ny! * (jit + 2 * sc));
+      if (i > 2 && i < steps - 2 && Math.random() < .09) { // a fork reaching into the card
+        const b: number[] = [pts[pts.length - 2]!, pts[pts.length - 1]!]; let bx = b[0]!, by = b[1]!; const reach = rand(3, 7) | 0;
+        for (let k = 0; k < reach; k++) { bx += nx! * rand(5, 12) * sc + rand(-7, 7) * sc; by += ny! * rand(5, 12) * sc + rand(-7, 7) * sc; b.push(bx, by); }
+        this.bolts.push({ pts: b, age: -i * .006, life: .35, w: .6 });
+      }
+    }
+    this.bolts.push({ pts, age: 0, life: .5 });
+    const [mx, my] = at(start + dir * len / 2); this.lightUp(.55, mx!, my!);
+  }
+  /**
+   * Fairy lights strung on a sagging wire across the banner and down the left edge. Every bulb runs its own little state
+   * machine: steady, a quick stutter, a dip, or out for a moment. They never blink together.
+   */
+  private layoutGarland(e: Emitter) {
+    const ps = this.parts.filter((p) => p.e === e), n = ps.length, W = this.W, H = this.H, sc = this.scale, t = this.t;
+    while (this.bulbs.length < n) this.bulbs.push({ on: 1, next: t + rand(.2, 3), warm: Math.random() });
+    ps.forEach((p, i) => {
+      const u = (i + .5) / n, across = u < .7, v = across ? u / .7 : (u - .7) / .3;
+      if (across) { const span = W * 1.04; p.x = -W * .02 + span * v; p.y = H * .045 + Math.sin(v * Math.PI * 3) * 3 * sc + Math.sin(v * Math.PI) * 16 * sc + Math.sin(v * Math.PI * 6) * 5 * sc; }
+      else { p.x = W * .025 + Math.sin(v * Math.PI * 4) * 4 * sc; p.y = H * (.08 + v * .5); }
+      const b = this.bulbs[i]!;
+      if (t >= b.next) { const r = Math.random();
+        if (r < .55) { b.on = 1; b.next = t + rand(.8, 4); } else if (r < .8) { b.on = .25; b.next = t + rand(.04, .12); }
+        else if (r < .93) { b.on = .55; b.next = t + rand(.15, .5); } else { b.on = .05; b.next = t + rand(.3, 1.4); } }
+      const target = b.on * (.85 + .15 * Math.sin(t * 9 + i)); p.a += (target - p.a) * .5;
+      p.size = e.size[0] * sc; p.rot = 0; p.flip = 1;
+      p.c = this.col(i % 4 === 0 ? "c1" : i % 4 === 1 ? "#ffcf7a" : i % 4 === 2 ? "c2" : "#9fd3ff");
+    });
+  }
   private rocket(e: Emitter) {
     const sc = this.scale, x = rand(this.W * .15, this.W * .85);
     this.parts.push({ e: { ...e, sprite: "spark", blend: "add", trail: 8, layer: e.layer ?? "back" }, s: SPRITES.spark.index, frames: 1, x, y: this.H * rand(.45, .7), vx: rand(-15, 15) * sc, vy: -rand(150, 210) * sc,
@@ -271,7 +354,7 @@ export class Sim {
   private bolt() {
     const W = this.W, H = this.H; let x = rand(W * .1, W * .9), y = 0; const pts = [x, y]; const end = rand(H * .25, H * .55);
     while (y < end) { y += rand(10, 22) * this.scale; x += rand(-14, 14) * this.scale; pts.push(x, y); }
-    this.bolts.push({ pts, age: 0, life: .45 }); this.flash = 1; this.flashP = { x: pts[0]! / W, y: .1 };
+    this.bolts.push({ pts, age: 0, life: .45 }); this.lightUp(.85, pts[0]!, H * .1);
   }
 }
 
@@ -299,7 +382,7 @@ class Renderer {
       return p;
     };
     this.sky = prog(QUAD_VS, SKY_FS); this.spr = prog(SPRITE_VS, SPRITE_FS);
-    for (const n of ["uTime", "uIntensity", "uIntro", "uFlash", "uSeed", "uHW", "uSpeed", "uMode", "uHero", "uRing", "uDeco", "uC1", "uC2", "uC3", "uHeroP", "uAnchor", "uFlashP"]) this.u[n] = gl.getUniformLocation(this.sky, n);
+    for (const n of ["uTime", "uIntensity", "uIntro", "uFlash", "uSeed", "uHW", "uSpeed", "uMode", "uHero", "uRing", "uDeco", "uC1", "uC2", "uC3", "uHeroP", "uAnchor", "uFlashP", "uGlitch"]) this.u[n] = gl.getUniformLocation(this.sky, n);
     for (const n of ["uRes", "uGrid", "uTex"]) this.su[n] = gl.getUniformLocation(this.spr, n);
     const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     this.vaoSky = gl.createVertexArray()!; gl.bindVertexArray(this.vaoSky); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -327,7 +410,7 @@ class Renderer {
       gl.useProgram(this.sky); gl.bindVertexArray(this.vaoSky); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       const u = this.u, [c1, c2, c3] = sc.palette.map(hex);
       gl.uniform1f(u.uTime!, sim.t); gl.uniform1f(u.uIntensity!, kind === "deco" ? sc.deco.intensity ?? 1 : sc.sky.intensity ?? .9); gl.uniform1f(u.uIntro!, introK);
-      gl.uniform1f(u.uFlash!, sim.flash); gl.uniform1f(u.uSeed!, (sim.seed * 7.3) % 1); gl.uniform1f(u.uHW!, sim.H / sim.W); gl.uniform1f(u.uSpeed!, sc.sky.speed ?? 1);
+      gl.uniform1f(u.uFlash!, sim.flash); gl.uniform1f(u.uGlitch!, kind === "deco" ? 0 : sim.glitch); gl.uniform1f(u.uSeed!, (sim.seed * 7.3) % 1); gl.uniform1f(u.uHW!, sim.H / sim.W); gl.uniform1f(u.uSpeed!, sc.sky.speed ?? 1);
       gl.uniform1i(u.uMode!, sc.sky.mode); gl.uniform1i(u.uHero!, sc.hero?.kind ?? 0); gl.uniform1i(u.uRing!, sc.deco.ring); gl.uniform1i(u.uDeco!, kind === "deco" ? 1 : 0);
       gl.uniform3fv(u.uC1!, c1!); gl.uniform3fv(u.uC2!, c2!); gl.uniform3fv(u.uC3!, c3!);
       const h = sc.hero; gl.uniform4f(u.uHeroP!, h?.x ?? 0, h?.y ?? 0, h?.r ?? 0, h?.spin ?? .02);
@@ -342,6 +425,14 @@ class Renderer {
       const o = i * FLOATS; B[o] = x * px; B[o + 1] = y * px; B[o + 2] = hw * px; B[o + 3] = hh * px; B[o + 4] = r; B[o + 5] = a; B[o + 6] = cell; B[o + 7] = 0; B[o + 8] = c[0]; B[o + 9] = c[1]; B[o + 10] = c[2];
     };
     const queue: [boolean, number, number, number, number, number, number, number, [number, number, number]][] = [];
+    if (kind === "front") { // the wire the fairy lights hang from
+      let prev: P | null = null;
+      for (const p of sim.parts) { if (p.e.behavior !== "garland") continue;
+        if (prev && prev.e === p.e && Math.hypot(p.x - prev.x, p.y - prev.y) < sim.W * .2) {
+          const len = Math.hypot(p.x - prev.x, p.y - prev.y), a = Math.atan2(p.y - prev.y, p.x - prev.x);
+          queue.push([false, (p.x + prev.x) / 2, (p.y + prev.y) / 2, len / 2 + .5, 1.1 * sim.scale, a, .75, SPRITES.streak.index, [.06, .05, .05]]); }
+        prev = p; }
+    }
     for (const p of sim.parts) {
       const layer = kind === "deco" ? "front" : p.e.layer ?? "front";
       if (layer !== want || p.a <= .005) continue;
@@ -364,11 +455,14 @@ class Renderer {
       else queue.push([isAdd, p.x, p.y, p.size * p.flip, p.size, p.rot, pa, cell, col]);
     }
     if (kind !== "back") for (const b of sim.bolts) {
+      if (b.age < 0) continue;
+      const bw = b.w ?? 1;
       const k = 1 - b.age / b.life, flick = (Math.sin(b.age * 70) > -.3 ? 1 : .35) * k, c = sim.col("c1"), w: [number, number, number] = [1, 1, 1];
       for (let i = 0; i + 3 < b.pts.length; i += 2) {
         const x0 = b.pts[i]!, y0 = b.pts[i + 1]!, x1 = b.pts[i + 2]!, y1 = b.pts[i + 3]!, len = Math.hypot(x1 - x0, y1 - y0), a = Math.atan2(y1 - y0, x1 - x0);
-        queue.push([true, (x0 + x1) / 2, (y0 + y1) / 2, len / 2 + 1, 10 * sim.scale, a, .55 * flick, SPRITES.streak.index, c]);
-        queue.push([true, (x0 + x1) / 2, (y0 + y1) / 2, len / 2 + .5, 2.2 * sim.scale, a, flick, SPRITES.streak.index, w]);
+        queue.push([true, (x0 + x1) / 2, (y0 + y1) / 2, len / 2 + 3, 30 * sim.scale * bw, a, .22 * flick, SPRITES.glow.index, c]);
+        queue.push([true, (x0 + x1) / 2, (y0 + y1) / 2, len / 2 + 1, 13 * sim.scale * bw, a, .8 * flick, SPRITES.streak.index, c]);
+        queue.push([true, (x0 + x1) / 2, (y0 + y1) / 2, len / 2 + .5, 2.8 * sim.scale * bw, a, flick, SPRITES.streak.index, w]);
       }
     }
     for (const q of queue) if (!q[0] && nA < MAX) put(nA++, q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8]);
