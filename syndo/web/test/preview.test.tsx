@@ -84,10 +84,9 @@ test("profile collections preview independently, filter, save and retain validat
   const user = userEvent.setup(); const view = render(<EffectsGallery />);
   try {
     const before = useStore.getState().me!.profile_theme;
+    await user.click(screen.getByRole("tab", { name: /Nature & Botanical/ }));
     await user.click(screen.getByRole("button", { name: "Preview Rose Court" }));
     assert.equal(useStore.getState().me!.profile_theme, before, "preview does not change the public profile");
-    await user.click(screen.getByRole("combobox", { name: "Collection category" }));
-    await user.click(screen.getByRole("option", { name: "Botanical", exact: true }));
     assert.equal(screen.queryByRole("button", { name: "Preview Lunar Eclipse" }), null);
     assert.ok(screen.getByRole("button", { name: "Preview Wisteria Night" }));
     await user.click(screen.getByRole("button", { name: "Save effects", exact: true }));

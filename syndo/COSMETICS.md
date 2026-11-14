@@ -22,9 +22,12 @@ Persistent checklist for the profile-cosmetics overhaul. Update it as work lands
 - [x] Engine upgrades and 8 flagships (Crimson Static, Liquid Platinum, Apex Velocity, Eternal Eclipse, Phantom Cathedral (bundle-406), Neon Circuit, Sakura Drift (sakura), Clockwork Royalty)
 - [x] 432 bundles written; spec validator: 0 unknown tokens, 432 unique IDs and names, 24 per collection
 - [x] Contact sheets reviewed: supernatural, cyber, motorsport, luxury, streetwear, retro, cosmic, darkfantasy, elemental
-- [ ] Contact sheets: anime, music, nature, cute, horror, art, seasons, industrial, signature
-- [ ] Store UI: collections, search, filters, detail, live preview, avatar-decoration slot
-- [ ] Tests, performance measurements, deploy
+- [x] Contact sheets: anime, music, nature, cute, horror, art, seasons, industrial, signature (all 18 reviewed)
+- [x] Store UI: 18 collection chips + Flagships, search, bundle details and contents, live preview on your own card (production renderer), "use only its avatar decoration", revert, remove, share preview link
+- [x] Tests: web/test/cosmetics.test.tsx (432 / 24 per collection / unique ids, names, scenes / valid tokens / saved selections / brand-name check); all web unit and e2e suites pass
+- [x] Performance (headless, all 432 measured): simulation 0.005 ms/frame median, 0.04 ms p95, 0.24 ms max; particles median 22, max 153 (renderer cap 3000)
+- [ ] Measure GPU frame time on real hardware (headless uses a software renderer, so GPU cost is not representative)
+- [ ] Ideas for later: bespoke hand-animated layers (Lottie/sprite sheets) for the signature collection; paid/earned availability (server-side)
 
 ## Honest quality note
 All 432 are real, renderable, distinct scenes. They are composed from a shared engine (atmosphere shader + hero + ring + particles + choreography),

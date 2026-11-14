@@ -356,7 +356,7 @@ fx-sunflower-field | Sunflower Field | Golden heads turn toward a slow sun. | #f
 fx-kelp-forest | Kelp Forest | Light shafts fall through swaying kelp. | #9affb8,#1a5c6b,#020507 | abyss sky=rays +bubble.rise*10~w ring=water
 fx-moss-and-stone | Moss & Stone | Damp moss, dew and a single drop falling. | #b8e88a,#4a5c3a,#050604 | grove sky=fog:.6 +drop.fall*4^.4~w ring=floral
 fx-hummingbird | Hummingbird | Tiny wings blur beside a red trumpet flower. | #3dffb8,#ff3d6a,#030806 | bare sky=dreamy:.5 +moth.flutter*3~c1 +petal.drift*4~c2 ring=floral
-fx-orchard-breeze | Orchard Breeze | Apple blossom drifts across a spring orchard. | #ffe8f0,#d18ab8,#0c080a | blossom sky=clouds:.6 ring=floral
+fx-orchard-breeze | Orchard Breeze | Blossom drifts across a spring orchard. | #ffe8f0,#d18ab8,#0c080a | blossom sky=clouds:.6 ring=floral
 fx-desert-bloom | Desert Bloom | Cacti flower overnight after rare rain. | #ff8ad1,#ffcf8a,#0c0806 | desert +petal.rise*6^.4~c1 ring=floral
 fx-tide-pools | Tide Pools | Shells and anemones in a sunlit rock pool. | #ffb8a8,#3dd1d1,#030708 | abyss sky=caustics +shell.drift*4~c1,w ring=water
 `,

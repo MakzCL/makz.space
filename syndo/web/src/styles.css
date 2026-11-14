@@ -2523,3 +2523,13 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .fx-lab-card > .pcv { height: 100%; }
 .fx-lab-cell figcaption { display: flex; align-items: center; gap: 8px; font-size: 13px; } .fx-lab-cell figcaption small { margin-left: auto; opacity: .5; }
 .fx-flag { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* cosmetics store */
+.collection-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.collection-chips .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border, rgba(255,255,255,.08)); background: var(--bg1); color: var(--textMuted); font: inherit; font-size: .78rem; cursor: pointer; transition: background .15s, color .15s; }
+.collection-chips .chip small { opacity: .55; font-size: .7rem; }
+.collection-chips .chip:hover { color: var(--text); }
+.collection-chips .chip.on { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
+.collection-blurb { margin: 0 0 10px; }
+.bundle-contents { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.bundle-contents li { font-size: .7rem; padding: 3px 9px; border-radius: 99px; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--textMuted); }
