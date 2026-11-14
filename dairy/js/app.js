@@ -164,6 +164,15 @@ async function boot() {
   window.__dairyReady = true;
 }
 
+/** Android app: status bar icons dark on the light page, light in dark mode. */
+function systemBarStyle() {
+  if (!window.Capacitor?.isNativePlatform?.()) return;
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  window.Capacitor.nativePromise('SystemBars', 'setStyle', { style: dark ? 'DARK' : 'LIGHT' }).catch(() => {});
+}
+systemBarStyle();
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', systemBarStyle);
+
 window.addEventListener('error', (e) => toast(t('Something went wrong: {m}', { m: e.message }), { kind: 'err' }));
 window.addEventListener('unhandledrejection', (e) => toast(t('Could not complete: {m}', { m: e.reason?.message || e.reason }), { kind: 'err' }));
 boot();

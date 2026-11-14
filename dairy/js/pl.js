@@ -24,7 +24,7 @@ export const PL = {
   'Active': 'Na gospodarstwie', 'Sold': 'Sprzedana', 'Transferred': 'Przeniesiona', 'Deceased': 'Padła',
   'heifer': 'jałówka', 'bull': 'byczek', 'Tag {tag}': 'Kolczyk {tag}', 'Ear tag {tag}': 'Kolczyk {tag}', 'tag {tag}': 'kolczyk {tag}',
   'Add animal': 'Dodaj zwierzę', 'Herd list': 'Lista stada', 'Animal not found.': 'Nie znaleziono zwierzęcia.',
-  'On farm': 'W gospodarstwie', 'Archive': 'Archiwum', 'Filter by code, tag or group': 'Szukaj po numerze, kolczyku lub grupie',
+  'On farm': 'W gospodarstwie', 'Archive': 'Archiwum', 'Search': 'Szukaj',
   'All types': 'Wszystkie rodzaje', 'Sold, transferred and dead animals. Their full history is kept.': 'Zwierzęta sprzedane, przeniesione i padłe. Cała ich historia zostaje zachowana.',
   'Farm code': 'Numer w gospodarstwie', 'Ear tag': 'Kolczyk', 'Typed exactly as written: 0042 stays 0042.': 'Zapisywany dokładnie tak, jak wpiszesz: 0042 zostaje 0042.',
   'Date of birth': 'Data urodzenia', 'Dam': 'Matka', 'Sire': 'Ojciec', 'Delete animal completely': 'Usuń zwierzę całkowicie',
@@ -37,7 +37,7 @@ export const PL = {
   'More records': 'Więcej wpisów', 'Heifers': 'Jałówki', 'Milkers': 'Dojne',
 
   // search / today
-  'Find cow by code': 'Znajdź krowę po numerze', 'Code or tag': 'Numer lub kolczyk', 'Switch keyboard': 'Zmień klawiaturę',
+  'Find cow by code': 'Znajdź krowę po numerze', 'Code or tag': 'Nr lub kolczyk', 'Switch keyboard': 'Zmień klawiaturę',
   'No active animal matches “{q}”.': 'Brak zwierzęcia pasującego do „{q}”.', 'Add animal with code {code}': 'Dodaj zwierzę o numerze {code}',
   '{n} more — keep typing': 'jeszcze {n} — pisz dalej', 'My farm': 'Moje gospodarstwo',
   'You are looking at sample data (marked “Sample”).': 'Oglądasz dane przykładowe (oznaczone „Przykład”).',
@@ -163,7 +163,7 @@ export const PL = {
   'Reminder deleted': 'Przypomnienie usunięte', 'Marked done': 'Oznaczono jako zrobione',
 
   // breeding screen
-  'Awaiting result': 'Czeka na wynik', 'Inseminated': 'Inseminowane', 'Bull exposures': 'Buhaj w grupie', 'Heats': 'Ruje', 'Breeding lists': 'Listy rozrodu',
+  'Awaiting result': 'Czeka na wynik', 'No animals yet. Add your first animal.': 'Nie ma jeszcze zwierząt. Dodaj pierwsze zwierzę.', 'No archived animals.': 'Brak zwierząt w archiwum.', 'ABCD-EFGH-JK': 'ABCD-EFGH-JK', 'Inseminated': 'Inseminowane', 'Bull exposures': 'Z buhajem', 'Heats': 'Ruje', 'Breeding lists': 'Listy rozrodu',
   'Active animals whose latest breeding still needs a pregnancy result. Inconclusive results stay here.': 'Zwierzęta w gospodarstwie, których ostatnie krycie czeka na wynik cielności. Wyniki niejednoznaczne zostają na liście.',
   '{n} days since service': '{n} dni od krycia', 'Check overdue {date} ({when})': 'Badanie zaległe od {date} ({when})', 'Check due {date} ({when})': 'Badanie {date} ({when})',
   'Bull still in — no check due yet': 'Buhaj nadal w grupie — badanie jeszcze nie teraz', 'last check inconclusive': 'ostatnie badanie niejednoznaczne',

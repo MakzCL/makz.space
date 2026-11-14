@@ -2,5 +2,15 @@
   "appId": "space.makz.dairyherd",
   "appName": "Dairy Herd",
   "webDir": "www",
-  "android": { "allowMixedContent": false, "captureInput": true }
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "LIGHT"
+    }
+  }
 }

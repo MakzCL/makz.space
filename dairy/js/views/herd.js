@@ -25,7 +25,7 @@ export function herdView() {
       <button type="button" role="tab" class="tab ${state.tab === 'archive' ? 'on' : ''}" aria-selected="${state.tab === 'archive'}" data-act="tab" data-v="archive">${t('Archive')} (${archived})</button>
     </div>
     <div class="filters">
-      <input id="herd-filter" type="search" placeholder="${t('Filter by code, tag or group')}" value="${state.filter}" data-filter aria-label="${t('Filter')}">
+      <input id="herd-filter" type="search" placeholder="${t('Search')}" value="${state.filter}" data-filter aria-label="${t('Filter')}">
       <select data-type aria-label="${t('Type')}"><option value="">${t('All types')}</option>${Object.entries(TYPES).map(([k, v]) => html`<option value="${k}" ${state.type === k ? 'selected' : ''}>${t(v)}</option>`)}</select>
     </div>
     ${state.tab === 'archive' ? html`<p class="muted small">${t('Sold, transferred and dead animals. Their full history is kept.')}</p>` : ''}
