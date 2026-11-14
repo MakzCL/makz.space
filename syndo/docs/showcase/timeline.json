@@ -1,0 +1,114 @@
+[
+ {
+  "key": "intro",
+  "start": 0.0,
+  "vo": 0.9,
+  "voDur": 3.89,
+  "end": 5.54,
+  "file": "vo/00-intro.mp3"
+ },
+ {
+  "key": "profiles",
+  "start": 5.54,
+  "vo": 5.99,
+  "voDur": 6.45,
+  "end": 13.19,
+  "file": "vo/01-profiles.mp3"
+ },
+ {
+  "key": "catalogue",
+  "start": 13.19,
+  "vo": 13.64,
+  "voDur": 9.33,
+  "end": 23.72,
+  "file": "vo/02-catalogue.mp3"
+ },
+ {
+  "key": "store",
+  "start": 23.72,
+  "vo": 24.17,
+  "voDur": 10.27,
+  "end": 35.19,
+  "file": "vo/03-store.mp3"
+ },
+ {
+  "key": "decos",
+  "start": 35.19,
+  "vo": 35.64,
+  "voDur": 6.22,
+  "end": 42.6,
+  "file": "vo/04-decos.mp3"
+ },
+ {
+  "key": "studio",
+  "start": 42.6,
+  "vo": 43.05,
+  "voDur": 9.51,
+  "end": 53.31,
+  "file": "vo/05-studio.mp3"
+ },
+ {
+  "key": "share",
+  "start": 53.31,
+  "vo": 53.76,
+  "voDur": 11.36,
+  "end": 65.88,
+  "file": "vo/06-share.mp3"
+ },
+ {
+  "key": "calls",
+  "start": 65.88,
+  "vo": 66.33,
+  "voDur": 10.71,
+  "end": 77.79,
+  "file": "vo/07-calls.mp3"
+ },
+ {
+  "key": "world",
+  "start": 77.79,
+  "vo": 78.24,
+  "voDur": 9.46,
+  "end": 88.44,
+  "file": "vo/08-world.mp3"
+ },
+ {
+  "key": "sparks",
+  "start": 88.44,
+  "vo": 88.89,
+  "voDur": 9.74,
+  "end": 99.39,
+  "file": "vo/09-sparks.mp3"
+ },
+ {
+  "key": "boosts",
+  "start": 99.39,
+  "vo": 99.84,
+  "voDur": 11.65,
+  "end": 112.24,
+  "file": "vo/10-boosts.mp3"
+ },
+ {
+  "key": "free",
+  "start": 112.24,
+  "vo": 112.69,
+  "voDur": 6.35,
+  "end": 120.63,
+  "file": "vo/11-free.mp3"
+ },
+ {
+  "key": "sponsor",
+  "start": 120.63,
+  "vo": 121.08,
+  "voDur": 10.21,
+  "end": 132.05,
+  "file": "vo/12-sponsor.mp3"
+ },
+ {
+  "key": "end",
+  "start": 132.05,
+  "vo": 132.5,
+  "voDur": 3.94,
+  "end": 138.04,
+  "file": "vo/13-end.mp3"
+ }
+]
