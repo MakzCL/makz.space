@@ -9,6 +9,32 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules,
 IndexedDB for records, a service worker for offline use. English and Polish
 (switch in More, Settings or on the login screen).
 
+## Sync between phones (live)
+
+Turn on in **More → Sync & phones** (or tick "Share this farm online" on the
+first start). Other phones join with a one-time invite code from that screen
+(valid 48 hours). Everything syncs: animals, all records, milk, sales,
+reminders, settings and the PIN users.
+
+- Every phone keeps a full copy and works with no signal. Changes wait in an
+  outbox (shown as "Offline · 3 to send") and upload when there is a signal.
+- When a phone uploads, it pings the farm's live channel and the other phones
+  download straight away (a few seconds). They also check every 30 seconds.
+- If two phones change the same record, the later change wins.
+- The admin can see the farm's phones and remove a lost one.
+- Server: Supabase project "kuklinskikarol04@gmail.com's Project"
+  (`venkviplwtvjkqbjlous`). Schema in `server/schema.sql`. Tables sit in a
+  private `dairy` schema; phones can only call the `dairy_*` functions, which
+  check each phone's secret device key (stored on the server as a hash).
+  Anyone with the app can start a new, empty farm, but nobody can read a farm
+  without a key from an invite code.
+- Free Supabase projects pause after a week with no use; a farm that records
+  daily keeps it awake. If it pauses, phones keep working offline and catch up
+  once it is restored in the Supabase dashboard.
+
+Test with two phones against the real server: `node tests/sync-e2e.mjs`
+(creates a farm called "E2E sync test" — delete it afterwards).
+
 ## Login
 
 The first start creates the owner's login (name + PIN or password). Nothing
@@ -21,7 +47,8 @@ cause an increasing wait. PINs are stored only as salted PBKDF2 hashes.
 This keeps strangers out of the app. It is not encryption of the phone's
 storage: keep backup files private, because they contain the farm records.
 If the only admin forgets the PIN, the data cannot be opened — the login
-screen offers to erase the device so a backup file can be restored.
+screen offers to erase the device so a backup file can be restored. On a
+syncing farm, another admin's phone can reset it.
 
 ## Android app (APK)
 

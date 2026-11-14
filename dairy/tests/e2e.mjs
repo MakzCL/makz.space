@@ -41,8 +41,10 @@ const today = todayKey(FARM_TZ);
 try {
   step('First start: settings with farm time zone and sample data');
   await p.goto(BASE);
+  await p.click('[data-testid=gate-new]');
   await p.waitForSelector('.sheet');
   await choose('language', 'en');
+  await p.uncheck('.sheet input[name=online]');
   await p.fill('#f_ownerName', 'Anna');
   await p.fill('#f_pin', '1234');
   await p.fill('#f_pin2', '1234');

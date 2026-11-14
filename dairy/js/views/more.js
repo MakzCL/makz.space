@@ -12,6 +12,8 @@ import { describe, KIND_LABEL } from './animal.js';
 import { addSampleData, removeSampleData } from '../sample.js';
 import { t as tr, lang, setLang } from '../i18n.js';
 import { createFirstOwner, currentUser, isAdmin, lock, users } from '../auth.js';
+import * as sync from '../sync.js';
+import { deviceLabel, syncPill } from './syncview.js';
 
 export const LANGS = [['en', 'English'], ['pl', 'Polski']];
 
@@ -26,6 +28,7 @@ function langSwitch() {
 
 export function moreView() {
   const links = [
+    ['#/sync', 'Sync & phones', 'Share the farm with other phones, live'],
     ['#/health', 'Health & treatments', 'Milk holds, mastitis, lameness, vaccinations'],
     ['#/bulls', 'Bulls', 'Profiles, groups, soundness exams'],
     ['#/tasks', 'Vet visits & reminders', 'Upcoming and done'],
@@ -40,6 +43,7 @@ export function moreView() {
   return {
     html: html`<header class="top"><h1>${tr('More')}</h1></header>
     <div class="card user-card"><span>${tr('Logged in as {n}', { n: currentUser()?.name || '' })}</span><button type="button" class="btn" data-act="lock" data-testid="lock">${tr('Lock now')}</button></div>
+    <p>${syncPill()}</p>
     <p class="h3">Język / Language</p>${langSwitch()}
     <nav class="menu">${links.map(([h, a, b]) => html`<a class="menu-item" href="${h}"><strong>${tr(a)}</strong><span>${tr(b)}</span></a>`)}</nav>
     <p class="muted small center">${tr('Dairy Herd · all records are stored on this device')}</p>`,
@@ -208,7 +212,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
   openForm({
     title: first ? 'Welcome to Dairy Herd' : 'Farm settings', tz: s.timeZone, recordId: 'farm',
     header: first ? html`<p class="lead">${tr('Set up your farm. You can change these later in More → Farm settings.')}</p>` : '',
-    values: { ...s, language: lang(), sample: first ? true : undefined, ...keep },
+    values: { ...s, language: lang(), sample: first ? true : undefined, online: first ? navigator.onLine : undefined, ...keep },
     submitLabel: first ? 'Start' : 'Save settings',
     fields: [
       { name: 'language', label: 'Język / Language', type: 'choice', options: LANGS },
@@ -223,7 +227,8 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
       ] : []),
       { name: 'timeZone', label: 'Farm time zone', type: 'select', options: zones.map((z) => [z, z]), help: 'Days since insemination and all dates follow this clock.' },
       { name: 'currency', label: 'Currency', type: 'select', options: (CURRENCIES.includes(s.currency) ? CURRENCIES : [s.currency, ...CURRENCIES]).map((c) => [c, c]) },
-      ...(first ? [{ name: 'sample', label: 'Load sample data to try the app (clearly marked, removable)', type: 'checkbox' }] : []),
+      ...(first ? [{ name: 'online', label: 'Share this farm with other phones online (needs internet now)', type: 'checkbox' },
+        { name: 'sample', label: 'Load sample data to try the app (clearly marked, removable)', type: 'checkbox' }] : []),
       { type: 'heading', label: "Vet's schedule & planning intervals", detail: true },
       { name: 'firstCheckDays', label: 'First pregnancy check (days after service)', type: 'number', min: 1, detail: true },
       { name: 'recheckDays', label: 'Recheck an inconclusive result after (days)', type: 'number', min: 1, detail: true },
@@ -240,7 +245,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
         r.addEventListener('change', () => {
           const keepVals = {
             farmName: form.querySelector('[name=farmName]').value, timeZone: form.querySelector('[name=timeZone]').value,
-            currency: form.querySelector('[name=currency]').value, sample: form.querySelector('[name=sample]')?.checked,
+            currency: form.querySelector('[name=currency]').value, sample: form.querySelector('[name=sample]')?.checked, online: form.querySelector('[name=online]')?.checked,
           };
           keepVals.ownerName = form.querySelector('[name=ownerName]')?.value;
           setLang(r.value);
@@ -252,13 +257,16 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
     async onSubmit(v) {
       if (first) await createFirstOwner(v.ownerName, v.pin, v.pin2);
       const clean = { ...v };
-      for (const k of ['sample', 'ownerName', 'pin', 'pin2']) delete clean[k];
+      for (const k of ['sample', 'ownerName', 'pin', 'pin2', 'online']) delete clean[k];
       for (const k of ['firstCheckDays', 'recheckDays', 'gestationDays', 'dryOffDays', 'calvingSoonDays', 'dryOffSoonDays', 'upcomingDays']) {
         if (clean[k] == null || Number.isNaN(clean[k])) delete clean[k]; else clean[k] = Math.round(clean[k]);
       }
       if (clean.language) setLang(clean.language);
       await saveSettings({ ...clean, setupDone: true });
       if (first && v.sample) await addSampleData();
+      if (first && v.online) {
+        try { await sync.startFarm(clean.farmName, deviceLabel(v.ownerName)); } catch (err) { setTimeout(() => toast(tr('Could not go online now. Turn it on later in More → Sync & phones.'), { kind: 'err' }), 1500); }
+      }
       if (first && onDone) setTimeout(onDone, 0);
       return first ? (v.sample ? tr('Sample data loaded — try searching for 0042') : tr('Ready. Add your first animal.')) : tr('Settings saved');
     },
@@ -311,6 +319,7 @@ export function dataView() {
         try {
           const parsed = JSON.parse(await file.text());
           if (parsed.app !== 'dairy-herd' || !parsed.data) throw new Error(tr('This is not a Dairy Herd backup file.'));
+          if (sync.isConnected()) throw new Error(tr('This phone syncs, so the records are already kept online. To restore an old backup, stop syncing first (More → Sync & phones).'));
           const n = Object.values(parsed.data).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
           if (!confirm(tr('Restore backup from {d} with {n} records? Everything currently on this device will be replaced.', { d: fmtDateTime(parsed.exportedAt, tz()), n }))) return;
           for (const s of db.STORES) if (parsed.data[s] && !Array.isArray(parsed.data[s])) throw new Error(tr('Backup is damaged ({s}).', { s }));

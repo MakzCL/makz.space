@@ -12,6 +12,8 @@ import { D } from './store.js';
 import { t, setLang, detectLang } from './i18n.js';
 import { currentUser, hasUsers, isAdmin, resumeSession, showLogin, startIdleWatch, createOwnerForm } from './auth.js';
 import { usersView } from './views/users.js';
+import { syncView, joinForm, statusText } from './views/syncview.js';
+import { startSync, onStatus } from './sync.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -34,6 +36,7 @@ function route() {
     case 'settings': return ['more', isAdmin() ? settingsView() : adminOnly()];
     case 'data': return ['more', isAdmin() ? dataView() : adminOnly()];
     case 'users': return ['more', usersView()];
+    case 'sync': return ['more', syncView()];
     case 'help': return ['more', helpView()];
     default: return ['today', todayView()];
   }
@@ -52,10 +55,12 @@ async function gate() {
   nav.hidden = true;
   if (!hasUsers()) {
     view.innerHTML = String(html`<section class="login"><img src="icons/icon.svg" alt="" class="login-logo" width="72" height="72"><h1>Dairy Herd</h1>
-      <p>${t('Set up a login before using the app.')}</p><button type="button" class="btn primary big" data-setup>${t('Set up')}</button></section>`);
+      <p>${t('Set up a login before using the app.')}</p>
+      <button type="button" class="btn primary big" data-setup data-testid="gate-new">${t('Start a new farm')}</button>
+      <button type="button" class="btn big" data-join data-testid="gate-join">${t('Join a farm with a code')}</button></section>`);
     const open = () => (S().setupDone ? createOwnerForm({ onDone: unlock }) : openSettingsForm(true, {}, unlock));
     view.querySelector('[data-setup]').onclick = open;
-    open();
+    view.querySelector('[data-join]').onclick = () => joinForm({ fromGate: true, onDone: () => { gateOpen = false; gate(); } });
     return;
   }
   await showLogin(view);
@@ -141,9 +146,16 @@ async function boot() {
     const { defaultTimeZone } = await import('./time.js');
     await db.put('settings', { id: 'farm', timeZone: defaultTimeZone(), currency: detectLang() === 'pl' ? 'PLN' : 'EUR', language: detectLang(), setupDone: false });
   }
-  setLang(S().language || detectLang());
+  let savedLang = null;
+  try { savedLang = localStorage.getItem('dairy-lang'); } catch { /* ignore */ }
+  setLang(savedLang || S().language || detectLang());
   startIdleWatch();
   resumeSession();
+  startSync();
+  onStatus(() => {
+    const s = statusText();
+    for (const el of document.querySelectorAll('[data-testid=sync-pill]')) { el.className = `sync-pill ${s.cls}`; el.textContent = s.text; }
+  });
   render();
   navigator.storage?.persist?.().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.Capacitor?.isNativePlatform?.()) {

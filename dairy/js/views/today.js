@@ -7,6 +7,7 @@ import { editAnimal, editTask, completeTask, recordExposure } from '../actions.j
 import { milkForm, collectionForm } from './milk.js';
 import { t, plural } from '../i18n.js';
 import * as db from '../db.js';
+import { syncPill } from './syncview.js';
 
 export function searchResults(q) {
   const list = searchAnimals(D().animals, q);
@@ -72,7 +73,7 @@ export function todayView() {
   return {
     html: html`
     <header class="top"><div><h1>Dairy Herd</h1><p class="farm">${s.farmName || t('My farm')}</p></div>
-      <span class="net" data-net></span></header>
+      <span class="net" data-net hidden></span>${syncPill()}</header>
 
     <section class="find card" aria-labelledby="find-label">
       <label id="find-label" for="find" class="find-label">${t('Find cow by code')}</label>

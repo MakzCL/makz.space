@@ -1,12 +1,12 @@
 // Offline app shell: everything the app needs is cached on first load.
 // Records never pass through here — they live in IndexedDB on the device.
-const VERSION = 'dairy-herd-v2';
+const VERSION = 'dairy-herd-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './js/app.js', './js/db.js', './js/time.js', './js/logic.js', './js/ui.js', './js/store.js', './js/actions.js',
-  './js/components.js', './js/sample.js', './js/i18n.js', './js/pl.js', './js/auth.js',
-  './js/views/today.js', './js/views/animal.js', './js/views/herd.js', './js/views/breeding.js', './js/views/milk.js', './js/views/more.js', './js/views/users.js',
+  './js/components.js', './js/sample.js', './js/i18n.js', './js/pl.js', './js/auth.js', './js/sync.js', './js/config.js',
+  './js/views/today.js', './js/views/animal.js', './js/views/herd.js', './js/views/breeding.js', './js/views/milk.js', './js/views/more.js', './js/views/users.js', './js/views/syncview.js',
 ];
 
 self.addEventListener('install', (e) => {
@@ -22,7 +22,7 @@ self.addEventListener('activate', (e) => {
 // Cache first (fast and works with no signal); refresh the cache in the background when online.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return; // sync server calls go straight to the network
   e.respondWith((async () => {
     const cache = await caches.open(VERSION);
     const hit = await cache.match(req, { ignoreSearch: true }) || (req.mode === 'navigate' ? await cache.match('./index.html') : null);
