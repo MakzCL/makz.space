@@ -21,6 +21,7 @@ import { localLargeUploads } from "./largeUpload.ts";
 import { emoteRoutes } from "./routes/emotes.ts";
 import { userRoutes } from "./routes/users.ts";
 import { voiceRoutes } from "./routes/voice.ts";
+import { musicRoutes } from "./music.ts";
 import { expressionRoutes } from "./routes/expressions.ts";
 import { appearanceAssetRoute, appearanceRoutes } from "./routes/appearance.ts";
 import { reportRoutes } from "./routes/reports.ts";
@@ -120,6 +121,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(emoteRoutes);
   await app.register(embedMediaRoute);
   await app.register(voiceRoutes);
+  await app.register(musicRoutes);
   await app.register(expressionRoutes);
   await app.register(sfuRoutes);
   await app.register(appearanceRoutes);

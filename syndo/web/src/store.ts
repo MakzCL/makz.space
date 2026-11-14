@@ -6,6 +6,8 @@ import {
 
 export type SendState = "pending" | "failed";
 export type UIMessage = Message & { _state?: SendState; _error?: string };
+export interface MusicTrack { id: string; title: string; artist: string | null; duration: number | null; source: string; page: string | null; requester: { id: string; name: string }; stream_url: string }
+export interface MusicState { channel_id: string; guild_id: string | null; bot_id: string | null; active: boolean; playing: MusicTrack | null; paused: boolean; position_ms: number; server_time: number; queue: MusicTrack[]; received_at: number }
 export interface ChannelMessages { list: UIMessage[]; hasMore: boolean; loaded: boolean; loading: boolean }
 export interface CallInfo { channel_id: string; message_id: string; ringing: string[]; started_at: number }
 export type ConnState = "booting" | "signed_out" | "connecting" | "ready" | "reconnecting";
@@ -24,6 +26,8 @@ interface S {
   typing: Record<string, Record<string, number>>;
   voice: Record<string, VoiceState>;
   calls: Record<string, CallInfo>;
+  /** SEND Music state per voice room (from MUSIC_STATE). */
+  music: Record<string, MusicState>;
   limits: InstanceLimits | null;
   sessionId: string | null;
   notice: { id: number; text: string; kind: "info" | "error" | "success" }[];
@@ -41,7 +45,7 @@ interface S {
 
 export const useStore = create<S>(() => ({
   conn: "booting", me: null, guilds: {}, dms: {}, relationships: {}, presences: {}, users: {}, members: {},
-  messages: {}, readStates: {}, typing: {}, voice: {}, calls: {}, limits: null, sessionId: null, notice: [],
+  messages: {}, readStates: {}, typing: {}, voice: {}, calls: {}, music: {}, limits: null, sessionId: null, notice: [],
   threads: {}, joinedThreads: [], notif: {}, activities: {}, customStatuses: {}, events: {}, stages: {},
 }));
 const set = useStore.setState;
@@ -301,6 +305,7 @@ export function dispatch(t: string, d: any) {
       return { voice: v };
     }); break;
     case "CALL_UPDATE": set((st) => ({ calls: { ...st.calls, [d.channel_id]: d } })); break;
+    case "MUSIC_STATE": set((st) => ({ music: { ...st.music, [d.channel_id]: { ...d, received_at: Date.now() } } })); break;
     case "CALL_DELETE": set((st) => { const c = { ...st.calls }; delete c[d.channel_id]; return { calls: c }; }); break;
   }
   for (const fn of extra[t] ?? []) fn(d);

@@ -81,6 +81,31 @@ export function safeFetch(raw: string, opts: { maxBytes?: number; accept?: strin
   });
 }
 
+/**
+ * Open a streaming GET to a public URL with the same SSRF protection (music playback). Redirects are re-checked;
+ * the caller gets the live response and must consume or destroy it.
+ */
+export function safeStream(raw: string, headers: Record<string, string> = {}, redirects = 0): Promise<http.IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const u = allowedUrl(raw);
+    if (!u) return reject(new Error("url not allowed"));
+    const mod = u.protocol === "https:" ? https : http;
+    const req = mod.request(u, { method: "GET", lookup: safeLookup, timeout: 10000, headers: { "user-agent": UA, accept: "audio/*,application/ogg;q=0.9,*/*;q=0.3", ...headers } }, (res) => {
+      const status = res.statusCode ?? 0;
+      if (status >= 300 && status < 400 && res.headers.location) {
+        res.resume();
+        if (redirects >= 5) return reject(new Error("too many redirects"));
+        return safeStream(new URL(res.headers.location, u).toString(), headers, redirects + 1).then(resolve, reject);
+      }
+      res.setTimeout(30000, () => res.destroy(new Error("stalled")));
+      resolve(res);
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 /** POST JSON to a public URL with the same SSRF protection (bot interaction endpoints). */
 export function safePost(raw: string, body: string, headers: Record<string, string>, timeoutMs = 3000): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {

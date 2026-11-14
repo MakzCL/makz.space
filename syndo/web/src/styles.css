@@ -2546,3 +2546,10 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .web-update-text strong { font-size: 1.05rem; } .web-update-text span { font-size: .9rem; }
   .web-update-actions { grid-column: 1 / -1; } .web-update-actions .btn { flex: 1; justify-content: center; min-height: 46px; font-size: 1rem; border-radius: 14px; }
 }
+
+/* SEND Music bot in a voice room */
+.music-bot { cursor: default; }
+.music-bot-avatar { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ff7ad9)); color: var(--on-accent, #fff); flex: none; }
+.music-bot-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.music-bot-text small { font-size: .72rem; }
+.bot-tag { font-size: .6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: var(--accent); color: var(--on-accent, #fff); margin-left: 4px; vertical-align: 1px; }

@@ -1,3 +1,4 @@
+import { MusicListener } from "./voice/music.tsx";
 import "./legacy.ts"; // must stay first: maps names from before the rename (desktop bridge, saved settings)
 import { DesktopPrompt } from "./components/DesktopPrompt.tsx";
 import { initCallSounds } from "./voice/sounds.ts";
@@ -85,7 +86,7 @@ function App() {
   else if (route.name === "qr") page = <main className="auth"><section className="auth-card"><QrApprove id={route.params.id!} /><button className="link" onClick={() => navigate("/channels/@me")}>Back to SEND</button></section></main>;
   else page = <Shell />;
   if (route.name === "fx") return page;
-  return <><DesktopTitlebar /><WebUpdateBar /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
+  return <><DesktopTitlebar /><WebUpdateBar /><MusicListener /><DesktopPrompt />{previewMode && <div className="preview-banner" role="status"><span><strong>Local preview</strong> · Sample data · Messages stay on this device</span>{location.hostname !== "appassets.androidplatform.net" && <button onClick={() => { sessionStorage.removeItem("send.preview"); location.href = "/?live=1"; }}>Exit</button>}</div>}{page}{switcher && <QuickSwitcher onClose={() => setSwitcher(false)} />}{help && conn === "ready" && <ShortcutHelp onClose={() => setHelp(false)} />}{studio && conn === "ready" && <Studio initial={studio.section} initialTarget={studio.target} onClose={() => setStudio(null)} />}<MediaViewerHost /><ContextMenuHost /><AskHost /><ModalHost />{conn === "ready" && route.name !== "qr" && <WhatsNewHost />}<Toasts /><InAppNotices /><RecoveryBanner /></>;
 }
 
 initTooltips();

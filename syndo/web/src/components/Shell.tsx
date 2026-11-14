@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
-import { AudioLines, ChevronRight, FolderOpen, Search } from "lucide-react";
+import { AudioLines, ChevronRight, FolderOpen, Music2, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -392,6 +392,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
   const mentions = useStore((s) => s.readStates[c.id]?.mention_count ?? 0);
   const unread = useStore(() => !isVoiceType(c.type) && isUnread(c));
   const voiceUsers = useStore(useShallow((s) => Object.values(s.voice).filter((v) => v.channel_id === c.id)));
+  const music = useStore((s) => s.music[c.id]);
   const myVoice = useVoice((v) => v.channelId);
   // Who is talking right now — known for the channel I'm connected to.
   const speaking = useVoice(useShallow((v) => v.channelId !== c.id ? [] : [...Object.values(v.peers).filter((p) => p.speaking).map((p) => p.id), ...(v.localSpeaking ? ["@me"] : [])]));
@@ -419,7 +420,7 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
       {(c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT || c.type === ChannelType.FORUM) && <SidebarThreads parentId={c.id} current={current ?? ""} />}
       {iconPicker && <EmojiPicker anchor={iconPicker} guildId={guild.id} onPick={(e) => setIcon(e)} onClose={() => setIconPicker(null)} onClear={c.icon_emoji ? () => setIcon(null) : undefined} clearLabel={isVoiceType(c.type) ? "Use the speaker icon" : "Use #"} />}
       {profile && <ProfileCard userId={profile.id} guildId={guild.id} anchor={profile.el} onClose={() => setProfile(null)} />}
-      {voiceUsers.length > 0 && (
+      {(voiceUsers.length > 0 || music?.active) && (
         <ul className="voice-users" aria-label={`In ${c.name}`}>
           {voiceUsers.map((v) => (
             <li key={v.user_id}>
@@ -437,6 +438,13 @@ function ChannelLink({ c, guild, active, current, drag }: { c: Channel; guild: G
               </button>
             </li>
           ))}
+          {music?.active && <li className="music-bot-row">
+            <span className="voice-participant music-bot" title={music.playing ? `Playing ${music.playing.title}` : "SEND Music"}>
+              <span className={`voice-avatar music-bot-avatar ${music.playing && !music.paused ? "speaking" : ""}`} aria-hidden><Music2 size={13} /></span>
+              <span className="music-bot-text"><span className="ellipsis">SEND Music <span className="bot-tag">BOT</span></span>
+                {music.playing && <small className="ellipsis muted">{music.paused ? "Paused: " : ""}{music.playing.title}</small>}</span>
+            </span>
+          </li>}
           {myVoice === c.id && can(c, P.CREATE_INVITE) && <li>
             <button className="voice-participant voice-invite" onClick={() => openDialog({ kind: "invite", guildId: guild.id, channelId: c.id })}>
               <span className="voice-invite-icon" aria-hidden><UserPlus size={13} /></span><span className="ellipsis">Invite to Voice</span><ChevronRight size={15} className="voice-invite-chev" aria-hidden />

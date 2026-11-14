@@ -1,3 +1,4 @@
+import { handleMusicCommand } from "../music.ts";
 import { checkSticker, stickerOut } from "./expressions.ts";
 import { PREFIX, validateDmWire } from "./encryption.ts";
 import type { FastifyInstance } from "fastify";
@@ -282,7 +283,9 @@ export async function messageRoutes(app: FastifyInstance) {
     if (channel.guild_id) trackStat(channel.guild_id, "message", me).catch(() => {});
     if (automod?.alerts.length) automod.report(msg).catch((e) => console.error("[automod]", e));
     notifyMessage(channel, msg, { author: me, everyone, users: mentions.users, roles: roleMentions, silent: !!b.silent }).catch((e) => console.error("[push]", e));
-    if (!(b.flags & 4) && has(perms, P.EMBED_LINKS)) unfurlLater(channel, id, content);
+    if (!(b.flags & 4) && has(perms, P.EMBED_LINKS) && !content.startsWith("!")) unfurlLater(channel, id, content);
+    // SEND Music: "!play …" and friends, answered by the bot after the message is out.
+    if (channel.guild_id && content.startsWith("!")) handleMusicCommand(channel, me, content).catch((e) => console.error("[music]", e));
     return msg;
   });
 
