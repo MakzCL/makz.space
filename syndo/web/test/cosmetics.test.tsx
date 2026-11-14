@@ -1,4 +1,4 @@
-// The cosmetics catalogue: exactly 432 bundles, 24 per collection, every scene written in valid scene language.
+// The cosmetics catalogue: 442 bundles (18 collections of 24 plus 10 Anime Premiere flagships), every scene written in valid scene language.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -39,11 +39,12 @@ const per = new Map<string, number>(); for (const b of COSMETIC_BUNDLES) per.set
 const ids = new Set(COSMETIC_BUNDLES.map((b) => b.id)), names = new Set(COSMETIC_BUNDLES.map((b) => b.name.toLowerCase()));
 
 test("every scene uses known archetypes, skies, heroes, rings, sprites and behaviours, and no two scenes are identical", () => assert.equal(bad, 0));
-test("432 bundles: 18 collections of 24, unique ids and names, 42 existing kept, 390 new", () => {
-  assert.equal(COSMETIC_BUNDLES.length, 432); assert.equal(COSMETIC_COLLECTIONS.length, 18);
-  for (const c of COSMETIC_COLLECTIONS) assert.equal(per.get(c.id), 24, c.id);
-  assert.equal(ids.size, 432); assert.equal(names.size, 432);
-  assert.equal(COSMETIC_BUNDLES.filter((b) => b.legacy).length, 42); assert.equal(COSMETIC_BUNDLES.filter((b) => !b.legacy).length, 390);
+test("442 bundles: 18 collections of 24 plus 10 Anime Premiere flagships, unique ids and names, 42 existing kept", () => {
+  assert.equal(COSMETIC_BUNDLES.length, 442); assert.equal(COSMETIC_COLLECTIONS.length, 19);
+  for (const c of COSMETIC_COLLECTIONS) assert.equal(per.get(c.id), c.id === "premiere" ? 10 : 24, c.id);
+  assert.ok(COSMETIC_BUNDLES.filter((b) => b.collection === "premiere").every((b) => b.flagship));
+  assert.equal(ids.size, 442); assert.equal(names.size, 442);
+  assert.equal(COSMETIC_BUNDLES.filter((b) => b.legacy).length, 42); assert.equal(COSMETIC_BUNDLES.filter((b) => !b.legacy).length, 400);
 });
 test("saved selections from before the overhaul stay valid", async () => {
   const { validateProfileTheme } = await import("../../shared/src/theme.ts");
@@ -52,7 +53,7 @@ test("saved selections from before the overhaul stay valid", async () => {
   assert.ok(validateProfileTheme({ collection: "made-up" }).issues.length > 0);
 });
 test("names and descriptions avoid brands and franchises", () => {
-  const banned = /\b(nike|adidas|jordan|ferrari|porsche|lamborghini|mclaren|red bull|rolex|apple|razer|disney|marvel|pokemon|stranger things|tesla|half-life|tamagotchi|3m|discord|spotify|playstation|xbox|nintendo|formula 1|f1)\b/i;
+  const banned = /\b(nike|adidas|jordan|ferrari|porsche|lamborghini|mclaren|red bull|rolex|apple|razer|disney|marvel|pokemon|stranger things|tesla|half-life|tamagotchi|3m|discord|spotify|playstation|xbox|nintendo|formula 1|f1|naruto|konoha|hidden leaf|one piece|dragon ball|saiyan|kamehameha|jujutsu|demon slayer|attack on titan|bleach|bankai|sharingan|gundam|evangelion|sailor moon|ghibli|totoro|my hero academia|chainsaw man|hunter x hunter|death note|akira|spy x family)\b/i;
   for (const b of COSMETIC_BUNDLES.filter((x) => !x.legacy)) assert.ok(!banned.test(`${b.name} ${b.description}`), b.id);
 });
 void ("total", COSMETIC_BUNDLES.length, "unique ids", ids.size, "unique names", names.size, "legacy", COSMETIC_BUNDLES.filter((b) => b.legacy).length, "new", COSMETIC_BUNDLES.filter((b) => !b.legacy).length, "flagships", COSMETIC_BUNDLES.filter((b) => b.flagship).length);

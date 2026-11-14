@@ -32,3 +32,10 @@ Persistent checklist for the profile-cosmetics overhaul. Update it as work lands
 ## Honest quality note
 All 432 are real, renderable, distinct scenes. They are composed from a shared engine (atmosphere shader + hero + ring + particles + choreography),
 not individually hand-animated art like a motion studio would produce. The flagships have bespoke choreography; most bundles are engine compositions.
+
+## Anime Premiere (collection 19)
+
+Ten flagship bundles in anime style, all original: no real characters, series names, logos or official art.
+Awakened Aura, Crimson Blade Dance, Mecha Launch, Magical Starfall, Spirit Shrine, Shadow Technique, Leaf Wind,
+Idol Encore, Neon District, Skyward Summer. The catalogue test now also blocks well-known anime series and
+character terms in names and descriptions. Total: 442 bundles.

@@ -1,5 +1,5 @@
 /**
- * SEND premium profile cosmetics: 18 collections of 24 bundles (432 in all), every one original to SEND.
+ * SEND premium profile cosmetics: 18 collections of 24 bundles plus the 10-bundle Anime Premiere collection (442 in all), every one original to SEND.
  *
  * A bundle is one visual identity: an animated profile effect (the full scene on the profile card), a matching avatar
  * decoration (the ring and its small particles), a banner treatment and theme accents (colours used for the name,
@@ -44,6 +44,7 @@ export const COSMETIC_COLLECTIONS: CosmeticCollection[] = [
   { id: "seasons", number: 16, name: "Seasons & Celebrations", blurb: "Snowy windows, spring blossom, lanterns and fireworks, wearable all year." },
   { id: "industrial", number: 17, name: "Science, Mechanical & Industrial", blurb: "Exposed gears, magnetic fields, reactors and machines that really mesh." },
   { id: "signature", number: 18, name: "Ultra-Premium Signature", blurb: "The showcase: SEND's most ambitious effects." },
+  { id: "premiere", number: 19, name: "Anime Premiere", blurb: "Ten flagship scenes in full anime style: opening-sequence energy, all original to SEND." },
 ];
 
 // ------------------------------------------------------------------------------------------- the catalogue --
@@ -490,6 +491,18 @@ fx-foundry | Foundry | A ladle pours molten iron into a mould. | #ffb13d,#a8321a
 fx-superconductor | Superconductor | A magnet floats above a cold disc as mist rolls off. | #9ad7ff,#e8f0ff,#020409 | frost sky=fog:.6 hero=orb@.72,.14,.04 ring=ice
 fx-server-hall | Server Hall | Rows of blinking status lights hum in cold air. | #3dff7a,#3d9eff,#020403 | bare sky=hexgrid:.45 +orb.blink*30~c1,c2 ring=circuit
 `,
+premiere: `
+fx-awakened-aura* | Awakened Aura | Golden power erupts around you as the ground cracks and rocks float upward. | #ffe14d,#ff9a1a,#080401 | aura sky=rays:.8 hero=orb@.72,.15,.05 +spark.rise*16^1.2~c1,w +shard.rise*5^.35%b~#8a6a4a,#5a4a3a +ring.pulse*2%a~c1 cue=flash@2 ev=pulse:4-8 ring=electric intro=spark*30
+fx-crimson-blade-dance* | Crimson Blade Dance | Twin slashes of red light cross the frame as petals scatter in the wind. | #ff3d5a,#ffd1dc,#0a0206 | inkblade sky=ink:.6 hero=moon@.74,.13,.09 +streak.streak*4@150^3~c1,w +petal.drift*14^1.1~c2,c1 cue=flash@1.8 ev=flash:6-11 ring=crimson
+fx-mecha-launch* | Mecha Launch | Cockpit HUD lines lock on as twin thrusters roar and the hangar lights strobe. | #3dd7ff,#ff8a3d,#02040a | speed sky=hexgrid:.7 +flame.rise*10%b~c2,w +chevron.rise*8^.8~c1 +circle.pulse*2%h~c1 ev=glitch:7-12 cue=flash@2.4 ring=circuit
+fx-magical-starfall* | Magical Starfall | A pastel transformation: ribbons of light spiral up and stars rain down. | #ffb8e8,#b8d1ff,#0d0814 | pixie sky=dreamy hero=orb@.72,.14,.05 +star.swirl*26~c1,c2,w +star.fall*8^.5~w,c1 +heart.rise*4^.4~c1 cue=flash@2.6 ring=crown intro=star*28
+fx-spirit-shrine* | Spirit Shrine | Blue foxfire orbits a moonlit shrine while paper lanterns drift into the night. | #7ad7ff,#ffb84d,#03040c | lanterns sky=fog:.65 hero=moon@.76,.12,.08 deco+flame.orbit*7~c1 +wisp.drift*3~c1 +firefly.drift*12~c2 ring=flame
+fx-shadow-technique* | Shadow Technique | Ink-black smoke coils around you and violet runes ignite one by one. | #b36bff,#ff3d8a,#030106 | arcana sky=crimson:.55 hero=eye@.72,.14,.05 +smoke.drift*4%b~#140a1e +rune.orbit*10~c1 +circle.pulse*2%a~c2 ev=edge:6-10:3 ev=glitch:8-14 ring=shadow
+fx-leaf-wind* | Leaf Wind | A sudden gust tears leaves from the trees as you vanish in a puff of smoke. | #8aff7a,#ffcf6b,#030803 | grove sky=clouds:.5 +leaf.drift*18^1.6~c1,c2 +smoke.rise*3%a~#e8f0e8 +streak.streak*6@170^2~w cue=flash@2.2 ring=floral
+fx-idol-encore* | Idol Encore | Stage lights sweep, glow sticks wave and a shower of hearts follows the final note. | #ff6bd1,#6bd7ff,#0a0410 | club sky=stage:.85 +heart.rise*10^.6~c1,w +note.rise*6~c2 +confetti.fall*14~c1,c2,w cue=flash@3 ring=neon
+fx-neon-district* | Neon District | Rain falls on a sprawling neon city as a speeding bike draws light trails behind it. | #ff3d8a,#3dffea,#04030a | neonrain sky=neonrain +streak.streak*8@180^2.5~c1,c2 +drop.fall*16^1.4~c2 ev=glitch:9-15 ring=neon
+fx-skyward-summer* | Skyward Summer | Giant summer clouds, a blinding sky and a paper plane riding the wind forever. | #8ad7ff,#ffffff,#0a1a3a | sunrise sky=clouds hero=sun@.84,.14,.08 +cloud.drift*5~w +feather.drift*4^.8~w +twinkle.twinkle*10~w ring=platinum
+`,
 signature: `
 fx-celestial-crown* | Celestial Crown | A crown of starlight assembles above you as constellations wheel. | #fff1c9,#8aa6ff,#03030c | cosmos sky=space hero=none +star.twinkle*20~w,c1 +star.comet*1@160~w deco+star.orbit*6~c1 ring=crown intro=star*24
 fx-obsidian-monarch* | Obsidian Monarch | A black glass throne room: molten gold veins and slow-falling ash. | #ffcf5c,#2a1a10,#020101 | inferno sky=lava +snow.fall*10^.4~#6b5a50 +coin.twinkle*4~c1 ring=crown
@@ -538,4 +551,4 @@ export const COSMETIC_BUNDLES: CosmeticBundle[] = parse();
 export const COSMETIC_IDS: string[] = COSMETIC_BUNDLES.map((b) => b.id);
 const byId = new Map(COSMETIC_BUNDLES.map((b) => [b.id, b]));
 export const cosmeticById = (id: string | null | undefined) => (id ? byId.get(id) : undefined);
-export const COSMETIC_TARGET = { collections: 18, perCollection: 24, total: 432 } as const;
+export const COSMETIC_TARGET = { collections: 19, perCollection: 24, total: 442 } as const;
