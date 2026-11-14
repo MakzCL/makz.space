@@ -7,7 +7,7 @@ import {
 export type SendState = "pending" | "failed";
 export type UIMessage = Message & { _state?: SendState; _error?: string };
 export interface MusicTrack { id: string; title: string; artist: string | null; duration: number | null; source: string; page: string | null; requester: { id: string; name: string }; stream_url: string }
-export interface MusicState { channel_id: string; guild_id: string | null; bot_id: string | null; active: boolean; playing: MusicTrack | null; paused: boolean; position_ms: number; server_time: number; queue: MusicTrack[]; received_at: number }
+export interface MusicState { channel_id: string; guild_id: string | null; bot_id: string | null; controls?: boolean; active: boolean; playing: MusicTrack | null; paused: boolean; position_ms: number; server_time: number; queue: MusicTrack[]; received_at: number }
 export interface ChannelMessages { list: UIMessage[]; hasMore: boolean; loaded: boolean; loading: boolean }
 export interface CallInfo { channel_id: string; message_id: string; ringing: string[]; started_at: number }
 export type ConnState = "booting" | "signed_out" | "connecting" | "ready" | "reconnecting";

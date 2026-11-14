@@ -20,6 +20,24 @@ always act on the room you're in.
 
 **DJ rights** use SEND's existing roles: a role named `DJ`, or the Move Members or Manage Channels permission in that voice room.
 
+## On-screen controls
+
+The call screen has a music button next to the chat button (on phones, in the call's top bar). It opens a box for a song
+name or link, which starts the bot. While the bot is in the room, a now-playing card sits above the call tiles on every
+listener's screen: title, artist, who asked for it, a progress bar, pause or resume, skip, the queue, "add a song",
+stop, and a music volume slider that only changes your own volume. The sidebar voice panel shows the current song
+with pause and skip.
+
+The buttons call `POST /api/music/<voice room>/control` with `{ action: "play" | "pause" | "resume" | "skip" | "stop", query? }`.
+That runs exactly the same command as typing it in chat: same permissions, the same DJ rules, and the bot posts what
+happened in the room's music chat (or in the voice room's own chat when nothing has played yet). Only people in that
+voice room can use it.
+
+The music state carries `controls: true` from backends that have this endpoint. The web app shows the buttons only then,
+so a web release that goes live before the backend shows the read-only card instead of buttons that fail.
+
+Tested by `e2e/music-ui.cjs` (22 checks, two desktop listeners and a phone).
+
 ## Supported sources
 
 | Source | How | Notes |

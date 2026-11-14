@@ -29,6 +29,7 @@ import { ChannelType } from "@send/shared";
 import { MobileAddPeople, MobileCallTop, MobileVoiceIdle } from "../mobile/MobileCall.tsx";
 import { CameraGroup, ChatToggle, InviteCard, MessagePreviews, MicGroup, MoreButton } from "../features/CallControls.tsx";
 import { CallChat } from "./ChannelView.tsx";
+import { MusicButton, MusicCard } from "../voice/music.tsx";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
@@ -117,10 +118,12 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
         <span className={`conn-pill cs-${v.status}`} role="status">{{ idle: "Disconnected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: v.error ?? "Error" }[v.status]}</span>
         {guild && <VoiceStatusEditor channel={channel} />}
         <div className="ch-actions">
+          {guild && v.channelId === channel.id && <MusicButton channelId={channel.id} />}
           {guild && <ChatToggle channel={channel} open={chatOn} onToggle={() => setChat(!chatOn)} />}
         </div>
       </header>
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
+      {guild && v.channelId === channel.id && <MusicCard channelId={channel.id} />}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={shown.length + (alone && guild ? 1 : 0)}>
         {/* Focused: the big tile, the members toggle and strip move together as one centred group. */}
         {focused ? <div className={`focus-area ${v.hideStrip || shown.length < 2 ? "no-strip" : ""}`}>

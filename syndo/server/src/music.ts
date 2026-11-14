@@ -7,7 +7,7 @@ import { MessageType, P, has, isVoiceType } from "@send/shared";
 import { q1 } from "./db.ts";
 import { newId } from "./ids.ts";
 import { requireUser, uid } from "./auth.ts";
-import { forbidden, notFound } from "./errors.ts";
+import { bad, forbidden, notFound } from "./errors.ts";
 import { onVoiceChange, toChannel, voiceStateOf, voiceStates } from "./gateway.ts";
 import { getChannel, loadMember, guildPermData, permsFor, type ChanRow } from "./perms.ts";
 import { allowedUrl, previewFor, safeStream } from "./unfurl.ts";
@@ -162,7 +162,8 @@ async function resolve(input: string): Promise<Resolved> {
 const position = (r: Room) => r.current ? Math.max(0, (r.pausedAt ?? Date.now()) - r.startedAt) : 0;
 const publicTrack = (t: Track) => ({ id: t.id, title: t.title, artist: t.artist, duration: t.duration, source: t.source, page: t.page, requester: t.requester, stream_url: `/api/music/stream/${t.token}` });
 function stateOf(r: Room | undefined, channelId: string) {
-  return { channel_id: channelId, guild_id: r?.guildId ?? null, bot_id: botId, active: !!r, playing: r?.current ? publicTrack(r.current) : null,
+  // `controls`: this backend accepts /api/music/:cid/control (the web app shows its buttons only then).
+  return { channel_id: channelId, guild_id: r?.guildId ?? null, bot_id: botId, controls: true, active: !!r, playing: r?.current ? publicTrack(r.current) : null,
     paused: r?.pausedAt != null, position_ms: r ? position(r) : 0, server_time: Date.now(), queue: (r?.queue ?? []).map(publicTrack) };
 }
 async function broadcast(channelId: string) {
@@ -343,6 +344,24 @@ export async function musicRoutes(app: FastifyInstance) {
     if (!has(await permsFor(uid(req), ch), P.VIEW_CHANNEL)) throw forbidden();
     await musicBotId();
     return stateOf(rooms.get(ch.id), ch.id);
+  });
+
+  /**
+   * The call screen's music controls. Runs exactly the same command as typing it in chat (same checks, DJ rules and
+   * bot messages); the bot answers in the room's music chat, or in the voice room's own chat if nothing's playing yet.
+   */
+  app.post<{ Params: { cid: string } }>("/api/music/:cid/control", { preHandler: requireUser, config: { rateLimit: { max: 40, timeWindow: "1 minute" } } }, async (req) => {
+    const b = z.object({ action: z.enum(["play", "pause", "resume", "skip", "stop"]), query: z.string().trim().max(300).optional() }).parse(req.body);
+    const me = uid(req);
+    if (voiceStateOf(me)?.channel_id !== req.params.cid) throw forbidden("Join the voice room first.");
+    const voice = await getChannel(req.params.cid);
+    if (!voice?.guild_id || !isVoiceType(voice.type)) throw notFound("Voice room");
+    if (b.action === "play" && !b.query) throw bad("Type a song name or a link.");
+    const room = rooms.get(voice.id);
+    let text = room ? await getChannel(room.textChannelId) : null;
+    if (!text || !has(await permsFor(me, text), P.VIEW_CHANNEL)) text = voice;
+    await handleMusicCommand(text, me, `!${b.action}${b.query ? ` ${b.query.replace(/\s+/g, " ")}` : ""}`);
+    return stateOf(rooms.get(voice.id), voice.id);
   });
 
   /** A listener's player read the length of a track whose source didn't say. */

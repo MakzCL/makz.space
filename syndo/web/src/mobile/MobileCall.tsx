@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Headphones, HeadphoneOff, MessageCircle, Mic
 import { ChannelType, P, type Channel, type Guild } from "@send/shared";
 import { can, displayName, useStore } from "../store.ts";
 import { joinVoice, setDeafened, setMuted, useVoice } from "../voice/session.ts";
+import { MusicButton } from "../voice/music.tsx";
 import { Avatar } from "../components/ui.tsx";
 import { ChannelGlyph } from "../components/ChannelGlyph.tsx";
 import { openDialog } from "../components/Shell.tsx";
@@ -53,6 +54,7 @@ export function MobileCallTop({ channel, guild, onChat }: { channel: Channel; gu
       <button className="m-call-name" onClick={openNav}><ChannelGlyph c={channel} size={20} /><span className="ellipsis">{channel.name || "Call"}</span><ChevronRight size={18} /></button>
       <span className="grow" />
       <button className={`m-round ${v.deafened ? "dark" : "light"}`} aria-pressed={v.deafened} aria-label={v.deafened ? "Undeafen" : "Deafen"} onClick={() => setDeafened(!v.deafened)}>{v.deafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}</button>
+      {guild && v.channelId === channel.id && <MusicButton channelId={channel.id} round />}
       {canInvite(channel, guild) && <button className="m-round dark" aria-label="Invite to Voice" onClick={() => invite(channel, guild)}><UserPlus size={20} /></button>}
       {onChat && <button className="m-round dark" aria-label="Open chat" onClick={onChat}><MessageCircle size={20} /></button>}
     </header>

@@ -10,6 +10,20 @@ interface Release { id: string; title: string; date: string; intro: string; sect
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-music",
+    title: "SEND Music",
+    date: "2026-11-14",
+    intro: "A music bot for your voice rooms.",
+    sections: [
+      { title: "Music", items: [
+        "Join a voice room and type !play with a song name or a link in any chat of that server.",
+        "Everyone in the room hears the same song at the same moment, with a queue for what's next.",
+        "Use !queue, !nowplaying, !pause, !resume, !skip and !stop. Type !help for the full list.",
+        "Songs come from Audius or from a direct link to an audio file.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-motion",
     title: "Profiles that come alive",
     date: "2026-11-13",

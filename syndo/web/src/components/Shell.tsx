@@ -17,6 +17,7 @@ import { gwSend } from "../gateway.ts";
 import { navigate, useRoute } from "../router.ts";
 import { can, channelTree, displayName, dmTitle, guildPerms, isUnread, toast, useStore } from "../store.ts";
 import { joinVoice, leaveVoice, setDeafened, setMuted, updateVoiceSettings, useVoice } from "../voice/session.ts";
+import { MusicMini } from "../voice/music.tsx";
 import { suppressionFor } from "../voice/settings.ts";
 import { ChannelView } from "./ChannelView.tsx";
 import { CreateChannel, CreateServer, InviteDialog, NewGroupDm, ProfileCard } from "./Dialogs.tsx";
@@ -516,6 +517,7 @@ function VoiceBar() {
           aria-label="AI noise suppression" title={aiNs ? "AI noise suppression is on" : "AI noise suppression is off"}><AudioLines size={18} /></button>
         <button className="icon-btn danger" onClick={() => leaveVoice()} aria-label="Disconnect"><PhoneOff size={18} /></button>
       </div>
+      {v.channelId && <MusicMini channelId={v.channelId} />}
       {v.sharing && <div className="sharing-ind" role="status"><Monitor size={14} /> You're sharing your screen</div>}
     </section>
   );

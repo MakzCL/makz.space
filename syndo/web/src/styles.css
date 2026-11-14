@@ -2553,3 +2553,28 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .music-bot-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .music-bot-text small { font-size: .72rem; }
 .bot-tag { font-size: .6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: var(--accent); color: var(--on-accent, #fff); margin-left: 4px; vertical-align: 1px; }
+/* SEND Music: now-playing card on the call screen, start button and the sidebar mini player */
+.music-card { margin: 8px 16px 0; padding: 10px 12px; border-radius: var(--r); background: var(--r-sidebar-bg, var(--bg1)); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 6px 22px #0004; display: flex; flex-direction: column; gap: 8px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); max-width: 720px; align-self: center; width: calc(100% - 32px); box-sizing: border-box; }
+.mc-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mc-art { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; color: var(--on-accent, #fff); background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ff7ad9)); }
+.mc-art.on svg { animation: mc-bob 1.2s ease-in-out infinite; }
+@keyframes mc-bob { 50% { transform: translateY(-2px) rotate(-6deg); } }
+.mc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.mc-text a { color: inherit; } .mc-text small { font-size: .78rem; }
+.mc-btns { display: flex; gap: 2px; flex: none; }
+.mc-btns .icon-btn { position: relative; } .mc-btns .icon-btn.on { color: var(--accent); }
+.mc-count { position: absolute; top: 0; right: 0; min-width: 15px; height: 15px; border-radius: 8px; background: var(--accent); color: var(--on-accent, #fff); font-size: .62rem; font-weight: 700; display: grid; place-items: center; padding: 0 3px; }
+.mc-progress { display: flex; align-items: center; gap: 8px; font-size: .72rem; color: var(--textMuted); font-variant-numeric: tabular-nums; }
+.mc-bar { flex: 1; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--text) 14%, transparent); overflow: hidden; }
+.mc-bar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .5s linear; }
+.mc-vol { display: flex; align-items: center; gap: 6px; max-width: 220px; } .mc-vol .send-range { flex: 1; }
+.music-add { display: flex; gap: 6px; } .music-add input { flex: 1; min-width: 0; }
+.mc-queue ol { margin: 0; padding: 0 0 0 20px; max-height: 180px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.mc-queue li { display: flex; flex-direction: column; min-width: 0; } .mc-queue li small { font-size: .74rem; }
+.music-start { position: relative; }
+.music-start > .icon-btn.on { color: var(--accent); }
+.music-start-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: min(340px, 86vw); padding: 12px; border-radius: var(--r); background: var(--bg1); border: 1px solid color-mix(in srgb, var(--text) 12%, transparent); box-shadow: 0 10px 30px #0006; display: flex; flex-direction: column; gap: 8px; }
+.music-mini { display: flex; align-items: center; gap: 6px; padding: 4px 2px 0; font-size: .8rem; color: var(--textMuted); min-width: 0; }
+.music-mini > svg { color: var(--accent); flex: none; } .music-mini span { flex: 1; min-width: 0; }
+@media (max-width: 760px) { .music-card { margin: 6px 8px 0; width: calc(100% - 16px); } .mc-vol { max-width: none; } }
+@media (prefers-reduced-motion: reduce) { .mc-art.on svg { animation: none; } }

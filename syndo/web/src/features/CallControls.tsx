@@ -9,6 +9,7 @@ import { setDeafened, setMuted, switchDevice, toggleCamera, updateVoiceSettings,
 import { openActivityPicker } from "./Activities.tsx";
 import { SUPPRESSION_LABEL, type Suppression } from "../voice/denoise.ts";
 import { suppressionFor } from "../voice/settings.ts";
+import { plainText } from "../markdown.tsx";
 
 /* Discord-style call controls: split mic/camera buttons with device menus, a "…" menu with view options,
    a chat toggle, the "invite people" card for an empty call and message previews over the call. */
@@ -180,7 +181,7 @@ export function MessagePreviews({ channel, chatOpen, onOpen }: { channel: Channe
     <div className="msg-preview" role="status">
       <button className="msg-preview-body" onClick={() => { setShown(null); onOpen(); }}>
         <strong>{displayName(users[shown.author.id] ?? shown.author)}</strong>
-        <span className="ellipsis">{shown.content || (shown.attachments?.length ? "Sent an attachment" : "Sent a message")}</span>
+        <span className="ellipsis">{(shown.content && plainText(shown.content)) || (shown.attachments?.length ? "Sent an attachment" : "Sent a message")}</span>
       </button>
       <button className="icon-btn sm" aria-label="Dismiss" onClick={() => setShown(null)}><X size={14} /></button>
     </div>

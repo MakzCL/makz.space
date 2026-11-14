@@ -1,5 +1,12 @@
 # SEND restore points
 
+## 2026-11-14: SEND Music controls on the call screen (pushed, backend not deployed yet)
+
+Web: deploys automatically from the branch (Pages). The music buttons stay hidden until the backend reports `controls: true`, so the web going live first is safe.
+Backend: needs SOURCE_COMMIT set to this commit to enable `/api/music/<room>/control`. No database change.
+Android CI: the workflow file was invalid since `5047976` (a colon in a notice line); fixed in `6211b88`.
+Roll back web: Pages `syndo-app`, roll back to the deployment before this commit. Backend: leave SOURCE_COMMIT as it is.
+
 ## 2026-11-13: Sponsorships live on Stripe (commit `9ffb081`)
 
 Backend SOURCE_COMMIT `9ffb08182b17b76851396737c2ef0238dcd44fb1`, worker code sha `3274d27d`. Checkouts turn Stripe Managed Payments off (standard fees).
