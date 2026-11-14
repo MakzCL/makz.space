@@ -59,7 +59,7 @@ jobs:
           FCM_API_KEY: ${{ vars.SEND_FCM_API_KEY }}
           FCM_PROJECT_ID: ${{ vars.SEND_FCM_PROJECT_ID }}
           FCM_SENDER_ID: ${{ vars.SEND_FCM_SENDER_ID }}
-        run: gradle --no-daemon assembleRelease bundleRelease -PsendAppUrl="$SEND_APP_URL" -PfcmAppId="$FCM_APP_ID" -PfcmApiKey="$FCM_API_KEY" -PfcmProjectId="$FCM_PROJECT_ID" -PfcmSenderId="$FCM_SENDER_ID"
+        run: gradle --no-daemon assembleRelease bundleRelease -PsendVersionCode=$((1000 + GITHUB_RUN_NUMBER)) -PsendVersionName="0.9.$GITHUB_RUN_NUMBER" -PsendAppUrl="$SEND_APP_URL" -PfcmAppId="$FCM_APP_ID" -PfcmApiKey="$FCM_API_KEY" -PfcmProjectId="$FCM_PROJECT_ID" -PfcmSenderId="$FCM_SENDER_ID"
       - name: Name the downloads
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk SEND-beta.apk
@@ -76,6 +76,21 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/SEND.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
+      - name: Offer the update inside the app
+        # Only builds signed with the release key: Android refuses an update signed with a different key, and
+        # debug-signed CI builds get a new key every run.
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && env.SEND_KEYSTORE != ''
+        run: |
+          CODE=$((1000 + GITHUB_RUN_NUMBER)); NAME="0.9.$GITHUB_RUN_NUMBER"
+          npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/SEND-$CODE.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control "public, max-age=31536000, immutable" --remote
+          SHA=$(sha256sum SEND-beta.apk | cut -d' ' -f1); SIZE=$(stat -c%s SEND-beta.apk)
+          NOTES=$(git log -1 --format=%s | head -c 200)
+          node -e 'const [c,n,s,z,notes]=process.argv.slice(1);process.stdout.write(JSON.stringify({versionCode:+c,versionName:n,url:`https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev/android/SEND-${c}.apk`,sha256:s,size:+z,notes}))' "$CODE" "$NAME" "$SHA" "$SIZE" "$NOTES" > version.json
+          cat version.json
+          npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/version.json" --file version.json --content-type application/json --cache-control no-cache --remote
+      - name: Explain why the in-app update wasn't offered
+        if: env.SEND_KEYSTORE == ''
+        run: echo "::notice::In-app updates need a stable release key. Add SEND_ANDROID_KEYSTORE_B64, SEND_ANDROID_KEYSTORE_PASSWORD, SEND_ANDROID_KEY_ALIAS and SEND_ANDROID_KEY_PASSWORD repository secrets."
       - name: Explain missing Cloudflare connection
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."

@@ -352,9 +352,10 @@ function About() {
       {inAndroidApp && (
         <section className="stack">
           <h3>Android app</h3>
-          <p className="muted small">The app loads the latest version of {BRAND.name} automatically. Use these if something looks out of date or the server is unreachable.</p>
+          <p className="muted small">App version {navigator.userAgent.match(/SENDAndroid\/([\w.\-]+)/)?.[1] ?? "unknown"}. The app checks for updates when it opens and offers to download and install them. {BRAND.name}'s screens load the latest version automatically.</p>
           <div className="row wrap">
-            <a className="btn primary" href="sendapp://reload">Reload latest version</a>
+            <a className="btn primary" href="sendapp://update">Check for updates</a>
+            <a className="btn" href="sendapp://reload">Reload latest version</a>
             <a className="btn" href="sendapp://browser">Open in browser</a>
             <a className="btn" href="sendapp://preview">Offline preview</a>
           </div>

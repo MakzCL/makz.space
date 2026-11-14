@@ -10,8 +10,9 @@ android {
         applicationId 'space.makz.send'
         minSdk 26
         targetSdk 36
-        versionCode 9
-        versionName '0.8.1'
+        // CI sets these from the run number so every published build is newer than the last (in-app updates rely on it).
+        versionCode providers.gradleProperty('sendVersionCode').map { it as int }.getOrElse(10)
+        versionName providers.gradleProperty('sendVersionName').getOrElse('0.9.0')
         // Firebase client settings for push (public values, the same ones google-services.json would hold). Empty = push off.
         // Defaults are SEND's Firebase project (space-makz-send); -PfcmAppId=... etc. override them.
         def fcmDefaults = [fcmAppId: '1:610969623014:android:02478a5377a7a296209e27', fcmApiKey: 'AIzaSyCQZoS8Cbo2Exb-wgOP8rs209OhbCmcF38',
@@ -22,6 +23,10 @@ android {
             buildConfigField 'String', field, '"' + v + '"'
         }
         buildConfigField 'String', 'HOSTED_URL', '"' + hosted.replaceAll('/$', '') + '"'
+        // Where the app looks for updates: version.json in SEND's public release bucket (CI writes it after the APK).
+        def updateUrl = providers.gradleProperty('sendUpdateUrl').getOrElse('https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev/android/version.json')
+        if (!(updateUrl ==~ /https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._\/-]+\.json/)) throw new GradleException('sendUpdateUrl must be an https URL to a .json file')
+        buildConfigField 'String', 'UPDATE_URL', '"' + updateUrl + '"'
     }
     // Release signing: set SEND_KEYSTORE (path), SEND_KEYSTORE_PASSWORD, SEND_KEY_ALIAS, SEND_KEY_PASSWORD.
     // Without them the release build is signed with the debug key: fine for sideloading, not for Google Play.

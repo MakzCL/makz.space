@@ -25,8 +25,9 @@ import java.util.ArrayList;
  * - Edge to edge: the page is padded by the real status bar, navigation bar and keyboard insets (Android 15 safe).
  * - Back closes the topmost sheet/menu/panel first (handled by the page via window.__sendBack), then returns
  *   to the channel list, and only then sends the app to the background.
- * - No privileged JavaScript bridge. App-level actions (reload latest, local preview, open in browser) are
- *   requested by the page as sendapp:// navigations, which only trigger those three harmless actions.
+ * - No privileged JavaScript bridge. App-level actions (reload latest, local preview, open in browser, check for
+ *   updates) are requested by the page as sendapp:// navigations, which only trigger those harmless actions.
+ * - In-app updates (Updater): checks on launch and from Settings, verifies the download, Android confirms the install.
  */
 public class MainActivity extends Activity {
     private static final String LOCAL = "https://appassets.androidplatform.net/index.html?preview=1";
@@ -38,6 +39,7 @@ public class MainActivity extends Activity {
     private final int MEDIA = 10, PICK_FILE = 11, NOTIFY = 12;
     private static MainActivity current;
     private JavaScriptReplyProxy pushReply;
+    private Updater updater;
 
     /* ------------------------------------------------------------ push notifications (bridge to the page) */
     private void reply(String json) { if (pushReply != null) runOnUiThread(() -> { try { pushReply.postMessage(json); } catch (Exception ignored) { } }); }
@@ -84,7 +86,7 @@ public class MainActivity extends Activity {
         if (fresh) web.clearCache(true);
         web.loadUrl(BuildConfig.HOSTED_URL + "/?live=1" + (fresh ? "&build=" + System.currentTimeMillis() : ""));
     }
-    /** sendapp://reload | sendapp://preview | sendapp://browser — app actions requested from Settings → About. */
+    /** sendapp://reload | sendapp://preview | sendapp://browser | sendapp://update: app actions requested from Settings. */
     private boolean appAction(Uri uri) {
         if (!"sendapp".equals(uri.getScheme())) return false;
         String action = uri.getHost() == null ? "" : uri.getHost();
@@ -92,6 +94,7 @@ public class MainActivity extends Activity {
             case "reload": openLive(true); break;
             case "preview": getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", false).apply(); web.loadUrl(LOCAL); break;
             case "browser": browse(Uri.parse(BuildConfig.HOSTED_URL)); break;
+            case "update": updater.checkNow(); break;
             default: break;
         }
         return true;
@@ -190,6 +193,8 @@ public class MainActivity extends Activity {
             });
         }
         current = this;
+        updater = new Updater(this);
+        updater.checkAutomatically();
         if (state == null && getIntent() != null && getIntent().getStringExtra("send_url") != null) {
             String url = getIntent().getStringExtra("send_url");
             if (url.startsWith("/") && !url.startsWith("//")) { getIntent().removeExtra("send_url"); getPreferences(MODE_PRIVATE).edit().putBoolean("hosted", true).apply(); web.loadUrl(BuildConfig.HOSTED_URL + url); return; }
@@ -228,7 +233,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onSaveInstanceState(Bundle state) { super.onSaveInstanceState(state); web.saveState(state); }
     @Override protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); appState("background"); }
-    @Override protected void onResume() { super.onResume(); appState("foreground"); }
+    @Override protected void onResume() { super.onResume(); appState("foreground"); if (updater != null) updater.resume(); }
     @SuppressWarnings("deprecation")
     @Override public void onBackPressed() { goBack(); }
     private void goBack() {
