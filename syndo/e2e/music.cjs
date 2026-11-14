@@ -31,7 +31,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await x.p.locator('.side-ch', { hasText: room.name }).first().click();
     await sleep(2500);
   };
-  const say = async (x, content) => { const r = await api(x, 'POST', `/api/channels/${text.id}/messages`, { content }); await sleep(1800); return r; };
+  // Music commands go through the / command menu (POST /api/music/command), like typing /play in the message box.
+  const NAMES = { p: 'play', q: 'queue', np: 'nowplaying', s: 'skip', help: 'help' };
+  const say = async (x, content) => {
+    const m = /^!(\w+)(?:\s+([\s\S]*))?$/.exec(content);
+    const r = m ? await api(x, 'POST', '/api/music/command', { channel_id: text.id, command: NAMES[m[1]] ?? m[1], query: m[2] || undefined })
+      : await api(x, 'POST', `/api/channels/${text.id}/messages`, { content });
+    await sleep(1800); return r;
+  };
   const botSaid = async (since) => { const r = await api(A, 'GET', `/api/channels/${text.id}/messages?limit=30`); return r.body.filter((m) => m.author.username === 'sendmusic' && BigInt(m.id) > BigInt(since)).map((m) => m.content).reverse(); };
   const lastId = async () => (await api(A, 'GET', `/api/channels/${text.id}/messages?limit=1`)).body[0]?.id ?? '0';
   // What a client is playing, and how loud its audio output is right now.
@@ -51,9 +58,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // 1. Outsider: not in any voice room.
   let since = await lastId();
-  await say(D, '!play test');
+  const outsider = await say(D, '!play test');
   let said = await botSaid(since);
-  check('someone outside a voice room is refused', said.some((s) => /join a voice room/.test(s)), said[0]);
+  check('someone outside a voice room is refused (told privately, nothing posted)', outsider.status === 400 && /Join a voice room/.test(outsider.body?.message ?? '') && said.length === 0, outsider.body?.message);
 
   // 2. Two clients in room 1; A plays a test track; both hear it, in sync.
   await join(A, room1); await join(B, room1);
@@ -158,7 +165,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // 9b. Simultaneous requests: six at once from two people, into an idle room.
   since = await lastId();
-  await Promise.all([A, B, A, B, A, B].map((x, i) => api(x, 'POST', `/api/channels/${text.id}/messages`, { content: i % 2 ? '!play test 2' : '!play test' })));
+  const burst = await Promise.all([A, B, A, B, A, B].map((x, i) => api(x, 'POST', '/api/music/command', { channel_id: text.id, command: 'play', query: i % 2 ? 'test 2' : 'test' })));
+  console.log('burst statuses', burst.map((r) => r.status + (r.status !== 200 ? ` ${r.body?.message}` : '')));
   await sleep(4000);
   said = await botSaid(since);
   const m9b = await musicOf(A, room1.id);

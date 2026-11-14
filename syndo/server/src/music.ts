@@ -15,7 +15,7 @@ import { allowedUrl, previewFor, safeStream } from "./unfurl.ts";
 /**
  * SEND Music: a Rythm-style music bot for voice rooms.
  *
- * Someone in a voice room types `!play <song or link>` in any text chat of that server. The bot joins their
+ * Someone in a voice room types `/play <song or link>` in any text chat of that server. The bot joins their
  * room and every client in the room plays the same track at the same position. SEND's voice is peer-to-peer
  * by default, so the server can't be a WebRTC peer; instead the server runs the player (queue, clock, timers)
  * and streams the audio to each listener through /api/music/stream/<token>, and clients stay in sync with the
@@ -423,7 +423,7 @@ async function next(r: Room, announce: boolean) {
     break;
   }
   await flush();
-  if (!r.current) await say(r, "The queue is empty. Add more with `!play`, or I'll leave when the room is empty.").catch(() => {});
+  if (!r.current) await say(r, "The queue is empty. Add more with `/play`, or I'll leave when the room is empty.").catch(() => {});
   await broadcast(r.channelId);
 }
 
@@ -446,16 +446,16 @@ function checkIdle(r: Room) {
 
 /* ------------------------------------------------------------------------------ commands -- */
 const HELP = [
-  "**SEND Music**: join a voice room, then type these in any text chat of this server:",
-  "`!play <song name or link>`: play now, or add to the queue (`!p`)",
-  "`!queue`: what's playing and what's next (`!q`)",
-  "`!nowplaying`: the current track and progress (`!np`)",
-  "`!pause`, `!resume`: pause and carry on",
-  "`!skip`: next track (`!s`). Skipping someone else's track needs DJ rights.",
-  "`!stop`: clear the queue and disconnect (needs DJ rights when others are listening)",
-  "`!help`: this list",
+  "**SEND Music**: join a voice room, then type these in any text chat of this server (type / to see them):",
+  "`/play <song name or link>`: play now, or add to the queue",
+  "`/queue`: what's playing and what's next",
+  "`/nowplaying`: the current track and progress",
+  "`/pause`, `/resume`: pause and carry on",
+  "`/skip`: next track. Skipping someone else's track needs DJ rights.",
+  "`/stop`: clear the queue and disconnect (needs DJ rights when others are listening)",
+  "`/music`: this list",
   "",
-  `**Sources**: song names are searched on ${YT_KEY ? "YouTube, then " : ""}Audius${JAMENDO_ID ? " and Jamendo" : ""}. Links: YouTube videos and playlists (they play in YouTube's player on your screen), Spotify and Deezer songs, albums and playlists, Apple Music, SoundCloud and Tidal songs (matched to a playable version), Audius tracks and playlists, and direct https audio files. \`!play test\` plays a built-in test track.`,
+  `**Sources**: song names are searched on ${YT_KEY ? "YouTube, then " : ""}Audius${JAMENDO_ID ? " and Jamendo" : ""}. Links: YouTube videos and playlists (they play in YouTube's player on your screen), Spotify and Deezer songs, albums and playlists, Apple Music, SoundCloud and Tidal songs (matched to a playable version), Audius tracks and playlists, and direct https audio files. \`/play test\` plays a built-in test track.`,
   "**DJ rights**: a role named DJ, or Move Members or Manage Channels permission in the voice room.",
 ].join("\n");
 
@@ -469,7 +469,7 @@ async function isDj(userId: string, voice: ChanRow): Promise<boolean> {
 
 const COMMANDS: Record<string, string> = { play: "play", p: "play", queue: "queue", q: "queue", nowplaying: "np", np: "np", pause: "pause", resume: "resume", unpause: "resume", skip: "skip", s: "skip", next: "skip", stop: "stop", leave: "stop", disconnect: "stop", help: "help" };
 
-/** Called after a message is posted in a server text chat. Returns true if it was a music command. */
+/** Runs one music command (from /commands or the call screen's buttons); the bot answers in `text`. */
 export async function handleMusicCommand(text: ChanRow, userId: string, content: string): Promise<boolean> {
   const m = /^!([a-z]+)(?:\s+([\s\S]*))?$/i.exec(content.trim());
   const cmd = m && COMMANDS[m[1]!.toLowerCase()];
@@ -485,13 +485,13 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
     const vs = voiceStateOf(userId);
     const voice = vs?.channel_id ? await getChannel(vs.channel_id) : null;
     if (!voice || voice.guild_id !== text.guild_id || !isVoiceType(voice.type)) {
-      await reply(`<@${userId}> join a voice room in this server first, then use \`!${m![1]!.toLowerCase()}\` again.`);
+      await reply(`<@${userId}> join a voice room in this server first, then use \`/${m![1]!.toLowerCase()}\` again.`);
       return true;
     }
     const user = await q1<any>("select username, display_name from users where id = $1", [userId]);
     const name = user?.display_name || user?.username || "someone";
     if (cmd === "play") {
-      if (!arg) { await reply("Tell me what to play: `!play <song name or link>`. Try `!play test` for a test track."); return true; }
+      if (!arg) { await reply("Tell me what to play: `/play <song name or link>`. Try `/play test` for a test track."); return true; }
       const perms = await permsFor(userId, voice);
       if (!has(perms, P.CONNECT)) { await reply("You can't use music in this voice room."); return true; }
       const found = await resolve(arg);
@@ -522,7 +522,7 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
     }
     await withRoom(voice.id, async () => {
       const r = rooms.get(voice.id);
-      if (!r || (!r.current && !r.queue.length)) { await reply(cmd === "stop" && r ? (await disconnect(r, null), "⏹️ Stopped and left the voice room.") : "Nothing is playing in your voice room. Start with `!play <song>`."); return; }
+      if (!r || (!r.current && !r.queue.length)) { await reply(cmd === "stop" && r ? (await disconnect(r, null), "⏹️ Stopped and left the voice room.") : "Nothing is playing in your voice room. Start with `/play <song>`."); return; }
       switch (cmd) {
         case "queue": {
           const lines = [r.current ? `**Now playing:** ${r.current.title}${r.current.artist ? ` by ${r.current.artist}` : ""} \`${fmt(position(r) / 1000)} / ${fmt(r.current.duration)}\` (requested by ${r.current.requester.name})${r.pausedAt != null ? " ⏸️ paused" : ""}` : "**Now playing:** nothing"];
@@ -537,7 +537,7 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
           await reply(`🎶 **${c.title}**${c.artist ? ` by ${c.artist}` : ""}${c.page ? ` (<${c.page}>)` : ""}\n${bar} \`${fmt(pos)} / ${fmt(c.duration)}\`${r.pausedAt != null ? " ⏸️ paused" : ""}\nRequested by ${c.requester.name}`); break;
         }
         case "pause":
-          if (r.pausedAt != null) { await reply("Already paused. `!resume` to carry on."); break; }
+          if (r.pausedAt != null) { await reply("Already paused. `/resume` to carry on."); break; }
           r.pausedAt = Date.now(); clearTimer(r); await broadcast(r.channelId); await reply(`⏸️ Paused by ${name}.`); break;
         case "resume":
           if (r.pausedAt == null) { await reply("It's already playing."); break; }
@@ -549,7 +549,7 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
           await next(r, true); break;
         }
         case "stop":
-          if (listeners(voice.id) > 1 && !(await isDj(userId, voice))) { await reply("Stopping for everyone needs DJ rights (a DJ role, or Move Members). You can `!skip` your own tracks."); break; }
+          if (listeners(voice.id) > 1 && !(await isDj(userId, voice))) { await reply("Stopping for everyone needs DJ rights (a DJ role, or Move Members). You can `/skip` your own tracks."); break; }
           await disconnect(r, `⏹️ Stopped by ${name}: cleared the queue and left the voice room.`); break;
       }
     });
@@ -589,8 +589,26 @@ export async function musicRoutes(app: FastifyInstance) {
     const room = rooms.get(voice.id);
     let text = room ? await getChannel(room.textChannelId) : null;
     if (!text || !has(await permsFor(me, text), P.VIEW_CHANNEL)) text = voice;
-    await handleMusicCommand(text, me, `!${b.action}${b.query ? ` ${b.query.replace(/\s+/g, " ")}` : ""}`);
+    await handleMusicCommand(text, me, `/${b.action}${b.query ? ` ${b.query.replace(/\s+/g, " ")}` : ""}`);
     return stateOf(rooms.get(voice.id), voice.id);
+  });
+
+  /** Slash commands from the message box (/play, /queue, /nowplaying, /pause, /resume, /skip, /stop, /music). */
+  app.post("/api/music/command", { preHandler: requireUser, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
+    const b = z.object({ channel_id: z.string().regex(/^\d{1,20}$/), command: z.enum(["play", "queue", "nowplaying", "pause", "resume", "skip", "stop", "help"]), query: z.string().trim().max(300).optional() }).parse(req.body);
+    const me = uid(req);
+    const text = await getChannel(b.channel_id);
+    if (!text?.guild_id) throw bad("Music commands work in server channels.");
+    const perms = await permsFor(me, text);
+    if (!has(perms, P.VIEW_CHANNEL) || !has(perms, P.SEND_MESSAGES)) throw forbidden("You can't use commands in this channel.");
+    if (b.command === "play" && !b.query) throw bad("Type a song name or a link after /play.");
+    if (b.command !== "help") {
+      const vs = voiceStateOf(me);
+      const voice = vs?.channel_id ? await getChannel(vs.channel_id) : null;
+      if (!voice || voice.guild_id !== text.guild_id || !isVoiceType(voice.type)) throw bad(`Join a voice room in this server first, then use /${b.command} again.`);
+    }
+    await handleMusicCommand(text, me, `!${b.command === "nowplaying" ? "np" : b.command}${b.query ? ` ${b.query.replace(/\s+/g, " ")}` : ""}`);
+    return { ok: true };
   });
 
   /** A listener's player read the length of a track whose source didn't say. */

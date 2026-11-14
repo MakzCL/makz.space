@@ -1,19 +1,19 @@
 # SEND Music
 
-A music bot for voice rooms. Join a voice room, type `!play <song name or link>` in any text chat of that server,
+A music bot for voice rooms. Join a voice room, type `/play <song name or link>` in any text chat of that server,
 and everyone in the room hears it. The next request goes into the room's queue.
 
 ## Commands
 
 | Command | Short | What it does |
 | --- | --- | --- |
-| `!play <name or link>` | `!p` | Plays straight away if nothing is playing, otherwise adds it to the queue and says its position |
-| `!queue` | `!q` | The current track and what's next, with who asked for each |
-| `!nowplaying` | `!np` | Title, artist, requester and a progress bar |
-| `!pause` / `!resume` | | Pause and carry on, for everyone in the room |
-| `!skip` | `!s` | Next track. Skipping someone else's track needs DJ rights when others are listening |
-| `!stop` | `!leave` | Clears the queue and disconnects the bot. Needs DJ rights when others are listening |
-| `!help` | | Commands and sources |
+| `/play <name or link>` | `/p` | Plays straight away if nothing is playing, otherwise adds it to the queue and says its position |
+| `/queue` | `/q` | The current track and what's next, with who asked for each |
+| `/nowplaying` | `/np` | Title, artist, requester and a progress bar |
+| `/pause` / `/resume` | | Pause and carry on, for everyone in the room |
+| `/skip` | `/s` | Next track. Skipping someone else's track needs DJ rights when others are listening |
+| `/stop` | `/leave` | Clears the queue and disconnects the bot. Needs DJ rights when others are listening |
+| `/music` | | Commands and sources |
 
 You must be in a voice room of the same server to use music commands. Each voice room has its own queue, and commands
 always act on the room you're in.
@@ -46,10 +46,10 @@ Tested by `e2e/music-ui.cjs` (22 checks, two desktop listeners and a phone) and 
 | Spotify | Song, album and playlist links (also spotify.link) | Spotify never gives out audio. The bot reads titles and artists from Spotify's public link-preview tags (playlists: the first 30 songs, albums: all) and finds a playable version of each song when its turn comes |
 | Deezer | Song, album and playlist links | Read through Deezer's open public API, then matched like Spotify |
 | Apple Music, SoundCloud, Tidal, Bandcamp | Single song links | The page title is read, then matched |
-| Audius | `!play <song name>`, track and playlist links | Open catalogue that allows third-party apps to stream through its API. No key needed |
-| Direct audio links | `!play https://…/song.mp3` | Public https only, checked to be audio |
+| Audius | `/play <song name>`, track and playlist links | Open catalogue that allows third-party apps to stream through its API. No key needed |
+| Direct audio links | `/play https://…/song.mp3` | Public https only, checked to be audio |
 | Jamendo (optional) | Song-name search falls back to Jamendo | Only with `MUSIC_JAMENDO_CLIENT_ID` |
-| Built-in test tracks | `!play test`, `!play test 2` | Two short synthesized tones bundled with the server |
+| Built-in test tracks | `/play test`, `/play test 2` | Two short synthesized tones bundled with the server |
 
 **Matching.** A song from Spotify and friends is matched when it comes up, not when it's queued, so a 30-song
 playlist costs nothing until it's played. It's searched on YouTube (only with `YOUTUBE_API_KEY`), then Audius. A result
@@ -109,7 +109,7 @@ NODE_PATH=$(npm root -g) node e2e/music.cjs http://localhost:3900 /tmp/out
 ## Limits
 
 - The queue lives in the server's memory, like voice state: restarting the backend clears queues.
-- Slash commands: SEND's slash commands go to external apps over HTTP, so music uses `!` commands. Registering them as
-  slash commands would need a built-in app entry; not done yet.
+- Commands are built into SEND's `/` menu in every server (no app to install). Mistakes such as using a command
+  outside a voice room come back privately as a notice; everything else is answered by the bot in the channel.
 - Max 100 tracks per room queue. Spotify playlists give their first 30 songs, YouTube playlists their first 15 without a key.
 - YouTube mixes (list=RD…) are personal and can't be read, so only the video in the link plays.

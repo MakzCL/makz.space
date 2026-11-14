@@ -34,6 +34,26 @@ const BUILTIN: BuiltIn[] = [
   }, available: (ch) => !!ch.guild_id },
 ];
 
+/* SEND Music: built into every server. The bot answers in the channel; mistakes come back as a toast. */
+const music = (command: string, usage?: string, description = ""): BuiltIn => ({
+  name: command, description, usage, available: (ch) => !!ch.guild_id,
+  run: async (r, ch) => {
+    if (command === "play" && !r) { toast("Type a song name or a link after /play.", "error"); return true; }
+    try { await api.post("/api/music/command", { channel_id: ch.id, command: command === "music" ? "help" : command, query: r || undefined }); } catch (e) { toast(errMsg(e), "error"); }
+    return true;
+  },
+});
+BUILTIN.push(
+  music("play", "<song name or link>", "SEND Music: play a song in your voice room, or add it to the queue."),
+  music("queue", undefined, "SEND Music: what's playing and what's next."),
+  music("nowplaying", undefined, "SEND Music: the current song and its progress."),
+  music("pause", undefined, "SEND Music: pause the music for everyone in your voice room."),
+  music("resume", undefined, "SEND Music: carry on playing."),
+  music("skip", undefined, "SEND Music: skip to the next song."),
+  music("stop", undefined, "SEND Music: clear the queue and disconnect the bot."),
+  music("music", undefined, "SEND Music: commands and supported sources."),
+);
+
 const NONE: string[] = [];
 const cache = new Map<string, { at: number; list: ApplicationCommand[] }>();
 async function appCommands(guildId: string) {
