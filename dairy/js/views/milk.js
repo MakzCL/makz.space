@@ -5,7 +5,7 @@ import {
   milkDay, milkTotals, milkHolds, MILK_SOURCES, collectionValue, statementExpected, animalLabel, isActive, isFemale,
 } from '../logic.js';
 import { fmtDay, fmtDow, todayKey, addDays } from '../time.js';
-import { L, money, periodChips, empty, holdText, treatmentsN } from '../components.js';
+import { L, money, periodChips, empty, holdText, treatmentsN, num } from '../components.js';
 import { t as tr, plural } from '../i18n.js';
 
 const SESSIONS = ['AM', 'Midday', 'PM', 'Other'];
@@ -225,11 +225,17 @@ export function qualityForm(existing) {
 }
 
 function spark(values) {
-  const w = 280; const h = 56; const p = 4;
+  const w = 300; const h = 72; const p = 6;
   const min = Math.min(...values); const max = Math.max(...values);
   const span = max - min || 1;
-  const pts = values.map((v, i) => `${(p + (i * (w - 2 * p)) / (values.length - 1)).toFixed(1)},${(h - p - ((v - min) * (h - 2 * p)) / span).toFixed(1)}`);
-  return raw(`<svg class="spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="${values[0]} → ${values[values.length - 1]}"><polyline fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" points="${pts.join(' ')}"/>${pts.map((pt) => `<circle cx="${pt.split(',')[0]}" cy="${pt.split(',')[1]}" r="2.5" fill="currentColor"/>`).join('')}</svg>`);
+  const xy = values.map((v, i) => [p + (i * (w - 2 * p)) / (values.length - 1), h - p - ((v - min) * (h - 2 * p)) / span]);
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `M${xy[0][0].toFixed(1)},${h} L${line.replace(/ /g, ' L')} L${xy[xy.length - 1][0].toFixed(1)},${h} Z`;
+  const gid = `g${Math.random().toString(36).slice(2, 8)}`;
+  return raw(`<div class="spark-wrap"><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${num(values[0])} → ${num(values[values.length - 1])}">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".22"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#${gid})"/><polyline fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="${line}"/></svg>
+    <span class="spark-range"><span>${num(max)}</span><span>${num(min)}</span></span></div>`);
 }
 
 const TABS = [['production', 'Production'], ['sales', 'Sales & payments'], ['quality', 'Quality']];
@@ -301,11 +307,11 @@ export function milkView(tab = 'production') {
         const vals = qs.filter((x) => x[k] != null);
         if (!vals.length) return '';
         const last = vals[vals.length - 1];
-        return html`<section class="card"><h3 class="h3">${tr(l)}: ${last[k]} ${u}</h3><p class="muted small">${tr('Latest {d}', { d: fmtDay(last.date) })} · ${plural(vals.length, ['reading', 'readings'], ['odczyt', 'odczyty', 'odczytów'])}</p>
+        return html`<section class="card"><h3 class="h3">${tr(l)}: ${num(last[k])} ${u}</h3><p class="muted small">${tr('Latest {d}', { d: fmtDay(last.date) })} · ${plural(vals.length, ['reading', 'readings'], ['odczyt', 'odczyty', 'odczytów'])}</p>
           ${vals.length >= 3 ? spark(vals.slice(-20).map((x) => +x[k])) : html`<p class="muted small">${tr('Trend shows after 3 readings.')}</p>`}</section>`;
       })}
       ${qs.length ? html`<h2 class="h2">${tr('All readings')}</h2>${qs.slice().reverse().map((x) => html`<button type="button" class="card link-card" data-act="editQ" data-id="${x.id}">${fmtDay(x.date)} · ${tr(x.sampleType === 'collection' ? 'collection' : 'bulk tank')}<br>
-        ${metrics.filter(([k]) => x[k] != null).map(([k, l, u]) => `${tr(l)} ${x[k]} ${u}`).join(' · ')}</button>`)}` : empty('No quality readings yet.')}`;
+        ${metrics.filter(([k]) => x[k] != null).map(([k, l, u]) => `${tr(l)} ${num(x[k])} ${u}`).join(' · ')}</button>`)}` : empty('No quality readings yet.')}`;
   }
   return {
     html: html`<header class="top"><h1>${tr('Milk')}</h1></header>

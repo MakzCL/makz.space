@@ -14,6 +14,8 @@ import { currentUser, hasUsers, isAdmin, resumeSession, showLogin, startIdleWatc
 import { usersView } from './views/users.js';
 import { syncView, joinForm, statusText } from './views/syncview.js';
 import { startSync, onStatus } from './sync.js';
+import { icon } from './icons.js';
+import { autoCheck, onUpdate } from './updates.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -78,11 +80,11 @@ function renderNav(active) {
   const items = [['today', '#/', 'Today'], ['herd', '#/herd', 'Herd'], ['breeding', '#/breeding/awaiting', 'Breeding'], ['milk', '#/milk', 'Milk'], ['more', '#/more', 'More']];
   nav.setAttribute('aria-label', t('Main'));
   nav.innerHTML = String(html`${items.map(([k, href, label]) => html`<a href="${href}" class="${active === k ? 'on' : ''}" ${active === k ? html`aria-current="page"` : ''}>
-    <span class="nav-ico" aria-hidden="true">${ICONS[k]}</span><span>${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}</a>`)}`);
+    <span class="nav-ico">${icon(ICONS[k])}</span><span class="nav-l">${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}</a>`)}`);
 }
 
 const ICONS = {
-  today: '◉', herd: '☰', breeding: '♀', milk: '⛁', more: '⋯',
+  today: 'home', herd: 'herd', breeding: 'heart', milk: 'milk', more: 'grid',
 };
 
 export function render({ scroll = false } = {}) {
@@ -152,6 +154,8 @@ async function boot() {
   startIdleWatch();
   resumeSession();
   startSync();
+  onUpdate(() => render());
+  autoCheck();
   onStatus(() => {
     const s = statusText();
     for (const el of document.querySelectorAll('[data-testid=sync-pill]')) { el.className = `sync-pill ${s.cls}`; el.textContent = s.text; }

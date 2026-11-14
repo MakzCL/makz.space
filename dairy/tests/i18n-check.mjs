@@ -7,7 +7,7 @@ import { PL } from '../js/pl.js';
 const files = [];
 const walk = (d) => { for (const f of readdirSync(d, { withFileTypes: true })) f.isDirectory() ? walk(join(d, f.name)) : f.name.endsWith('.js') && files.push(join(d, f.name)); };
 walk(new URL('../js', import.meta.url).pathname);
-const skip = /(db|time|i18n|pl|config|sync)\.js$/;
+const skip = /(db|time|i18n|pl|config|sync|icons)\.js$/;
 const keys = new Set();
 const str = String.raw`(['"])((?:\\.|(?!\1).)*?)\1`;
 const patterns = [

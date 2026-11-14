@@ -89,23 +89,31 @@ export async function syncNow({ throwErrors = false } = {}) {
   try {
     let pushed = 0;
     for (;;) {
-      const batch = db.pendingChanges(400);
-      if (!batch.length) break;
+      // Up to 400 changes, but keep each upload under ~1 MB (photos are ~25 KB each).
+      const all = db.pendingChanges(400);
+      if (!all.length) break;
+      const batch = [];
+      let bytes = 0;
+      for (const c of all) {
+        const size = c.data ? JSON.stringify(c.data).length : 100;
+        if (batch.length && bytes + size > 1_000_000) break;
+        batch.push(c); bytes += size;
+      }
       await rpc('dairy_push', {
         p_token: config().token,
         p_changes: batch.map(({ store, id, data, deleted, updated_at }) => ({ store, id, data, deleted, updated_at })),
       });
       await db.clearSent(batch);
       pushed += batch.length;
-      if (batch.length < 400) break;
+      if (batch.length === all.length && all.length < 400) break;
     }
     for (;;) {
       const c = config();
-      const r = await rpc('dairy_pull', { p_token: c.token, p_since: c.lastSeq || 0, p_limit: 1000 });
+      const r = await rpc('dairy_pull', { p_token: c.token, p_since: c.lastSeq || 0, p_limit: 300 });
       if (r.rows.length) await db.applyRemote(r.rows);
       const last = r.rows.length ? r.rows[r.rows.length - 1].seq : c.lastSeq;
       if (last !== c.lastSeq || r.farm_name !== c.farmName) await saveConfig({ ...config(), lastSeq: last, farmName: r.farm_name });
-      if (r.rows.length < 1000) break;
+      if (r.rows.length < 300) break;
     }
     if (pushed) ping();
     set({ status: 'synced', error: null, lastSync: new Date().toISOString() });

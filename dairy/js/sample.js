@@ -64,7 +64,7 @@ export async function removeSampleData() {
   const data = D();
   const sampleAnimals = new Set(data.animals.filter((a) => a.sample).map((a) => a.id));
   const ops = [];
-  for (const store of ['animals', 'events', 'exposures', 'tasks', 'milk', 'milkDays', 'buyers', 'collections', 'statements', 'quality']) {
+  for (const store of ['animals', 'events', 'exposures', 'tasks', 'milk', 'milkDays', 'buyers', 'collections', 'statements', 'quality', 'photos']) {
     for (const r of data[store] || []) {
       let onSample = r.sample || sampleAnimals.has(r.animalId);
       // Keep a sample buyer if real collections or statements point at it.

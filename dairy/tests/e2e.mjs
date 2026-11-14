@@ -71,6 +71,15 @@ try {
   assert.match(await text('.breeding .sub'), new RegExp(`08:30`));
   ok('after reload: "Inseminated 18 days ago" with the actual date');
 
+  step('Cow photo');
+  await p.click('[data-testid=photo-btn]');
+  const [chooser] = await Promise.all([p.waitForEvent('filechooser'), p.click('[data-testid=photo-gallery]')]);
+  await chooser.setFiles(new URL('../icons/icon-512.png', import.meta.url).pathname);
+  await p.waitForSelector('.animal-head img.photo-lg');
+  await p.reload();
+  await p.waitForSelector('.animal-head img.photo-lg');
+  ok('photo saved, cropped and still there after reload');
+
   step('Scenario 2: second insemination, both kept, counts once');
   await p.click('[data-testid=record-insemination]');
   await details();

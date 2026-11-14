@@ -4,6 +4,7 @@ import * as db from './db.js';
 import { html, openForm, toast } from './ui.js';
 import { S, saveSettings } from './store.js';
 import { t, lang, setLang } from './i18n.js';
+import { icon } from './icons.js';
 
 const ITER = 150000;
 const SESSION_KEY = 'dairy-session';
@@ -114,9 +115,14 @@ export function showLogin(root) {
             <select id="l_user" name="user">${list.map((u) => html`<option value="${u.id}" ${u.id === sel ? 'selected' : ''}>${u.name}</option>`)}</select></div>`
             : html`<input type="hidden" name="user" value="${sel}"><p class="login-name">${list[0].name}</p>`}
           <div class="field"><label for="l_pin">${t('PIN or password')}</label>
-            <input id="l_pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password" enterkeyhint="go" data-testid="login-pin"></div>
-          <button type="button" class="btn ghost small" data-kb>${t('Use letters')}</button>
-          <button type="submit" class="btn primary big" data-testid="login-submit">${t('Log in')}</button>
+            <input id="l_pin" name="pin" type="password" inputmode="none" autocomplete="current-password" enterkeyhint="go" data-testid="login-pin" class="pin-input"></div>
+          <div class="keypad" role="group" aria-label="${t('PIN or password')}">
+            ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => html`<button type="button" class="key" data-key="${n}">${n}</button>`)}
+            <button type="button" class="key key-soft" data-kb aria-label="${t('Use letters')}">${icon('keyboard')}</button>
+            <button type="button" class="key" data-key="0">0</button>
+            <button type="button" class="key key-soft" data-del aria-label="${t('Delete')}">${icon('backspace')}</button>
+          </div>
+          <button type="submit" class="btn primary big" data-testid="login-submit">${icon('lock', { size: 20 })}${t('Log in')}</button>
         </form>
         ${langChips()}
         <details class="forgot"><summary>${t('Forgot PIN?')}</summary>
@@ -126,11 +132,16 @@ export function showLogin(root) {
       </section>`);
       const form = root.querySelector('form');
       const pin = root.querySelector('#l_pin');
-      pin.focus();
-      root.querySelector('[data-kb]').onclick = (e) => {
-        pin.inputMode = pin.inputMode === 'numeric' ? 'text' : 'numeric';
-        e.target.textContent = t(pin.inputMode === 'numeric' ? 'Use letters' : 'Use numbers');
-        pin.blur(); pin.focus();
+      const pad = root.querySelector('.keypad');
+      for (const k of root.querySelectorAll('[data-key]')) {
+        k.onclick = () => { pin.value += k.dataset.key; navigator.vibrate?.(8); };
+      }
+      root.querySelector('[data-del]').onclick = () => { pin.value = pin.value.slice(0, -1); };
+      root.querySelector('[data-kb]').onclick = () => {
+        // Switch to the phone keyboard for passwords with letters.
+        pin.inputMode = 'text';
+        pad.hidden = true;
+        pin.focus();
       };
       for (const b of root.querySelectorAll('[data-lang]')) b.onclick = () => { setLang(b.dataset.lang); draw(); };
       root.querySelector('[data-erase]').onclick = async () => {

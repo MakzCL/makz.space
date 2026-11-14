@@ -1,11 +1,11 @@
 // Offline app shell: everything the app needs is cached on first load.
 // Records never pass through here — they live in IndexedDB on the device.
-const VERSION = 'dairy-herd-v4';
+const VERSION = 'dairy-herd-v6';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './js/app.js', './js/db.js', './js/time.js', './js/logic.js', './js/ui.js', './js/store.js', './js/actions.js',
-  './js/components.js', './js/sample.js', './js/i18n.js', './js/pl.js', './js/auth.js', './js/sync.js', './js/config.js',
+  './js/components.js', './js/sample.js', './js/i18n.js', './js/pl.js', './js/auth.js', './js/sync.js', './js/icons.js', './js/photos.js', './js/updates.js', './js/views/updateview.js', './fonts/inter-latin.woff2', './fonts/inter-latin-ext.woff2', './js/config.js',
   './js/views/today.js', './js/views/animal.js', './js/views/herd.js', './js/views/breeding.js', './js/views/milk.js', './js/views/more.js', './js/views/users.js', './js/views/syncview.js',
 ];
 

@@ -71,6 +71,20 @@ try {
   assert.match(await B.textContent('#results'), /Inseminated today/);
   ok('B sees the farm: 0042, inseminated today, count 1');
 
+  step('Photo: A photographs 0042; B sees it');
+  await go(A, '#/herd');
+  await A.click('a.row:has-text("0042")');
+  await A.click('[data-testid=photo-btn]');
+  const [chooser] = await Promise.all([A.waitForEvent('filechooser'), A.click('[data-testid=photo-gallery]')]);
+  await chooser.setFiles(new URL('../icons/icon-512.png', import.meta.url).pathname);
+  await A.waitForSelector('.animal-head img.photo-lg');
+  const size = await A.evaluate(() => document.querySelector('.animal-head img.photo-lg').src.length);
+  assert.ok(size < 60000, `thumbnail is small (${size} chars)`);
+  await B.fill('#find', '0042');
+  await B.waitForSelector('#results img.thumb', { timeout: 15000 });
+  ok(`B shows the photo in search results (thumbnail ${Math.round(size / 1024)} KB)`);
+  await B.fill('#find', '');
+
   step('Live: A inseminates another cow; B updates without reloading');
   await B.fill('#find', '');
   await go(A, '#/');

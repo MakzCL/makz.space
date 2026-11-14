@@ -14,6 +14,8 @@ import { t as tr, lang, setLang } from '../i18n.js';
 import { createFirstOwner, currentUser, isAdmin, lock, users } from '../auth.js';
 import * as sync from '../sync.js';
 import { deviceLabel, syncPill } from './syncview.js';
+import { icon } from '../icons.js';
+import { updateCard, updateActions } from './updateview.js';
 
 export const LANGS = [['en', 'English'], ['pl', 'Polski']];
 
@@ -28,26 +30,28 @@ function langSwitch() {
 
 export function moreView() {
   const links = [
-    ['#/sync', 'Sync & phones', 'Share the farm with other phones, live'],
-    ['#/health', 'Health & treatments', 'Milk holds, mastitis, lameness, vaccinations'],
-    ['#/bulls', 'Bulls', 'Profiles, groups, soundness exams'],
-    ['#/tasks', 'Vet visits & reminders', 'Upcoming and done'],
-    ['#/reports', 'Reports & CSV export', 'Spreadsheets for your records'],
+    ['#/sync', 'Sync & phones', 'Share the farm with other phones, live', 'cloud'],
+    ['#/health', 'Health & treatments', 'Milk holds, mastitis, lameness, vaccinations', 'stethoscope'],
+    ['#/bulls', 'Bulls', 'Profiles, groups, soundness exams', 'bull'],
+    ['#/tasks', 'Vet visits & reminders', 'Upcoming and done', 'bell'],
+    ['#/reports', 'Reports & CSV export', 'Spreadsheets for your records', 'chart'],
     ...(isAdmin() ? [
-      ['#/data', 'Backup & restore', 'Save everything to a file, sample data'],
-      ['#/settings', 'Farm settings', 'Time zone, currency, vet schedule'],
+      ['#/data', 'Backup & restore', 'Save everything to a file, sample data', 'download'],
+      ['#/settings', 'Farm settings', 'Time zone, currency, vet schedule', 'settings'],
     ] : []),
-    ['#/users', isAdmin() ? 'Users & login' : 'My PIN', isAdmin() ? 'Who can open the app, auto-lock' : 'Change my PIN'],
-    ['#/help', 'Help & install', 'Starting, installing, backing up'],
+    ['#/users', isAdmin() ? 'Users & login' : 'My PIN', isAdmin() ? 'Who can open the app, auto-lock' : 'Change my PIN', 'lock'],
+    ['#/help', 'Help & install', 'Starting, installing, backing up', 'help'],
   ];
   return {
     html: html`<header class="top"><h1>${tr('More')}</h1></header>
-    <div class="card user-card"><span>${tr('Logged in as {n}', { n: currentUser()?.name || '' })}</span><button type="button" class="btn" data-act="lock" data-testid="lock">${tr('Lock now')}</button></div>
-    <p>${syncPill()}</p>
-    <p class="h3">Język / Language</p>${langSwitch()}
-    <nav class="menu">${links.map(([h, a, b]) => html`<a class="menu-item" href="${h}"><strong>${tr(a)}</strong><span>${tr(b)}</span></a>`)}</nav>
+    <div class="card user-card"><span class="avatar">${(currentUser()?.name || '?').slice(0, 1).toUpperCase()}</span>
+      <span class="user-meta"><strong>${currentUser()?.name || ''}</strong><span class="muted small">${tr(isAdmin() ? 'Admin' : 'Worker')}</span>${syncPill()}</span>
+      <button type="button" class="btn small" data-act="lock" data-testid="lock">${icon('lock', { size: 18 })}${tr('Lock now')}</button></div>
+    <nav class="menu">${links.map(([h, a, b, ic]) => html`<a class="menu-item" href="${h}"><span class="menu-ico">${icon(ic)}</span><span class="menu-text"><strong>${tr(a)}</strong><span>${tr(b)}</span></span>${icon('chevron', { cls: 'row-chev' })}</a>`)}</nav>
+    <h2 class="section-title">${icon('language', { size: 18 })} Język / Language</h2>${langSwitch()}
+    ${updateCard()}
     <p class="muted small center">${tr('Dairy Herd · all records are stored on this device')}</p>`,
-    actions: { lang: (d) => changeLang(d.v), lock: () => lock() },
+    actions: { lang: (d) => changeLang(d.v), lock: () => lock(), ...updateActions },
   };
 }
 
@@ -198,8 +202,9 @@ export function settingsView() {
     <dl class="kv"><dt>${tr('Language')}</dt><dd>${LANGS.find(([k]) => k === lang())[1]}</dd><dt>${tr('Farm')}</dt><dd>${s.farmName || '—'}</dd><dt>${tr('Time zone')}</dt><dd>${s.timeZone}</dd><dt>${tr('Currency')}</dt><dd>${s.currency}</dd>
     <dt>${tr('Gestation')}</dt><dd>${tr('{n} days', { n: s.gestationDays })}</dd><dt>${tr('Dry off')}</dt><dd>${tr('{n} days before calving', { n: s.dryOffDays })}</dd>
     <dt>${tr('First pregnancy check')}</dt><dd>${tr('{n} days after service', { n: s.firstCheckDays })}</dd><dt>${tr('Recheck inconclusive')}</dt><dd>${tr('after {n} days', { n: s.recheckDays })}</dd>
-    <dt>${tr('Default milk total')}</dt><dd>${tr(MILK_SOURCES[s.defaultMilkSource])}</dd></dl>`,
-    actions: { open: () => openSettingsForm() },
+    <dt>${tr('Default milk total')}</dt><dd>${tr(MILK_SOURCES[s.defaultMilkSource])}</dd></dl>
+    ${updateCard()}`,
+    actions: { open: () => openSettingsForm(), ...updateActions },
   };
 }
 
@@ -276,7 +281,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
 // ---------- data: backup / restore / sample ----------
 const STORE_LABEL = {
   animals: 'Animals', events: 'Records', exposures: 'Bull exposures', tasks: 'Reminders', milk: 'Milk entries', milkDays: 'Milk days',
-  buyers: 'Buyers', collections: 'Collections', statements: 'Statements', quality: 'Quality readings',
+  buyers: 'Buyers', collections: 'Collections', statements: 'Statements', quality: 'Quality readings', photos: 'Photos',
 };
 
 export function dataView() {

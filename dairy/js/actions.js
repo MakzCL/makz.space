@@ -471,7 +471,7 @@ export function editAnimal(existing, preset = {}) {
     onDelete: existing && (() => {
       const evs = D().events.filter((e) => e.animalId === existing.id);
       if (!confirm(tr('Delete {code} and {n} record(s) completely? To keep history, record a movement off the farm instead.', { code: animalLabel(existing), n: evs.length }))) throw new Error(tr('Not deleted.'));
-      return db.write([{ store: 'animals', del: existing.id }, ...evs.map((e) => ({ store: 'events', del: e.id }))]).then(() => ({ go: '#/herd' }));
+      return db.write([{ store: 'animals', del: existing.id }, { store: 'photos', del: existing.id }, ...evs.map((e) => ({ store: 'events', del: e.id }))]).then(() => ({ go: '#/herd' }));
     }),
     deleteLabel: 'Delete animal completely',
     deleteConfirm: 'Delete this animal?',

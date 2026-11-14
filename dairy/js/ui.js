@@ -25,7 +25,8 @@ export function toast(msg, { action, kind = 'ok', ms = 5000 } = {}) {
   let el = document.getElementById('toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.append(el); }
   el.className = `toast show ${kind}`;
-  el.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button" class="toast-btn">${esc(action.label)}</button>` : ''}`;
+  const ico = kind === 'err' ? '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/>' : '<path d="M20 6 9 17l-5-5"/>';
+  el.innerHTML = `<svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ico}</svg><span class="toast-msg">${esc(msg)}</span>${action ? `<button type="button" class="toast-btn">${esc(action.label)}</button>` : ''}`;
   if (action) el.querySelector('button').onclick = () => { el.className = 'toast'; action.fn(); };
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = 'toast'; }, ms);
@@ -47,7 +48,8 @@ export function openSheet(title, body, { onMount } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
   wrap.innerHTML = `<section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <header class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="${t('Close')}">✕</button></header>
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <header class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="${t('Close')}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
     <div class="sheet-body">${fmt(body)}</div></section>`;
   document.body.append(wrap);
   document.body.classList.add('sheet-open');
@@ -218,6 +220,7 @@ export function openForm(opts) {
         try {
           const res = await opts.onSubmit(v, recordId);
           await closeSheet();
+          navigator.vibrate?.(12);
           const r = typeof res === 'object' && res ? res : { msg: res };
           if (r.go) location.hash = r.go;
           if (r.msg !== false) toast(typeof r.msg === 'string' ? r.msg : t('Saved'), r.action ? { action: r.action } : {});

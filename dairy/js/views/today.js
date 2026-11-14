@@ -1,13 +1,16 @@
 import { html } from '../ui.js';
-import { D, S, ui, periodRange } from '../store.js';
+import { D, S, ui, periodRange, tz } from '../store.js';
 import { searchAnimals, inseminatedIn, awaitingResult, todayItems, milkTotals, animalLabel } from '../logic.js';
-import { fmtDay, inText, agoText } from '../time.js';
-import { animalRow, holdText, periodChips, periodLabel, L, money, breedingHeadline, treatmentsN } from '../components.js';
+import { fmtDay, inText, agoText, fmtLong, todayKey, partsIn } from '../time.js';
+import { animalRow, holdText, periodChips, periodLabel, L, money, breedingHeadline, treatmentsN, emptyState } from '../components.js';
 import { editAnimal, editTask, completeTask, recordExposure } from '../actions.js';
 import { milkForm, collectionForm } from './milk.js';
 import { t, plural } from '../i18n.js';
+import { currentUser } from '../auth.js';
+import { icon } from '../icons.js';
 import * as db from '../db.js';
 import { syncPill } from './syncview.js';
+import { updateBanner } from './updateview.js';
 
 export function searchResults(q) {
   const list = searchAnimals(D().animals, q);
@@ -16,42 +19,55 @@ export function searchResults(q) {
     const archived = searchAnimals(D().animals, q, { includeArchived: true });
     return html`<div class="results"><p class="empty">${t('No active animal matches “{q}”.', { q })}</p>
       ${archived.map((a) => animalRow(a))}
-      <button type="button" class="btn" data-act="addWithCode" data-code="${q.trim()}">${t('Add animal with code {code}', { code: q.trim() })}</button></div>`;
+      <button type="button" class="btn" data-act="addWithCode" data-code="${q.trim()}">${icon('plus')}${t('Add animal with code {code}', { code: q.trim() })}</button></div>`;
   }
   return html`<div class="results" data-testid="search-results">${list.slice(0, 12).map((a) => animalRow(a, breedingHeadline(a).main))}
     ${list.length > 12 ? html`<p class="muted">${t('{n} more — keep typing', { n: list.length - 12 })}</p>` : ''}</div>`;
 }
 
+function item({ tone = '', ico, k, code, sub, href, testid, extra = '' }) {
+  const inner = html`<span class="item-ico">${icon(ico)}</span>
+    <span class="item-body"><span class="item-k">${k}</span>${code ? html`<span class="item-code">${code}</span>` : ''}<span class="item-sub">${sub}</span>${extra}</span>
+    ${href ? icon('chevron', { cls: 'item-chev' }) : ''}`;
+  return href
+    ? html`<a class="item ${tone}" href="${href}" ${testid ? html`data-testid="${testid}"` : ''}>${inner}</a>`
+    : html`<div class="item ${tone}">${inner}</div>`;
+}
+
 function itemHtml(it) {
   const a = it.animal;
   const code = a ? animalLabel(a) : '';
-  const go = a ? `#/animal/${a.id}` : null;
+  const href = a ? `#/animal/${a.id}` : null;
   switch (it.type) {
     case 'hold':
-      return html`<a class="item danger" href="${go}" data-testid="today-hold"><span class="item-k">${t('WITHHOLD MILK')}</span>
-        <span class="item-code">${code}</span><span>${holdText(it.hold)}${it.hold.overlapping ? ` · ${treatmentsN(it.hold.treatments.length)}` : ''}</span></a>`;
+      return item({ tone: 'danger', ico: 'dropOff', k: t('WITHHOLD MILK'), code, href, testid: 'today-hold',
+        sub: `${holdText(it.hold)}${it.hold.overlapping ? ` · ${treatmentsN(it.hold.treatments.length)}` : ''}` });
     case 'checkOverdue':
-      return html`<a class="item warn" href="${go}"><span class="item-k">${t('Pregnancy check overdue')}</span><span class="item-code">${code}</span>
-        <span>${t('due {date} ({when})', { date: fmtDay(it.st.checkDue), when: inText(it.days) })}${it.st.inconclusive ? ` · ${t('inconclusive last time')}` : ''}</span></a>`;
+      return item({ tone: 'warn', ico: 'pulse', k: t('Pregnancy check overdue'), code, href,
+        sub: `${t('due {date} ({when})', { date: fmtDay(it.st.checkDue), when: inText(it.days) })}${it.st.inconclusive ? ` · ${t('inconclusive last time')}` : ''}` });
     case 'calving':
-      return html`<a class="item" href="${go}"><span class="item-k">${t(it.days < 0 ? 'Calving overdue' : 'Calving due')}</span><span class="item-code">${code}</span>
-        <span>${it.st.calving.from === it.st.calving.to ? fmtDay(it.st.calving.from) : t('from {date}', { date: fmtDay(it.st.calving.from) })} (${inText(it.days)})</span></a>`;
+      return item({ tone: it.days < 0 ? 'warn' : 'calm', ico: 'baby', k: t(it.days < 0 ? 'Calving overdue' : 'Calving due'), code, href,
+        sub: `${it.st.calving.from === it.st.calving.to ? fmtDay(it.st.calving.from) : t('from {date}', { date: fmtDay(it.st.calving.from) })} (${inText(it.days)})` });
     case 'dryoff':
-      return html`<a class="item" href="${go}"><span class="item-k">${t('Dry off')}</span><span class="item-code">${code}</span>
-        <span>${t('by {date} ({when})', { date: fmtDay(it.st.dryOff.due), when: inText(it.days) })}</span></a>`;
+      return item({ tone: 'calm', ico: 'pause', k: t('Dry off'), code, href, sub: t('by {date} ({when})', { date: fmtDay(it.st.dryOff.due), when: inText(it.days) }) });
     case 'checkSoon':
-      return html`<a class="item" href="${go}"><span class="item-k">${t('Pregnancy check')}</span><span class="item-code">${code}</span>
-        <span>${fmtDay(it.st.checkDue)} (${inText(it.days)})</span></a>`;
+      return item({ tone: 'calm', ico: 'pulse', k: t('Pregnancy check'), code, href, sub: `${fmtDay(it.st.checkDue)} (${inText(it.days)})` });
     case 'bse':
-      return html`<a class="item" href="${go}"><span class="item-k">${t('Bull soundness recheck')}</span><span class="item-code">${code}</span>
-        <span>${fmtDay(it.event.recheckDate)} (${inText(it.days)})</span></a>`;
+      return item({ tone: 'calm', ico: 'clipboard', k: t('Bull soundness recheck'), code, href, sub: `${fmtDay(it.event.recheckDate)} (${inText(it.days)})` });
     case 'task':
-      return html`<div class="item ${it.days < 0 ? 'warn' : ''}"><span class="item-k">${t(it.task.kind === 'vet' ? 'Vet visit' : 'Reminder')}</span>
-        <span class="item-code">${it.task.title}</span><span>${fmtDay(it.task.date)} (${inText(it.days)})${a ? ` · ${code}` : ''}</span>
-        <span class="item-actions"><button type="button" class="btn small" data-act="taskDone" data-id="${it.task.id}">${t('Done')}</button>
-        <button type="button" class="btn small ghost" data-act="taskEdit" data-id="${it.task.id}">${t('Edit')}</button></span></div>`;
+      return item({ tone: it.days < 0 ? 'warn' : 'calm', ico: it.task.kind === 'vet' ? 'stethoscope' : 'bell', k: t(it.task.kind === 'vet' ? 'Vet visit' : 'Reminder'),
+        code: it.task.title, sub: `${fmtDay(it.task.date)} (${inText(it.days)})${a ? ` · ${code}` : ''}`,
+        extra: html`<span class="item-actions"><button type="button" class="btn small" data-act="taskDone" data-id="${it.task.id}">${icon('check', { size: 18 })}${t('Done')}</button>
+        <button type="button" class="btn small ghost" data-act="taskEdit" data-id="${it.task.id}">${t('Edit')}</button></span>` });
     default: return '';
   }
+}
+
+function greeting() {
+  const h = partsIn(Date.now(), tz()).h;
+  const name = currentUser()?.name?.split(' ')[0] || '';
+  const g = h < 12 ? t('Good morning') : h < 18 ? t('Good afternoon') : t('Good evening');
+  return name ? `${g}, ${name}` : g;
 }
 
 export function todayView() {
@@ -69,40 +85,55 @@ export function todayView() {
   const lastBackup = db.get('meta', 'lastBackup')?.at;
   const backupDays = lastBackup ? Math.floor((Date.now() - Date.parse(lastBackup)) / 86400000) : null;
   const recordCount = D().events.length + D().milk.length;
+  const herdSize = D().animals.filter((a) => (a.status || 'active') === 'active').length;
 
   return {
     html: html`
-    <header class="top"><div><h1>Dairy Herd</h1><p class="farm">${s.farmName || t('My farm')}</p></div>
-      <span class="net" data-net hidden></span>${syncPill()}</header>
+    <header class="hero">
+      <div class="hero-top"><p class="hero-date">${fmtLong(todayKey(tz()))}</p>${syncPill()}</div>
+      <h1 class="hero-title">${greeting()}</h1>
+      <p class="hero-farm">${s.farmName || t('My farm')} · ${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</p>
+      <span class="net" data-net hidden></span>
+      <section class="find" aria-labelledby="find-label">
+        <label id="find-label" for="find" class="find-label">${t('Find cow by code')}</label>
+        <div class="search-row">
+          <span class="search-field">${icon('search', { cls: 'search-ico' })}
+          <input id="find" type="search" inputmode="${ui.kb}" autocomplete="off" autocapitalize="characters" enterkeyhint="go"
+            placeholder="${t('Code or tag')}" value="${ui.query}" data-testid="find"></span>
+          <button type="button" class="btn kb" data-act="kb" aria-label="${t('Switch keyboard')}">${ui.kb === 'numeric' ? 'ABC' : '123'}</button>
+        </div>
+        <div id="results">${searchResults(ui.query)}</div>
+      </section>
+    </header>
 
-    <section class="find card" aria-labelledby="find-label">
-      <label id="find-label" for="find" class="find-label">${t('Find cow by code')}</label>
-      <div class="search-row">
-        <input id="find" type="search" inputmode="${ui.kb}" autocomplete="off" autocapitalize="characters" enterkeyhint="go"
-          placeholder="${t('Code or tag')}" value="${ui.query}" data-testid="find">
-        <button type="button" class="btn kb" data-act="kb" aria-label="${t('Switch keyboard')}">${ui.kb === 'numeric' ? 'ABC' : '123'}</button>
-      </div>
-      <div id="results">${searchResults(ui.query)}</div>
-    </section>
-
-    ${hasSample ? html`<div class="sample-banner">${t('You are looking at sample data (marked “Sample”).')} <a href="#/data">${t('Remove sample data')}</a></div>` : ''}
+    ${updateBanner()}
+    ${hasSample ? html`<div class="sample-banner">${icon('sun')}<span>${t('You are looking at sample data (marked “Sample”).')} <a href="#/data">${t('Remove sample data')}</a></span></div>` : ''}
 
     ${holds.length ? html`<section aria-label="${t('Milk holds')}" class="list">${holds.map(itemHtml)}</section>` : ''}
-    ${rest.length ? html`<section aria-labelledby="att" class="list"><h2 id="att" class="h2">${t('Needs attention')}</h2>${rest.map(itemHtml)}</section>`
-      : html`<p class="all-clear">${t('Nothing overdue or due soon.')}</p>`}
 
-    <section class="counts" aria-label="${t('Breeding counts')}">
-      <a class="count" href="#/breeding/inseminated" data-testid="count-inseminated">
-        <span class="count-n">${ins.length}</span><span class="count-l">${t('Cows inseminated')}</span>
-        <span class="count-s">${periodLabel(r)}${attempts !== ins.length ? ` · ${plural(attempts, ['insemination', 'inseminations'], ['inseminacja', 'inseminacje', 'inseminacji'])}` : ''}</span></a>
-      <a class="count" href="#/breeding/awaiting" data-testid="count-awaiting">
-        <span class="count-n">${awaiting.length}</span><span class="count-l">${t('Awaiting pregnancy result')}</span>
-        <span class="count-s ${overdue ? 'overdue' : ''}">${overdue ? t('{n} overdue', { n: plural(overdue, ['check', 'checks'], ['badanie', 'badania', 'badań']) }) : t('none overdue')}</span></a>
+    <section aria-labelledby="att">
+      <h2 id="att" class="section-title">${t('Needs attention')}${rest.length ? html`<span class="count-badge">${rest.length}</span>` : ''}</h2>
+      ${rest.length ? html`<div class="list">${rest.map(itemHtml)}</div>`
+        : html`<p class="all-clear">${icon('checkCircle')}${t('Nothing overdue or due soon.')}</p>`}
     </section>
-    ${periodChips()}
 
-    <section class="card" aria-labelledby="milk-h">
-      <h2 id="milk-h" class="h2">${t('Milk')} · ${periodLabel(r)}</h2>
+    <section aria-labelledby="br">
+      <h2 id="br" class="section-title">${t('Breeding')}</h2>
+      <div class="counts">
+        <a class="count" href="#/breeding/inseminated" data-testid="count-inseminated">
+          <span class="count-ico">${icon('syringe')}</span>
+          <span class="count-n">${ins.length}</span><span class="count-l">${t('Cows inseminated')}</span>
+          <span class="count-s">${periodLabel(r)}${attempts !== ins.length ? ` · ${plural(attempts, ['insemination', 'inseminations'], ['inseminacja', 'inseminacje', 'inseminacji'])}` : ''}</span></a>
+        <a class="count" href="#/breeding/awaiting" data-testid="count-awaiting">
+          <span class="count-ico">${icon('pulse')}</span>
+          <span class="count-n">${awaiting.length}</span><span class="count-l">${t('Awaiting pregnancy result')}</span>
+          <span class="count-s ${overdue ? 'overdue' : ''}">${overdue ? t('{n} overdue', { n: plural(overdue, ['check', 'checks'], ['badanie', 'badania', 'badań']) }) : t('none overdue')}</span></a>
+      </div>
+      ${periodChips()}
+    </section>
+
+    <section class="card milk-card" aria-labelledby="milk-h">
+      <div class="card-head"><h2 id="milk-h" class="card-title">${icon('milk')}${t('Milk')}</h2><span class="muted small">${periodLabel(r)}</span></div>
       <dl class="totals" data-testid="milk-totals">
         <div><dt>${t('Litres produced')}</dt><dd data-testid="t-produced">${L(m.produced)}</dd></div>
         <div><dt>${t('Litres sold')}</dt><dd data-testid="t-sold">${L(m.sold)}</dd></div>
@@ -114,14 +145,17 @@ export function todayView() {
       <a href="#/milk" class="link">${t('Milk details →')}</a>
     </section>
 
-    <section class="quick" aria-label="${t('Quick entry')}">
-      <button type="button" class="btn" data-act="milk">${t('Record milk')}</button>
-      <button type="button" class="btn" data-act="collection">${t('Milk collection')}</button>
-      <button type="button" class="btn" data-act="exposure">${t('Bull with group')}</button>
-      <button type="button" class="btn" data-act="vet">${t('Vet visit / reminder')}</button>
-      <button type="button" class="btn" data-act="add">${t('Add animal')}</button>
+    <section aria-labelledby="qe">
+      <h2 id="qe" class="section-title">${t('Quick entry')}</h2>
+      <div class="quick">
+        <button type="button" class="tile" data-act="milk"><span class="tile-ico">${icon('milk')}</span>${t('Record milk')}</button>
+        <button type="button" class="tile" data-act="collection"><span class="tile-ico">${icon('truck')}</span>${t('Milk collection')}</button>
+        <button type="button" class="tile" data-act="exposure"><span class="tile-ico">${icon('bull')}</span>${t('Bull with group')}</button>
+        <button type="button" class="tile" data-act="vet"><span class="tile-ico">${icon('stethoscope')}</span>${t('Vet visit / reminder')}</button>
+        <button type="button" class="tile wide" data-act="add"><span class="tile-ico">${icon('plus')}</span>${t('Add animal')}</button>
+      </div>
     </section>
-    ${recordCount && (backupDays == null || backupDays > 14) ? html`<p class="backup-nag">${backupDays == null ? t('No backup yet.') : t('Last backup {ago}.', { ago: agoText(backupDays) })} <a href="#/data">${t('Back up now')}</a></p>` : ''}
+    ${recordCount && (backupDays == null || backupDays > 14) ? html`<p class="backup-nag">${icon('download')}<span>${backupDays == null ? t('No backup yet.') : t('Last backup {ago}.', { ago: agoText(backupDays) })} <a href="#/data">${t('Back up now')}</a></span></p>` : ''}
     `,
     actions: {
       kb() { ui.kb = ui.kb === 'numeric' ? 'text' : 'numeric'; const i = document.getElementById('find'); i.inputMode = ui.kb; document.querySelector('[data-act=kb]').textContent = ui.kb === 'numeric' ? 'ABC' : '123'; i.blur(); i.focus(); },

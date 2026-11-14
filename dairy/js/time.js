@@ -94,6 +94,15 @@ function f(kind) {
   return fmts.get(key);
 }
 
+const longFmts = new Map();
+/** 'Saturday, 14 November' in the display language. */
+export function fmtLong(key) {
+  if (!key) return '';
+  if (!longFmts.has(LANG)) longFmts.set(LANG, new Intl.DateTimeFormat(LANG === 'pl' ? 'pl-PL' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }));
+  const s = longFmts.get(LANG).format(new Date(keyToUTC(key)));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export const fmtDay = (key) => (key ? f('date').format(new Date(keyToUTC(key))) : '');
 export const fmtDayShort = (key) => (key ? f('short').format(new Date(keyToUTC(key))) : '');
 export const fmtDow = (key) => (key ? f('dow').format(new Date(keyToUTC(key))) : '');

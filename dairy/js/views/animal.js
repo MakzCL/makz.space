@@ -9,6 +9,8 @@ import { fmtDay, fmtDateTime, dayKey } from '../time.js';
 import { breedingCard, holdText, animalRow, empty, treatmentsN } from '../components.js';
 import { t, plural } from '../i18n.js';
 import * as A from '../actions.js';
+import { icon, KIND_ICON } from '../icons.js';
+import { thumb, photoOf, photoSheet } from '../photos.js';
 
 export const KIND_LABEL = {
   ai: 'Insemination (AI)', heat: 'Heat seen', natural: 'Natural service', pregcheck: 'Pregnancy check', dryoff: 'Dried off',
@@ -49,11 +51,11 @@ function timelineItems(a) {
   const items = eventsOf(D(), a.id).map((e) => ({ at: e.at, key: dayKey(e.at, z), label: t(KIND_LABEL[e.kind] || e.kind), text: describe(e), notes: e.notes, id: e.id, kind: e.kind, by: e.createdBy }));
   for (const x of D().exposures) {
     if (!(isBull(a) ? x.bullId === a.id : (x.animalIds || []).includes(a.id))) continue;
-    items.push({ at: x.start, key: x.start, label: t('Bull exposure'), text: `${fmtDay(x.start)} – ${x.end ? fmtDay(x.end) : t('ongoing')} · ${sireLabel(D(), x) || t('Bull not recorded')}${x.group ? ` · ${x.group}` : ''}${isBull(a) ? ` · ${plural(x.animalIds.length, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}` : ''}`, exposureId: x.id });
+    items.push({ kind: 'exposure', at: x.start, key: x.start, label: t('Bull exposure'), text: `${fmtDay(x.start)} – ${x.end ? fmtDay(x.end) : t('ongoing')} · ${sireLabel(D(), x) || t('Bull not recorded')}${x.group ? ` · ${x.group}` : ''}${isBull(a) ? ` · ${plural(x.animalIds.length, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}` : ''}`, exposureId: x.id });
   }
   const USE = { withheld: 'Milk withheld', discarded: 'Milk discarded', onfarm: 'Milk on-farm use' };
   for (const m of D().milk.filter((x) => x.animalId === a.id)) {
-    items.push({ at: m.date, key: m.date, label: t(m.kind === 'cow' ? 'Milk yield' : USE[m.use]), text: `${m.litres} L${m.session ? ` · ${t(m.session)}` : ''}`, milkId: m.id });
+    items.push({ kind: 'milk', at: m.date, key: m.date, label: t(m.kind === 'cow' ? 'Milk yield' : USE[m.use]), text: `${m.litres} L${m.session ? ` · ${t(m.session)}` : ''}`, milkId: m.id });
   }
   return items.sort((x, y) => (x.at < y.at ? 1 : -1));
 }
@@ -75,43 +77,43 @@ export function animalView(id) {
 
   return {
     html: html`
-    <a href="#/" class="back" data-act="back">← ${t('Back')}</a>
+    <div class="page-bar"><a href="#/" class="back" data-act="back" aria-label="${t('Back')}">${icon('back')}<span>${t('Back')}</span></a>
+      ${active ? html`<button type="button" class="icon-btn" data-act="edit" aria-label="${t('Edit details')}">${icon('edit')}</button>` : ''}</div>
     <header class="animal-head">
-      <p class="type">${t(TYPES[a.type] || '')}${a.breed ? ` · ${a.breed}` : ''}${a.group ? ` · ${a.group}` : ''}</p>
-      <h1 class="code-xl" data-testid="animal-code">${animalLabel(a)}</h1>
-      <p class="tagline">${a.tag && a.tag !== a.code ? t('Ear tag {tag}', { tag: a.tag }) : ''}${a.name ? ` · ${a.name}` : ''}
-        ${!active ? html` <span class="badge muted">${t(STATUS[a.status])} ${a.statusDate ? fmtDay(a.statusDate) : ''}</span>` : ''}
-        ${a.sample ? html` <span class="badge sample">${t('Sample')}</span>` : ''}</p>
+      <div class="animal-id">
+        <button type="button" class="photo-btn" data-act="photo" data-testid="photo-btn" aria-label="${t(photoOf(a.id) ? 'Change photo' : 'Add photo')}">
+          ${thumb(a, 'photo-lg')}${photoOf(a.id) ? '' : html`<span class="photo-add">${icon('plus', { size: 16 })}${t('Add photo')}</span>`}</button>
+        <div><p class="type">${t(TYPES[a.type] || '')}</p>
+        <h1 class="code-xl" data-testid="animal-code">${animalLabel(a)}</h1></div>
+      </div>
+      <div class="chips-info">
+        ${a.tag && a.tag !== a.code ? html`<span class="info-chip">${icon('tag', { size: 16 })}${a.tag}</span>` : ''}
+        ${a.group ? html`<span class="info-chip">${icon('herd', { size: 16 })}${a.group}</span>` : ''}
+        ${a.breed ? html`<span class="info-chip">${a.breed}</span>` : ''}
+        ${a.name ? html`<span class="info-chip">${a.name}</span>` : ''}
+        ${!active ? html`<span class="badge muted">${t(STATUS[a.status])} ${a.statusDate ? fmtDay(a.statusDate) : ''}</span>` : ''}
+        ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</div>
     </header>
 
-    ${w.milk.active ? html`<div class="hold big" role="alert" data-testid="profile-hold"><strong class="hold-title">${t('WITHHOLD MILK')}</strong>
+    ${w.milk.active ? html`<div class="hold big" role="alert" data-testid="profile-hold"><strong class="hold-title">${icon('dropOff')}${t('WITHHOLD MILK')}</strong>
       <span>${holdText(w.milk)}</span>
       ${w.milk.overlapping ? html`<span>${t('{n} overlapping treatments: {list}', { n: w.milk.treatments.length, list: w.milk.treatments.map((x) => x.product).join(', ') })}</span>` : html`<span>${w.milk.treatments[0].product}</span>`}
       ${missing ? html`<button type="button" class="btn" data-act="editEvent" data-id="${missing.id}">${t('Add withdrawal end time')}</button>` : ''}</div>` : ''}
-    ${w.meat.active ? html`<div class="hold meat" role="status"><strong>${t('Meat withdrawal')}</strong> ${holdText(w.meat)}</div>` : ''}
+    ${w.meat.active ? html`<div class="hold meat" role="status">${icon('alert')}<strong>${t('Meat withdrawal')}</strong> ${holdText(w.meat)}</div>` : ''}
 
     ${female ? breedingCard(a) : ''}
-    ${female && active ? html`<button type="button" class="btn primary huge" data-act="insem" data-testid="record-insemination">${t('Record insemination')}</button>` : ''}
+    ${female && active ? html`<button type="button" class="btn primary huge" data-act="insem" data-testid="record-insemination">${icon('syringe')}${t('Record insemination')}</button>` : ''}
 
     ${active ? html`<div class="grid-actions">
-      ${female ? html`<button type="button" class="btn" data-act="heat">${t('Heat seen')}</button>
-        <button type="button" class="btn" data-act="preg" data-testid="act-preg">${t('Pregnancy check')}</button>` : ''}
-      ${isBull(a) ? html`<button type="button" class="btn" data-act="bse">${t('Soundness exam')}</button>
-        <button type="button" class="btn" data-act="exposure">${t('Put with group')}</button>` : ''}
-      <button type="button" class="btn" data-act="treat" data-testid="act-treat">${t('Treatment')}</button>
-      <button type="button" class="btn" data-act="health" data-testid="act-health">${t('Health problem')}</button>
+      ${female ? html`<button type="button" class="btn act" data-act="heat">${icon('flame')}<span>${t('Heat seen')}</span></button><button type="button" class="btn act" data-act="preg" data-testid="act-preg">${icon('pulse')}<span>${t('Pregnancy check')}</span></button>` : ''}
+      ${isBull(a) ? html`<button type="button" class="btn act" data-act="bse">${icon('clipboard')}<span>${t('Soundness exam')}</span></button><button type="button" class="btn act" data-act="exposure">${icon('bull')}<span>${t('Put with group')}</span></button>` : ''}
+      <button type="button" class="btn act" data-act="treat" data-testid="act-treat">${icon('pill')}<span>${t('Treatment')}</span></button>
+      <button type="button" class="btn act" data-act="health" data-testid="act-health">${icon('stethoscope')}<span>${t('Health problem')}</span></button>
     </div>
-    <details class="more-actions"><summary>${t('More records')}</summary><div class="grid-actions">
-      ${female ? html`<button type="button" class="btn" data-act="natural">${t('Natural service seen')}</button>
-        <button type="button" class="btn" data-act="exposure">${t('Bull with her group')}</button>
-        <button type="button" class="btn" data-act="reminder">${t('Check reminder')}</button>
-        <button type="button" class="btn" data-act="dryoff">${t('Dry off')}</button>
-        <button type="button" class="btn" data-act="calving">${t('Calving')}</button>
-        <button type="button" class="btn" data-act="loss">${t('Pregnancy loss')}</button>` : ''}
-      <button type="button" class="btn" data-act="vacc">${t('Vaccination')}</button>
-      <button type="button" class="btn" data-act="move">${t('Moved off / died')}</button>
-      <button type="button" class="btn" data-act="edit">${t('Edit details')}</button>
-    </div></details>` : html`<div class="grid-actions"><button type="button" class="btn" data-act="move">${t('Moved back on')}</button><button type="button" class="btn" data-act="edit">${t('Edit details')}</button></div>`}
+    <details class="more-actions"><summary>${t('More records')}${icon('chevron', { cls: 'sum-chev' })}</summary><div class="grid-actions">
+      ${female ? html`<button type="button" class="btn act" data-act="natural">${icon('heart')}<span>${t('Natural service seen')}</span></button><button type="button" class="btn act" data-act="exposure">${icon('bull')}<span>${t('Bull with her group')}</span></button><button type="button" class="btn act" data-act="reminder">${icon('bell')}<span>${t('Check reminder')}</span></button><button type="button" class="btn act" data-act="dryoff">${icon('pause')}<span>${t('Dry off')}</span></button><button type="button" class="btn act" data-act="calving">${icon('baby')}<span>${t('Calving')}</span></button><button type="button" class="btn act" data-act="loss">${icon('ban')}<span>${t('Pregnancy loss')}</span></button>` : ''}
+      <button type="button" class="btn act" data-act="vacc">${icon('syringe')}<span>${t('Vaccination')}</span></button><button type="button" class="btn act" data-act="move">${icon('move')}<span>${t('Moved off / died')}</span></button><button type="button" class="btn act" data-act="edit">${icon('edit')}<span>${t('Edit details')}</span></button>
+    </div></details>` : html`<div class="grid-actions"><button type="button" class="btn act" data-act="move">${icon('move')}<span>${t('Moved back on')}</span></button><button type="button" class="btn act" data-act="edit">${icon('edit')}<span>${t('Edit details')}</span></button></div>`}
 
     ${female && attempts.length ? html`<section class="card"><h2 class="h2">${t('Breeding attempts ({n})', { n: attempts.length })}</h2>
       <ol class="attempts" data-testid="attempts">${attempts.slice().reverse().map((x) => html`<li>
@@ -128,7 +130,8 @@ export function animalView(id) {
       ${offspring.length ? html`<h3 class="h3">${t('Calves')}</h3>${offspring.map((c) => animalRow(c))}` : ''}</section>` : ''}
 
     <section class="card"><h2 class="h2">${t('History')}</h2>
-      ${timeline.length ? html`<ol class="timeline" data-testid="timeline">${timeline.map((x) => html`<li class="${x.kind === 'treatment' && overlapIds.has(x.id) ? 'overlap' : ''}">
+      ${timeline.length ? html`<ol class="timeline" data-testid="timeline">${timeline.map((x) => html`<li class="tl-${x.kind} ${x.kind === 'treatment' && overlapIds.has(x.id) ? 'overlap' : ''}">
+        <span class="tl-dot">${icon(KIND_ICON[x.kind] || 'clipboard', { size: 18 })}</span>
         <button type="button" class="link-row" ${x.id ? html`data-act="editEvent" data-id="${x.id}"` : x.exposureId ? html`data-act="editExposure" data-id="${x.exposureId}"` : html`data-act="editMilk" data-id="${x.milkId}"`}>
           <span class="tl-date">${x.id ? fmtDateTime(x.at, tz()) : fmtDay(x.key)}</span>
           <span class="tl-label">${x.label}${x.kind === 'treatment' && overlapIds.has(x.id) ? html` <span class="badge warn">${t('overlaps')}</span>` : ''}</span>
@@ -142,7 +145,7 @@ export function animalView(id) {
       natural: () => A.recordNatural(a), reminder: () => A.setCheckReminder(a), dryoff: () => A.recordDryOff(a),
       calving: () => A.recordCalving(a), loss: () => A.recordLoss(a), treat: () => A.recordTreatment(a),
       health: () => A.recordHealth(a), vacc: () => A.recordVaccination(a), move: () => A.recordMovement(a),
-      edit: () => A.editAnimal(a), bse: () => A.recordBSE(a),
+      edit: () => A.editAnimal(a), bse: () => A.recordBSE(a), photo: () => photoSheet(a),
       exposure: () => A.recordExposure(null, isBull(a) ? { bullId: a.id } : {
         group: a.group,
         animalIds: a.group ? D().animals.filter((x) => isActive(x) && isFemale(x) && x.group === a.group).map((x) => x.id) : [a.id],
