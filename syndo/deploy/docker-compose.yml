@@ -1,0 +1,52 @@
+# SEND — single-host deployment: PostgreSQL, API+web, LiveKit SFU (with embedded TURN), Caddy (TLS).
+# Copy deploy/.env.example to deploy/.env, fill it in, then:  docker compose up -d
+# LiveKit uses host networking because WebRTC needs a wide UDP port range; open the ports listed in DEPLOYMENT.md.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: syndo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: syndo
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "syndo"], interval: 5s, retries: 10 }
+
+  send:
+    build: ..
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      DATABASE_URL: postgres://syndo:${POSTGRES_PASSWORD}@db:5432/syndo
+      SEND_PUBLIC_URL: https://${SEND_DOMAIN}
+      SEND_COOKIE_SECURE: "1"
+      SEND_TRUST_PROXY: "1"
+      SEND_STORAGE_DIR: /data/storage
+      SMTP_URL: ${SMTP_URL:-}
+      SEND_MAIL_FROM: ${SEND_MAIL_FROM:-SEND <no-reply@example.com>}
+      LIVEKIT_URL: wss://${SEND_MEDIA_DOMAIN}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      SEND_MAX_UPLOAD_MB: ${SEND_MAX_UPLOAD_MB:-100}
+    volumes: [storage:/data/storage]
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    volumes: ["./livekit.yaml:/etc/livekit.yaml:ro", "caddy_data:/certs:ro"]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      SEND_DOMAIN: ${SEND_DOMAIN}
+      SEND_MEDIA_DOMAIN: ${SEND_MEDIA_DOMAIN}
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data"]
+
+volumes: { db: {}, storage: {}, caddy_data: {} }

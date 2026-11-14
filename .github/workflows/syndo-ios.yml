@@ -1,0 +1,38 @@
+name: SEND iOS beta
+
+on:
+  push:
+    branches: ["claude/charming-meitner-a8exoe"]
+    paths: ["syndo/ios/**", ".github/workflows/syndo-ios.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: send-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    defaults: { run: { working-directory: syndo/ios } }
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build for iPhone and iPad (unsigned)
+        run: |
+          xcodebuild -project SEND.xcodeproj -scheme SEND -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+          test -d build/Build/Products/Release-iphoneos/SEND.app
+      - name: Package an unsigned IPA (sign it with AltStore, Sideloadly or Xcode to install)
+        run: |
+          mkdir -p Payload && cp -R build/Build/Products/Release-iphoneos/SEND.app Payload/
+          zip -qry SEND-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: send-ios-unsigned
+          path: syndo/ios/SEND-unsigned.ipa
+          if-no-files-found: error

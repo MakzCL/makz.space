@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SEND",
+  "mainBinaryName": "SEND",
+  "version": "0.7.1",
+  "identifier": "space.makz.syndo",
+  "build": { "frontendDist": "../dist" },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "SEND",
+    "copyright": "SEND",
+    "shortDescription": "SEND — free chat, voice, video and screen sharing.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": ["send", "syndo"] } }
+  }
+}

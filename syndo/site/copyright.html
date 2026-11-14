@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copyright and Intellectual Property | SEND</title>
+  <meta name="description" content="How to report content that infringes your rights on SEND.">
+  <meta name="theme-color" content="#0E1220">
+  <link rel="icon" type="image/svg+xml" href="/assets/send-icon.svg">
+  <link rel="icon" href="/assets/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/CabinetGrotesk-Family.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav" id="top">
+    <a class="brand" href="/" aria-label="SEND home"><img src="/assets/send-wordmark-white.svg" alt="SEND" width="96" height="33"></a>
+    <nav aria-label="Main"><ul><li><a href="/#download">Download</a></li><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li></ul></nav>
+    <a class="btn btn-light btn-sm" href="https://syndo.makz.space/">Open SEND</a>
+  </header>
+  <main id="main" class="doc">
+    <article class="doc-body">
+<h1>Copyright and Intellectual Property</h1>
+<p class="doc-meta">Last updated: 13 November 2026</p>
+<p>MAKZ Labs respects intellectual property rights and expects everyone on SEND to do the same. People may only share content they own or have permission to share.</p>
+<h2>Reporting infringement</h2>
+<p>If you believe content on SEND infringes your copyright, trade mark or other rights, send a notice to <a href="mailto:send@makz.space?subject=Copyright%20notice">send@makz.space</a> with the subject "Copyright notice", including:</p>
+<ol>
+<li>your name, address, phone number and email address;</li>
+<li>a description of the work or mark you say has been infringed;</li>
+<li>where it is on SEND (a message link, server invite, username or screenshot) so we can find it;</li>
+<li>a statement that you believe in good faith the use is not authorised by the owner, its agent or the law;</li>
+<li>a statement that the information in your notice is accurate and that you are the owner or authorised to act for the owner;</li>
+<li>your physical or electronic signature.</li>
+</ol>
+<p>This follows the requirements of the UK Electronic Commerce (EC Directive) Regulations 2002, the EU Digital Services Act and the US Digital Millennium Copyright Act (DMCA). We act on valid notices quickly, usually by removing or disabling the content, and we tell the person who posted it.</p>
+<h2>Counter-notices</h2>
+<p>If your content was removed and you believe that was a mistake or that you had the right to share it, reply to our email or write to <a href="mailto:send@makz.space?subject=Counter-notice">send@makz.space</a> with your contact details, what was removed, a statement under penalty of perjury that you believe it was removed by mistake, consent to the jurisdiction of the relevant court, and your signature. We may pass this to the person who complained and restore the content if they do not take legal action.</p>
+<h2>Repeat infringers</h2>
+<p>We will close the accounts of people who repeatedly infringe others' rights.</p>
+<h2>Our own marks</h2>
+<p>SEND and the SEND logo are trade marks of MAKZ Labs. See our <a href="/brand">brand guidelines</a>.</p>
+<p class="small">Please do not send false notices. Knowingly misrepresenting that content infringes can make you liable for damages.</p>
+
+    </article>
+  </main>
+  <footer class="foot">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a href="/" aria-label="SEND home"><img src="/assets/send-wordmark.svg" alt="SEND" width="110" height="38"></a>
+        <p>Talk together. Belong together.</p>
+      </div>
+      <nav class="foot-cols" aria-label="Footer"><details class="foot-col" open><summary>Product</summary><ul><li><a href="/#download">Download</a></li><li><a href="https://syndo.makz.space/">Open SEND</a></li><li><a href="/status">Status</a></li><li><a href="/#features">Features</a></li></ul></details><details class="foot-col" open><summary>Company</summary><ul><li><a href="/about">About</a></li><li><a href="/brand">Brand</a></li><li><a href="/company">Company information</a></li><li><a href="mailto:send@makz.space">Contact</a></li></ul></details><details class="foot-col" open><summary>Resources</summary><ul><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li><li><a href="mailto:send@makz.space?subject=SEND%20feedback">Feedback</a></li></ul></details><details class="foot-col" open><summary>Policies</summary><ul><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/cookies">Cookies</a></li><li><a href="/guidelines">Community Guidelines</a></li><li><a href="/copyright">Copyright</a></li><li><a href="/acknowledgements">Acknowledgements</a></li></ul></details></nav>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span class="y">2026</span> MAKZ Labs. SEND is made by MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3NJ, United Kingdom. <a href="mailto:send@makz.space">send@makz.space</a></span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </footer>
+  <script>document.querySelectorAll(".y").forEach((e) => e.textContent = new Date().getFullYear());
+  // Phones: the footer columns fold up like Discord's; wide screens keep them open.
+  const fold = () => document.querySelectorAll(".foot-col").forEach((d) => { if (matchMedia("(max-width: 700px)").matches) d.removeAttribute("open"); else d.setAttribute("open", ""); });
+  fold(); addEventListener("resize", fold);</script>
+</body>
+</html>

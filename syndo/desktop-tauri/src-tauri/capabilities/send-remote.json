@@ -1,0 +1,38 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "send-remote",
+  "description": "The hosted SEND web app may call the shell's own commands (window, push-to-talk, updates). A server chosen at runtime is added the same way in code.",
+  "windows": [
+    "main"
+  ],
+  "remote": {
+    "urls": [
+      "https://syndo.makz.space/*",
+      "http://localhost:*/*"
+    ]
+  },
+  "permissions": [
+    "core:app:default",
+    "allow-window-control",
+    "allow-set-ptt",
+    "allow-set-material",
+    "allow-get-settings",
+    "allow-set-performance",
+    "allow-set-startup",
+    "allow-restart-app",
+    "allow-refresh",
+    "allow-set-close-to-tray",
+    "allow-change-server",
+    "allow-update-status",
+    "allow-check-updates",
+    "allow-download-update",
+    "allow-restart-to-update",
+    "allow-flash",
+    "allow-notify",
+    "allow-set-capture-excluded",
+    "allow-capture-sources",
+    "allow-capture-start",
+    "allow-capture-stop",
+    "allow-capture-ack"
+  ]
+}

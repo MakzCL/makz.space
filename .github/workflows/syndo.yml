@@ -1,0 +1,124 @@
+name: SEND — test, web app, Windows desktop app (Tauri)
+
+on:
+  push:
+    # Branch pushes need an explicit branches filter: with only `tags`, GitHub ignores branch pushes.
+    branches: ["**"]
+    paths: ["syndo/**", ".github/workflows/syndo.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: send-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: syndo, POSTGRES_PASSWORD: syndo, POSTGRES_DB: syndo_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U syndo" --health-interval 5s --health-retries 10
+    defaults: { run: { working-directory: syndo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Messaging interface interaction tests
+        run: npm run test:web
+      - name: Server integration tests (real PostgreSQL)
+        run: npm test
+        env: { DATABASE_URL: "postgres://syndo:syndo@localhost:5432/syndo_test" }
+
+  web:
+    # Builds the web client and deploys it to Cloudflare Pages (project "syndo-app").
+    # The SEND development branch also updates the stable app URL used by the APK.
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SEND_PUBLISH_BRANCH: ${{ vars.SEND_PUBLISH_BRANCH || vars.SYNDO_PUBLISH_BRANCH || 'codex/syndo-messaging-tools' }}
+    defaults: { run: { working-directory: syndo } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && !startsWith(github.ref, 'refs/tags/')
+        # Cloudflare's own GitHub connection already deploys syndo-app, so this extra deploy is a backup and never fails the check.
+        continue-on-error: true
+        working-directory: syndo/web
+        run: |
+            DEPLOY_BRANCH="$GITHUB_REF_NAME"
+            if [ "$GITHUB_REF_NAME" = "$SEND_PUBLISH_BRANCH" ]; then DEPLOY_BRANCH=main; fi
+            npx --yes wrangler@4 pages deploy dist --project-name=syndo-app --branch="$DEPLOY_BRANCH" --commit-dirty=true
+      - name: Explain missing secrets
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "::notice::Web build OK. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to deploy to Cloudflare Pages."
+
+  desktop-lite:
+    # SEND for Windows, lightweight edition: a small Rust shell (Tauri) on the system WebView2
+    # instead of a bundled Chromium. Builds SEND-Setup-<version>.exe + latest.yml as an artifact;
+    # publishing to the R2 feed is done by hand when a release is asked for.
+    runs-on: windows-latest
+    defaults: { run: { working-directory: syndo/desktop-tauri, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/desktop-tauri/package-lock.json }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "syndo/desktop-tauri/src-tauri -> target" }
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      - run: npx tauri build --bundles nsis
+      - run: node scripts/feed.mjs release && ls -la release src-tauri/target/release/SEND.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: send-windows-lite
+          path: |
+            syndo/desktop-tauri/release/*.exe
+            syndo/desktop-tauri/release/latest.yml
+          if-no-files-found: error
+
+  desktop-platforms:
+    # Other platforms and architectures. Unsigned builds for testing; not published to the update feed.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows-x86, os: windows-latest, target: i686-pc-windows-msvc, bundles: nsis }
+          - { name: windows-arm64, os: windows-latest, target: aarch64-pc-windows-msvc, bundles: nsis }
+          - { name: linux-x64, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, bundles: "deb,appimage" }
+          - { name: macos-arm64, os: macos-latest, target: aarch64-apple-darwin, bundles: dmg }
+          - { name: macos-x64, os: macos-latest, target: x86_64-apple-darwin, bundles: dmg }
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: syndo/desktop-tauri, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/desktop-tauri/package-lock.json }
+      - run: rustup target add ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libxdo-dev
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "syndo/desktop-tauri/src-tauri -> target", key: "${{ matrix.target }}" }
+      - run: npm ci
+      - run: npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: send-${{ matrix.name }}
+          path: |
+            syndo/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            syndo/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            syndo/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            syndo/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error

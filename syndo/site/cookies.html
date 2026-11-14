@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cookie Policy | SEND</title>
+  <meta name="description" content="The cookies and local storage SEND uses, and your choices.">
+  <meta name="theme-color" content="#0E1220">
+  <link rel="icon" type="image/svg+xml" href="/assets/send-icon.svg">
+  <link rel="icon" href="/assets/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/CabinetGrotesk-Family.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav" id="top">
+    <a class="brand" href="/" aria-label="SEND home"><img src="/assets/send-wordmark-white.svg" alt="SEND" width="96" height="33"></a>
+    <nav aria-label="Main"><ul><li><a href="/#download">Download</a></li><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li></ul></nav>
+    <a class="btn btn-light btn-sm" href="https://syndo.makz.space/">Open SEND</a>
+  </header>
+  <main id="main" class="doc">
+    <article class="doc-body">
+<h1>Cookie Policy</h1>
+<p class="doc-meta">Last updated: 13 November 2026</p>
+<p>Cookies are small files a website stores in your browser. "Local storage" is a similar browser feature. This policy explains how SEND, provided by MAKZ Labs, uses them.</p>
+<h2>Only what SEND needs to work</h2>
+<p>SEND uses only <strong>strictly necessary</strong> cookies and storage. Under the UK Privacy and Electronic Communications Regulations (PECR) and similar laws, these do not need your consent, because SEND cannot work without them. We do not use advertising, tracking, analytics or social media cookies, and we do not let third parties set cookies through SEND.</p>
+<table class="doc-table">
+<tr><th>Name</th><th>Type</th><th>What it does</th><th>How long</th></tr>
+<tr><td>Session cookie</td><td>Cookie (secure, HTTP-only)</td><td>Keeps you signed in and protects your account from forged requests</td><td>Until you sign out, or up to 30 days</td></tr>
+<tr><td>Appearance and app settings</td><td>Local storage</td><td>Remembers your theme, layout, sound volume, call layout and similar choices on this device</td><td>Until you clear it</td></tr>
+<tr><td>Encryption keys</td><td>Browser storage (IndexedDB)</td><td>Holds the keys for your end-to-end encrypted direct messages on this device. They never leave your device unencrypted</td><td>Until you sign out or clear it</td></tr>
+<tr><td>Offline files</td><td>Service worker cache</td><td>Lets SEND load quickly and work when your connection drops</td><td>Until updated or cleared</td></tr>
+</table>
+<h2>Services you choose to use</h2>
+<p>When you search GIFs or view community emotes, images load from GIPHY, 7TV or BetterTTV. Those services may set or read their own cookies under their own policies. Opening a link takes you to another website with its own cookie policy.</p>
+<h2>Cookie settings and your choices</h2>
+<p>Because SEND only uses strictly necessary cookies, there is nothing optional to switch on or off, so we do not show a cookie banner. You can block or delete cookies and site data in your browser settings at any time, but SEND will sign you out and may not work properly, and you may lose the encryption keys stored on that device. If we ever add optional cookies, we will ask for your consent first and add controls here.</p>
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:send@makz.space">send@makz.space</a>. See also our <a href="/privacy">Privacy Policy</a>.</p>
+
+    </article>
+  </main>
+  <footer class="foot">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a href="/" aria-label="SEND home"><img src="/assets/send-wordmark.svg" alt="SEND" width="110" height="38"></a>
+        <p>Talk together. Belong together.</p>
+      </div>
+      <nav class="foot-cols" aria-label="Footer"><details class="foot-col" open><summary>Product</summary><ul><li><a href="/#download">Download</a></li><li><a href="https://syndo.makz.space/">Open SEND</a></li><li><a href="/status">Status</a></li><li><a href="/#features">Features</a></li></ul></details><details class="foot-col" open><summary>Company</summary><ul><li><a href="/about">About</a></li><li><a href="/brand">Brand</a></li><li><a href="/company">Company information</a></li><li><a href="mailto:send@makz.space">Contact</a></li></ul></details><details class="foot-col" open><summary>Resources</summary><ul><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li><li><a href="mailto:send@makz.space?subject=SEND%20feedback">Feedback</a></li></ul></details><details class="foot-col" open><summary>Policies</summary><ul><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/cookies">Cookies</a></li><li><a href="/guidelines">Community Guidelines</a></li><li><a href="/copyright">Copyright</a></li><li><a href="/acknowledgements">Acknowledgements</a></li></ul></details></nav>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span class="y">2026</span> MAKZ Labs. SEND is made by MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3NJ, United Kingdom. <a href="mailto:send@makz.space">send@makz.space</a></span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </footer>
+  <script>document.querySelectorAll(".y").forEach((e) => e.textContent = new Date().getFullYear());
+  // Phones: the footer columns fold up like Discord's; wide screens keep them open.
+  const fold = () => document.querySelectorAll(".foot-col").forEach((d) => { if (matchMedia("(max-width: 700px)").matches) d.removeAttribute("open"); else d.setAttribute("open", ""); });
+  fold(); addEventListener("resize", fold);</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Bundled pages (server chooser, updater).",
+  "windows": [
+    "main",
+    "updater"
+  ],
+  "permissions": [
+    "core:app:default",
+    "allow-window-control",
+    "allow-connect-set-server",
+    "allow-connect-info"
+  ]
+}

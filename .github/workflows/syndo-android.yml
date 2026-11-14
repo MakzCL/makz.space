@@ -1,0 +1,81 @@
+name: SEND Android beta
+
+on:
+  push:
+    branches: ["codex/syndo-messaging-tools", "claude/charming-meitner-a8exoe"]
+    paths: ["syndo/**", ".github/workflows/syndo-android.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: send-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: syndo } }
+    env:
+      SEND_APP_URL: ${{ vars.SEND_APP_URL || vars.SYNDO_APP_URL || 'https://syndo.makz.space' }}
+      SEND_R2_BUCKET: ${{ vars.SEND_R2_BUCKET || vars.SYNDO_R2_BUCKET || 'syndo-desktop' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: syndo/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.13" }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:web
+      - name: Bundle the current interface for offline preview
+        run: |
+          npm run build
+          mkdir -p android/app/src/main/assets
+          cp -R web/dist/. android/app/src/main/assets/
+      - name: Load the release signing key (optional)
+        env: { KEYSTORE_B64: "${{ secrets.SEND_ANDROID_KEYSTORE_B64 }}" }
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/send.jks"
+          echo "SEND_KEYSTORE=$RUNNER_TEMP/send.jks" >> "$GITHUB_ENV"
+      - name: Build the APK and the Play Store bundle
+        working-directory: syndo/android
+        env:
+          SEND_KEYSTORE_PASSWORD: ${{ secrets.SEND_ANDROID_KEYSTORE_PASSWORD }}
+          SEND_KEY_ALIAS: ${{ secrets.SEND_ANDROID_KEY_ALIAS }}
+          SEND_KEY_PASSWORD: ${{ secrets.SEND_ANDROID_KEY_PASSWORD }}
+          # Optional overrides for the Firebase client settings (build.gradle has SEND's project as the default).
+          FCM_APP_ID: ${{ vars.SEND_FCM_APP_ID }}
+          FCM_API_KEY: ${{ vars.SEND_FCM_API_KEY }}
+          FCM_PROJECT_ID: ${{ vars.SEND_FCM_PROJECT_ID }}
+          FCM_SENDER_ID: ${{ vars.SEND_FCM_SENDER_ID }}
+        run: gradle --no-daemon assembleRelease bundleRelease -PsendAppUrl="$SEND_APP_URL" -PfcmAppId="$FCM_APP_ID" -PfcmApiKey="$FCM_API_KEY" -PfcmProjectId="$FCM_PROJECT_ID" -PfcmSenderId="$FCM_SENDER_ID"
+      - name: Name the downloads
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk SEND-beta.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab SEND-play.aab
+          [ -n "${SEND_KEYSTORE:-}" ] || echo "::notice::No signing key secrets, so the APK and AAB are signed with a debug key. Fine for sideloading; Google Play needs SEND_ANDROID_KEYSTORE_B64 and its passwords."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: send-android-beta
+          path: |
+            syndo/SEND-beta.apk
+            syndo/SEND-play.aab
+          if-no-files-found: error
+      - name: Publish APK to Cloudflare R2
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          npx --yes wrangler@4 r2 object put "$SEND_R2_BUCKET/android/SEND.apk" --file SEND-beta.apk --content-type application/vnd.android.package-archive --cache-control no-cache --remote
+      - name: Explain missing Cloudflare connection
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "::notice::APK is available in this run's artifacts. Cloudflare publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."

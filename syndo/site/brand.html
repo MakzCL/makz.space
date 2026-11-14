@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand | SEND</title>
+  <meta name="description" content="SEND logos and how to use them.">
+  <meta name="theme-color" content="#0E1220">
+  <link rel="icon" type="image/svg+xml" href="/assets/send-icon.svg">
+  <link rel="icon" href="/assets/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/CabinetGrotesk-Family.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav" id="top">
+    <a class="brand" href="/" aria-label="SEND home"><img src="/assets/send-wordmark-white.svg" alt="SEND" width="96" height="33"></a>
+    <nav aria-label="Main"><ul><li><a href="/#download">Download</a></li><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li></ul></nav>
+    <a class="btn btn-light btn-sm" href="https://syndo.makz.space/">Open SEND</a>
+  </header>
+  <main id="main" class="doc">
+    <article class="doc-body">
+<h1>Brand</h1>
+<p class="lead">The SEND name and logo belong to MAKZ Labs. You are welcome to use them to link to SEND or talk about it, as long as you follow these simple rules.</p>
+<div class="brand-tiles">
+<figure><div class="tile light"><img src="/assets/send-wordmark.svg" alt="SEND wordmark" width="220" height="76"></div><figcaption>Wordmark, blue <a href="/assets/send-wordmark.svg" download>SVG</a></figcaption></figure>
+<figure><div class="tile dark"><img src="/assets/send-wordmark-white.svg" alt="SEND wordmark in white" width="220" height="76"></div><figcaption>Wordmark, white <a href="/assets/send-wordmark-white.svg" download>SVG</a></figcaption></figure>
+<figure><div class="tile dark"><img src="/assets/send-icon.svg" alt="SEND symbol" width="110" height="110"></div><figcaption>Symbol <a href="/assets/send-icon.svg" download>SVG</a> <a href="/assets/send-icon-512.png" download>PNG</a></figcaption></figure>
+</div>
+<h2>Colours</h2>
+<p><span class="swatch" style="background:#3D6BFF"></span> SEND Blue #3D6BFF &nbsp; <span class="swatch" style="background:#0E1220"></span> Night #0E1220 &nbsp; <span class="swatch" style="background:#FFC93C"></span> Sun #FFC93C</p>
+<h2>Please do</h2>
+<ul><li>Use the logo as provided, with clear space around it.</li><li>Use it to link to SEND, show that your community is on SEND, or write about SEND.</li></ul>
+<h2>Please do not</h2>
+<ul><li>Change the shape, colours or proportions, add effects, or combine it with your own logo.</li><li>Suggest that MAKZ Labs endorses or partners with you without written permission.</li><li>Use SEND in your product, app or company name, or in domain names.</li><li>Use the logo on merchandise you sell.</li></ul>
+<p>Questions or press enquiries: <a href="mailto:send@makz.space?subject=Brand">send@makz.space</a>.</p>
+
+    </article>
+  </main>
+  <footer class="foot">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a href="/" aria-label="SEND home"><img src="/assets/send-wordmark.svg" alt="SEND" width="110" height="38"></a>
+        <p>Talk together. Belong together.</p>
+      </div>
+      <nav class="foot-cols" aria-label="Footer"><details class="foot-col" open><summary>Product</summary><ul><li><a href="/#download">Download</a></li><li><a href="https://syndo.makz.space/">Open SEND</a></li><li><a href="/status">Status</a></li><li><a href="/#features">Features</a></li></ul></details><details class="foot-col" open><summary>Company</summary><ul><li><a href="/about">About</a></li><li><a href="/brand">Brand</a></li><li><a href="/company">Company information</a></li><li><a href="mailto:send@makz.space">Contact</a></li></ul></details><details class="foot-col" open><summary>Resources</summary><ul><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li><li><a href="mailto:send@makz.space?subject=SEND%20feedback">Feedback</a></li></ul></details><details class="foot-col" open><summary>Policies</summary><ul><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/cookies">Cookies</a></li><li><a href="/guidelines">Community Guidelines</a></li><li><a href="/copyright">Copyright</a></li><li><a href="/acknowledgements">Acknowledgements</a></li></ul></details></nav>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span class="y">2026</span> MAKZ Labs. SEND is made by MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3NJ, United Kingdom. <a href="mailto:send@makz.space">send@makz.space</a></span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </footer>
+  <script>document.querySelectorAll(".y").forEach((e) => e.textContent = new Date().getFullYear());
+  // Phones: the footer columns fold up like Discord's; wide screens keep them open.
+  const fold = () => document.querySelectorAll(".foot-col").forEach((d) => { if (matchMedia("(max-width: 700px)").matches) d.removeAttribute("open"); else d.setAttribute("open", ""); });
+  fold(); addEventListener("resize", fold);</script>
+</body>
+</html>

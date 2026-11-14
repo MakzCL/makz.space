@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status | SEND</title>
+  <meta name="description" content="Is SEND working right now?">
+  <meta name="theme-color" content="#0E1220">
+  <link rel="icon" type="image/svg+xml" href="/assets/send-icon.svg">
+  <link rel="icon" href="/assets/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/CabinetGrotesk-Family.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav" id="top">
+    <a class="brand" href="/" aria-label="SEND home"><img src="/assets/send-wordmark-white.svg" alt="SEND" width="96" height="33"></a>
+    <nav aria-label="Main"><ul><li><a href="/#download">Download</a></li><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li></ul></nav>
+    <a class="btn btn-light btn-sm" href="https://syndo.makz.space/">Open SEND</a>
+  </header>
+  <main id="main" class="doc">
+    <article class="doc-body">
+<h1>Status</h1>
+<p class="lead">Live status of the SEND service.</p>
+<div class="status-grid">
+<div class="status-item" data-check="https://syndo.makz.space/api/health"><b>SEND service</b><span class="status-pill">Checking…</span></div>
+<div class="status-item" data-check="https://syndo.makz.space/"><b>Web app</b><span class="status-pill">Checking…</span></div>
+<div class="status-item" data-check="https://syndo.makz.space/api/downloads/windows"><b>Downloads</b><span class="status-pill">Checking…</span></div>
+</div>
+<p class="small">Checked from your browser just now. Something wrong that isn't shown here? Email <a href="mailto:send@makz.space">send@makz.space</a>.</p>
+<script>
+for (const el of document.querySelectorAll(".status-item")) {
+  const pill = el.querySelector(".status-pill"), url = el.dataset.check, t = performance.now();
+  fetch(url, { mode: "no-cors", cache: "no-store" }).then((r) => {
+    const ok = r.type === "opaque" || r.ok;
+    pill.textContent = ok ? `Operational · ${Math.round(performance.now() - t)} ms` : "Having problems"; pill.className = "status-pill " + (ok ? "ok" : "bad");
+  }).catch(() => { pill.textContent = "Unreachable"; pill.className = "status-pill bad"; });
+}
+</script>
+
+    </article>
+  </main>
+  <footer class="foot">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a href="/" aria-label="SEND home"><img src="/assets/send-wordmark.svg" alt="SEND" width="110" height="38"></a>
+        <p>Talk together. Belong together.</p>
+      </div>
+      <nav class="foot-cols" aria-label="Footer"><details class="foot-col" open><summary>Product</summary><ul><li><a href="/#download">Download</a></li><li><a href="https://syndo.makz.space/">Open SEND</a></li><li><a href="/status">Status</a></li><li><a href="/#features">Features</a></li></ul></details><details class="foot-col" open><summary>Company</summary><ul><li><a href="/about">About</a></li><li><a href="/brand">Brand</a></li><li><a href="/company">Company information</a></li><li><a href="mailto:send@makz.space">Contact</a></li></ul></details><details class="foot-col" open><summary>Resources</summary><ul><li><a href="/support">Support</a></li><li><a href="/safety">Safety</a></li><li><a href="mailto:send@makz.space?subject=SEND%20feedback">Feedback</a></li></ul></details><details class="foot-col" open><summary>Policies</summary><ul><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/cookies">Cookies</a></li><li><a href="/guidelines">Community Guidelines</a></li><li><a href="/copyright">Copyright</a></li><li><a href="/acknowledgements">Acknowledgements</a></li></ul></details></nav>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span class="y">2026</span> MAKZ Labs. SEND is made by MAKZ Labs, Office 1, Izabella House, 24-26 Regent Place, Birmingham, B1 3NJ, United Kingdom. <a href="mailto:send@makz.space">send@makz.space</a></span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </footer>
+  <script>document.querySelectorAll(".y").forEach((e) => e.textContent = new Date().getFullYear());
+  // Phones: the footer columns fold up like Discord's; wide screens keep them open.
+  const fold = () => document.querySelectorAll(".foot-col").forEach((d) => { if (matchMedia("(max-width: 700px)").matches) d.removeAttribute("open"); else d.setAttribute("open", ""); });
+  fold(); addEventListener("resize", fold);</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+plugins { id 'com.android.application' }
+
+def hosted = providers.gradleProperty('sendAppUrl').orElse(providers.gradleProperty('syndoAppUrl')).getOrElse('https://syndo.makz.space')
+if (!(hosted ==~ /https:\/\/[A-Za-z0-9.-]+(:443)?\/?/)) throw new GradleException('sendAppUrl must be an HTTPS origin')
+
+android {
+    namespace 'space.makz.syndo.preview'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'space.makz.send'
+        minSdk 26
+        targetSdk 36
+        versionCode 9
+        versionName '0.8.1'
+        // Firebase client settings for push (public values, the same ones google-services.json would hold). Empty = push off.
+        // Defaults are SEND's Firebase project (space-makz-send); -PfcmAppId=... etc. override them.
+        def fcmDefaults = [fcmAppId: '1:610969623014:android:02478a5377a7a296209e27', fcmApiKey: 'AIzaSyCQZoS8Cbo2Exb-wgOP8rs209OhbCmcF38',
+                           fcmProjectId: 'space-makz-send', fcmSenderId: '610969623014']
+        ['fcmAppId': 'FCM_APP_ID', 'fcmApiKey': 'FCM_API_KEY', 'fcmProjectId': 'FCM_PROJECT_ID', 'fcmSenderId': 'FCM_SENDER_ID'].each { prop, field ->
+            def v = providers.gradleProperty(prop).getOrElse('') ?: fcmDefaults[prop]
+            if (!(v ==~ /[A-Za-z0-9:._-]*/)) throw new GradleException("${prop} has unexpected characters")
+            buildConfigField 'String', field, '"' + v + '"'
+        }
+        buildConfigField 'String', 'HOSTED_URL', '"' + hosted.replaceAll('/$', '') + '"'
+    }
+    // Release signing: set SEND_KEYSTORE (path), SEND_KEYSTORE_PASSWORD, SEND_KEY_ALIAS, SEND_KEY_PASSWORD.
+    // Without them the release build is signed with the debug key: fine for sideloading, not for Google Play.
+    def ks = System.getenv('SEND_KEYSTORE')
+    signingConfigs {
+        if (ks) release {
+            storeFile file(ks); storePassword System.getenv('SEND_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('SEND_KEY_ALIAS'); keyPassword System.getenv('SEND_KEY_PASSWORD')
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig ks ? signingConfigs.release : signingConfigs.debug }
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
+}

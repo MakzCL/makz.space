@@ -6,6 +6,8 @@ rather than a set of pages.
 
 Live at **[makz.space](https://makz.space)**.
 
+> `syndo/` holds **Syndo**, a separate self-hostable community chat, voice and video platform. See [`syndo/README.md`](syndo/README.md).
+>
 > `factory/` holds a separate app — the Skalarki Electronics factory app
 > (Vite + React, Cloudflare Pages). See [`factory/README.md`](factory/README.md).
 

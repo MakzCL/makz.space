@@ -1,0 +1,30 @@
+import { ScrollArea } from "./ScrollArea.tsx";
+import { LayerBox } from "./overlay.tsx";
+import { useId, useLayoutEffect, useEffect, useRef, useState, type SelectHTMLAttributes, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown } from "lucide-react";
+
+type Option = { value:string; label:string; disabled:boolean; group:string };
+/** A themed single-choice control. The hidden select preserves form and React change semantics. */
+export function Select(props:SelectHTMLAttributes<HTMLSelectElement>) {
+  const { children, className="", style, id, disabled, ...nativeProps } = props;
+  const uid=useId(), listId=`send-select-${uid}`, native=useRef<HTMLSelectElement>(null), trigger=useRef<HTMLButtonElement>(null), menu=useRef<HTMLDivElement>(null);
+  const [options,setOptions]=useState<Option[]>([]), [value,setValue]=useState(String(props.value??props.defaultValue??"")), [label,setLabel]=useState<string>(), [open,setOpen]=useState(false), [active,setActive]=useState(0), [position,setPosition]=useState({left:0,top:0,width:0,maxHeight:280});
+  const search=useRef({text:"",time:0});
+  useLayoutEffect(()=>{const select=native.current;if(!select)return;setOptions([...select.options].map(o=>({value:o.value,label:o.label,disabled:o.disabled||(o.parentElement?.tagName==="OPTGROUP"&&(o.parentElement as HTMLOptGroupElement).disabled),group:o.parentElement?.tagName==="OPTGROUP"?(o.parentElement as HTMLOptGroupElement).label:""})));setValue(select.value);const enclosing=trigger.current?.labels?.[0]??trigger.current?.closest("label");setLabel(enclosing?.querySelector(".field-l")?.textContent??(enclosing?[...enclosing.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join(" ").trim():undefined));},[children,props.value,props.defaultValue]);
+  const place=()=>{if(!trigger.current)return;const r=trigger.current.getBoundingClientRect(),below=window.innerHeight-r.bottom-12,above=r.top-12,height=Math.min(280,Math.max(100,below>=160?below:above)),up=below<160&&above>below;setPosition({left:Math.max(8,Math.min(r.left,window.innerWidth-Math.max(r.width,180)-8)),top:up?Math.max(8,r.top-height-6):r.bottom+6,width:Math.min(Math.max(r.width,180),window.innerWidth-16),maxHeight:height});};
+  const show=()=>{if(disabled||!options.length)return;place();setActive(Math.max(0,options.findIndex(o=>o.value===value&&!o.disabled)));setOpen(true);};
+  // Outside press and Escape are handled by the shared layer stack (so Escape closes this list, not its dialog). Scrolling the page closes it.
+  useEffect(()=>{if(!open)return;const moved=(e:Event)=>{if(!menu.current?.contains(e.target as Node))setOpen(false);};window.addEventListener("resize",place);document.addEventListener("scroll",moved,true);return()=>{window.removeEventListener("resize",place);document.removeEventListener("scroll",moved,true);};},[open]);
+  useEffect(()=>{if(open)menu.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView?.({block:"nearest"});},[active,open]);
+    const choose=(index:number)=>{const option=options[index];if(!option||option.disabled)return;const select=native.current!;select.value=option.value;setValue(option.value);select.dispatchEvent(new Event("change",{bubbles:true}));setOpen(false);trigger.current?.focus();};
+  const key=(e:KeyboardEvent<HTMLButtonElement>)=>{if(e.key==="Escape"){if(open){e.preventDefault();e.stopPropagation();setOpen(false);}return;}if(e.key==="Tab"){setOpen(false);return;}if(["Enter"," "].includes(e.key)){e.preventDefault();open?choose(active):show();return;}if(["ArrowDown","ArrowUp","Home","End"].includes(e.key)){e.preventDefault();if(!open){show();return;}let next=e.key==="Home"?0:e.key==="End"?options.length-1:active+(e.key==="ArrowDown"?1:-1);const step=e.key==="ArrowUp"||e.key==="End"?-1:1;for(let i=0;i<options.length;i++){next=(next+options.length)%options.length;if(!options[next]?.disabled)break;next+=step;}setActive(next);return;}if(e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();const now=Date.now();search.current={text:(now-search.current.time<700?search.current.text:"")+e.key.toLowerCase(),time:now};const found=options.findIndex(o=>!o.disabled&&o.label.toLowerCase().startsWith(search.current.text));if(found>=0){if(!open)show();setActive(found);}}};
+  return <span className={`send-select ${className}`} style={style}>
+    <select {...nativeProps} id={id?`${id}-native`:undefined} ref={native} hidden aria-hidden="true" tabIndex={-1} disabled={disabled}>{children}</select>
+    <button ref={trigger} id={id} type="button" className="send-select-trigger" role="combobox" aria-label={props["aria-label"]??label??"Choose an option"} aria-labelledby={props["aria-labelledby"]} aria-describedby={props["aria-describedby"]} aria-expanded={open} aria-controls={open?listId:undefined} aria-haspopup="listbox" aria-activedescendant={open?`${listId}-${active}`:undefined} aria-required={props.required} disabled={disabled} onClick={()=>open?setOpen(false):show()} onKeyDown={key}><span>{options.find(o=>o.value===value)?.label??"Choose…"}</span><ChevronDown size={15}/></button>
+    {open&&createPortal(<LayerBox onDismiss={()=>setOpen(false)} anchor={()=>trigger.current} opts={{restoreFocus:false}}><div ref={menu} id={listId} role="listbox" data-region="overlay" className="send-select-menu" aria-label={props["aria-label"]??label??"Options"} style={position}><ScrollArea className="send-select-scroll" style={{maxHeight:position.maxHeight-10}}>{options.map((o,i)=><div key={`${o.value}-${i}`}>
+      {o.group&&o.group!==options[i-1]?.group&&<div className="send-select-group">{o.group}</div>}
+      <div id={`${listId}-${i}`} data-index={i} role="option" aria-selected={value===o.value} aria-disabled={o.disabled} className={`send-select-option ${i===active?"active":""} ${o.disabled?"disabled":""}`} onPointerMove={()=>!o.disabled&&setActive(i)} onPointerDown={e=>e.preventDefault()} onClick={()=>choose(i)}><span>{o.label}</span>{value===o.value&&<Check size={14}/>}</div>
+    </div>)}</ScrollArea></div></LayerBox>,document.body)}
+  </span>;
+}

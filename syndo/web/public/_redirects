@@ -1,0 +1,4 @@
+# Old APK links (the APK now lives in R2 and is served through the API)
+/android/SEND-preview.apk /api/downloads/android 302
+/android/SEND-beta.apk /api/downloads/android 302
+/android/SEND.apk /api/downloads/android 302
