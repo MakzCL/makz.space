@@ -2535,7 +2535,7 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 /* "Update ready" card */
 .web-update { position: fixed; z-index: 9000; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 24px));
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 14px 14px 16px; border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg1, #11131a) 92%, var(--accent)), var(--bg1, #11131a));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg1, #11131a) 92%, var(--accent)), var(--bg1, #11131a)), #11131a;
   box-shadow: 0 18px 50px #0009, inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); animation: web-update-in .35s cubic-bezier(.2,.9,.3,1.2); }
 @keyframes web-update-in { from { opacity: 0; transform: translate(-50%, -14px) scale(.98); } }
 .web-update-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--on-accent, #fff); background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ff7ad9)); box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); }
