@@ -7,13 +7,14 @@ import {
   treatmentMilkEnd, withdrawals,
 } from './logic.js';
 import { fmtDay, fmtDateTime, todayKey, dayKey, addDays, fromInputDateTime } from './time.js';
+import { codeSize } from './components.js';
 import { t as tr, plural } from './i18n.js';
 
 const nowIso = () => new Date().toISOString();
 
 export function cowBanner(a, sub = '') {
   return html`<div class="cow-banner"><span class="cow-banner-label">${tr(TYPES[a.type] || 'Animal')}</span>
-    <span class="code-xl">${animalLabel(a)}</span>
+    <span class="code-xl ${codeSize(animalLabel(a))}">${animalLabel(a)}</span>
     <span class="cow-banner-sub">${a.tag && a.tag !== a.code ? tr('Tag {tag}', { tag: a.tag }) : ''}${a.group ? ` · ${a.group}` : ''}${sub}</span></div>`;
 }
 

@@ -15,7 +15,7 @@ export function thumb(a, cls = 'thumb') {
   const src = photoOf(a.id);
   return src
     ? html`<img class="${cls}" src="${src}" alt="${t('Photo of {code}', { code: animalLabel(a) })}" loading="lazy" decoding="async">`
-    : html`<span class="${cls} thumb-empty" aria-hidden="true">${icon('tag')}</span>`;
+    : html`<span class="${cls} thumb-empty" aria-hidden="true">${icon('camera')}</span>`;
 }
 
 async function loadImage(file) {
@@ -74,9 +74,9 @@ export async function choosePhoto(a, capture) {
 export function photoSheet(a) {
   const src = photoOf(a.id);
   openSheet(t('Photo of {code}', { code: animalLabel(a) }), html`
-    <div class="photo-view">${src ? html`<img src="${src}" alt="${t('Photo of {code}', { code: animalLabel(a) })}">` : html`<div class="photo-none">${icon('tag')}<p>${t('No photo yet')}</p></div>`}</div>
+    <div class="photo-view">${src ? html`<img src="${src}" alt="${t('Photo of {code}', { code: animalLabel(a) })}">` : html`<div class="photo-none">${icon('camera')}<p>${t('No photo yet')}</p></div>`}</div>
     <div class="photo-actions">
-      <button type="button" class="btn primary big" data-photo="camera" data-testid="photo-camera">${icon('plus')}${t('Take photo')}</button>
+      <button type="button" class="btn primary big" data-photo="camera" data-testid="photo-camera">${icon('camera')}${t('Take photo')}</button>
       <button type="button" class="btn big" data-photo="gallery" data-testid="photo-gallery">${t('Choose from gallery')}</button>
       ${src ? html`<button type="button" class="btn danger big" data-photo="remove">${t('Remove photo')}</button>` : ''}
     </div>`, {

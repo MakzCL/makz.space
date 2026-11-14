@@ -6,6 +6,8 @@ import { t, locale, plural } from './i18n.js';
 import { icon } from './icons.js';
 import { thumb } from './photos.js';
 
+/** Smaller type for long farm codes (e.g. full ear tag numbers). */
+export const codeSize = (code) => { const n = String(code || '').length; return n > 11 ? 'code-sm' : n > 7 ? 'code-md' : ''; };
 export const num = (n, d = 2) => Number(n || 0).toLocaleString(locale(), { maximumFractionDigits: d });
 export const L = (n) => `${Number(n || 0).toLocaleString(locale(), { maximumFractionDigits: 1 })} L`;
 export function money(n) {
@@ -110,8 +112,8 @@ export function animalRow(a, extra = '') {
   const w = withdrawals(D(), a.id);
   return html`<a class="row" href="#/animal/${a.id}" data-testid="animal-row">
     ${thumb(a)}
-    <span class="row-id"><span class="row-code">${animalLabel(a)}</span>${a.tag && a.tag !== a.code ? html`<span class="row-tag">${a.tag}</span>` : ''}</span>
-    <span class="row-main"><span>${[t(TYPES[a.type]), a.group].filter(Boolean).join(' · ')}</span>
+    <span class="row-main"><span class="row-id"><span class="row-code ${codeSize(animalLabel(a))}">${animalLabel(a)}</span>${a.tag && a.tag !== a.code ? html`<span class="row-tag">${a.tag}</span>` : ''}</span>
+      <span class="row-meta">${[t(TYPES[a.type]), a.group].filter(Boolean).join(' · ')}</span>
       ${extra ? html`<span class="row-extra">${extra}</span>` : ''}
     <span class="row-badges">${w.milk.active ? html`<span class="badge danger">${icon('dropOff', { size: 14 })}${t('Withhold milk')}</span>` : ''}
     ${!isActive(a) ? html`<span class="badge muted">${t(STATUS[a.status])}</span>` : ''}

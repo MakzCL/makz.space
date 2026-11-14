@@ -6,7 +6,7 @@ import {
   withdrawals, treatmentMilkEnd, treatmentMeatEnd, overlappingTreatments, sireLabel,
 } from '../logic.js';
 import { fmtDay, fmtDateTime, dayKey } from '../time.js';
-import { breedingCard, holdText, animalRow, empty, treatmentsN } from '../components.js';
+import { breedingCard, holdText, animalRow, empty, treatmentsN, codeSize } from '../components.js';
 import { t, plural } from '../i18n.js';
 import * as A from '../actions.js';
 import { icon, KIND_ICON } from '../icons.js';
@@ -82,9 +82,9 @@ export function animalView(id) {
     <header class="animal-head">
       <div class="animal-id">
         <button type="button" class="photo-btn" data-act="photo" data-testid="photo-btn" aria-label="${t(photoOf(a.id) ? 'Change photo' : 'Add photo')}">
-          ${thumb(a, 'photo-lg')}${photoOf(a.id) ? '' : html`<span class="photo-add">${icon('plus', { size: 16 })}${t('Add photo')}</span>`}</button>
-        <div><p class="type">${t(TYPES[a.type] || '')}</p>
-        <h1 class="code-xl" data-testid="animal-code">${animalLabel(a)}</h1></div>
+          ${photoOf(a.id) ? thumb(a, 'photo-lg') : html`<span class="photo-lg photo-empty">${icon('camera')}<span>${t('Add photo')}</span></span>`}</button>
+        <div class="animal-title"><p class="type">${t(TYPES[a.type] || '')}</p>
+        <h1 class="code-xl ${codeSize(animalLabel(a))}" data-testid="animal-code">${animalLabel(a)}</h1></div>
       </div>
       <div class="chips-info">
         ${a.tag && a.tag !== a.code ? html`<span class="info-chip">${icon('tag', { size: 16 })}${a.tag}</span>` : ''}
