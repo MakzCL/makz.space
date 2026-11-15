@@ -10,6 +10,12 @@
 
 People updating from 0.7.x sign in once more (the app keeps its own session now). Passkeys stay on the website.
 
+Released from commit `2079e51` (CI run 43665333437): `SEND-Setup-0.8.0.exe`, 17,365,365 bytes, sha512 `lhW+ByDJgsYU0jtbDt3RwgNGKbtrGmCL4olfBbyWc6Q5v3srH6yaxe2sbGDcyd0M3wEHS6lLpeuTS9PgD5cp9Q==` (public copy verified). Feed switched to 0.8.0; download link worker version `b62dd955-f3cc-4f97-bf09-0e531e4f5042`. Web Pages deployment `83459ff4-0322-4d55-88b0-fdba0c9fe435` (was `a973e80e`). Upload token deleted.
+
+### Roll back
+1. Feed: copy `latest-0.7.1.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers, `send-beta-api`, deploy `3c62f801` at 100%.
+
 ## 2026-11-15: live connection accepts the desktop app's address (server only)
 
 Before: worker `cda391e4-495a-4a48-986a-6d026d651362` (SOURCE_COMMIT `2c3e79b`). Source backup branch `backup/pre-desktop-origins-20261115`.
