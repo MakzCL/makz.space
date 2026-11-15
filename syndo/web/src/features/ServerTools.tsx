@@ -7,6 +7,7 @@ import { guildPerms, toast } from "../store.ts";
 import { Avatar, Field, Toggle } from "../components/ui.tsx";
 import { askConfirm } from "../components/overlay.tsx";
 import { BoostPerks } from "./Boosts.tsx";
+import { publicOrigin } from "../origin.ts";
 
 const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
 const textChannels = (g: Guild) => g.channels.filter((c) => c.type === ChannelType.TEXT || c.type === ChannelType.ANNOUNCEMENT);
@@ -176,7 +177,7 @@ export function IntegrationsTab({ guild }: { guild: Guild }) {
   const bots = useMemo(() => [...new Map(cmds.filter((c) => c.app).map((c) => [c.app.id, c.app])).values()], [cmds]);
   const create = async () => {
     const ch = textChannels(guild)[0]; if (!ch) return;
-    try { const w = await api.post<Webhook>(`/api/channels/${ch.id}/webhooks`, { name: "Webhook" }); setNewUrl(location.origin + w.url); load(); } catch (e) { toast(errMsg(e), "error"); }
+    try { const w = await api.post<Webhook>(`/api/channels/${ch.id}/webhooks`, { name: "Webhook" }); setNewUrl(publicOrigin + w.url); load(); } catch (e) { toast(errMsg(e), "error"); }
   };
   return (
     <div className="settings-section">
@@ -200,7 +201,7 @@ function WebhookRow({ w, guild, onChange, onUrl }: { w: Webhook; guild: Guild; o
     {w.type === 2 ? <span className="grow">Following <strong>{w.source_channel?.guild_name} #{w.source_channel?.name}</strong> → #{guild.channels.find((c) => c.id === w.channel_id)?.name}</span> : <>
       <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== w.name && run(() => api.patch(`/api/webhooks/${w.id}`, { name })).then(onChange)} aria-label="Webhook name" />
       <Select value={w.channel_id} onChange={(e) => run(() => api.patch(`/api/webhooks/${w.id}`, { channel_id: e.target.value })).then(onChange)} aria-label="Channel">{textChannels(guild).map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</Select>
-      <button className="btn sm" title="Make a new URL (the old one stops working)" onClick={() => api.post<Webhook>(`/api/webhooks/${w.id}/reset-token`).then((x) => onUrl(location.origin + x.url!)).catch((e) => toast(errMsg(e), "error"))}><RefreshCw size={14} /> New URL</button>
+      <button className="btn sm" title="Make a new URL (the old one stops working)" onClick={() => api.post<Webhook>(`/api/webhooks/${w.id}/reset-token`).then((x) => onUrl(publicOrigin + x.url!)).catch((e) => toast(errMsg(e), "error"))}><RefreshCw size={14} /> New URL</button>
     </>}
     <button className="icon-btn sm danger" aria-label="Delete webhook" onClick={async () => { if (await askConfirm({ title: `Delete ${w.name}?`, confirmLabel: "Delete", danger: true })) run(() => api.del(`/api/webhooks/${w.id}`)).then(onChange); }}><Trash2 size={14} /></button>
   </div>;

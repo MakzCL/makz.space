@@ -61,4 +61,7 @@ config.limits.media_enabled = config.voiceMode === "mesh" || !!(config.sfu.appId
 config.limits.gif_provider = config.gifProvider;
 config.limits.send_names = true;
 
-export const allowedOrigins = () => new Set([config.publicUrl, ...config.extraOrigins]);
+/** The SEND desktop app serves its own copy of the interface from these addresses (Windows, then macOS and Linux). */
+export const DESKTOP_APP_ORIGINS = ["https://sendapp.localhost", "http://sendapp.localhost", "sendapp://localhost"];
+/** Who may open the live connection: the website, configured extras, and the desktop app (which signs in with a token). */
+export const allowedOrigins = () => new Set([config.publicUrl, ...config.extraOrigins, ...DESKTOP_APP_ORIGINS]);

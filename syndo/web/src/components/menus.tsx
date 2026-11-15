@@ -10,6 +10,7 @@ import { can, displayName, guildPerms, isUnread, toast, useStore } from "../stor
 import { openStudio } from "../appearance/Studio.tsx";
 import { askConfirm, askText, type MenuItem } from "./overlay.tsx";
 import { openDialog } from "./Shell.tsx";
+import { publicOrigin } from "../origin.ts";
 
 /**
  * Right-click menus. Each item is shown only when the current user's permissions allow it — but the server
@@ -58,7 +59,7 @@ export function guildMenuItems(g: Guild): MenuItem[] {
 
 export function channelMenuItems(c: Channel, g: Guild): MenuItem[] {
   const muted = listOf("muted_channels").includes(c.id);
-  const link = `${location.origin}/channels/${g.id}/${c.id}`;
+  const link = `${publicOrigin}/channels/${g.id}/${c.id}`;
   const textLike = !isVoiceType(c.type) && c.type !== ChannelType.CATEGORY;
   return [
     ...(textLike ? [{ label: "Mark as read", disabled: !isUnread(c), onSelect: () => ackChannel(c) } as MenuItem, sep] : []),

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { BRAND } from "@send/shared";
 import { previewMode } from "./preview-mode.ts";
+import { publicOrigin } from "./origin.ts";
 
 /** Minimal history router. Routes: /login /register /forgot /reset /verify /invite/:code /channels/@me[/:cid] /channels/:gid[/:cid[/:mid]] */
 const listeners = new Set<() => void>();
@@ -38,4 +39,4 @@ const snapshot = () => {
 };
 export const useRoute = () => useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, snapshot);
 export const setTitle = (section?: string) => { document.title = section ? `${section} · ${BRAND.name}` : BRAND.name; };
-export const messageLink = (guildId: string | null, channelId: string, messageId: string) => `${location.origin}/channels/${guildId ?? "@me"}/${channelId}/${messageId}`;
+export const messageLink = (guildId: string | null, channelId: string, messageId: string) => `${publicOrigin}/channels/${guildId ?? "@me"}/${channelId}/${messageId}`;

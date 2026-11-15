@@ -78,6 +78,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: "syndo/desktop-tauri/src-tauri -> target" }
       - run: npm ci
+      # The app ships SEND's interface inside it (scripts/bundle-web.mjs builds and copies it before tauri build).
+      - name: Install the web interface's dependencies
+        working-directory: syndo
+        run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
       - run: npx tauri build --bundles nsis
       - run: node scripts/feed.mjs release && ls -la release src-tauri/target/release/SEND.exe
@@ -112,6 +116,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: "syndo/desktop-tauri/src-tauri -> target", key: "${{ matrix.target }}" }
       - run: npm ci
+      - name: Install the web interface's dependencies
+        working-directory: syndo
+        run: npm ci
       - run: npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - uses: actions/upload-artifact@v4
         with:

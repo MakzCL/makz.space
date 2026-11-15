@@ -14,6 +14,7 @@ import { displayName, toast, useStore } from "../store.ts";
 import { Avatar, Field, Mark, Modal, statusLabel } from "./ui.tsx";
 import { ProfileCardView } from "../appearance/ProfileEditor.tsx";
 import { openStudio } from "../appearance/Studio.tsx";
+import { publicOrigin } from "../origin.ts";
 
 const TEMPLATES = [
   { id: "default", label: "Start fresh", hint: "A text and a voice channel." },
@@ -65,7 +66,7 @@ export function InviteDialog({ guildId, channelId, onClose }: { guildId: string;
     if (!target) return;
     api.post<Invite>(`/api/channels/${target}/invites`, { max_age: age, max_uses: uses }).then(setInv).catch((e) => setErr(errMsg(e)));
   }, [target, age, uses]);
-  const link = inv ? `${location.origin}/invite/${inv.code}` : "";
+  const link = inv ? `${publicOrigin}/invite/${inv.code}` : "";
   return (
     <Modal title={`Invite friends to ${guild?.name ?? "server"}`} onClose={onClose}>
       {err ? <p className="danger-text">{err}</p> : (

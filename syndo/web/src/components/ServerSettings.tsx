@@ -12,6 +12,7 @@ import { displayName, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal, Toggle } from "./ui.tsx";
 import { EmotesTab } from "../features/Emotes.tsx";
 import { AutoModTab, BoostStatusTab, DiscoveryTab, ForumTab, InsightsTab, IntegrationsTab, OnboardingTab, PruneSection, UnsavedBar } from "../features/ServerTools.tsx";
+import { publicOrigin } from "../origin.ts";
 
 const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
 
@@ -96,7 +97,7 @@ function Overview({ guild }: { guild: Guild }) {
       <Field label="Server name"><input value={f.name} maxLength={100} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <Field label="Description" hint="Shown on invites."><textarea value={f.description} maxLength={300} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
       <div className="row wrap">
-        <Field label="Custom invite link" hint={f.vanity_code ? `${location.origin}/invite/${f.vanity_code}` : "Free for every server, first come first served."}><input value={f.vanity_code} maxLength={32} onChange={(e) => setF({ ...f, vanity_code: e.target.value.toLowerCase() })} placeholder="my-community" /></Field>
+        <Field label="Custom invite link" hint={f.vanity_code ? `${publicOrigin}/invite/${f.vanity_code}` : "Free for every server, first come first served."}><input value={f.vanity_code} maxLength={32} onChange={(e) => setF({ ...f, vanity_code: e.target.value.toLowerCase() })} placeholder="my-community" /></Field>
         <Field label="Server tag" hint="2 to 4 letters/numbers, shown next to the name."><input value={f.tag} maxLength={4} onChange={(e) => setF({ ...f, tag: e.target.value })} /></Field>
       </div>
       <div className="row wrap">
