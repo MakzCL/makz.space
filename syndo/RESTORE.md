@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-15: phone call screen rebuild, dragged tile stays on top (web only)
+
+Before: web Pages `e9df661d-467e-4ed4-b246-59f40e18d1fc` (`a45fbc5`). Source backup branch `backup/pre-phone-call-20261115`.
+Change: the rebuilt phone call screen (merge of `88ced54`: music start from the More menu, tile row while music plays, compact phone player) and the tile being dragged now stays above the others. Web Pages deployment `f9390234-bb2f-4f5e-824b-f19982422175` (`5a2e2ec`). The Android preview build is published by CI from the same push. Server, database and desktop unchanged.
+Roll back: Pages, `syndo-app`, roll back to `e9df661d`.
+
 ## 2026-11-15: desktop 0.8.2 and web (screen share sound on Windows, smoother tile dragging)
 
 | Layer | Restore point (before this release) |
