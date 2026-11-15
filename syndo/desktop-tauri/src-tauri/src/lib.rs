@@ -504,7 +504,26 @@ async fn capture_sources<R: Runtime>(webview: tauri::Webview<R>, thumb_width: Op
 async fn capture_start<R: Runtime>(webview: tauri::Webview<R>, source: String, options: capture::StartOptions,
   video: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>, audio: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>) -> Result<u64, String> {
   main_only(&webview)?;
-  capture::start(source, options, video, Some(audio))
+  let own = own_sound_process(&webview).await;
+  capture::start(source, options, video, Some(audio), own)
+}
+
+/// The WebView2 browser process for SEND's window: it and its children (renderer, audio service) play all of
+/// SEND's sound, so a shared screen leaves that tree out. None if it can't be read (then SEND.exe's tree is used).
+async fn own_sound_process<R: Runtime>(webview: &tauri::Webview<R>) -> Option<u32> {
+  #[cfg(windows)]
+  {
+    let (tx, rx) = std::sync::mpsc::channel::<Option<u32>>();
+    let asked = webview.with_webview(move |w| {
+      let mut pid = 0u32;
+      let got = unsafe { w.controller().CoreWebView2().and_then(|c| c.BrowserProcessId(&mut pid)) };
+      let _ = tx.send(if got.is_ok() && pid != 0 { Some(pid) } else { None });
+    });
+    if asked.is_err() { return None; }
+    tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(std::time::Duration::from_secs(2)).ok().flatten()).await.ok().flatten()
+  }
+  #[cfg(not(windows))]
+  { let _ = webview; None }
 }
 
 #[tauri::command]

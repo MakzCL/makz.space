@@ -90,7 +90,9 @@ pub fn sources(thumb_width: u32) -> Vec<Source> {
 }
 
 /// Start streaming `source` ("screen:N" or "window:HWND"). Frames go to `video`, sound (if asked) to `audio`.
-pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBody>, audio: Option<Channel<InvokeResponseBody>>) -> Result<u64, String> {
+/// `own_sound` is the process whose tree plays SEND's own sound (the WebView2 browser process); a shared screen
+/// leaves that tree out, so the call is never sent back to the people in it.
+pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBody>, audio: Option<Channel<InvokeResponseBody>>, own_sound: Option<u32>) -> Result<u64, String> {
   #[cfg(windows)]
   {
     let target = win::Target::parse(&source).ok_or("That screen or window isn't available any more.")?;
@@ -102,7 +104,7 @@ pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBo
     let quality = opts.quality.unwrap_or(88).clamp(40, 95);
     if opts.audio.unwrap_or(true) {
       if let Some(ch) = audio {
-        let pid = target.audio_pid();
+        let pid = target.audio_pid(own_sound);
         let s = sess.clone();
         std::thread::Builder::new().name("send-capture-audio".into()).spawn(move || {
           if let Err(e) = win::audio::run(pid, &s.stop, &ch) { eprintln!("[capture audio] {e}"); }
@@ -117,7 +119,7 @@ pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBo
     Ok(id)
   }
   #[cfg(not(windows))]
-  { let _ = (source, opts, video, audio); Err("Native capture is only available on Windows.".into()) }
+  { let _ = (source, opts, video, audio, own_sound); Err("Native capture is only available on Windows.".into()) }
 }
 
 #[cfg(windows)]
@@ -146,10 +148,13 @@ mod win {
       }
     }
     /// Whose sound to capture: a window → that program (include); a screen → everything except SEND (exclude).
-    pub fn audio_pid(&self) -> (u32, bool) {
+    /// SEND's sound (calls, music, sounds) plays from WebView2's processes. They usually sit under SEND.exe, but
+    /// not always, so the screen case leaves out the WebView2 browser process's tree when it's known, which holds
+    /// every process that plays SEND's sound wherever it sits.
+    pub fn audio_pid(&self, own_sound: Option<u32>) -> (u32, bool) {
       match self {
         Target::Window(h) => { let mut pid = 0u32; unsafe { GetWindowThreadProcessId(HWND(*h as _), Some(&mut pid)) }; (pid, true) }
-        Target::Screen(..) => (unsafe { GetCurrentProcessId() }, false),
+        Target::Screen(..) => (own_sound.filter(|p| *p != 0).unwrap_or_else(|| unsafe { GetCurrentProcessId() }), false),
       }
     }
   }

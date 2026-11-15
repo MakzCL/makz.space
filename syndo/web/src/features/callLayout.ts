@@ -32,8 +32,18 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
   type Drag = { key: string; el: HTMLElement; root: HTMLElement; x: number; y: number; gx: number; gy: number; id: number; dragging: boolean; px: number; py: number; lastSwap: number };
   const state = useRef<Drag | null>(null);
   const tilesIn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(":scope > [data-key]")];
-  /** Where a tile sits in the layout, ignoring any translate on it. */
-  const slot = (el: HTMLElement) => { const r = el.getBoundingClientRect(); const [tx = 0, ty = 0] = (el.style.translate || "0 0").split(" ").map((v) => parseFloat(v) || 0); return { left: r.left - tx, top: r.top - ty, width: r.width, height: r.height }; };
+  /**
+   * Where a tile sits in the layout, ignoring where it's being moved to on screen. Uses the computed translate, so
+   * a tile that's still sliding into its new place is measured at that place (measuring it mid-slide is what made
+   * tiles swap back and forth).
+   */
+  const slot = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    const [tx = 0, ty = 0] = (cs.translate && cs.translate !== "none" ? cs.translate : "0 0").split(" ").map((v) => parseFloat(v) || 0);
+    const sc = parseFloat(cs.scale) || 1; // the picked-up tile is drawn a little bigger
+    const w = r.width / sc, h = r.height / sc;
+    return { left: r.left - tx + (r.width - w) / 2, top: r.top - ty + (r.height - h) / 2, width: w, height: h };
+  };
   const follow = (s: Drag) => { const r = slot(s.el); s.el.style.translate = `${s.px - s.gx - r.left}px ${s.py - s.gy - r.top}px`; };
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
@@ -56,15 +66,16 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
       try { s.root.setPointerCapture(e.pointerId); } catch { /* */ }
     }
     follow(s);
-    // Which slot is the pointer over? Move there if it's another tile's (with a short pause so it doesn't jitter).
-    if (performance.now() - s.lastSwap < 120) return;
-    let best: HTMLElement | null = null, bestD = Infinity;
+    // Move only once the pointer is well inside another tile's place (not just nearer to it), and not straight
+    // after a move, so two tiles never fight over a spot.
+    if (performance.now() - s.lastSwap < 180) return;
+    let best: HTMLElement | null = null;
     for (const t of tilesIn(s.root)) {
-      const r = t === s.el ? slot(t) : t.getBoundingClientRect();
-      const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
-      if (d < bestD) { bestD = d; best = t; }
+      if (t === s.el) continue;
+      const r = slot(t), ix = r.width * 0.18, iy = r.height * 0.18;
+      if (e.clientX > r.left + ix && e.clientX < r.left + r.width - ix && e.clientY > r.top + iy && e.clientY < r.top + r.height - iy) { best = t; break; }
     }
-    if (!best || best === s.el) return;
+    if (!best) return;
     const list = keysRef.current, from = list.indexOf(s.key), to = list.indexOf(best.dataset.key!);
     if (from < 0 || to < 0) return;
     // FLIP: remember where everything is, change the order, then animate each tile from old to new place.
@@ -76,12 +87,14 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
     requestAnimationFrame(() => {
       for (const [t, old] of before) {
         if (!t.isConnected) continue;
+        // Measure the new place without the slide that may still be running from the last move.
+        t.style.transition = "none"; t.style.translate = "";
         const now = t.getBoundingClientRect();
         const dx = old.left - now.left, dy = old.top - now.top;
         if (!dx && !dy) continue;
         t.style.transition = "none"; t.style.translate = `${dx}px ${dy}px`;
         void t.offsetWidth;
-        t.style.transition = "translate .22s cubic-bezier(.2,.8,.2,1)"; t.style.translate = "0px 0px";
+        t.style.transition = "translate .34s cubic-bezier(.22,1,.36,1)"; t.style.translate = "0px 0px";
         const done = () => { t.style.transition = ""; t.style.translate = ""; t.removeEventListener("transitionend", done); };
         t.addEventListener("transitionend", done);
       }
@@ -95,7 +108,7 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
     if (!s.dragging) return;
     s.root.classList.remove("tiles-reordering");
     // Settle into the gap.
-    s.el.style.transition = "translate .2s cubic-bezier(.2,.8,.2,1)";
+    s.el.style.transition = "translate .3s cubic-bezier(.22,1,.36,1), scale .3s cubic-bezier(.22,1,.36,1)";
     s.el.style.translate = "0px 0px";
     const done = () => { s.el.classList.remove("tile-dragging"); s.el.style.transition = ""; s.el.style.translate = ""; s.el.removeEventListener("transitionend", done); };
     s.el.addEventListener("transitionend", done); setTimeout(done, 300);
