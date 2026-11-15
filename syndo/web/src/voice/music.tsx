@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ListMusic, Music2, Pause, Play, Plus, SkipForward, Square, Volume2, VolumeX, X } from "lucide-react";
 import { api, errMsg } from "../api.ts";
 import { toast, useStore, type MusicState, type MusicTrack } from "../store.ts";
@@ -79,6 +79,24 @@ function loadYouTube(): Promise<any> {
 }
 const HIDE_KEY = "send.music.ytHidden";
 
+/* The call screen's player has a spot for YouTube's player. The player itself is mounted once (here) and is only
+   moved over that spot, so going between the call and a chat never reloads the song. */
+let slot: HTMLElement | null = null;
+const slotSubs = new Set<() => void>();
+const setSlot = (el: HTMLElement | null) => { if (slot === el) return; slot = el; slotSubs.forEach((f) => f()); };
+function useSlotRect(): DOMRect | null {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const read = () => { const r = slot?.getBoundingClientRect() ?? null; setRect((old) => (old && r && old.x === r.x && old.y === r.y && old.width === r.width && old.height === r.height) || (!old && !r) ? old : r); };
+    const loop = () => { read(); raf = requestAnimationFrame(loop); };
+    loop();
+    slotSubs.add(read);
+    return () => { cancelAnimationFrame(raf); slotSubs.delete(read); };
+  }, []);
+  return rect && rect.width > 0 ? rect : null;
+}
+
 function YouTubeDock({ s }: { s: MusicState }) {
   const host = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState(() => { try { return sessionStorage.getItem(HIDE_KEY) === "1"; } catch { return false; } });
@@ -123,8 +141,11 @@ function YouTubeDock({ s }: { s: MusicState }) {
   }, [hidden]);
   useEffect(() => { align(); }, [s, deafened]);
   const setHide = (v: boolean) => { setHidden(v); try { v ? sessionStorage.setItem(HIDE_KEY, "1") : sessionStorage.removeItem(HIDE_KEY); } catch { /* */ } };
+  const rect = useSlotRect();
   if (hidden) return <button className="yt-dock-pill" onClick={() => setHide(false)}><Music2 size={14} aria-hidden /> YouTube player hidden. Show it to listen</button>;
-  return <div className="yt-dock" role="region" aria-label="YouTube player">
+  // On the call screen it sits in the player's video spot; elsewhere it's a small window in the corner.
+  const docked = rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: "auto", bottom: "auto" } : undefined;
+  return <div className={`yt-dock ${rect ? "in-slot" : ""}`} style={docked} role="region" aria-label="YouTube player">
     <div className="yt-dock-bar"><span className="ellipsis" title={t.title}>{t.title}</span>
       <button className="icon-btn sm" onClick={() => setHide(true)} aria-label="Hide the YouTube player (stops YouTube songs for you)" title="Hide (stops YouTube songs for you)"><X size={14} /></button></div>
     <div className="yt-dock-frame">{failed ? <p className="muted small">{failed}</p> : <div ref={host} />}</div>
@@ -191,47 +212,90 @@ const SOURCE_LABEL: Record<string, string> = { youtube: "YouTube", spotify: "Spo
 const origin = (t: MusicTrack) => t.via && SOURCE_LABEL[t.source] && t.source !== "youtube" ? `${SOURCE_LABEL[t.source]} via ${t.via}` : SOURCE_LABEL[t.source] ?? null;
 const by = (t: MusicTrack) => [t.artist, origin(t), `asked by ${t.requester.name}`].filter(Boolean).join(" · ");
 
-/** Now-playing card on the call screen, like a music bot's player. Shown while SEND Music is in the room. */
+/** Lyrics for the song playing in the room, when the server has a lyrics provider. */
+interface LyricsData { track_id: string; synced: { t: number; text: string }[] | null; plain: string | null; source: string }
+function useLyrics(s: MusicState | undefined): LyricsData | null {
+  const [data, setData] = useState<LyricsData | null>(null);
+  const id = s?.playing?.kind ? s.playing.id : null;
+  useEffect(() => {
+    setData(null);
+    if (!s?.lyrics || !id) return;
+    let alive = true;
+    api.get<LyricsData | null>(`/api/music/${s.channel_id}/lyrics`).then((d) => { if (alive && d && d.track_id === id) setData(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, [id, s?.lyrics]); // eslint-disable-line
+  return data;
+}
+/** The current and next lines, at the song's position (shown a moment early so they're read in time). */
+function linesAt(l: LyricsData | null, posSec: number): { cur: string[]; next: string | null } | null {
+  if (!l?.synced?.length) return null;
+  const ms = posSec * 1000 + 250;
+  let i = -1;
+  for (let k = 0; k < l.synced.length; k++) { if (l.synced[k]!.t <= ms) i = k; else break; }
+  const at = (k: number) => (k >= 0 && k < l.synced!.length ? l.synced![k]!.text : null);
+  const cur = [at(i), at(i + 1)].filter((x): x is string => x != null);
+  return { cur: i < 0 ? [at(0) ?? ""].filter(Boolean) : cur, next: at(i + 2) };
+}
+const thumb = (t: MusicTrack | null) => t?.video_id ? `https://i.ytimg.com/vi/${t.video_id}/hqdefault.jpg` : null;
+
+/** The call screen's music player: background art, big synced lyrics, a progress bar and round buttons. */
 export function MusicCard({ channelId }: { channelId: string }) {
   const s = useStore((st) => st.music[channelId]);
-  const pos = usePosition(s);
+  const [, tick] = useState(0);
+  useEffect(() => { if (!s?.playing || s.paused) return; const t = setInterval(() => tick((x) => x + 1), 250); return () => clearInterval(t); }, [s?.playing?.id, s?.paused]);
   const [vol, setVol] = useState(musicVolume);
   const [queueOpen, setQueueOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const before = useRef(vol || 0.6);
+  const lyrics = useLyrics(s);
+  const slotRef = useCallback((el: HTMLDivElement | null) => setSlot(el), []);
+  useEffect(() => () => setSlot(null), []);
   if (!s?.active) return null;
   const t = s.playing, dur = t?.duration ?? null, can = !!s.controls;
+  const pos = t ? Math.max(0, dur ? Math.min(expected(s), dur) : expected(s)) : 0;
+  const lines = linesAt(lyrics, pos);
   const changeVol = (v: number) => { setVol(v); setMusicVolume(v); if (v > 0) before.current = v; };
-  return <section className="music-card" aria-label="SEND Music">
-    <div className="mc-top">
-      <span className={`mc-art ${t && !s.paused ? "on" : ""}`} aria-hidden><Music2 size={20} /></span>
-      <div className="mc-text">
+  const video = t?.kind === "youtube" && t.video_id;
+  const art = thumb(t);
+  return <section className={`music-card music-stage ${video ? "has-video" : ""}`} aria-label="SEND Music">
+    <div className="ms-bg" style={art ? { backgroundImage: `url("${art}")` } : undefined} aria-hidden />
+    {video && <div className="ms-video" ref={slotRef} aria-hidden />}
+    <div className="ms-main">
+      <div className="ms-top mc-text">
         {t ? <><strong className="ellipsis" title={t.title}>{t.page ? <a href={t.page} target="_blank" rel="noreferrer noopener">{t.title}</a> : t.title}</strong>
-          <small className="ellipsis muted">{s.paused ? "Paused · " : ""}{by(t)}</small></>
-          : <><strong>SEND Music</strong><small className="muted">Nothing playing. Add a song.</small></>}
+          <small className="ellipsis">{s.paused ? "Paused · " : ""}{by(t)}</small></>
+          : <><strong>SEND Music</strong><small>Nothing playing. Add a song.</small></>}
       </div>
-      <div className="mc-btns">
-        {t && can && <button className="icon-btn" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={18} /> : <Pause size={18} />}</button>}
-        {t && can && <button className="icon-btn" onClick={() => void musicControl(channelId, "skip")} aria-label="Skip" title="Skip"><SkipForward size={18} /></button>}
-        <button className={`icon-btn ${queueOpen ? "on" : ""}`} onClick={() => setQueueOpen(!queueOpen)} aria-expanded={queueOpen} aria-label="Queue" title="Queue"><ListMusic size={18} />{s.queue.length > 0 && <span className="mc-count">{s.queue.length}</span>}</button>
-        {can && <button className={`icon-btn ${adding ? "on" : ""}`} onClick={() => setAdding(!adding)} aria-expanded={adding} aria-label="Add a song" title="Add a song"><Plus size={18} /></button>}
-        {can && <button className="icon-btn danger" onClick={() => void musicControl(channelId, "stop")} aria-label="Stop and disconnect the music bot" title="Stop"><Square size={16} /></button>}
+      <div className="ms-lyrics" aria-live="off">
+        {lines ? <>{lines.cur.map((x, k) => <p key={k} className={k === 0 ? "now" : "soon"}>{x || "♪"}</p>)}{lines.next != null && <p className="later">{lines.next || "♪"}</p>}</>
+          : t ? <><p className="now">{t.title}</p>{t.artist && <p className="soon">{t.artist}</p>}{s.lyrics && lyrics?.plain && !lyrics.synced && <p className="later">Lyrics aren't timed for this song</p>}</>
+          : <p className="now">Add a song to start</p>}
       </div>
+      {t && <div className="ms-progress mc-progress">
+        <span>{clock(pos)}</span>
+        <div className="ms-bar" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={Math.round(dur ?? 0)} aria-valuenow={Math.round(pos)}><i style={{ width: dur ? `${Math.min(100, (pos / dur) * 100)}%` : "0%" }} /></div>
+        <span>{clock(dur)}</span>
+      </div>}
+      <div className="ms-buttons">
+        {t && can && <button className="ms-btn" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={22} /> : <Pause size={22} />}</button>}
+        {t && can && <button className="ms-btn" onClick={() => void musicControl(channelId, "skip")} aria-label="Skip" title="Skip"><SkipForward size={22} /></button>}
+        <button className={`ms-btn ${queueOpen ? "on" : ""}`} onClick={() => { setQueueOpen(!queueOpen); setAdding(false); }} aria-expanded={queueOpen} aria-label="Queue" title="Queue"><ListMusic size={22} />{s.queue.length > 0 && <span className="mc-count">{s.queue.length}</span>}</button>
+        {can && <button className={`ms-btn ${adding ? "on" : ""}`} onClick={() => { setAdding(!adding); setQueueOpen(false); }} aria-expanded={adding} aria-label="Add a song" title="Add a song"><Plus size={22} /></button>}
+        {can && <button className="ms-btn stop" onClick={() => void musicControl(channelId, "stop")} aria-label="Stop and disconnect the music bot" title="Stop"><Square size={19} /></button>}
+      </div>
+      {adding && <AddSong channelId={channelId} autoFocus onDone={() => setAdding(false)} />}
+      {queueOpen && <div className="mc-queue">
+        {s.queue.length ? <ol>{s.queue.slice(0, 50).map((q) => <li key={q.id}><span className="ellipsis">{q.title}</span><small className="muted ellipsis">{by(q)} · {clock(q.duration)}</small></li>)}</ol>
+          : <p className="muted small">Nothing queued after this.</p>}
+      </div>}
     </div>
-    {t && <div className="mc-progress">
-      <span>{clock(pos)}</span>
-      <div className="mc-bar" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={Math.round(dur ?? 0)} aria-valuenow={Math.round(pos)}><i style={{ width: dur ? `${Math.min(100, (pos / dur) * 100)}%` : "0%" }} /></div>
-      <span>{clock(dur)}</span>
-    </div>}
-    <div className="mc-vol">
-      <button className="icon-btn sm" onClick={() => changeVol(vol > 0 ? 0 : before.current)} aria-label={vol > 0 ? "Mute music for me" : "Unmute music"} title={vol > 0 ? "Mute music for me" : "Unmute music"}>{vol > 0 ? <Volume2 size={16} /> : <VolumeX size={16} />}</button>
-      <Range min={0} max={1} step={0.02} value={vol} onChange={(e) => changeVol(+e.target.value)} aria-label="Music volume, just for you" />
+    <div className="ms-corner">
+      <div className="mc-vol">
+        <button className="icon-btn sm" onClick={() => changeVol(vol > 0 ? 0 : before.current)} aria-label={vol > 0 ? "Mute music for me" : "Unmute music"} title={vol > 0 ? "Mute music for me" : "Unmute music"}>{vol > 0 ? <Volume2 size={16} /> : <VolumeX size={16} />}</button>
+        <Range min={0} max={1} step={0.02} value={vol} onChange={(e) => changeVol(+e.target.value)} aria-label="Music volume, just for you" />
+      </div>
+      {lyrics && <small className="ms-credit">Lyrics from {lyrics.source}</small>}
     </div>
-    {adding && <AddSong channelId={channelId} autoFocus onDone={() => setAdding(false)} />}
-    {queueOpen && <div className="mc-queue">
-      {s.queue.length ? <ol>{s.queue.slice(0, 50).map((q) => <li key={q.id}><span className="ellipsis">{q.title}</span><small className="muted ellipsis">{by(q)} · {clock(q.duration)}</small></li>)}</ol>
-        : <p className="muted small">Nothing queued after this.</p>}
-    </div>}
   </section>;
 }
 

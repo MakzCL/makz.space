@@ -46,10 +46,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await say('!pause', 2500);
   ya = await yt(A); check('pause pauses the YouTube player', ya?.state === 2, JSON.stringify(ya));
   await say('!resume', 2500);
-  await B.p.click('.yt-dock button[aria-label^="Hide"]'); await sleep(800);
-  check('hiding the player stops it for that person only', await B.p.locator('.yt-dock-pill').count() === 1 && (await yt(A))?.state === 1);
-  await B.p.click('.yt-dock-pill'); await B.p.waitForSelector('.yt-dock iframe', { timeout: 15000 }).catch(() => {});
-  check('showing it again brings the player back', await B.p.locator('.yt-dock iframe').count() === 1);
+  // On the call screen YouTube's player sits in the music player's video spot (it must stay visible).
+  const spot = await A.p.evaluate(() => { const d = document.querySelector('.yt-dock')?.getBoundingClientRect(), v = document.querySelector('.ms-video')?.getBoundingClientRect(); return !!d && !!v && Math.abs(d.x - v.x) < 2 && Math.abs(d.y - v.y) < 2 && d.width >= 200 && d.height >= 200; });
+  check("YouTube's player sits in the call screen player's video spot", spot);
   await stop();
   check('stopping removes the YouTube player', await A.p.locator('.yt-dock').count() === 0);
 

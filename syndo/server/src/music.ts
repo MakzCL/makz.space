@@ -42,6 +42,14 @@ const MAX_QUEUE = 100;
 /** Optional YouTube Data API key: YouTube search for song names and Spotify matches, full playlists, durations. */
 const YT_KEY = process.env.YOUTUBE_API_KEY ?? "";
 const UA = "Mozilla/5.0 (compatible; SENDMusic/1.0; +https://syndo.makz.space)";
+/**
+ * Lyrics for the player, fetched while a song plays and never stored in SEND's code or database (only cached in
+ * memory for the song). Song lyrics are copyrighted, so this is off unless the server owner picks a provider:
+ * - "lrclib": lrclib.net, a free public API with time-synced lyrics (community-made, not licensed).
+ * - "fixture": made-up test lines from MUSIC_LYRICS_FIXTURE (a JSON file), for automated tests.
+ * A licensed provider (Musixmatch, LyricFind) can be added the same way once there's an agreement.
+ */
+const LYRICS = (process.env.MUSIC_LYRICS ?? "off").toLowerCase();
 const ASSETS = fileURLToPath(new URL("../assets/music/", import.meta.url));
 const TEST_TRACKS = [
   { file: "send-test-a.mp3", title: "SEND Test Tone A", duration: 14 },
@@ -372,7 +380,7 @@ const SOURCE_NAME: Partial<Record<Source, string>> = { spotify: "Spotify", deeze
 const from = (t: Track) => t.via && SOURCE_NAME[t.source] ? ` (from ${SOURCE_NAME[t.source]}, playing from ${t.via})` : t.kind === "youtube" ? " (YouTube)" : "";
 function stateOf(r: Room | undefined, channelId: string) {
   // `controls`: this backend accepts /api/music/:cid/control (the web app shows its buttons only then).
-  return { channel_id: channelId, guild_id: r?.guildId ?? null, bot_id: botId, controls: true, active: !!r, playing: r?.current ? publicTrack(r.current) : null,
+  return { channel_id: channelId, guild_id: r?.guildId ?? null, bot_id: botId, controls: true, lyrics: LYRICS !== "off", active: !!r, playing: r?.current ? publicTrack(r.current) : null,
     paused: r?.pausedAt != null, position_ms: r ? position(r) : 0, server_time: Date.now(), queue: (r?.queue ?? []).map(publicTrack) };
 }
 async function broadcast(channelId: string) {
@@ -565,6 +573,64 @@ export async function handleMusicCommand(text: ChanRow, userId: string, content:
   return true;
 }
 
+/* -------------------------------------------------------------------------------- lyrics -- */
+export interface Lyrics { synced: { t: number; text: string }[] | null; plain: string | null; source: string }
+const lyricsCache = new Map<string, Promise<Lyrics | null>>();
+/** "[01:02.34] words" lines into timed lines (milliseconds). */
+export function parseLrc(lrc: string): { t: number; text: string }[] {
+  const out: { t: number; text: string }[] = [];
+  for (const line of lrc.split(/\r?\n/)) {
+    const stamps = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
+    if (!stamps.length) continue;
+    const text = line.replace(/\[[^\]]*\]/g, "").trim();
+    for (const m of stamps) out.push({ t: (+m[1]! * 60 + +m[2]!) * 1000 + (m[3] ? Math.round(+`0.${m[3]}` * 1000) : 0), text });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+/** The song and artist to look up: YouTube titles are often "Artist - Song (Official Video)". */
+function lyricsQuery(t: Track): { title: string; artist: string } {
+  if (t.source === "youtube" && !t.via) {
+    const clean = cleanTitle(t.title);
+    const dash = clean.indexOf(" - ");
+    if (dash > 0) return { artist: clean.slice(0, dash).trim(), title: clean.slice(dash + 3).trim() };
+    return { title: clean, artist: (t.artist ?? "").replace(/VEVO$/i, "").trim() };
+  }
+  return { title: t.title.replace(/\s*[([](?:feat|ft|with)[^)\]]*[)\]]/gi, "").trim(), artist: (t.artist ?? "").split(/,| & | x /i)[0]!.trim() };
+}
+async function fetchLyrics(t: Track): Promise<Lyrics | null> {
+  if (LYRICS === "fixture") {
+    const file = process.env.MUSIC_LYRICS_FIXTURE;
+    if (!file) return null;
+    const { readFileSync } = await import("node:fs");
+    const all = JSON.parse(readFileSync(file, "utf8")) as Record<string, string>;
+    const lrc = all[t.title] ?? all["*"];
+    return lrc ? { synced: parseLrc(lrc), plain: null, source: "test" } : null;
+  }
+  if (LYRICS !== "lrclib") return null;
+  const q = lyricsQuery(t);
+  if (!q.title) return null;
+  const get = async (url: string) => { const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { "user-agent": UA } }).catch(() => null); return r?.ok ? r.json().catch(() => null) : null; };
+  const params = new URLSearchParams({ track_name: q.title, artist_name: q.artist, ...(t.duration ? { duration: String(Math.round(t.duration)) } : {}) });
+  let hit: any = q.artist ? await get(`https://lrclib.net/api/get?${params}`) : null;
+  if (!hit?.syncedLyrics && !hit?.plainLyrics) {
+    const found = await get(`https://lrclib.net/api/search?${new URLSearchParams({ q: `${q.artist} ${q.title}`.trim() })}`);
+    const list: any[] = Array.isArray(found) ? found : [];
+    hit = list.find((x) => x.syncedLyrics && sameSong(q.title, String(x.trackName ?? ""))) ?? list.find((x) => x.plainLyrics && sameSong(q.title, String(x.trackName ?? ""))) ?? null;
+  }
+  if (!hit || hit.instrumental) return null;
+  const synced = hit.syncedLyrics ? parseLrc(String(hit.syncedLyrics)) : null;
+  return { synced: synced?.length ? synced : null, plain: hit.plainLyrics ? String(hit.plainLyrics) : null, source: "LRCLIB" };
+}
+function lyricsFor(t: Track): Promise<Lyrics | null> {
+  let p = lyricsCache.get(t.id);
+  if (!p) {
+    p = fetchLyrics(t).catch(() => null);
+    lyricsCache.set(t.id, p);
+    if (lyricsCache.size > 300) lyricsCache.delete(lyricsCache.keys().next().value!);
+  }
+  return p;
+}
+
 /* -------------------------------------------------------------------------------- routes -- */
 export async function musicRoutes(app: FastifyInstance) {
   // Leave rooms nobody is listening in (registered here, not at import time, to avoid an import cycle).
@@ -614,6 +680,17 @@ export async function musicRoutes(app: FastifyInstance) {
     }
     await handleMusicCommand(text, me, `!${b.command === "nowplaying" ? "np" : b.command}${b.query ? ` ${b.query.replace(/\s+/g, " ")}` : ""}`);
     return { ok: true };
+  });
+
+  /** Lyrics for the song playing in a voice room (listeners only; nothing when lyrics are off or not found). */
+  app.get<{ Params: { cid: string } }>("/api/music/:cid/lyrics", { preHandler: requireUser }, async (req, reply) => {
+    if (voiceStateOf(uid(req))?.channel_id !== req.params.cid) throw forbidden("Join the voice room first.");
+    const t = rooms.get(req.params.cid)?.current;
+    if (!t || t.match) return reply.code(204).send();
+    const l = await lyricsFor(t);
+    if (!l) return reply.code(204).send();
+    reply.header("cache-control", "private, max-age=300");
+    return { track_id: t.id, ...l };
   });
 
   /** A listener's player read the length of a track whose source didn't say. */

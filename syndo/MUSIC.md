@@ -38,6 +38,21 @@ so a web release that goes live before the backend shows the read-only card inst
 
 Tested by `e2e/music-ui.cjs` (22 checks, two desktop listeners and a phone) and `e2e/music-links.cjs` (19 checks: YouTube video and playlist really playing in sync, hiding the player, Spotify song and playlist, Deezer album).
 
+## The player and lyrics
+
+On the call screen the bot shows a wide player: the song's art behind it, big lyric lines (the current one bright, the
+next one coming in), a progress bar with the times, and round buttons for pause, skip, the queue, add a song and stop.
+A YouTube song plays in YouTube's player on the left of it. YouTube requires its player to stay visible (at least
+200 x 200), so it can't be hidden; away from the call screen it moves to a small window in the corner, without
+reloading.
+
+Lyrics are fetched while a song plays (`GET /api/music/<room>/lyrics`) and only cached in memory. They are copyrighted,
+so they're off until the server owner picks a provider with `MUSIC_LYRICS`:
+- `lrclib`: lrclib.net, free, time-synced, community-made and not licensed.
+- `fixture`: made-up test lines from the JSON file in `MUSIC_LYRICS_FIXTURE`, for automated tests.
+A licensed provider (Musixmatch, LyricFind) can be added in `fetchLyrics` once there's an agreement. The player shows
+which provider the lyrics came from.
+
 ## Supported sources
 
 | Source | How | Notes |
