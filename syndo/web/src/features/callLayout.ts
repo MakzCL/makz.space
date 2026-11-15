@@ -60,9 +60,9 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
     if (!s.dragging) {
       if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 6) return;
       s.dragging = true;
-      s.el.classList.add("tile-dragging");
+      s.el.dataset.dragging = "1"; // an attribute, not a class: React rewrites the class list when someone starts talking
       s.el.style.transition = "none";
-      s.root.classList.add("tiles-reordering");
+      s.root.dataset.reordering = "1";
       try { s.root.setPointerCapture(e.pointerId); } catch { /* */ }
     }
     follow(s);
@@ -106,12 +106,13 @@ export function useTileDrag(keysRef: { current: string[] }, onReorder: (keys: st
     const s = state.current; if (!s || e.pointerId !== s.id) return;
     state.current = null;
     if (!s.dragging) return;
-    s.root.classList.remove("tiles-reordering");
+    delete s.root.dataset.reordering;
     // Settle into the gap.
     s.el.style.transition = "translate .3s cubic-bezier(.22,1,.36,1), scale .3s cubic-bezier(.22,1,.36,1)";
     s.el.style.translate = "0px 0px";
-    const done = () => { s.el.classList.remove("tile-dragging"); s.el.style.transition = ""; s.el.style.translate = ""; s.el.removeEventListener("transitionend", done); };
-    s.el.addEventListener("transitionend", done); setTimeout(done, 300);
+    s.el.dataset.dragging = "settle"; // stays on top while it slides home
+    const done = () => { delete s.el.dataset.dragging; s.el.style.transition = ""; s.el.style.translate = ""; s.el.removeEventListener("transitionend", done); };
+    s.el.addEventListener("transitionend", done); setTimeout(done, 340);
     // Swallow the click that follows the drag.
     const eat = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
     window.addEventListener("click", eat, { capture: true, once: true });
