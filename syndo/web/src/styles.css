@@ -2645,12 +2645,12 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .ms-btn.glass.on { color: var(--ms-on); background: linear-gradient(180deg, color-mix(in srgb, var(--ms-a) 85%, #fff), var(--ms-a)); border-color: color-mix(in srgb, var(--ms-a) 70%, #fff); }
 .ms-btn.glass.stop { color: color-mix(in srgb, var(--brand-danger, #e5533f) 80%, var(--ms-fg)); }
 .ms-btn.glass.stop:hover { color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--brand-danger, #e5533f) 70%, #fff0), color-mix(in srgb, var(--brand-danger, #e5533f) 45%, #fff0)); border-color: color-mix(in srgb, var(--brand-danger, #e5533f) 60%, transparent); }
-.ms-btn.main { width: 58px; height: 58px; color: var(--ms-on);
+.ms-btn.ms-play { width: 58px; height: 58px; color: var(--ms-on);
   background: radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--ms-a) 45%, #fff) 0%, var(--ms-a) 55%, color-mix(in srgb, var(--ms-a) 78%, #000) 100%);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--ms-a) 16%, transparent), 0 0 26px color-mix(in srgb, var(--ms-a) 45%, transparent), 0 8px 22px #0006, inset 0 2px 0 color-mix(in srgb, #fff 45%, transparent), inset 0 -5px 12px color-mix(in srgb, #000 22%, transparent);
   transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .25s; }
-.ms-btn.main:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ms-a) 22%, transparent), 0 0 36px color-mix(in srgb, var(--ms-a) 60%, transparent), 0 12px 26px #0007, inset 0 2px 0 color-mix(in srgb, #fff 55%, transparent), inset 0 -5px 12px color-mix(in srgb, #000 22%, transparent); }
-.ms-btn:active, .ms-btn.main:active, .ms-btn.glass:active { transform: scale(.94); }
+.ms-btn.ms-play:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ms-a) 22%, transparent), 0 0 36px color-mix(in srgb, var(--ms-a) 60%, transparent), 0 12px 26px #0007, inset 0 2px 0 color-mix(in srgb, #fff 55%, transparent), inset 0 -5px 12px color-mix(in srgb, #000 22%, transparent); }
+.ms-btn:active, .ms-btn.ms-play:active, .ms-btn.glass:active { transform: scale(.94); }
 .ms-btn:focus-visible { outline: 2px solid var(--ms-fg); outline-offset: 3px; }
 .ms-btn .mc-count { top: -3px; right: -3px; background: var(--ms-a); color: var(--ms-on); box-shadow: 0 0 0 2px var(--bg1); }
 .music-stage .music-add { width: min(100%, 520px); }
@@ -2693,6 +2693,74 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   .ms-lyrics .now { font-size: 1.15rem; } .ms-lyrics .soon { font-size: 1.02rem; }
   .ms-lyrics.scrolling { height: 92px; min-height: 92px; } .ms-lyrics.scrolling p { font-size: 1.05rem; }
   .music-stage .ms-progress { font-size: .9rem; gap: 10px; } .ms-bar { height: 8px; }
-  .ms-buttons { gap: 12px; } .ms-btn.glass { width: 42px; height: 42px; } .ms-btn.main { width: 50px; height: 50px; }
+  .ms-buttons { gap: 12px; } .ms-btn.glass { width: 42px; height: 42px; } .ms-btn.ms-play { width: 50px; height: 50px; }
 }
 @media (prefers-reduced-motion: reduce) { .ms-lyrics p, .ms-bar i, .ms-lines, .ms-lyrics.scrolling p, .ms-btn, .ms-knob { transition: none; } }
+/* SEND Music: when a song has no timed lyrics, the title sits on top (once) and a small equaliser plays in the middle */
+.music-stage .ms-top.with-art { opacity: 1; gap: 2px; }
+.music-stage .ms-top.with-art strong { font-size: clamp(1.1rem, 2.2vw, 1.6rem); font-weight: 700; }
+.music-stage .ms-top.with-art small { font-size: .85rem; }
+.ms-eq { display: flex; align-items: flex-end; gap: 5px; height: 34px; }
+.ms-eq i { width: 6px; border-radius: 3px; background: linear-gradient(180deg, var(--ms-b), var(--ms-a)); animation: ms-eq 1.1s ease-in-out infinite; }
+.ms-eq i:nth-child(1) { animation-delay: -.2s; } .ms-eq i:nth-child(2) { animation-delay: -.6s; } .ms-eq i:nth-child(3) { animation-delay: -.1s; } .ms-eq i:nth-child(4) { animation-delay: -.8s; } .ms-eq i:nth-child(5) { animation-delay: -.4s; }
+@keyframes ms-eq { 0%, 100% { height: 8px; } 50% { height: 34px; } }
+.music-stage:has(.ms-btn.ms-play[aria-label="Resume"]) .ms-eq i { animation-play-state: paused; }
+.music-start-sheet { display: flex; flex-direction: column; gap: 10px; }
+
+/* Phones: the call screen, rebuilt */
+@media (max-width: 760px) {
+  /* Top bar: the channel name gets the room, the buttons are compact */
+  .m-call-top.in-call { gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; }
+  .m-call-top.in-call .m-round { width: 42px; height: 42px; }
+  .m-call-top.in-call .m-round svg { width: 19px; height: 19px; }
+  .m-call-top.in-call .m-call-name { flex: 1 1 auto; max-width: none; height: 42px; padding: 0 12px 0 14px; font-size: .98rem; justify-content: flex-start; }
+  .m-call-top.in-call .m-call-name .ellipsis { flex: 1; min-width: 0; text-align: left; }
+
+  /* Room for everything: the call scrolls if a phone is short */
+  .stage .stage-main { overflow-y: auto; overscroll-behavior: contain; }
+
+  /* The music player, compact */
+  .music-card.music-stage { margin: 2px 12px 0; padding: 10px; gap: 8px; border-radius: 22px; }
+  .music-stage .ms-video { width: 100%; height: max(200px, calc((100vw - 44px) * 9 / 16)); max-height: 240px; border-radius: 14px; }
+  .music-stage .ms-main { gap: 6px; padding: 0 2px; }
+  .music-stage .ms-top strong { font-size: .92rem; } .music-stage .ms-top a { text-decoration: none; }
+  .music-stage .ms-top small { font-size: .74rem; }
+  .music-stage .ms-top.with-art strong { font-size: 1.02rem; } .music-stage .ms-top.with-art small { font-size: .78rem; }
+  .music-stage .ms-lyrics { min-height: 0; flex: none; }
+  .music-stage .ms-lyrics.scrolling { height: 62px; min-height: 62px; }
+  .music-stage .ms-lyrics.scrolling p { font-size: .98rem; } .music-stage .ms-lyrics.scrolling p.now { font-size: 1.06rem; }
+  .music-stage .ms-eq { height: 22px; } .music-stage .ms-eq i { width: 4px; }
+  @keyframes ms-eq { 0%, 100% { height: 6px; } 50% { height: 22px; } }
+  .music-stage .ms-progress { font-size: .78rem; gap: 8px; width: 100%; }
+  .music-stage .ms-bar { height: 6px; }
+  .music-stage .ms-progress.seekable .ms-bar:hover, .music-stage .ms-progress.dragging .ms-bar { height: 8px; }
+  .music-stage .ms-buttons { gap: 10px; margin-top: 2px; }
+  .music-stage .ms-btn.glass { width: 40px; height: 40px; } .music-stage .ms-btn.glass svg { width: 18px; height: 18px; }
+  .music-stage .ms-btn.ms-play { width: 50px; height: 50px; }
+  .music-stage .music-add, .music-stage .mc-queue { width: 100%; }
+
+  /* With music on, people become a row of square tiles you can scroll sideways */
+  .stage.has-music .tiles { flex: none !important; padding: 10px 12px 6px !important; min-height: 0; }
+  .stage.has-music .tile-grid { flex-direction: row !important; height: auto !important; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px !important; scrollbar-width: none; }
+  .stage.has-music .tile-grid::-webkit-scrollbar { display: none; }
+  .stage.has-music .tile-grid > .tile { flex: 0 0 116px !important; height: 116px; aspect-ratio: 1; border-radius: 22px !important; scroll-snap-align: start; }
+  .stage.has-music .tile-grid > .tile .tile-av > * { transform: scale(.62); }
+  .stage.has-music .tile figcaption { bottom: 8px !important; padding: 4px 10px !important; border-radius: 10px !important; font-size: .78rem; max-width: 92%; }
+  .stage.has-music .m-addpeople { display: none !important; }
+
+  /* Alone in a call: a calmer tile and a lighter invite card */
+  .stage:not(.has-music) .tile-grid > .tile:only-child { max-height: min(62vh, 520px); }
+  .m-addpeople { padding: 14px 16px; border-radius: 20px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+  .m-addpeople b { font-size: 1rem; } .m-addpeople small { font-size: .86rem; }
+
+  /* The dock: no buttons that can't work on a phone */
+  .stage .call-controls .ctl[disabled][aria-label="Share screen"] { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) { .ms-eq i { animation: none; height: 16px; } }
+@media (max-width: 760px) {
+  /* The control bar stays at the bottom whatever is above it */
+  .stage .stage-main { display: flex; flex-direction: column; }
+  .stage .stage-main > .call-controls { margin-top: auto; flex: none; }
+  /* Chat previews: a slim bar just above the controls */
+  .stage .msg-preview { left: 12px !important; right: 12px !important; bottom: calc(118px + env(safe-area-inset-bottom)) !important; max-width: none !important; border-radius: 16px !important; }
+}

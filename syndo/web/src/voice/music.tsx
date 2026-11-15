@@ -3,6 +3,7 @@ import { ListMusic, Music2, Pause, Play, Plus, SkipForward, Square, Volume2, Vol
 import { api, errMsg } from "../api.ts";
 import { toast, useStore, type MusicState, type MusicTrack } from "../store.ts";
 import { Range } from "../components/Range.tsx";
+import { Modal } from "../components/ui.tsx";
 import { useVoice } from "./session.ts";
 
 /**
@@ -317,21 +318,21 @@ export function MusicCard({ channelId }: { channelId: string }) {
     <div className="ms-bg" style={art ? { backgroundImage: `url("${art}")` } : undefined} aria-hidden />
     {video && <div className="ms-video" ref={slotRef} aria-hidden />}
     <div className="ms-main">
-      <div className="ms-top mc-text">
+      <div className={`ms-top mc-text ${t && !lyrics?.synced?.length ? "with-art" : ""}`}>
         {t ? <><strong className="ellipsis" title={t.title}>{t.page ? <a href={t.page} target="_blank" rel="noreferrer noopener">{t.title}</a> : t.title}</strong>
           <small className="ellipsis">{s.paused ? "Paused · " : ""}{by(t)}</small></>
           : <><strong>SEND Music</strong><small>Nothing playing. Add a song.</small></>}
       </div>
       <div className={`ms-lyrics ${lyrics?.synced?.length ? "scrolling" : ""}`} aria-live="off">
         {lyrics?.synced?.length ? <LyricsScroller lyrics={lyrics} index={li} /> : lines ? <>{lines.cur.map((x, k) => <p key={k} className={k === 0 ? "now" : "soon"}>{x || "♪"}</p>)}{lines.next != null && <p className="later">{lines.next || "♪"}</p>}</>
-          : t ? <><p className="now">{t.title}</p>{t.artist && <p className="soon">{t.artist}</p>}{s.lyrics && lyrics?.plain && !lyrics.synced && <p className="later">Lyrics aren't timed for this song</p>}</>
+          : t ? <>{s.lyrics && lyrics?.plain && !lyrics.synced ? <p className="later">Lyrics aren't timed for this song</p> : <span className="ms-eq" aria-hidden><i /><i /><i /><i /><i /></span>}</>
           : <p className="now">Add a song to start</p>}
       </div>
       {t && <SeekBar s={s} pos={pos} dur={dur} can={can} />}
       <div className="ms-buttons">
         {can && <button className={`ms-btn glass ${adding ? "on" : ""}`} onClick={() => { setAdding(!adding); setQueueOpen(false); }} aria-expanded={adding} aria-label="Add a song" title="Add a song"><Plus size={20} strokeWidth={2.4} /></button>}
         <button className={`ms-btn glass ${queueOpen ? "on" : ""}`} onClick={() => { setQueueOpen(!queueOpen); setAdding(false); }} aria-expanded={queueOpen} aria-label="Queue" title="Queue"><ListMusic size={20} strokeWidth={2.2} />{s.queue.length > 0 && <span className="mc-count">{s.queue.length}</span>}</button>
-        {t && can && <button className="ms-btn main" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={22} fill="currentColor" strokeWidth={0} style={{ marginLeft: 2 }} /> : <Pause size={22} fill="currentColor" strokeWidth={0} />}</button>}
+        {t && can && <button className="ms-btn ms-play" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={22} fill="currentColor" strokeWidth={0} style={{ marginLeft: 2 }} /> : <Pause size={22} fill="currentColor" strokeWidth={0} />}</button>}
         {t && can && <button className="ms-btn glass" onClick={() => void musicControl(channelId, "skip")} aria-label="Skip" title="Skip"><SkipForward size={20} fill="currentColor" strokeWidth={1.6} /></button>}
         {can && <button className="ms-btn glass stop" onClick={() => void musicControl(channelId, "stop")} aria-label="Stop and disconnect the music bot" title="Stop"><Square size={16} fill="currentColor" strokeWidth={0} /></button>}
       </div>
@@ -349,6 +350,21 @@ export function MusicCard({ channelId }: { channelId: string }) {
       {lyrics && <small className="ms-credit">Lyrics from {lyrics.source}</small>}
     </div>
   </section>;
+}
+
+/** Start the bot from anywhere in the call (the "…" menu on phones). */
+export const openMusicStart = () => window.dispatchEvent(new Event("send:music-start"));
+/** The "Play music" sheet, opened by openMusicStart. */
+export function MusicStartDialog({ channelId }: { channelId: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { const on = () => setOpen(true); window.addEventListener("send:music-start", on); return () => window.removeEventListener("send:music-start", on); }, []);
+  if (!open) return null;
+  return <Modal title="Play music" onClose={() => setOpen(false)}>
+    <div className="music-start-sheet">
+      <p className="muted small">Search by name, or paste a YouTube, Spotify, Deezer or Audius link. Playlists and albums work too.</p>
+      <AddSong channelId={channelId} autoFocus onDone={() => setOpen(false)} />
+    </div>
+  </Modal>;
 }
 
 /** Header button on the call screen: start the music bot when it isn't in the room yet. */

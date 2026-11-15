@@ -89,9 +89,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await P.p.goto(BASE + '/login'); await api(P, 'POST', '/api/auth/register', { email: `u_p_${SFX}@example.test`, username: `u_p_${SFX}`, password: 'correct horse battery' }); await api(P, 'POST', `/api/invites/${inv.code}`, {});
   await P.p.goto(`${BASE}/channels/${g.id}/${room.id}`); await sleep(2500);
   const join = P.p.getByRole('button', { name: /Join voice/i }).first(); if (await join.count()) await join.click().catch(() => {});
-  await P.p.waitForSelector('.m-call-top button[aria-label="Play music"]', { timeout: 15000 }).catch(() => {});
-  check('phone: Play music button in the call header', await P.p.locator('.m-call-top button[aria-label="Play music"]:visible').count() === 1);
-  await P.p.click('.m-call-top button[aria-label="Play music"]'); await P.p.fill('.music-start-pop input', 'test'); await P.p.click('.music-start-pop button:has-text("Play")');
+  // On phones, music starts from the "…" menu (the top bar stays roomy for the channel name).
+  await P.p.waitForSelector('.stage .call-controls [aria-label="More options"]', { timeout: 15000 }).catch(() => {});
+  await P.p.click('.stage .call-controls [aria-label="More options"]'); await sleep(400);
+  check('phone: Play music in the call\'s … menu', await P.p.locator('[role=menuitem]', { hasText: 'Play music' }).count() === 1);
+  await P.p.locator('[role=menuitem]', { hasText: 'Play music' }).click(); await sleep(300);
+  await P.p.fill('.music-start-sheet input', 'test'); await P.p.click('.music-start-sheet button:has-text("Play")');
   await P.p.waitForSelector('.music-card', { timeout: 15000 }).catch(() => {});
   await sleep(800);
   const over = await P.p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
