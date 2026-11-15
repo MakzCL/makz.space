@@ -30,6 +30,25 @@ function Banner({ r, big }: { r: Release; big: boolean }) {
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-lighter-streams",
+    title: "Lighter streams, clean stream sound",
+    date: "2026-11-15",
+    intro: "Streaming and watching take far less from your computer, and nobody hears themselves in your stream any more.",
+    banner: { icon: "sparkles", from: "#2F80ED", to: "#3DDC97", tagline: "Update" },
+    sections: [
+      { title: "Streaming", items: [
+        "Your stream is only sent to the people watching it, so friends who haven't pressed Watch Stream cost you nothing.",
+        "Calls use your graphics chip for video, which takes much less processor time to send and to watch.",
+        "Stream previews no longer play the video in the background until you press Watch Stream.",
+      ] },
+      { title: "Stream sound (desktop app)", items: [
+        "Sharing a screen sends the sound of each program on your PC except SEND, so the call never comes back through your stream.",
+        "Audio mixers that play everything again (such as Sonar, Voicemeeter and Wave Link) are left out for the same reason.",
+        "The Go Live window shows which programs' sound you are sharing.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-boost-perks",
     title: "Boost perks and a smarter music player",
     date: "2026-11-15",
