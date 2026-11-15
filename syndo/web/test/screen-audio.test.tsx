@@ -26,13 +26,14 @@ test("window sound without restrictOwnAudio is removed", () => {
   shareMayEcho(undefined, null);
 });
 
-test("sound is kept when the browser leaves SEND's own audio out", () => {
+test("whole screen sound is removed even when the browser claims to leave SEND's own audio out", () => {
+  // Browsers can report restrictOwnAudio without really applying it, and people heard themselves back.
   const t = track({ displaySurface: "monitor", restrictOwnAudio: true });
   const s = stream(t);
   dropEchoingAudio(s);
-  assert.equal(s.list.length, 1);
-  assert.equal(t.stopped, false);
-  assert.equal(shareMayEcho({ kind: "monitor" }, t as any), false);
+  assert.equal(s.list.length, 0);
+  assert.equal(t.stopped, true);
+  assert.equal(shareMayEcho({ kind: "monitor" }, null), true);
 });
 
 test("a shared tab keeps its sound (it only carries that tab's audio)", () => {

@@ -138,6 +138,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={st.audio} onChange={(e) => set({ audio: e.target.checked })} />
           </label>
           {st.audio && tab !== "device" && !nat && !caps.tabAudio && <p className="muted small">This browser can't share sound from a screen.</p>}
+          {st.audio && tab !== "device" && !nat && caps.tabAudio && <p className="muted small">In a browser, sound is shared from tabs only, so nobody hears the call back. The SEND desktop app shares a screen's sound too.</p>}
         </div>}
 
         <div className="share-bar">

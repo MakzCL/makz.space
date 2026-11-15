@@ -124,10 +124,13 @@ export function screenAudioConstraints(): MediaTrackConstraints {
 export function screenAudioMayEcho(track: MediaStreamTrack | null | undefined) {
   if (!track) return false;
   const st = track.getSettings() as MediaTrackSettings & { restrictOwnAudio?: boolean; displaySurface?: string };
-  // A browser tab only carries that tab's sound; whole screens and windows carry the system's.
-  return st.displaySurface !== "browser" && st.restrictOwnAudio !== true;
+  // A browser tab only carries that tab's sound; whole screens and windows carry the system's. Browsers can report
+  // restrictOwnAudio as on without really leaving SEND's sound out (people heard themselves back), so it isn't trusted:
+  // full sound sharing goes through the desktop app's own capture, which leaves SEND's process out itself.
+  void st.restrictOwnAudio;
+  return st.displaySurface !== "browser";
 }
-export const SCREEN_ECHO_NOTE = "Sharing without sound: this browser can't keep SEND's own sound out of a shared screen, so the call would echo. To share sound, share a tab, or use an up to date Chrome or Edge, or the SEND desktop app.";
+export const SCREEN_ECHO_NOTE = "Sharing without sound: a shared screen or window would also send the call back to everyone. To share sound, share a browser tab, or use the SEND desktop app.";
 
 /**
  * What to share. "window", "browser" (a tab) and "monitor" open the system picker with that tab chosen first (browsers and
