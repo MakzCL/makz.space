@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.3 (dragged call tile stays on top)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.2.yml` (backup of the feed that pointed at `SEND-Setup-0.8.2.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `6f1cac62-c57e-41d9-b48c-b92b9f80f396` (download link to 0.8.2) |
+| Source | branch `backup/pre-desktop-083-20261115` |
+
+Released from commit `321f444` (CI run 43720519438): `SEND-Setup-0.8.3.exe`, 17,371,864 bytes, sha512 `LRHRHb0godfqJ6NRkREc0we3W6I6w6RIMjA7njxnTnWIyH9TwqLoaZHX+dAqbIHPJVliQQxyarHy6WyZNgiIcA==` (public copy verified). Feed switched to 0.8.3; download link worker version `15b58c20-d31f-41a5-8189-9471c2fde199`. Upload token deleted. Also carries the phone call screen rebuild already live on the web.
+
+### Roll back
+1. Feed: copy `latest-0.8.2.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers, `send-beta-api`, deploy `6f1cac62` at 100%.
+
 ## 2026-11-15: phone call screen rebuild, dragged tile stays on top (web only)
 
 Before: web Pages `e9df661d-467e-4ed4-b246-59f40e18d1fc` (`a45fbc5`). Source backup branch `backup/pre-phone-call-20261115`.
