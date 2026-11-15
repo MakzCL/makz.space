@@ -1,5 +1,15 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.0, the standalone app (interface built in, no website)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.7.1.yml` (backup of the feed that pointed at `SEND-Setup-0.7.1.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `3c62f801-8e4a-4003-aeec-71953235d152` (download link to 0.7.1) |
+| Source | branch `backup/pre-desktop-080-20261115`; database unchanged |
+
+People updating from 0.7.x sign in once more (the app keeps its own session now). Passkeys stay on the website.
+
 ## 2026-11-15: live connection accepts the desktop app's address (server only)
 
 Before: worker `cda391e4-495a-4a48-986a-6d026d651362` (SOURCE_COMMIT `2c3e79b`). Source backup branch `backup/pre-desktop-origins-20261115`.
