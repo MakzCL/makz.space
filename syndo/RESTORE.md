@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-15: SEND Music player v2 (theme colours, seekable bar, scrolling lyrics)
+
+Before: worker `b62dd955-f3cc-4f97-bf09-0e531e4f5042` (SOURCE_COMMIT `fcb013c`), web Pages `83459ff4-0322-4d55-88b0-fdba0c9fe435` (`2079e51`). Source backup branch `backup/pre-player-v2-20261115`.
+Change: player takes its colours from the theme, smaller round play and pause, glass buttons; the progress bar can be clicked or dragged to jump (new `POST /api/music/<room>/seek`, same rule as skip); lyrics scroll with the song. No database change.
+Roll back: Workers, `send-beta-api`, deploy `b62dd955` at 100%; Pages `syndo-app`, roll back to `83459ff4`.
+
 ## 2026-11-15: desktop 0.8.0, the standalone app (interface built in, no website)
 
 | Layer | Restore point (before this release) |
