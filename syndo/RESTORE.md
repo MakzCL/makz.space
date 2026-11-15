@@ -1,5 +1,13 @@
 # SEND restore points
 
+## 2026-11-15: YouTube key, call-screen music buttons with the / commands, screen share echo
+
+Secret added: `YOUTUBE_API_KEY` on `send-beta-api` (YouTube search, Spotify matching, full YouTube playlists). Delete it to go back to Audius-only matching.
+Backend: SOURCE_COMMIT `4258b0b` (worker version `7e6a8e3c-d351-49f9-9700-7159ff0674c9`, was `ea0d79f2`, SOURCE_COMMIT `0ce2965`). Fixes the call-screen buttons, which the `/` commands change (`bc31524`) had silently broken; that change was never live on its own.
+Web: Pages deployment `d9b75d34-c3ec-4b0f-8716-f10cea9d47bc` at `9f2e5d0` (was `f59e7854`, then `af842190` at `4258b0b`). In a browser a shared screen or window no longer carries sound (only tabs do), because browsers could claim to leave SEND's sound out without doing it; the desktop app's own capture is unchanged.
+Checked live: controls offered, a YouTube link plays, a Spotify song is matched on YouTube, a Spotify playlist queues 31 songs.
+Roll back: Workers, `send-beta-api`, deploy `ea0d79f2`; Pages `syndo-app`, roll back to `f59e7854`.
+
 ## 2026-11-14: SEND Music links (YouTube, Spotify, Deezer, playlists) and changelog banners
 
 Backend: SOURCE_COMMIT to this commit. Worker code also changes (passes `YOUTUBE_API_KEY` and `MUSIC_JAMENDO_CLIENT_ID` through when set). No database change.
