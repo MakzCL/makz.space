@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ListMusic, Music2, Pause, Play, Plus, SkipForward, Square, Volume2, VolumeX, X } from "lucide-react";
 import { api, errMsg } from "../api.ts";
 import { toast, useStore, type MusicState, type MusicTrack } from "../store.ts";
@@ -236,6 +236,61 @@ function linesAt(l: LyricsData | null, posSec: number): { cur: string[]; next: s
   const cur = [at(i), at(i + 1)].filter((x): x is string => x != null);
   return { cur: i < 0 ? [at(0) ?? ""].filter(Boolean) : cur, next: at(i + 2) };
 }
+/** Index of the line being sung (shown a moment early so it's read in time), or -1 before the first line. */
+function lineIndex(l: LyricsData | null, posSec: number) {
+  if (!l?.synced?.length) return -1;
+  const ms = posSec * 1000 + 250;
+  let i = -1;
+  for (let k = 0; k < l.synced.length; k++) { if (l.synced[k]!.t <= ms) i = k; else break; }
+  return i;
+}
+
+/** All the song's lines in a column that scrolls up as the song goes; the current line is bright, others fade by distance. */
+function LyricsScroller({ lyrics, index }: { lyrics: LyricsData; index: number }) {
+  const box = useRef<HTMLDivElement>(null), list = useRef<HTMLDivElement>(null);
+  const [y, setY] = useState(0);
+  useLayoutEffect(() => {
+    const b = box.current, l = list.current; if (!b || !l) return;
+    const el = l.children[Math.max(0, index)] as HTMLElement | undefined; if (!el) return;
+    setY(b.clientHeight * 0.42 - (el.offsetTop + el.offsetHeight / 2));
+  }, [index, lyrics]);
+  return <div className="ms-scroll" ref={box} aria-live="off">
+    <div className="ms-lines" ref={list} style={{ transform: `translateY(${y}px)` }}>
+      {lyrics.synced!.map((x, k) => { const d = k - Math.max(0, index); return <p key={k} className={d === 0 && index >= 0 ? "now" : d === 1 ? "soon" : d < 0 ? (d === -1 ? "past" : "gone") : "later"}>{x.text || "♪"}</p>; })}
+    </div>
+  </div>;
+}
+
+/** The song's progress: click or drag anywhere to jump there for everyone (arrow keys move 5 s). */
+function SeekBar({ s, pos, dur, can }: { s: MusicState; pos: number; dur: number | null; can: boolean }) {
+  const bar = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const seekable = can && !!dur && !!s.playing;
+  const at = (clientX: number) => { const r = bar.current!.getBoundingClientRect(); return Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * (dur ?? 0); };
+  const commit = (sec: number) => {
+    const t = s.playing; if (!t) return;
+    // Move locally straight away; the server's update follows for everyone.
+    useStore.setState((st) => ({ music: { ...st.music, [s.channel_id]: { ...s, position_ms: sec * 1000, received_at: Date.now() } } }));
+    api.post<MusicState>(`/api/music/${s.channel_id}/seek`, { track_id: t.id, position: sec }).catch((e) => toast(errMsg(e), "error"));
+  };
+  const shown = drag ?? pos;
+  const pct = dur ? Math.min(100, (shown / dur) * 100) : 0;
+  return <div className={`ms-progress mc-progress ${seekable ? "seekable" : ""} ${drag != null ? "dragging" : ""}`}>
+    <span>{clock(shown)}</span>
+    <div ref={bar} className="ms-bar" role={seekable ? "slider" : "progressbar"} tabIndex={seekable ? 0 : -1} aria-label="Track progress"
+      aria-valuemin={0} aria-valuemax={Math.round(dur ?? 0)} aria-valuenow={Math.round(shown)} aria-valuetext={`${clock(shown)} of ${clock(dur)}`}
+      onPointerDown={(e) => { if (!seekable) return; e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDrag(at(e.clientX)); }}
+      onPointerMove={(e) => { if (drag != null) setDrag(at(e.clientX)); }}
+      onPointerUp={(e) => { if (drag == null) return; const v = at(e.clientX); setDrag(null); commit(v); }}
+      onPointerCancel={() => setDrag(null)}
+      onKeyDown={(e) => { if (!seekable) return; const step = e.key === "ArrowRight" ? 5 : e.key === "ArrowLeft" ? -5 : 0; if (!step) return; e.preventDefault(); commit(Math.max(0, Math.min((dur ?? 0) - 1, pos + step))); }}>
+      <i style={{ width: `${pct}%` }} />
+      {seekable && <b className="ms-knob" style={{ left: `${pct}%` }} aria-hidden />}
+    </div>
+    <span>{clock(dur)}</span>
+  </div>;
+}
+
 const thumb = (t: MusicTrack | null) => t?.video_id ? `https://i.ytimg.com/vi/${t.video_id}/hqdefault.jpg` : null;
 
 /** The call screen's music player: background art, big synced lyrics, a progress bar and round buttons. */
@@ -254,6 +309,7 @@ export function MusicCard({ channelId }: { channelId: string }) {
   const t = s.playing, dur = t?.duration ?? null, can = !!s.controls;
   const pos = t ? Math.max(0, dur ? Math.min(expected(s), dur) : expected(s)) : 0;
   const lines = linesAt(lyrics, pos);
+  const li = lineIndex(lyrics, pos);
   const changeVol = (v: number) => { setVol(v); setMusicVolume(v); if (v > 0) before.current = v; };
   const video = t?.kind === "youtube" && t.video_id;
   const art = thumb(t);
@@ -266,22 +322,18 @@ export function MusicCard({ channelId }: { channelId: string }) {
           <small className="ellipsis">{s.paused ? "Paused · " : ""}{by(t)}</small></>
           : <><strong>SEND Music</strong><small>Nothing playing. Add a song.</small></>}
       </div>
-      <div className="ms-lyrics" aria-live="off">
-        {lines ? <>{lines.cur.map((x, k) => <p key={k} className={k === 0 ? "now" : "soon"}>{x || "♪"}</p>)}{lines.next != null && <p className="later">{lines.next || "♪"}</p>}</>
+      <div className={`ms-lyrics ${lyrics?.synced?.length ? "scrolling" : ""}`} aria-live="off">
+        {lyrics?.synced?.length ? <LyricsScroller lyrics={lyrics} index={li} /> : lines ? <>{lines.cur.map((x, k) => <p key={k} className={k === 0 ? "now" : "soon"}>{x || "♪"}</p>)}{lines.next != null && <p className="later">{lines.next || "♪"}</p>}</>
           : t ? <><p className="now">{t.title}</p>{t.artist && <p className="soon">{t.artist}</p>}{s.lyrics && lyrics?.plain && !lyrics.synced && <p className="later">Lyrics aren't timed for this song</p>}</>
           : <p className="now">Add a song to start</p>}
       </div>
-      {t && <div className="ms-progress mc-progress">
-        <span>{clock(pos)}</span>
-        <div className="ms-bar" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={Math.round(dur ?? 0)} aria-valuenow={Math.round(pos)}><i style={{ width: dur ? `${Math.min(100, (pos / dur) * 100)}%` : "0%" }} /></div>
-        <span>{clock(dur)}</span>
-      </div>}
+      {t && <SeekBar s={s} pos={pos} dur={dur} can={can} />}
       <div className="ms-buttons">
-        {t && can && <button className="ms-btn" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={22} /> : <Pause size={22} />}</button>}
-        {t && can && <button className="ms-btn" onClick={() => void musicControl(channelId, "skip")} aria-label="Skip" title="Skip"><SkipForward size={22} /></button>}
-        <button className={`ms-btn ${queueOpen ? "on" : ""}`} onClick={() => { setQueueOpen(!queueOpen); setAdding(false); }} aria-expanded={queueOpen} aria-label="Queue" title="Queue"><ListMusic size={22} />{s.queue.length > 0 && <span className="mc-count">{s.queue.length}</span>}</button>
-        {can && <button className={`ms-btn ${adding ? "on" : ""}`} onClick={() => { setAdding(!adding); setQueueOpen(false); }} aria-expanded={adding} aria-label="Add a song" title="Add a song"><Plus size={22} /></button>}
-        {can && <button className="ms-btn stop" onClick={() => void musicControl(channelId, "stop")} aria-label="Stop and disconnect the music bot" title="Stop"><Square size={19} /></button>}
+        {can && <button className={`ms-btn glass ${adding ? "on" : ""}`} onClick={() => { setAdding(!adding); setQueueOpen(false); }} aria-expanded={adding} aria-label="Add a song" title="Add a song"><Plus size={20} strokeWidth={2.4} /></button>}
+        <button className={`ms-btn glass ${queueOpen ? "on" : ""}`} onClick={() => { setQueueOpen(!queueOpen); setAdding(false); }} aria-expanded={queueOpen} aria-label="Queue" title="Queue"><ListMusic size={20} strokeWidth={2.2} />{s.queue.length > 0 && <span className="mc-count">{s.queue.length}</span>}</button>
+        {t && can && <button className="ms-btn main" onClick={() => void musicControl(channelId, s.paused ? "resume" : "pause")} aria-label={s.paused ? "Resume" : "Pause"} title={s.paused ? "Resume" : "Pause"}>{s.paused ? <Play size={28} fill="currentColor" strokeWidth={0} /> : <Pause size={28} fill="currentColor" strokeWidth={0} />}</button>}
+        {t && can && <button className="ms-btn glass" onClick={() => void musicControl(channelId, "skip")} aria-label="Skip" title="Skip"><SkipForward size={20} fill="currentColor" strokeWidth={1.6} /></button>}
+        {can && <button className="ms-btn glass stop" onClick={() => void musicControl(channelId, "stop")} aria-label="Stop and disconnect the music bot" title="Stop"><Square size={16} fill="currentColor" strokeWidth={0} /></button>}
       </div>
       {adding && <AddSong channelId={channelId} autoFocus onDone={() => setAdding(false)} />}
       {queueOpen && <div className="mc-queue">

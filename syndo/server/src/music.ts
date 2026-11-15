@@ -664,6 +664,28 @@ export async function musicRoutes(app: FastifyInstance) {
     return stateOf(rooms.get(voice.id), voice.id);
   });
 
+  /**
+   * Jump to a point in the current song, for everyone in the room (the call screen's progress bar). Same rule as skip:
+   * your own song, anyone's when you're the only listener, otherwise DJ rights.
+   */
+  app.post<{ Params: { cid: string } }>("/api/music/:cid/seek", { preHandler: requireUser, config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
+    const b = z.object({ track_id: z.string().max(24), position: z.number().min(0).max(6 * 3600) }).parse(req.body);
+    const me = uid(req);
+    if (voiceStateOf(me)?.channel_id !== req.params.cid) throw forbidden("Join the voice room first.");
+    const voice = await getChannel(req.params.cid);
+    if (!voice?.guild_id || !isVoiceType(voice.type)) throw notFound("Voice room");
+    await withRoom(voice.id, async () => {
+      const r = rooms.get(voice.id), c = r?.current;
+      if (!r || !c || c.id !== b.track_id) throw bad("That song isn't playing any more.");
+      if (c.requester.id !== me && listeners(voice.id) > 1 && !(await isDj(me, voice))) throw forbidden(`Only ${c.requester.name} or someone with DJ rights can move through this song.`);
+      const pos = Math.min(b.position, c.duration != null ? Math.max(0, c.duration - 1) : b.position);
+      r.startedAt = (r.pausedAt ?? Date.now()) - Math.round(pos * 1000);
+      armTimer(r);
+      await broadcast(r.channelId);
+    });
+    return stateOf(rooms.get(voice.id), voice.id);
+  });
+
   /** Slash commands from the message box (/play, /queue, /nowplaying, /pause, /resume, /skip, /stop, /music). */
   app.post("/api/music/command", { preHandler: requireUser, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const b = z.object({ channel_id: z.string().regex(/^\d{1,20}$/), command: z.enum(["play", "queue", "nowplaying", "pause", "resume", "skip", "stop", "help"]), query: z.string().trim().max(300).optional() }).parse(req.body);
