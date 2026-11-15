@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.5 (soundboard panel background)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.4.yml` (feed that pointed at `SEND-Setup-0.8.4.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `86f9d8e9-1302-4870-9399-e3ca5d5aa257` (download link to 0.8.4) |
+| Web (Pages `syndo-app`) | deployment `7d671abe-cc22-41e3-b4da-be42be96e910` (`a3b3942`) |
+
+Released from commit `6dd7526` (CI run 43742233780): `SEND-Setup-0.8.5.exe`, 17,452,720 bytes, sha512 `9Oxcp9czwucEJO967v7rtvDLK3uwARbNSCcJ/4/G+p4baV3/BzfzRb3Dox/OiJ5wlUXVqMD8/ce4mOCNoS73CA==` (public copy verified). Feed switched to 0.8.5; download link worker version `c5fe04a1-d058-4808-8831-ac1256b07579` (same server code, `SOURCE_COMMIT` `a60d611`). Upload token deleted. Web Pages deployment `aee82b83-ed7c-4769-b044-c2b5b54310d4` (`6dd7526`).
+
+### Roll back
+1. Feed: copy `latest-0.8.4.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers, `send-beta-api`, deploy `86f9d8e9` at 100%.
+3. Web: Pages, `syndo-app`, roll back to `7d671abe`.
+
 ## 2026-11-15: desktop 0.8.4, boost perks, What's new shows only the latest update
 
 | Layer | Restore point (before this release) |
