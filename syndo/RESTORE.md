@@ -1,5 +1,22 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.2 and web (screen share sound on Windows, smoother tile dragging)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.1.yml` (backup of the feed that pointed at `SEND-Setup-0.8.1.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `61e1a46e-d23a-455d-bef5-6b84dad7ccea` (download link to 0.8.1) |
+| Web (Pages `syndo-app`) | deployment `0c663648-d4e0-4ae1-9441-4eebdf42cbb8` (`9c17aa3`) |
+| Source | branch `backup/pre-desktop-082-20261115` |
+
+Released from commit `a45fbc5` (CI run 43717444492): `SEND-Setup-0.8.2.exe`, 17,371,191 bytes, sha512 `pOHn34F0k25cCSkkkHepLEhl02FjOGkI17Pv+28AdHCtPuKUaNQwZqYxO5vTatbyYzzrE5oqAGsvufv8OmpQUw==` (public copy verified). Feed switched to 0.8.2; download link worker version `6f1cac62-c57e-41d9-b48c-b92b9f80f396` (same server code, SOURCE_COMMIT `9c17aa3`). Upload token deleted. Web Pages deployment `e9df661d-467e-4ed4-b246-59f40e18d1fc` (`a45fbc5`). No database change.
+Change: whole-screen shares on Windows also leave out the sound of the WebView2 process tree that plays SEND's audio; call tiles swap only once the pointer is well inside another tile's place and ease into place.
+
+### Roll back
+1. Feed: copy `latest-0.8.1.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers, `send-beta-api`, deploy `61e1a46e` at 100%.
+3. Web: Pages, `syndo-app`, roll back to `0c663648`.
+
 ## 2026-11-15: desktop 0.8.1 (the new SEND Music player)
 
 | Layer | Restore point (before this release) |
