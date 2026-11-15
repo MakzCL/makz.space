@@ -1,5 +1,11 @@
 # SEND restore points
 
+## 2026-11-15: live connection accepts the desktop app's address (server only)
+
+Before: worker `cda391e4-495a-4a48-986a-6d026d651362` (SOURCE_COMMIT `2c3e79b`). Source backup branch `backup/pre-desktop-origins-20261115`.
+Change: `/gateway` also accepts the origins `https://sendapp.localhost`, `http://sendapp.localhost` and `sendapp://localhost` (the standalone desktop app, 0.8.0+, which signs in with a token). Nothing else changes; pushed with [skip ci] so no app builds were published.
+Roll back: Workers, `send-beta-api`, deploy `cda391e4` at 100%.
+
 ## 2026-11-15: SEND Music player with synced lyrics (LRCLIB)
 
 Before: backend worker `7e6a8e3c-d351-49f9-9700-7159ff0674c9` (SOURCE_COMMIT `4258b0b`), web Pages `d9b75d34-c3ec-4b0f-8716-f10cea9d47bc` (`9f2e5d0`). Source backup branch `backup/pre-player-20261115`.
