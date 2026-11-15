@@ -1,5 +1,19 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.1 (the new SEND Music player)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.0.yml` (backup of the feed that pointed at `SEND-Setup-0.8.0.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `3faabb5d-f7b5-4914-8284-56c0fe303f47` (download link to 0.8.0) |
+| Source | branch `backup/pre-desktop-081-20261115` |
+
+Released from commit `1f230fb` (CI run 43669034888): `SEND-Setup-0.8.1.exe`, 17,366,612 bytes, sha512 `iraYSp1WHj08SYWxb6dhk5fwRvVTVFmY708J+tsckJ8FkYEIkstBFaMG1pX8S/Ep9i9nHcrWVTAkQoh3kbJLcA==` (public copy verified). Feed switched to 0.8.1; download link worker version `61e1a46e-d23a-455d-bef5-6b84dad7ccea`. Upload token deleted. Contains the player v2 already live on the web; not the phone call rebuild (unpublished).
+
+### Roll back
+1. Feed: copy `latest-0.8.0.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link: Workers, `send-beta-api`, deploy `3faabb5d` at 100%.
+
 ## 2026-11-15: SEND Music player v2 (theme colours, seekable bar, scrolling lyrics)
 
 Before: worker `b62dd955-f3cc-4f97-bf09-0e531e4f5042` (SOURCE_COMMIT `fcb013c`), web Pages `83459ff4-0322-4d55-88b0-fdba0c9fe435` (`2079e51`). Source backup branch `backup/pre-player-v2-20261115`.
