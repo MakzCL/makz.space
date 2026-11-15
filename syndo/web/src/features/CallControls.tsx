@@ -1,4 +1,4 @@
-import { Camera, CameraOff, ChevronDown, ChevronUp, Headphones, HeadphoneOff, MessageCircle, Mic, MicOff, MoreHorizontal, Rocket, Settings, UserPlus, X } from "lucide-react";
+import { Music2, Camera, CameraOff, ChevronDown, ChevronUp, Headphones, HeadphoneOff, MessageCircle, Mic, MicOff, MoreHorizontal, Rocket, Settings, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { P, type Channel, type Guild, type Message } from "@send/shared";
 import { openContextMenu, type MenuItem } from "../components/overlay.tsx";
@@ -7,6 +7,7 @@ import { openDialog } from "../components/Shell.tsx";
 import { can, displayName, useStore } from "../store.ts";
 import { setDeafened, setMuted, switchDevice, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { openActivityPicker } from "./Activities.tsx";
+import { openMusicStart } from "../voice/music.tsx";
 import { SUPPRESSION_LABEL, type Suppression } from "../voice/denoise.ts";
 import { suppressionFor } from "../voice/settings.ts";
 import { plainText } from "../markdown.tsx";
@@ -107,10 +108,12 @@ function CameraPreview({ onClose }: { onClose: () => void }) {
 /** The "…" button: invite, view options and settings. */
 export function MoreButton({ channel, guild, onDiag }: { channel: Channel; guild: Guild | null; onDiag: () => void }) {
   const v = useVoice();
+  const music = useStore((st) => st.music[channel.id]);
   const s = v.settings;
   return (
     <button className="ctl" aria-haspopup="menu" aria-label="More options" title="More" onClick={(e) => menuAt(rectOf(e), [
       ...(guild && can(channel, P.CREATE_INVITE) ? [{ label: "Invite to Voice", icon: <UserPlus size={16} />, onSelect: () => openDialog({ kind: "invite", guildId: guild.id, channelId: channel.id }) } as MenuItem, { kind: "separator" } as MenuItem] : []),
+      ...(guild && v.channelId === channel.id && music?.controls && !music.active ? [{ label: "Play music", icon: <Music2 size={16} />, onSelect: openMusicStart } as MenuItem, { kind: "separator" } as MenuItem] : []),
       { label: "Grid view", checked: v.layout === "grid", onSelect: () => useVoice.setState({ layout: v.layout === "grid" ? "focus" : "grid", focus: null }) },
       { label: "Show My Own Camera", checked: s.callShowSelf, onSelect: () => void updateVoiceSettings({ callShowSelf: !s.callShowSelf }) },
       { label: "Show Non-Video Participants", checked: s.callShowNonVideo, onSelect: () => void updateVoiceSettings({ callShowNonVideo: !s.callShowNonVideo }) },
@@ -171,7 +174,8 @@ export function MessagePreviews({ channel, chatOpen, onOpen }: { channel: Channe
   useEffect(() => {
     if (!last || last.id === seen.current) return;
     seen.current = last.id;
-    if (chatOpen || !on || last.author.id === me || (last as any)._state) return;
+    // The music bot's messages ("Now playing…") are skipped: the player already shows what's on.
+    if (chatOpen || !on || last.author.id === me || (last as any)._state || last.author.username === "sendmusic") return;
     setShown(last);
     const t = setTimeout(() => setShown(null), 6000);
     return () => clearTimeout(t);

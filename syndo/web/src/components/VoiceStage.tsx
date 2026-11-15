@@ -29,7 +29,7 @@ import { ChannelType } from "@send/shared";
 import { MobileAddPeople, MobileCallTop, MobileVoiceIdle } from "../mobile/MobileCall.tsx";
 import { CameraGroup, ChatToggle, InviteCard, MessagePreviews, MicGroup, MoreButton } from "../features/CallControls.tsx";
 import { CallChat } from "./ChannelView.tsx";
-import { MusicButton, MusicCard } from "../voice/music.tsx";
+import { MusicButton, MusicCard, MusicStartDialog } from "../voice/music.tsx";
 
 /** The call surface for guild voice channels and DM calls: tiles, focus/grid layouts, controls, diagnostics. */
 export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild | null }) {
@@ -54,6 +54,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   // The pop-out window's share button opens the Go Live picker here.
   useEffect(() => { const on = () => setShareMenu(true); window.addEventListener("send:open-share", on); return () => window.removeEventListener("send:open-share", on); }, []);
   const popped = usePopout((p) => p.channelId === channel.id) && here;
+  const musicOn = useStore((s) => !!s.music[channel.id]?.active) && v.channelId === channel.id;
 
   if (!here) return (
     <div className="stage-idle">
@@ -111,7 +112,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
   const caps = captureCapabilities();
 
   return (
-    <div className={`stage ${chatOn ? "with-chat" : ""}`} data-region="call">
+    <div className={`stage ${chatOn ? "with-chat" : ""} ${musicOn ? "has-music" : ""}`} data-region="call">
       <div className="stage-main">
       <MobileCallTop channel={channel} guild={guild} onChat={guild ? () => setChat(!chatOn) : undefined} />
       <header className="ch-h"><MobileNavButton /><ChannelGlyph c={channel} size={22} /><h1 className="ellipsis">{channel.name}</h1>
@@ -124,6 +125,7 @@ export function VoiceStage({ channel, guild }: { channel: Channel; guild: Guild 
       </header>
       {v.error && <p className="call-notice" role="status">{v.error}</p>}
       {guild && v.channelId === channel.id && <MusicCard channelId={channel.id} />}
+      {guild && v.channelId === channel.id && <MusicStartDialog channelId={channel.id} />}
       <div className={`tiles ${focused ? "focused" : ""}`} data-count={shown.length + (alone && guild ? 1 : 0)}>
         {/* Focused: the big tile, the members toggle and strip move together as one centred group. */}
         {focused ? <div className={`focus-area ${v.hideStrip || shown.length < 2 ? "no-strip" : ""}`}>
