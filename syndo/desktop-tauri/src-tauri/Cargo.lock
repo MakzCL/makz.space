@@ -3317,7 +3317,7 @@ dependencies = [
 
 [[package]]
 name = "send-desktop"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "base64 0.22.1",
  "fast_image_resize",

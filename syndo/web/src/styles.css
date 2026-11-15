@@ -1268,7 +1268,8 @@ video.viewer-media { cursor: default; }
 .sb-play { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; text-align: left; transition: background .12s, transform .08s; }
 .sb-play:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg2)); } .sb-play:active { transform: scale(.97); }
 .sb-emoji { font-size: 1.15rem; flex: none; }
-.sb-panel { width: min(360px, calc(100vw - 24px)); max-height: min(440px, 70vh); overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.sb-panel { z-index: 60; width: min(360px, calc(100vw - 24px)); max-height: min(440px, 70vh); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; color: var(--text); background: var(--bg0, #0d1120); border: 1px solid var(--line); border-radius: var(--r, 12px); box-shadow: 0 12px 36px #000a; }
+.sb-panel p { margin: 0; }
 .sb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sb-head label { gap: 6px; } .sb-head input[type=range] { width: 110px; }
 .sb-activity { font-size: .95rem; animation: sb-pop .35s ease-out; }
