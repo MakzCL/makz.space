@@ -30,6 +30,32 @@ function Banner({ r, big }: { r: Release; big: boolean }) {
 
 export const CHANGELOG: Release[] = [
   {
+    id: "2026-11-boost-perks",
+    title: "Boost perks and a smarter music player",
+    date: "2026-11-15",
+    intro: "Servers get new things to unlock with boosts, and SEND Music fits right into the / menu.",
+    banner: { icon: "sparkles", from: "#B05CFF", to: "#FF8FD1", tagline: "Update" },
+    sections: [
+      { title: "Server Boost", items: [
+        "A new Server Boost page: each level as a card with its perks, plus your available and spent boosts.",
+        "The boost bar under the server name is cleaner: level, boost count and markers for levels 1, 2 and 3.",
+        "Additional perks you can turn on with enough boosts, whatever the level: a badge next to your server tag, animated gradient role colours and a server colour.",
+      ] },
+      { title: "SEND Music", items: [
+        "Music commands live in the / menu now: /play, /queue, /nowplaying, /pause, /resume, /skip and /stop.",
+        "The bot shows in the call, and you can turn its volume down just for you.",
+        "The player rearranges itself when the window gets smaller.",
+      ] },
+      { title: "Also new", items: [
+        "Camera, screen share, activities and soundboard buttons in the voice panel.",
+        "The soundboard opens as a small panel above its button.",
+        "A new Anime Premiere collection in the profile shop.",
+        "The SEND app icon now has its own background everywhere, including the taskbar and tray.",
+        "The Android app can check for, download and install updates itself.",
+      ] },
+    ],
+  },
+  {
     id: "2026-11-music-2",
     title: "SEND Music is here",
     date: "2026-11-14",
@@ -354,19 +380,18 @@ export function WhatsNewHost() {
   return (
     <Modal title="What's new in SEND" onClose={close} footer={<button className="btn primary" onClick={close} autoFocus>Dismiss</button>}>
       <div className="whats-new">
-        {CHANGELOG.map((r, i) => (
-          <article key={r.id} className={i ? "older" : ""}>
-            <Banner r={r} big={i === 0} />
-            <header>{i ? <h3>{r.title}</h3> : <h3 className="sr-only">{r.title}</h3>}<time dateTime={r.date}>{new Date(r.date + "T12:00:00").toLocaleDateString(currentLocale(), { day: "numeric", month: "long", year: "numeric" })}</time></header>
-            <p className="wn-intro">{r.intro}</p>
-            {r.sections.map((s) => (
-              <section key={s.title}>
-                <h4>{s.title}</h4>
-                <ul>{s.items.map((it) => <li key={it}>{it}</li>)}</ul>
-              </section>
-            ))}
-          </article>
-        ))}
+        {/* Only this update: older entries stay in the code for reference but aren't shown. */}
+        <article>
+          <Banner r={latest} big />
+          <header><h3 className="sr-only">{latest.title}</h3><time dateTime={latest.date}>{new Date(latest.date + "T12:00:00").toLocaleDateString(currentLocale(), { day: "numeric", month: "long", year: "numeric" })}</time></header>
+          <p className="wn-intro">{latest.intro}</p>
+          {latest.sections.map((s) => (
+            <section key={s.title}>
+              <h4>{s.title}</h4>
+              <ul>{s.items.map((it) => <li key={it}>{it}</li>)}</ul>
+            </section>
+          ))}
+        </article>
       </div>
     </Modal>
   );
