@@ -13,6 +13,7 @@ import { Avatar, Field, Modal, Toggle } from "../components/ui.tsx";
 import { askConfirm, askText } from "../components/overlay.tsx";
 import { disablePush, enablePush, pushState } from "./Notifications.tsx";
 import { openModal } from "./modals.tsx";
+import { bundled } from "../origin.ts";
 
 const EMPTY = {};
 const run = async (fn: () => Promise<unknown>, ok?: string) => { try { await fn(); if (ok) toast(ok, "success"); return true; } catch (e) { toast(errMsg(e), "error"); return false; } };
@@ -36,7 +37,8 @@ export function PasskeysCard() {
     <p className="muted small">Sign in with your fingerprint, face or device PIN instead of a password. Passkeys can't be phished.</p>
     {list?.map((p) => <div key={p.id} className="row"><Fingerprint size={16} /><span className="grow">{p.name}<small className="muted block">Added {new Date(p.created_at).toLocaleDateString()}{p.last_used_at ? ` · last used ${new Date(p.last_used_at).toLocaleDateString()}` : ""}</small></span>
       <button className="icon-btn sm danger" aria-label={`Remove ${p.name}`} onClick={async () => { if (await askConfirm({ title: `Remove ${p.name}?`, confirmLabel: "Remove", danger: true })) run(() => api.del(`/api/auth/passkeys/${encodeURIComponent(p.id)}`)).then(load); }}><Trash2 size={14} /></button></div>)}
-    <button className="btn primary sm" onClick={add}><Plus size={14} /> Add a passkey</button>
+    {bundled ? <p className="muted small">Passkeys belong to SEND's website address, so add and use them on the website. Your passkeys still work there.</p>
+      : <button className="btn primary sm" onClick={add}><Plus size={14} /> Add a passkey</button>}
   </div>;
 }
 

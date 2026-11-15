@@ -1,5 +1,6 @@
 import { dispatch, useStore } from "./store.ts";
 import { previewMode } from "./preview-mode.ts";
+import { bundled, gatewayUrl } from "./origin.ts";
 
 /**
  * Gateway connection with heartbeat and exponential-backoff reconnect.
@@ -22,8 +23,13 @@ export function connectGateway() {
   stopped = false;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/gateway`);
+  // The desktop app's interface isn't on the server's address, so it connects there directly and signs in with
+  // its session (the browser's cookie doesn't come along).
+  ws = new WebSocket(bundled ? gatewayUrl() : `${proto}://${location.host}/gateway`);
   const sock = ws;
+  if (bundled) sock.addEventListener("open", () => {
+    (window as any).sendDesktop?.sessionToken?.().then((token: string | null) => { if (token && sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ op: "identify", token })); }).catch(() => {});
+  });
   lastFrame = Date.now();
   sock.onmessage = (e) => {
     lastFrame = Date.now();

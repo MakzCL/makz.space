@@ -8,6 +8,7 @@ import { can, guildPerms, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal } from "../components/ui.tsx";
 import { askConfirm } from "../components/overlay.tsx";
 import { openModal } from "./modals.tsx";
+import { publicOrigin } from "../origin.ts";
 
 /** Scheduled events: the "N Events" row at the top of the channel list, the events list, and the create form. */
 
@@ -73,7 +74,7 @@ function EventCard({ e, guild, onNavigate }: { e: GuildEvent; guild: Guild; onNa
         {manage && e.status === 1 && e.entity_type !== 3 && <button className="btn primary sm" onClick={() => status(2)}>Start</button>}
         {manage && e.status === 2 && <button className="btn sm" onClick={() => status(3)}>End event</button>}
         <button className={`btn sm ${e.me ? "active" : ""}`} aria-pressed={e.me} onClick={rsvp}><Star size={14} fill={e.me ? "currentColor" : "none"} /> {e.me ? "Interested" : "Interested?"}</button>
-        <button className="icon-btn sm" aria-label="Copy event link" onClick={() => { navigator.clipboard.writeText(`${location.origin}/channels/${guild.id}?event=${e.id}`); toast("Link copied.", "success"); }}><Share2 size={14} /></button>
+        <button className="icon-btn sm" aria-label="Copy event link" onClick={() => { navigator.clipboard.writeText(`${publicOrigin}/channels/${guild.id}?event=${e.id}`); toast("Link copied.", "success"); }}><Share2 size={14} /></button>
         {manage && e.status === 1 && <button className="icon-btn sm" aria-label="Edit event" onClick={() => openModal((c) => <EventForm guild={guild} edit={e} onClose={c} />)}>Edit</button>}
         {manage && <button className="icon-btn sm danger" aria-label="Delete event" onClick={async () => { if (await askConfirm({ title: "Cancel this event?", confirmLabel: "Cancel event", danger: true })) status(4).then(() => api.del(`/api/guilds/${guild.id}/events/${e.id}`)); }}><Trash2 size={14} /></button>}
       </div>

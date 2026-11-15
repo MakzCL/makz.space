@@ -10,6 +10,7 @@
 //! is locked to that origin and everything else opens in the system browser; camera, mic and
 //! notification permission is granted only to that origin.
 
+mod bundle;
 mod capture;
 mod games;
 mod ptt;
@@ -122,43 +123,22 @@ fn emit<R: Runtime>(app: &AppHandle<R>, channel: &str, value: &Value) {
   }
 }
 
+/// The interface is the copy built into the app (bundle.rs); the server is only talked to, never loaded.
 fn start_url(c: &Config, link: Option<String>) -> WebviewUrl {
-  match Url::parse(&c.server_url) {
-    Ok(base) if !c.server_url.is_empty() => {
-      let path = link.unwrap_or_else(|| "/channels/@me".into());
-      base.join(&path).map(WebviewUrl::External).unwrap_or(WebviewUrl::App("connect.html".into()))
-    }
-    _ => WebviewUrl::App("connect.html".into()),
-  }
+  if c.server_url.is_empty() || Url::parse(&c.server_url).is_err() { return WebviewUrl::App("connect.html".into()); }
+  WebviewUrl::CustomProtocol(bundle::protocol_url(&link.unwrap_or_else(|| "/channels/@me".into())))
 }
 
-/// Let a server chosen at runtime call the shell's commands (the hosted one is in capabilities/).
-fn allow_origin<R: Runtime>(app: &AppHandle<R>, origin: &str) {
-  if origin == "https://syndo.makz.space" { return; }
-  let mut cap = tauri::ipc::CapabilityBuilder::new(format!("server-{}", origin.replace(|c: char| !c.is_ascii_alphanumeric(), "-")))
-    .remote(format!("{origin}/*"))
-    .window("main")
-    .permission("core:app:default");
-  // The shell's own commands (window buttons, push-to-talk, updates…) — the same set as capabilities/send-remote.json.
-  for p in REMOTE_COMMANDS { cap = cap.permission(*p); }
-  let _ = app.add_capability(cap);
-}
-
-const REMOTE_COMMANDS: &[&str] = &[
-  "allow-window-control", "allow-set-ptt", "allow-set-material", "allow-get-settings", "allow-set-performance", "allow-set-startup",
-  "allow-restart-app", "allow-refresh", "allow-set-close-to-tray", "allow-change-server", "allow-update-status", "allow-check-updates",
-  "allow-download-update", "allow-restart-to-update", "allow-flash", "allow-notify", "allow-set-capture-excluded",
-  "allow-capture-sources", "allow-capture-start", "allow-capture-stop", "allow-capture-ack",
-];
+// The interface is built into the app (bundle.rs) and served as a local page, so the shell's commands are granted
+// in capabilities/default.json. No page loaded from the network can call them.
 
 fn load_app<R: Runtime>(app: &AppHandle<R>) {
   let st = shell(app);
   let c = st.cfg();
   let link = st.pending_link.lock().unwrap().take();
-  if let Some(o) = origin_of(&c.server_url) { allow_origin(app, &o); }
   let Some(win) = app.get_webview_window("main") else { return };
-  match start_url(&c, link) {
-    WebviewUrl::External(u) => { let _ = win.navigate(u); }
+  match start_url(&c, link.clone()) {
+    WebviewUrl::CustomProtocol(_) => { let _ = win.navigate(bundle::url(&link.unwrap_or_else(|| "/channels/@me".into()))); }
     _ => {
       let local = if cfg!(windows) { "http://tauri.localhost/connect.html" } else { "tauri://localhost/connect.html" };
       if let Ok(u) = Url::parse(local) { let _ = win.navigate(u); }
@@ -173,12 +153,13 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
     "version": app.package_info().version.to_string(),
     "platform": if cfg!(windows) { "win32" } else { std::env::consts::OS },
     "osBuild": windows_build(),
+    "server": c.server_url,
+    "bundled": true,
     "capabilities": { "customTitlebar": true, "gameDetection": cfg!(windows), "globalPtt": ptt::available(), "systemAudio": cfg!(windows), "windowMaterial": material_ok(), "autoUpdate": !cfg!(debug_assertions), "tray": true, "captureExclusion": cfg!(windows), "nativeCapture": cfg!(windows) },
   });
   let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required");
   if !c.hardware_acceleration { args.push_str(" --disable-gpu"); }
   let link = st.pending_link.lock().unwrap().take();
-  if let Some(o) = origin_of(&c.server_url) { allow_origin(app, &o); }
   let transparent = material_ok() && c.material != "none";
 
   let nav_app = app.clone();
@@ -193,11 +174,18 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
     .visible(!c.start_hidden)
     .background_color(tauri::window::Color(14, 18, 32, if transparent { 0 } else { 255 }))
     .initialization_script(INIT_JS.replace("__SEND_INFO__", &info.to_string()))
+    // https://sendapp.localhost on Windows: a secure page, so calls, notifications and clipboard work as on the web.
+    .use_https_scheme(true)
     .additional_browser_args(&args)
     .on_navigation(move |url| {
-      if is_local_page(url) || url.scheme() == "about" || url.scheme() == "data" { return true; }
+      if is_local_page(url) || bundle::is_bundle(url) || url.scheme() == "about" || url.scheme() == "data" { return true; }
+      // A SEND link (invite, message, channel) opens inside the app, not the website.
       let o = origin_of(&shell(&nav_app).cfg().server_url);
-      if o.is_some() && o == Some(url.origin().ascii_serialization()) { return true; }
+      if o.is_some() && o == Some(url.origin().ascii_serialization()) && !url.path().starts_with("/api/") {
+        let path = format!("{}{}", url.path(), url.query().map(|q| format!("?{q}")).unwrap_or_default());
+        if let Some(w) = nav_app.get_webview_window("main") { let _ = w.navigate(bundle::url(&path)); }
+        return false;
+      }
       open_external(url);
       false
     })
@@ -219,8 +207,8 @@ fn create_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>
       match built { Ok(window) => NewWindowResponse::Create { window }, Err(_) => NewWindowResponse::Allow }
     })
     .on_permission_request(move |webview, kind| {
-      let o = origin_of(&shell(&perm_app).cfg().server_url);
-      let from_app = webview.url().ok().map(|u| u.origin().ascii_serialization()) == o && o.is_some();
+      let from_app = webview.url().ok().map(|u| bundle::is_bundle(&u)).unwrap_or(false);
+      let _ = &perm_app;
       match kind {
         PermissionKind::Microphone | PermissionKind::Camera | PermissionKind::Notifications | PermissionKind::ClipboardRead | PermissionKind::Autoplay if from_app => PermissionResponse::Allow,
         _ => PermissionResponse::Default,
@@ -367,6 +355,7 @@ fn change_server_now<R: Runtime>(app: &AppHandle<R>) {
   let st = shell(app);
   st.config.lock().unwrap().server_url = String::new();
   st.save();
+  bundle::clear();
   show_main(app);
   load_app(app);
 }
@@ -544,10 +533,18 @@ async fn connect_set_server<R: Runtime>(app: AppHandle<R>, webview: tauri::Webvi
   }).await.unwrap_or(false);
   if !ok { return json!({ "ok": false, "reason": "Couldn't reach a SEND server at that address. Check the address and your connection." }); }
   let st = shell(&app);
+  if st.cfg().server_url != url { bundle::clear(); }
   st.config.lock().unwrap().server_url = url;
   st.save();
   load_app(&app);
   json!({ "ok": true })
+}
+
+/// The session token, so the bundled interface can sign in its live connection (the session itself stays in the app).
+#[tauri::command]
+fn session_token<R: Runtime>(webview: tauri::Webview<R>) -> Option<String> {
+  if !webview.url().map(|u| bundle::is_bundle(&u)).unwrap_or(false) { return None; }
+  bundle::session_token()
 }
 
 #[tauri::command]
@@ -588,14 +585,21 @@ pub fn run() {
       window_control, set_ptt, set_material, get_settings, set_performance, set_startup, restart_app, refresh,
       set_close_to_tray, change_server, update_status, check_updates, download_update, restart_to_update,
       flash, notify, connect_set_server, connect_info, set_capture_excluded,
-      capture_sources, capture_start, capture_stop, capture_ack
+      capture_sources, capture_start, capture_stop, capture_ack, session_token
     ])
+    // The interface built into the app, and the server calls it makes (bundle.rs).
+    .register_asynchronous_uri_scheme_protocol(bundle::SCHEME, |ctx, req, responder| {
+      let app = ctx.app_handle();
+      let server = app.try_state::<Shell>().map(|s| s.cfg().server_url).unwrap_or_default();
+      bundle::handle(app, server, req, responder);
+    })
     .setup(|app| {
       let handle = app.handle().clone();
       let config_path = app.path().app_config_dir().map(|d| d.join("config.json")).unwrap_or_else(|_| PathBuf::from("config.json"));
       let mut config: Config = std::fs::read(&config_path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
       if config.server_url.is_empty() { config.server_url = BAKED_URL.into(); }
       let initial_hw = config.hardware_acceleration;
+      if let Some(dir) = config_path.parent() { bundle::init(dir.to_path_buf()); }
       app.manage(Shell {
         config: Mutex::new(config), config_path, initial_hw, quitting: AtomicBool::new(false),
         update: Mutex::new(updater::Status::new("idle")), feed: Mutex::new(None), installer: Mutex::new(None),

@@ -28,6 +28,10 @@
     version: String(info.version),
     platform: String(info.platform),
     shell: "tauri",
+    // The interface is built into the app; `server` is where its calls go.
+    server: String(info.server || ""),
+    bundled: !!info.bundled,
+    sessionToken: () => inv("session_token"),
     capabilities: Object.freeze({ ...info.capabilities }),
     setPushToTalk: (code) => inv("set_ptt", { code: code == null ? null : String(code) }),
     onPushToTalk: (cb) => on("ptt", (v) => cb(!!v)),

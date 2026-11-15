@@ -54,6 +54,9 @@ function buildId(): Plugin {
 const api = process.env.SEND_API ?? process.env.SYNDO_API ?? "http://localhost:3900";
 export default defineConfig({
   plugins: [react(), brand(), buildId()],
+  // SEND's styles need no PostCSS. Set it here so Vite never picks up the makz.space site's config in the repo root
+  // (it uses Tailwind, which isn't installed for SEND; the Windows desktop build failed on it).
+  css: { postcss: { plugins: [] } },
   server: {
     port: 5173,
     proxy: {

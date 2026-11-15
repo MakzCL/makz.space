@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Bundled pages (server chooser, updater).",
+  "description": "Pages built into the app: SEND's interface (sendapp://), the server chooser and the updater.",
   "windows": [
     "main",
     "updater"
@@ -9,6 +9,27 @@
   "permissions": [
     "core:app:default",
     "allow-window-control",
+    "allow-set-ptt",
+    "allow-set-material",
+    "allow-get-settings",
+    "allow-set-performance",
+    "allow-set-startup",
+    "allow-restart-app",
+    "allow-refresh",
+    "allow-set-close-to-tray",
+    "allow-change-server",
+    "allow-update-status",
+    "allow-check-updates",
+    "allow-download-update",
+    "allow-restart-to-update",
+    "allow-flash",
+    "allow-notify",
+    "allow-set-capture-excluded",
+    "allow-capture-sources",
+    "allow-capture-start",
+    "allow-capture-stop",
+    "allow-capture-ack",
+    "allow-session-token",
     "allow-connect-set-server",
     "allow-connect-info"
   ]
