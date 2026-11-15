@@ -19,6 +19,7 @@ createServer(async (req, res) => {
     if (path.startsWith('..') || /(^|[/\\])(tests|node_modules)([/\\]|$)/.test(path)) { res.writeHead(403).end(); return; }
     let file = join(root, path || 'index.html');
     if ((await stat(file).catch(() => null))?.isDirectory()) file = join(file, 'index.html');
+    if (!extname(file) && !(await stat(file).catch(() => null))) file += '.html'; // /join -> join.html, like Cloudflare Pages
     const body = await readFile(file);
     res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);

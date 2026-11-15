@@ -15,6 +15,9 @@ import { usersView } from './views/users.js';
 import { syncView, joinForm, statusText } from './views/syncview.js';
 import { startSync, onStatus, isConnected } from './sync.js';
 import { icon } from './icons.js';
+import { chatView } from './views/chatview.js';
+import * as chat from './chat.js';
+import { startCalls } from './calls.js';
 import { autoCheck, onUpdate } from './updates.js';
 
 const view = document.getElementById('view');
@@ -39,6 +42,7 @@ function route() {
     case 'data': return ['more', isAdmin() ? dataView() : adminOnly()];
     case 'users': return ['more', usersView()];
     case 'sync': return ['more', syncView()];
+    case 'chat': return ['chat', chatView(arg)];
     case 'help': return ['more', helpView()];
     default: return ['today', todayView()];
   }
@@ -99,14 +103,15 @@ window.addEventListener('locked', () => { document.getElementById('toast')?.clas
 
 function renderNav(active) {
   const holds = milkHolds(D()).length;
-  const items = [['today', '#/', 'Today'], ['herd', '#/herd', 'Herd'], ['breeding', '#/breeding/awaiting', 'Breeding'], ['milk', '#/milk', 'Milk'], ['more', '#/more', 'More']];
+  const items = [['today', '#/', 'Today'], ['herd', '#/herd', 'Herd'], ['breeding', '#/breeding/awaiting', 'Breeding'], ['milk', '#/milk', 'Milk'], ['chat', '#/chat', 'Chat'], ['more', '#/more', 'More']];
+  const unread = chat.totalUnread();
   nav.setAttribute('aria-label', t('Main'));
   nav.innerHTML = String(html`${items.map(([k, href, label]) => html`<a href="${href}" class="${active === k ? 'on' : ''}" ${active === k ? html`aria-current="page"` : ''}>
-    <span class="nav-ico">${icon(ICONS[k])}</span><span class="nav-l">${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}</a>`)}`);
+    <span class="nav-ico">${icon(ICONS[k])}</span><span class="nav-l">${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}${k === 'chat' && unread ? html`<span class="dot" data-testid="chat-dot" aria-label="${t('{n} unread messages', { n: unread })}">${unread}</span>` : ''}</a>`)}`);
 }
 
 const ICONS = {
-  today: 'home', herd: 'herd', breeding: 'heart', milk: 'milk', more: 'grid',
+  today: 'home', herd: 'herd', breeding: 'heart', milk: 'milk', chat: 'chat', more: 'grid',
 };
 
 export function render({ scroll = false } = {}) {
@@ -178,6 +183,17 @@ async function boot() {
   startIdleWatch();
   resumeSession();
   startSync();
+  startCalls();
+  chat.newArrivals();
+  db.onChange(() => {
+    const fresh = chat.newArrivals();
+    if (!fresh.length || !currentUser()) return;
+    const open = decodeURIComponent((location.hash.match(/^#\/chat\/(.+)$/) || [])[1] || '');
+    const m = fresh.filter((x) => x.thread !== open).pop();
+    if (!m) return;
+    navigator.vibrate?.([60, 40, 60]);
+    toast(`${m.fromName}: ${m.text.slice(0, 80)}`, { action: { label: t('Open chat'), fn: () => { location.hash = `#/chat/${encodeURIComponent(m.thread)}`; } } });
+  });
   // Invite links: web address on start; Android app link on start and while running.
   if (takeJoinCode(location.href)) history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]?(join|c)=[^&]*/, ''));
   if (window.Capacitor?.isNativePlatform?.()) {

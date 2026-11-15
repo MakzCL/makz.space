@@ -22,6 +22,6 @@ for (const f of files.filter((x) => !skip.test(x))) {
     for (const v of [m[2], m[4]]) if (v && /[a-z]{2}/i.test(v)) keys.add(v.replace(/\\'/g, "'"));
   }
 }
-const missing = [...keys].filter((k) => !(k in PL) && !/^(#|\.|\[|[a-z]+$|[A-Z]{2,}$)/.test(k));
+const missing = [...keys].filter((k) => !(k in PL) && !/^(#|\.|\[|[a-z]+$|[A-Z]{2,}$|stun:)/.test(k));
 console.log(missing.length ? missing.join('\n') : 'all strings translated');
 process.exitCode = missing.length ? 1 : 0;

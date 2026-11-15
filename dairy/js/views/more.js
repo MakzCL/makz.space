@@ -281,7 +281,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
 // ---------- data: backup / restore / sample ----------
 const STORE_LABEL = {
   animals: 'Animals', events: 'Records', exposures: 'Bull exposures', tasks: 'Reminders', milk: 'Milk entries', milkDays: 'Milk days',
-  buyers: 'Buyers', collections: 'Collections', statements: 'Statements', quality: 'Quality readings', photos: 'Photos',
+  buyers: 'Buyers', collections: 'Collections', statements: 'Statements', quality: 'Quality readings', photos: 'Photos', users: 'People', messages: 'Messages',
 };
 
 export function dataView() {

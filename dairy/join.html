@@ -35,7 +35,7 @@
       en: {
         title: 'You are invited', farm: 'Join {f} on Dairy Herd', role_worker: 'as a worker', role_admin: 'as an admin',
         s1: 'Download the app', s1d: 'Android phone. After downloading, open the file and allow the install if asked. On Samsung, Auto Blocker must be off.',
-        dl: 'Download Dairy Herd {v}', s2: 'Open the app and join', s2d: 'Tap below once the app is installed. Or open the app, choose “Join a farm with a code” and enter:',
+        dl: 'Download Dairy Herd {v}', s2: 'Open the app and join', s2d: 'Once the app is installed, tap “Open in the app” below. Or open the app, choose “Join a farm with a code” and enter:',
         open: 'Open in the app', s3: 'Create your account', s3d: 'Choose your name and PIN. That is your login for this farm.',
         web: 'iPhone or computer?', webd: 'Use Dairy Herd in the browser instead:', webb: 'Open in the browser', copy: 'Copy code', copied: 'Copied',
         bad: 'This invite has expired or was already used.', badd: 'Ask the farm admin for a new link.', until: 'Works until {d}',
@@ -43,7 +43,7 @@
       pl: {
         title: 'Zaproszenie', farm: 'Dołącz do {f} w Dairy Herd', role_worker: 'jako pracownik', role_admin: 'jako administrator',
         s1: 'Pobierz aplikację', s1d: 'Telefon z Androidem. Po pobraniu otwórz plik i zezwól na instalację, jeśli telefon zapyta. W Samsungu wyłącz Auto Blocker.',
-        dl: 'Pobierz Dairy Herd {v}', s2: 'Otwórz aplikację i dołącz', s2d: 'Stuknij poniżej po instalacji. Albo otwórz aplikację, wybierz „Dołącz do gospodarstwa z kodem” i wpisz:',
+        dl: 'Pobierz Dairy Herd {v}', s2: 'Otwórz aplikację i dołącz', s2d: 'Po instalacji stuknij „Otwórz w aplikacji” poniżej. Albo otwórz aplikację, wybierz „Dołącz do gospodarstwa z kodem” i wpisz:',
         open: 'Otwórz w aplikacji', s3: 'Załóż konto', s3d: 'Wybierz imię i PIN. To będzie Twoje logowanie w tym gospodarstwie.',
         web: 'iPhone lub komputer?', webd: 'Użyj Dairy Herd w przeglądarce:', webb: 'Otwórz w przeglądarce', copy: 'Kopiuj kod', copied: 'Skopiowano',
         bad: 'To zaproszenie wygasło lub zostało już użyte.', badd: 'Poproś administratora o nowy link.', until: 'Ważne do {d}',
@@ -84,9 +84,9 @@
           <section class="card j-step"><span class="j-num">1</span><div><h2>${tr('s1')}</h2><p class="muted small">${tr('s1d')}</p>
             ${latest ? `<a class="btn primary big" href="${esc(latest.url)}" data-testid="download">${tr('dl', { v: latest.versionName })}</a>` : ''}</div></section>
           <section class="card j-step"><span class="j-num">2</span><div><h2>${tr('s2')}</h2>
-            <a class="btn big" href="dairyherd://join/${code}" data-testid="open-app">${tr('open')}</a>
-            <p class="muted small" style="margin-top:10px">${tr('s2d')}</p>
-            <p class="j-code" data-testid="code">${pretty}</p><button class="btn small" data-copy>${tr('copy')}</button></div></section>
+            <p class="muted small">${tr('s2d')}</p>
+            <p class="j-code" data-testid="code">${pretty}</p><button class="btn small" data-copy>${tr('copy')}</button>
+            <a class="btn primary big" style="width:100%;margin-top:12px" href="dairyherd://join/${code}" data-testid="open-app">${tr('open')}</a></div></section>
           <section class="card j-step"><span class="j-num">3</span><div><h2>${tr('s3')}</h2><p class="muted small">${tr('s3d')}</p></div></section>
           <section class="card"><h2 class="h3">${tr('web')}</h2><p class="muted small">${tr('webd')}</p>
             <a class="btn" href="./?join=${code}">${tr('webb')}</a></section>${langs}`;

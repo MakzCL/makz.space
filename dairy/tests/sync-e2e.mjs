@@ -12,7 +12,8 @@ const { chromium } = require('playwright');
 const BASE = process.argv[2] || 'http://localhost:8080';
 const dirA = mkdtempSync(join(tmpdir(), 'dairy-a-'));
 const dirB = mkdtempSync(join(tmpdir(), 'dairy-b-'));
-const opts = { viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Warsaw', serviceWorkers: 'block' };
+const opts = { viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Warsaw', serviceWorkers: 'block', permissions: ['microphone'],
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] };
 const step = (s) => console.log(`\n▶ ${s}`);
 const ok = (s) => console.log(`  ✓ ${s}`);
 const errors = [];
@@ -29,6 +30,7 @@ const save = async (p) => { await p.click('.sheet button[type=submit]'); await p
 const choose = (p, name, value) => p.check(`.sheet input[name="${name}"][value="${value}"]`);
 const waitText = (p, sel, re, timeout = 10000) => p.waitForFunction(([s, src]) => new RegExp(src).test(document.querySelector(s)?.textContent || ''), [sel, re.source], { timeout });
 const t0 = () => Date.now();
+let s0 = 0;
 
 try {
   step('Phone A: new farm, shared online');
@@ -51,21 +53,44 @@ try {
 
   await go(A, '#/sync');
   await A.click('[data-testid=invite]');
+  await A.fill('#f_note', 'Tomek');
+  await A.click('.sheet button[type=submit]');
   await A.waitForSelector('[data-testid=invite-code]');
   const code = (await A.textContent('[data-testid=invite-code]')).trim();
-  ok(`invite code ${code}`);
+  const link = (await A.textContent('[data-testid=invite-link]')).trim();
+  assert.match(link, /\/join\?c=[A-Z0-9]{10}$/);
+  assert.ok(await A.isVisible('.qr svg'), 'QR code shown');
+  await A.click('.sheet [data-close]');
+  ok(`invite ${code} with QR code and link ${link}`);
 
-  step('Phone B: join with the code, log in with the farm PIN');
-  await B.goto(BASE);
-  await B.click('[data-testid=gate-join]');
-  await B.fill('#f_code', code.toLowerCase());
-  await B.fill('#f_label', 'Tom phone');
+  step('Invite page (what the link opens)');
+  const P = await ctxB.newPage();
+  await P.goto(`${BASE}/join?c=${code.replace(/-/g, '')}`);
+  await P.waitForSelector('[data-testid=download]');
+  assert.match(await P.textContent('.j-hero'), /E2E sync test/);
+  assert.match(await P.getAttribute('[data-testid=download]', 'href'), /dairy-app\/releases\/DairyHerd-.*\.apk$/);
+  assert.equal(await P.getAttribute('[data-testid=open-app]', 'href'), `dairyherd://join/${code.replace(/-/g, '')}`);
+  await P.close();
+  ok('invite page shows the farm, a download button for the latest APK and an "open in app" link');
+
+  step('Phone B: opens the link in the app, creates its own account');
+  await B.goto(`${BASE}/?join=${code.replace(/-/g, '')}`);
+  await B.waitForSelector('.sheet #f_code');
+  assert.equal((await B.inputValue('#f_code')).replace(/-/g, ''), code.replace(/-/g, ''));
+  await B.waitForSelector('.invite-hello');
+  assert.match(await B.textContent('.invite-hello'), /worker/);
+  await B.fill('#f_name', 'Tomek'); await B.fill('#f_pin', '5678'); await B.fill('#f_pin2', '5678');
+  await B.fill('#f_phone', '+48 600 000 000');
   await save(B);
-  await B.waitForSelector('[data-testid=login-pin]', { timeout: 20000 });
-  assert.match(await B.textContent('.login'), /Anna/);
-  await B.fill('[data-testid=login-pin]', '1234');
-  await B.click('[data-testid=login-submit]');
-  await B.waitForSelector('[data-testid=count-inseminated]');
+  await B.waitForSelector('[data-testid=count-inseminated]', { timeout: 20000 });
+  await go(B, '#/more');
+  assert.match(await B.textContent('.user-card'), /Tomek[\s\S]*Worker/);
+  await go(B, '#/');
+  await waitText(A, 'body', /./); // keep A alive
+  await go(A, '#/users');
+  await A.waitForFunction(() => /Tomek/.test(document.querySelector('main').textContent), null, { timeout: 15000 });
+  await go(A, '#/');
+  ok('B joined as worker "Tomek" without knowing anyone else\'s PIN; A sees Tomek in Users');
   assert.equal((await B.textContent('[data-testid=count-inseminated] .count-n')).trim(), '1');
   await B.fill('#find', '0042');
   assert.match(await B.textContent('#results'), /Inseminated today/);
@@ -84,6 +109,37 @@ try {
   await B.waitForSelector('#results img.thumb', { timeout: 15000 });
   ok(`B shows the photo in search results (thumbnail ${Math.round(size / 1024)} KB)`);
   await B.fill('#find', '');
+
+  step('Chat both ways');
+  await go(A, '#/chat/farm');
+  await A.fill('[data-testid=chat-input]', 'Dzień dobry, cielenie w boksie 3');
+  await A.click('[data-testid=chat-send]');
+  await go(B, '#/');
+  await B.waitForSelector('[data-testid=chat-dot]', { timeout: 15000 });
+  await go(B, '#/chat');
+  assert.match(await B.textContent('main'), /cielenie w boksie 3/);
+  await B.click('a.chat-link >> nth=0');
+  await B.fill('[data-testid=chat-input]', 'OK, idę');
+  s0 = Date.now();
+  await B.click('[data-testid=chat-send]');
+  await A.waitForFunction(() => /OK, idę/.test(document.querySelector('[data-testid=messages]')?.textContent || ''), null, { timeout: 15000 });
+  ok(`farm chat: message and unread badge reached B; B's reply showed on A's open chat after ${((Date.now() - s0) / 1000).toFixed(1)} s`);
+
+  step('Voice call A → Tomek');
+  await go(B, '#/');
+  await go(A, '#/chat');
+  await A.click('[data-act=call]');
+  await B.waitForSelector('[data-testid=call-accept]', { timeout: 15000 });
+  await B.click('[data-testid=call-accept]');
+  await A.waitForFunction(() => /^\d\d:\d\d$/.test(document.querySelector('[data-testid=call-status]')?.textContent || ''), null, { timeout: 20000 });
+  await B.waitForFunction(() => /^\d\d:\d\d$/.test(document.querySelector('[data-testid=call-status]')?.textContent || ''), null, { timeout: 20000 });
+  const audioIn = await B.evaluate(() => !!document.querySelector('#call audio')?.srcObject?.getAudioTracks().length);
+  assert.ok(audioIn, 'B receives audio');
+  await A.click('[data-testid=call-hangup]');
+  await B.waitForFunction(() => /ended|zakończone/i.test(document.querySelector('[data-testid=call-status]')?.textContent || '') || !document.getElementById('call'), null, { timeout: 10000 });
+  await A.click('#call [data-call=close]').catch(() => {});
+  await B.click('#call [data-call=close]').catch(() => {});
+  ok('B rang, answered, both connected with audio, hang-up reached B');
 
   step('Live: A inseminates another cow; B updates without reloading');
   await B.fill('#find', '');
