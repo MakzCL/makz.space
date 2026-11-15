@@ -45,6 +45,15 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
     const t = setInterval(load, 3000);
     return () => { alive = false; clearInterval(t); };
   }, []);
+  // Screen shares: which programs' sound goes out (desktop 0.8.4+), refreshed with the thumbnails.
+  const [sounds, setSounds] = useState<{ name: string; role: string }[] | null>(null);
+  useEffect(() => {
+    if (!nat?.soundSources) return;
+    let alive = true;
+    const load = () => nat.soundSources!().then((l) => { if (alive) setSounds(l); }, () => {});
+    load(); const t = setInterval(load, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
   const natOf = (k: "window" | "screen") => (natList ?? []).filter((x) => x.kind === k);
   const natChosen = (k: "window" | "screen") => { const l = natOf(k); return l.find((x) => x.id === natPick) ?? (k === "screen" ? l.find((x) => x.primary) : undefined) ?? l[0] ?? null; };
 
@@ -106,7 +115,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         {nat && tab !== "device" && natSel && <p className="muted small share-note">
-          {tab === "window" ? `Only ${natSel.app || "this app"}'s sound is shared.` : "Your computer's sound is shared, without SEND's own."} SEND's own window is left out.
+          {tab === "window" ? `Only ${natSel.app || "this app"}'s sound is shared.` : sounds ? soundLine(sounds) : "Your computer's sound is shared, without SEND's own."} SEND's own window is left out.
         </p>}
         {!nat && tab !== "device" && <p className="muted small share-note">
           {tab === "window" ? (surface === "browser" ? "Your browser's picker opens with your tabs. A tab shares its own sound only, so the call never echoes." : "Your system's picker opens with your open windows.") : "Your system's picker opens with your screens."} SEND's own window is left out.
@@ -156,4 +165,13 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
       </div>
     </Modal>
   );
+}
+
+/** "Sound from Spotify and Chrome. Left out: SEND, Sonar." */
+const appName = (exe: string) => { const n = exe.replace(/\.exe$/i, ""); return n === "msedgewebview2" ? "WebView2" : n.charAt(0).toUpperCase() + n.slice(1); };
+function soundLine(list: { name: string; role: string }[]) {
+  const names = (role: string) => [...new Set(list.filter((x) => x.role === role).map((x) => appName(x.name)))];
+  const shared = names("shared"), mixers = names("mixer");
+  const out = shared.length ? `Sound from ${shared.slice(0, 4).join(", ")}${shared.length > 4 ? ` and ${shared.length - 4} more` : ""}.` : "No other app is playing sound yet; anything that starts is added.";
+  return `${out} SEND's own sound is never shared${mixers.length ? `, and neither is ${mixers.join(", ")}, which plays everything again` : ""}.`;
 }

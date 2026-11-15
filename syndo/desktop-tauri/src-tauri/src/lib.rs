@@ -508,6 +508,14 @@ async fn capture_start<R: Runtime>(webview: tauri::Webview<R>, source: String, o
   capture::start(source, options, video, Some(audio), own)
 }
 
+/// Which programs' sound a shared screen would carry right now (and which it leaves out), for the Go Live dialog.
+#[tauri::command]
+async fn capture_sound_sources<R: Runtime>(webview: tauri::Webview<R>) -> Result<Vec<capture::SoundSource>, String> {
+  main_only(&webview)?;
+  let own = own_sound_process(&webview).await;
+  tauri::async_runtime::spawn_blocking(move || capture::sound_sources(own)).await.map_err(|e| e.to_string())
+}
+
 /// The WebView2 browser process for SEND's window: it and its children (renderer, audio service) play all of
 /// SEND's sound, so a shared screen leaves that tree out. None if it can't be read (then SEND.exe's tree is used).
 async fn own_sound_process<R: Runtime>(webview: &tauri::Webview<R>) -> Option<u32> {
@@ -604,7 +612,7 @@ pub fn run() {
       window_control, set_ptt, set_material, get_settings, set_performance, set_startup, restart_app, refresh,
       set_close_to_tray, change_server, update_status, check_updates, download_update, restart_to_update,
       flash, notify, connect_set_server, connect_info, set_capture_excluded,
-      capture_sources, capture_start, capture_stop, capture_ack, session_token
+      capture_sources, capture_start, capture_stop, capture_ack, capture_sound_sources, session_token
     ])
     // The interface built into the app, and the server calls it makes (bundle.rs).
     .register_asynchronous_uri_scheme_protocol(bundle::SCHEME, |ctx, req, responder| {

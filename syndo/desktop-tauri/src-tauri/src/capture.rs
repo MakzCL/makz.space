@@ -4,8 +4,10 @@
 //! windows itself (with live thumbnails, shown in SEND's Go Live dialog) and streams the one you pick:
 //! - video: each frame is captured with GDI (`BitBlt` for screens, `PrintWindow` for windows, cursor drawn in),
 //!   scaled, JPEG-encoded and sent to the page over a Tauri channel; the page turns it into a video track.
-//! - sound: Windows' per-process loopback capture (Windows 10 2004+). Sharing a screen takes every app's sound
-//!   *except SEND's own* (so nobody hears the call echo); sharing a window takes only that app's sound.
+//! - sound: Windows' per-process loopback capture (Windows 10 2004+). Sharing a window takes only that app's sound.
+//!   Sharing a screen finds every program that plays sound, leaves out SEND's own (the call, music, sounds) and
+//!   audio mixers that play everything again (Sonar, Voicemeeter, Wave Link), and mixes the rest, so nobody hears
+//!   the call back. See `audio` for why this doesn't simply ask Windows for "everything except SEND".
 //! Nothing leaves the computer except through the call itself.
 
 use serde::{Deserialize, Serialize};
@@ -38,6 +40,18 @@ pub struct StartOptions {
 struct Session {
   stop: AtomicBool,
   inflight: AtomicU32,
+}
+
+/// A program whose sound a shared screen would carry (or leaves out), for the Go Live dialog.
+#[derive(Serialize, Clone, Debug)]
+pub struct SoundSource { pub pid: u32, pub name: String, /** "shared", "send" or "mixer" */ pub role: &'static str }
+
+/// Which programs' sound sharing a whole screen would carry right now.
+pub fn sound_sources(own_sound: Option<u32>) -> Vec<SoundSource> {
+  #[cfg(windows)]
+  { win::audio::sound_sources(&win::audio::own_roots(own_sound)) }
+  #[cfg(not(windows))]
+  { let _ = own_sound; Vec::new() }
 }
 
 static SESSIONS: LazyLock<Mutex<HashMap<u64, Arc<Session>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -104,10 +118,10 @@ pub fn start(source: String, opts: StartOptions, video: Channel<InvokeResponseBo
     let quality = opts.quality.unwrap_or(88).clamp(40, 95);
     if opts.audio.unwrap_or(true) {
       if let Some(ch) = audio {
-        let pid = target.audio_pid(own_sound);
+        let mode = target.audio_mode(own_sound);
         let s = sess.clone();
         std::thread::Builder::new().name("send-capture-audio".into()).spawn(move || {
-          if let Err(e) = win::audio::run(pid, &s.stop, &ch) { eprintln!("[capture audio] {e}"); }
+          if let Err(e) = win::audio::run(mode, &s.stop, &ch) { eprintln!("[capture audio] {e}"); }
         }).map_err(|e| e.to_string())?;
       }
     }
@@ -147,14 +161,11 @@ mod win {
         _ => None,
       }
     }
-    /// Whose sound to capture: a window → that program (include); a screen → everything except SEND (exclude).
-    /// SEND's sound (calls, music, sounds) plays from WebView2's processes. They usually sit under SEND.exe, but
-    /// not always, so the screen case leaves out the WebView2 browser process's tree when it's known, which holds
-    /// every process that plays SEND's sound wherever it sits.
-    pub fn audio_pid(&self, own_sound: Option<u32>) -> (u32, bool) {
+    /// Whose sound to capture: a window → that program; a screen → every program playing sound except SEND.
+    pub fn audio_mode(&self, own_sound: Option<u32>) -> audio::Mode {
       match self {
-        Target::Window(h) => { let mut pid = 0u32; unsafe { GetWindowThreadProcessId(HWND(*h as _), Some(&mut pid)) }; (pid, true) }
-        Target::Screen(..) => (own_sound.filter(|p| *p != 0).unwrap_or_else(|| unsafe { GetCurrentProcessId() }), false),
+        Target::Window(h) => { let mut pid = 0u32; unsafe { GetWindowThreadProcessId(HWND(*h as _), Some(&mut pid)) }; audio::Mode::App(pid) }
+        Target::Screen(..) => audio::Mode::AllBut(audio::own_roots(own_sound)),
       }
     }
   }
@@ -464,21 +475,169 @@ mod win {
     }
   }
 
+  /// Sound capture.
+  ///
+  /// The obvious way to share a screen's sound, "everything except SEND's process tree" (Windows' exclude mode),
+  /// let people hear themselves: SEND's sound comes out of WebView2's processes, which Windows doesn't reliably
+  /// count as SEND's, and audio tools such as SteelSeries Sonar, Voicemeeter or Wave Link play every program's
+  /// sound again from their own process. So a shared screen instead asks Windows which programs have sound,
+  /// captures each one that isn't SEND (or a mixer) on its own (include mode, which is exact) and mixes them.
+  /// A program that starts playing during the share is picked up within a second and a half.
   pub mod audio {
+    use std::collections::{HashMap, HashSet};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, Instant};
     use tauri::ipc::{Channel, InvokeResponseBody};
     use windows::core::{implement, Interface, Ref, Result as WinResult, HRESULT};
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, S_OK, WAIT_OBJECT_0};
     use windows::Win32::Media::Audio::*;
     use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
-    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, BLOB, COINIT_MULTITHREADED};
-    use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForSingleObject};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, BLOB, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS};
+    use windows::Win32::System::Threading::{CreateEventW, GetCurrentProcessId, OpenProcess, SetEvent, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Wdk::System::Threading::{NtQueryInformationProcess, PROCESSINFOCLASS};
     use windows::Win32::System::Variant::VT_BLOB;
 
     const RATE: u32 = 48_000;
     const CHUNK: usize = 960; // 20 ms of stereo frames per message
+    const SAMPLES: usize = CHUNK * 2;
+    /// Each program's sound waits at most this long to be mixed (keeps the delay down if clocks drift).
+    const MAX_BUFFERED: usize = SAMPLES * 10;
+    const RESCAN: Duration = Duration::from_millis(1500);
+    /// Programs that play other programs' sound again (so they'd carry SEND's too).
+    const MIXERS: [&str; 7] = ["voicemeeter", "sonar", "wavelink", "wave link", "vb-audio", "audiorelay", "vban"];
 
+    pub enum Mode {
+      /// One program and the programs it started (a shared window).
+      App(u32),
+      /// Every program with sound except these processes, everything they started, and WebView2 for SEND.
+      AllBut(Vec<u32>),
+    }
+
+    /// SEND.exe and the WebView2 browser process for its window.
+    pub fn own_roots(own_sound: Option<u32>) -> Vec<u32> {
+      let mut v = vec![unsafe { GetCurrentProcessId() }];
+      if let Some(p) = own_sound.filter(|p| *p != 0) { v.push(p); }
+      v
+    }
+
+    /* ------------------------------------------------------------------------------- processes -- */
+    struct Proc { parent: u32, exe: String }
+    fn processes() -> HashMap<u32, Proc> {
+      let mut out = HashMap::new();
+      unsafe {
+        let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return out };
+        let mut e = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+        let mut ok = Process32FirstW(snap, &mut e).is_ok();
+        while ok {
+          let n = e.szExeFile.iter().position(|c| *c == 0).unwrap_or(e.szExeFile.len());
+          out.insert(e.th32ProcessID, Proc { parent: e.th32ParentProcessID, exe: String::from_utf16_lossy(&e.szExeFile[..n]).to_lowercase() });
+          ok = Process32NextW(snap, &mut e).is_ok();
+        }
+        let _ = CloseHandle(snap);
+      }
+      out
+    }
+    /// The process's command line, if Windows lets us read it.
+    fn command_line(pid: u32) -> Option<String> {
+      unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = vec![0u8; 8192];
+        let mut len = 0u32;
+        // ProcessCommandLineInformation: a UNICODE_STRING followed by its text.
+        let st = NtQueryInformationProcess(h, PROCESSINFOCLASS(60), buf.as_mut_ptr() as _, buf.len() as u32, &mut len);
+        let _ = CloseHandle(h);
+        if st.is_err() { return None; }
+        let bytes = u16::from_le_bytes([buf[0], buf[1]]) as usize;
+        let ptr = *(buf.as_ptr().add(8) as *const *const u16);
+        if ptr.is_null() || bytes == 0 { return None; }
+        Some(String::from_utf16_lossy(std::slice::from_raw_parts(ptr, bytes / 2)))
+      }
+    }
+    /// Is `pid` (or one of its ancestors) in `set`?
+    fn under(pid: u32, set: &HashSet<u32>, procs: &HashMap<u32, Proc>) -> bool {
+      let mut p = pid;
+      for _ in 0..64 {
+        if set.contains(&p) { return true; }
+        match procs.get(&p) { Some(x) if x.parent != 0 && x.parent != p => p = x.parent, _ => return false }
+      }
+      false
+    }
+    /// Every process that plays SEND's sound: SEND.exe, WebView2 for SEND, everything under them, and any WebView2
+    /// process that says it belongs to SEND (or whose owner can't be read, to be safe).
+    fn send_processes(roots: &[u32], procs: &HashMap<u32, Proc>) -> HashSet<u32> {
+      let roots: HashSet<u32> = roots.iter().copied().collect();
+      let me = std::env::current_exe().ok().and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase())).unwrap_or_default();
+      let mut out: HashSet<u32> = procs.keys().copied().filter(|p| under(*p, &roots, procs)).collect();
+      out.extend(roots.iter().copied());
+      for (pid, p) in procs {
+        if out.contains(pid) || p.exe != "msedgewebview2.exe" { continue; }
+        let mine = match command_line(*pid) {
+          Some(c) => { let c = c.to_lowercase(); !c.contains("--webview-exe-name=") || (!me.is_empty() && c.contains(&format!("--webview-exe-name={me}"))) }
+          None => true,
+        };
+        if mine { out.insert(*pid); }
+      }
+      // Children of those (a WebView2 audio service under a SEND WebView2 browser process).
+      let seeds = out.clone();
+      out.extend(procs.keys().copied().filter(|p| under(*p, &seeds, procs)));
+      out
+    }
+    fn is_mixer(exe: &str) -> bool { MIXERS.iter().any(|m| exe.contains(m)) }
+
+    /// Programs that have sound sessions on any output right now (playing, or paused but still open).
+    fn sounding() -> WinResult<Vec<u32>> {
+      unsafe {
+        let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+        let devs = en.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)?;
+        let mut out = Vec::new();
+        for i in 0..devs.GetCount()? {
+          let Ok(d) = devs.Item(i) else { continue };
+          let Ok(m) = d.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { continue };
+          let Ok(list) = m.GetSessionEnumerator() else { continue };
+          for j in 0..list.GetCount().unwrap_or(0) {
+            let Ok(c) = list.GetSession(j) else { continue };
+            if c.GetState().map(|s| s == AudioSessionStateExpired).unwrap_or(true) { continue; }
+            let Ok(c2) = c.cast::<IAudioSessionControl2>() else { continue };
+            if c2.IsSystemSoundsSession() == S_OK { continue; }
+            if let Ok(pid) = c2.GetProcessId() { if pid != 0 && !out.contains(&pid) { out.push(pid); } }
+          }
+        }
+        Ok(out)
+      }
+    }
+
+    /// Sort the programs with sound into shared / SEND / mixer, sharing each program tree once.
+    fn classify(roots: &[u32]) -> WinResult<Vec<(u32, String, &'static str)>> {
+      let procs = processes();
+      let send = send_processes(roots, &procs);
+      let mut shared: HashSet<u32> = HashSet::new();
+      let mut out = Vec::new();
+      let sounding = sounding()?;
+      let exe = |p: u32| procs.get(&p).map(|x| x.exe.clone()).unwrap_or_else(|| format!("process {p}"));
+      for &pid in &sounding {
+        let name = exe(pid);
+        let role = if send.contains(&pid) { "send" } else if is_mixer(&name) { "mixer" } else { "shared" };
+        if role == "shared" { shared.insert(pid); }
+        out.push((pid, name, role));
+      }
+      // A program and one it started both with sound: capturing the parent's tree already covers the child.
+      let all = shared.clone();
+      out.retain(|(pid, _, role)| *role != "shared" || !procs.get(pid).is_some_and(|p| p.parent != *pid && under(p.parent, &all, &procs)));
+      Ok(out)
+    }
+
+    pub fn sound_sources(roots: &[u32]) -> Vec<super::super::SoundSource> {
+      unsafe { let _ = CoInitializeEx(None, COINIT_MULTITHREADED); }
+      let r = classify(roots).unwrap_or_default();
+      unsafe { CoUninitialize(); }
+      let mut out: Vec<super::super::SoundSource> = r.into_iter().map(|(pid, name, role)| super::super::SoundSource { pid, name, role }).collect();
+      out.sort_by(|a, b| a.role.cmp(b.role).then(a.name.cmp(&b.name)));
+      out.dedup_by(|a, b| a.name == b.name && a.role == b.role);
+      out
+    }
+
+    /* --------------------------------------------------------------------------------- capture -- */
     #[implement(IActivateAudioInterfaceCompletionHandler)]
     struct Done(HANDLE);
     impl IActivateAudioInterfaceCompletionHandler_Impl for Done_Impl {
@@ -487,86 +646,120 @@ mod win {
       }
     }
 
-    /// Capture loopback sound for `pid` (`include` = only that program's tree, else everything but it) as
-    /// 48 kHz stereo f32, sent in 20 ms chunks. Silence is sent too, so the track keeps its timing.
-    pub fn run((pid, include): (u32, bool), stop: &AtomicBool, ch: &Channel<InvokeResponseBody>) -> Result<(), String> {
+    /// One program's sound (and the programs it started), 48 kHz stereo f32.
+    struct Tap { client: IAudioClient, cap: IAudioCaptureClient, ready: HANDLE, buf: Vec<f32> }
+    impl Drop for Tap { fn drop(&mut self) { unsafe { let _ = self.client.Stop(); let _ = CloseHandle(self.ready); } } }
+    impl Tap {
+      fn open(pid: u32, include: bool) -> WinResult<Tap> {
+        unsafe {
+          let params = AUDIOCLIENT_ACTIVATION_PARAMS {
+            ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
+            Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
+              ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
+                TargetProcessId: pid,
+                ProcessLoopbackMode: if include { PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE } else { PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE },
+              },
+            },
+          };
+          // A PROPVARIANT holding the params as a blob; it borrows `params`, so it must never be cleared/dropped.
+          let mut pv = std::mem::ManuallyDrop::new(PROPVARIANT::default());
+          {
+            let inner = &mut *pv.Anonymous.Anonymous;
+            inner.vt = VT_BLOB;
+            inner.Anonymous.blob = BLOB { cbSize: std::mem::size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>() as u32, pBlobData: &params as *const _ as *mut u8 };
+          }
+          let done_ev = CreateEventW(None, false, false, None)?;
+          let handler: IActivateAudioInterfaceCompletionHandler = Done(done_ev).into();
+          let op = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*pv as *const PROPVARIANT), &handler)?;
+          let waited = WaitForSingleObject(done_ev, 5000);
+          let _ = CloseHandle(done_ev);
+          if waited != WAIT_OBJECT_0 { return Err(HRESULT(0x8000_000Au32 as i32).into()); }
+          let mut hr = HRESULT(0);
+          let mut unk = None;
+          op.GetActivateResult(&mut hr, &mut unk)?;
+          hr.ok()?;
+          let client: IAudioClient = unk.ok_or_else(|| windows::core::Error::from(HRESULT(0x8000_4005u32 as i32)))?.cast()?;
+          let fmt = WAVEFORMATEX {
+            wFormatTag: 3, // WAVE_FORMAT_IEEE_FLOAT
+            nChannels: 2, nSamplesPerSec: RATE, nAvgBytesPerSec: RATE * 8, nBlockAlign: 8, wBitsPerSample: 32, cbSize: 0,
+          };
+          client.Initialize(AUDCLNT_SHAREMODE_SHARED,
+            AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+            200_000, 0, &fmt, None)?;
+          let ready = CreateEventW(None, false, false, None)?;
+          client.SetEventHandle(ready)?;
+          let cap: IAudioCaptureClient = client.GetService()?;
+          client.Start()?;
+          Ok(Tap { client, cap, ready, buf: Vec::with_capacity(SAMPLES * 4) })
+        }
+      }
+      /// Move whatever Windows has captured into the buffer (silence stays silence).
+      fn drain(&mut self) -> WinResult<()> {
+        unsafe {
+          loop {
+            let n = self.cap.GetNextPacketSize()?;
+            if n == 0 { break; }
+            let mut data: *mut u8 = std::ptr::null_mut();
+            let (mut frames, mut flags) = (0u32, 0u32);
+            self.cap.GetBuffer(&mut data, &mut frames, &mut flags, None, None)?;
+            let count = frames as usize * 2;
+            if flags & (AUDCLNT_BUFFERFLAGS_SILENT.0 as u32) != 0 || data.is_null() { self.buf.extend(std::iter::repeat(0.0f32).take(count)); }
+            else { self.buf.extend_from_slice(std::slice::from_raw_parts(data as *const f32, count)); }
+            self.cap.ReleaseBuffer(frames)?;
+          }
+        }
+        if self.buf.len() > MAX_BUFFERED { let extra = self.buf.len() - MAX_BUFFERED; self.buf.drain(..extra); }
+        Ok(())
+      }
+    }
+
+    /// Capture the sound for `mode` and send it in 20 ms chunks of 48 kHz stereo f32 until `stop`.
+    /// Silence is sent too, so the track keeps its timing.
+    pub fn run(mode: Mode, stop: &AtomicBool, ch: &Channel<InvokeResponseBody>) -> Result<(), String> {
       unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok().map_err(|e| e.to_string())?; }
-      let r = capture(pid, include, stop, ch);
+      let r = mix(mode, stop, ch);
       unsafe { CoUninitialize(); }
       r.map_err(|e| e.to_string())
     }
 
-    fn capture(pid: u32, include: bool, stop: &AtomicBool, ch: &Channel<InvokeResponseBody>) -> WinResult<()> {
-      unsafe {
-        let params = AUDIOCLIENT_ACTIVATION_PARAMS {
-          ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
-          Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
-            ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
-              TargetProcessId: pid,
-              ProcessLoopbackMode: if include { PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE } else { PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE },
-            },
-          },
-        };
-        // A PROPVARIANT holding the params as a blob; it borrows `params`, so it must never be cleared/dropped.
-        let mut pv = std::mem::ManuallyDrop::new(PROPVARIANT::default());
-        {
-          let inner = &mut *pv.Anonymous.Anonymous;
-          inner.vt = VT_BLOB;
-          inner.Anonymous.blob = BLOB { cbSize: std::mem::size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>() as u32, pBlobData: &params as *const _ as *mut u8 };
-        }
-        let done_ev = CreateEventW(None, false, false, None)?;
-        let handler: IActivateAudioInterfaceCompletionHandler = Done(done_ev).into();
-        let op = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*pv as *const PROPVARIANT), &handler)?;
-        let waited = WaitForSingleObject(done_ev, 5000);
-        let _ = CloseHandle(done_ev);
-        if waited != WAIT_OBJECT_0 { return Err(HRESULT(0x8000_000Au32 as i32).into()); }
-        let mut hr = HRESULT(0);
-        let mut unk = None;
-        op.GetActivateResult(&mut hr, &mut unk)?;
-        hr.ok()?;
-        let client: IAudioClient = unk.ok_or_else(|| windows::core::Error::from(HRESULT(0x8000_4005u32 as i32)))?.cast()?;
-
-        let fmt = WAVEFORMATEX {
-          wFormatTag: 3, // WAVE_FORMAT_IEEE_FLOAT
-          nChannels: 2, nSamplesPerSec: RATE, nAvgBytesPerSec: RATE * 8, nBlockAlign: 8, wBitsPerSample: 32, cbSize: 0,
-        };
-        client.Initialize(AUDCLNT_SHAREMODE_SHARED,
-          AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
-          200_000, 0, &fmt, None)?;
-        let ready = CreateEventW(None, false, false, None)?;
-        client.SetEventHandle(ready)?;
-        let cap: IAudioCaptureClient = client.GetService()?;
-        client.Start()?;
-
-        let mut buf: Vec<f32> = Vec::with_capacity(CHUNK * 4);
-        let mut last_data = Instant::now();
-        while !stop.load(Ordering::SeqCst) {
-          let _ = WaitForSingleObject(ready, 20);
-          loop {
-            let n = cap.GetNextPacketSize()?;
-            if n == 0 { break; }
-            let mut data: *mut u8 = std::ptr::null_mut();
-            let mut frames = 0u32;
-            let mut flags = 0u32;
-            cap.GetBuffer(&mut data, &mut frames, &mut flags, None, None)?;
-            let count = frames as usize * 2;
-            if flags & (AUDCLNT_BUFFERFLAGS_SILENT.0 as u32) != 0 || data.is_null() { buf.extend(std::iter::repeat(0.0f32).take(count)); }
-            else { buf.extend_from_slice(std::slice::from_raw_parts(data as *const f32, count)); }
-            cap.ReleaseBuffer(frames)?;
-            last_data = Instant::now();
-          }
-          // Nothing playing: Windows sends no packets, so keep the stream going with silence.
-          if buf.is_empty() && last_data.elapsed() >= Duration::from_millis(20) {
-            buf.extend(std::iter::repeat(0.0f32).take(CHUNK * 2));
-            last_data = Instant::now();
-          }
-          while buf.len() >= CHUNK * 2 {
-            let chunk: Vec<u8> = buf.drain(..CHUNK * 2).flat_map(|s| s.to_le_bytes()).collect();
-            if ch.send(InvokeResponseBody::Raw(chunk)).is_err() { stop.store(true, Ordering::SeqCst); break; }
+    fn mix(mode: Mode, stop: &AtomicBool, ch: &Channel<InvokeResponseBody>) -> WinResult<()> {
+      let mut taps: HashMap<u32, Tap> = HashMap::new();
+      let roots = match &mode { Mode::App(pid) => { taps.insert(*pid, Tap::open(*pid, true)?); None } Mode::AllBut(r) => Some(r.clone()) };
+      let mut failed: HashSet<u32> = HashSet::new();
+      let mut last_scan = Instant::now() - RESCAN;
+      let mut next = Instant::now();
+      while !stop.load(Ordering::SeqCst) {
+        if let Some(roots) = &roots {
+          if last_scan.elapsed() >= RESCAN {
+            last_scan = Instant::now();
+            match classify(roots) {
+              Ok(list) => {
+                let want: HashSet<u32> = list.iter().filter(|(_, _, r)| *r == "shared").map(|(p, _, _)| *p).collect();
+                taps.retain(|pid, _| want.contains(pid));
+                for pid in want { if !taps.contains_key(&pid) && !failed.contains(&pid) { match Tap::open(pid, true) { Ok(t) => { taps.insert(pid, t); } Err(_) => { failed.insert(pid); } } } }
+              }
+              // Can't list programs: fall back to everything except SEND's own processes.
+              Err(_) if taps.is_empty() => { if let Some(&root) = roots.last() { if let Ok(t) = Tap::open(root, false) { taps.insert(0, t); } } }
+              Err(_) => {}
+            }
           }
         }
-        let _ = client.Stop();
-        let _ = CloseHandle(ready);
+        std::thread::sleep(Duration::from_millis(5));
+        taps.retain(|_, t| t.drain().is_ok());
+        // Mix 20 ms at a time on the wall clock; a program with nothing ready adds silence.
+        let now = Instant::now();
+        if now.duration_since(next) > Duration::from_millis(200) { next = now; }
+        while now >= next {
+          let mut out = vec![0.0f32; SAMPLES];
+          for t in taps.values_mut() {
+            let n = t.buf.len().min(SAMPLES);
+            for (o, s) in out.iter_mut().zip(t.buf.drain(..n)) { *o += s; }
+          }
+          for o in out.iter_mut() { *o = o.clamp(-1.0, 1.0); }
+          let bytes: Vec<u8> = out.iter().flat_map(|s| s.to_le_bytes()).collect();
+          if ch.send(InvokeResponseBody::Raw(bytes)).is_err() { stop.store(true, Ordering::SeqCst); break; }
+          next += Duration::from_millis(20);
+        }
       }
       Ok(())
     }

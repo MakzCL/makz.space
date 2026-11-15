@@ -32,7 +32,7 @@ fast_image_resize = "5"
 window-vibrancy = "0.8"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_System_Diagnostics_ToolHelp",
   "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_Storage_Xps", "Win32_System_Threading", "Win32_Media_Audio", "Win32_Media_Multimedia",
-  "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_HiDpi", "Win32_Security"] }
+  "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_HiDpi", "Win32_Security", "Wdk_System_Threading"] }
 windows-core = "0.62"
 windows-capture = "2"
 

@@ -56,6 +56,8 @@
     // onVideo gets JPEG frames (ArrayBuffer; an empty one means the window closed), onAudio 20 ms of 48 kHz stereo f32.
     capture: Object.freeze({
       sources: (thumbWidth) => inv("capture_sources", { thumbWidth: thumbWidth || 320 }),
+      // Which programs' sound a shared screen would carry (role "shared") and which it leaves out ("send", "mixer").
+      soundSources: () => inv("capture_sound_sources"),
       start: async (source, options, onVideo, onAudio) => {
         const chan = (cb) => {
           const id = T.transformCallback((m) => { if (!m || m.end) return; try { cb(m.message, m.index); } catch (_) { /* listener error */ } });

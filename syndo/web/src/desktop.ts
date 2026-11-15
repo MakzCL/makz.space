@@ -40,6 +40,8 @@ export interface SENDDesktop {
 export interface NativeSource { id: string; kind: "screen" | "window"; name: string; app: string; thumb: string | null; width: number; height: number; primary: boolean }
 export interface NativeCaptureApi {
   sources(thumbWidth?: number): Promise<NativeSource[]>;
+  /** Programs whose sound a shared screen carries ("shared") or leaves out ("send", "mixer"); desktop 0.8.4+. */
+  soundSources?(): Promise<{ pid: number; name: string; role: "shared" | "send" | "mixer" }[]>;
   start(source: string, options: { fps?: number; maxHeight?: number; quality?: number; audio?: boolean },
     onVideo: (jpeg: ArrayBuffer) => void, onAudio: (pcm: ArrayBuffer) => void): Promise<{ id: number; ack(): void; stop(): void }>;
 }
