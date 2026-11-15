@@ -460,7 +460,8 @@ export async function startScreenShare(src?: ShareSource) {
     const capW = settings.width ?? Math.round(capH * 16 / 9);
     // Keep the captured aspect ratio; for fixed targets only scale DOWN to the target height (never up).
     const maxBitrate = Math.min(streamBitrate(st, capH), (window as any).__sendLimits?.max_stream_bitrate_kbps * 1000 || Infinity);
-    const codec: VideoCodec | undefined = st.codec === "auto" ? (supportsCodec("video/AV1") ? "av1" : supportsCodec("video/VP9") ? "vp9" : "h264") : (st.codec as VideoCodec);
+    // "auto": H.264, which graphics chips encode and decode (AV1 and VP9 mostly run on the processor): see codecs.ts.
+    const codec: VideoCodec | undefined = st.codec === "auto" ? (supportsCodec("video/H264") ? "h264" : supportsCodec("video/VP9") ? "vp9" : undefined) : (st.codec as VideoCodec);
     const lowH = Math.min(capH, 720);
     const pub = await room.localParticipant.publishTrack(video, {
       source: LK.Track.Source.ScreenShare,
@@ -539,4 +540,6 @@ export function setWatching(uid: string, on: boolean) {
   const watching = on ? [...new Set([...v.watching, uid])] : v.watching.filter((x) => x !== uid);
   set({ watching, focus: on ? key : v.focus === key ? null : v.focus });
   cf?.output();
+  // Peer-to-peer calls: tell the others, so a share is only sent to the people watching it.
+  (cf as { sendState?: () => void } | null)?.sendState?.();
 }

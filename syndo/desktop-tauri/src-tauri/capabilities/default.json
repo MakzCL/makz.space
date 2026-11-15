@@ -29,6 +29,7 @@
     "allow-capture-start",
     "allow-capture-stop",
     "allow-capture-ack",
+    "allow-capture-sound-sources",
     "allow-session-token",
     "allow-connect-set-server",
     "allow-connect-info"

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-sound-sources"
+description = "Enables the capture_sound_sources command without any pre-configured scope."
+commands.allow = ["capture_sound_sources"]
+
+[[permission]]
+identifier = "deny-capture-sound-sources"
+description = "Denies the capture_sound_sources command without any pre-configured scope."
+commands.deny = ["capture_sound_sources"]

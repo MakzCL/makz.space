@@ -222,7 +222,7 @@ export function VideoTile({ t, big, onFocus, guildId, popout }: { popout?: boole
       onClick={(e) => { if (!(e.target as HTMLElement).closest("button, input, a, .vol-pop")) onFocus(); }}
       onContextMenu={popout ? undefined : context} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFocus(); return; } if (!popout) contextMenuKey(e, () => context(e)); }}
       onDoubleClick={() => { if (!t.preview) void fullscreen()?.catch(() => {}); }}>
-      {t.track ? <video ref={ref} autoPlay playsInline muted onLoadedMetadata={measure} onResize={measure} className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
+      {t.track && !t.preview ? <video ref={ref} autoPlay playsInline muted onLoadedMetadata={measure} onResize={measure} className={t.local && t.kind === "camera" ? "mirror" : ""} /> : <div className="tile-av"><Avatar user={t.local ? me : users[t.uid]} size={big ? 120 : isPhone() ? 104 : 72} /></div>}
       {t.preview && <div className="watch-cta"><button className="btn primary" onClick={onFocus}>Watch Stream</button></div>}
       <figcaption>{t.muted && t.kind === "camera" && <MicOff size={14} aria-label="muted" />}{t.kind === "screen" && <span className="live">LIVE</span>}<span className="ellipsis tile-name">{t.name}</span></figcaption>
       <div className="tile-tools">
