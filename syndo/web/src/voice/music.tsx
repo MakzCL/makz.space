@@ -316,6 +316,7 @@ export function MusicCard({ channelId }: { channelId: string }) {
   const art = thumb(t);
   return <section className={`music-card music-stage ${video ? "has-video" : ""}`} aria-label="SEND Music">
     <div className="ms-bg" style={art ? { backgroundImage: `url("${art}")` } : undefined} aria-hidden />
+    <div className="ms-inner">
     {video && <div className="ms-video" ref={slotRef} aria-hidden />}
     <div className="ms-main">
       <div className={`ms-top mc-text ${t && !lyrics?.synced?.length ? "with-art" : ""}`}>
@@ -348,6 +349,7 @@ export function MusicCard({ channelId }: { channelId: string }) {
         <Range min={0} max={1} step={0.02} value={vol} onChange={(e) => changeVol(+e.target.value)} aria-label="Music volume, just for you" />
       </div>
       {lyrics && <small className="ms-credit">Lyrics from {lyrics.source}</small>}
+    </div>
     </div>
   </section>;
 }
