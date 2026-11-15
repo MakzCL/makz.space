@@ -103,6 +103,7 @@ describe("Scenario 2/17 — roles, private channels, and no leaks via messages, 
     const inv = (await owner.post(`/api/channels/${general.id}/invites`, { max_uses: 5 })).body;
     const preview = await outsider.get(`/api/invites/${inv.code}`);
     assert.equal(preview.body.guild.name, "Sunrise Club");
+    assert.deepEqual(preview.body.channel, { id: general.id, name: general.name, type: 0 }); // which channel it opens
     assert.equal((await member.post(`/api/invites/${inv.code}`)).status, 200);
     const g = (await member.get(`/api/guilds/${guild.id}`)).body;
     assert.equal(g.me.user.id, member.user.id);
@@ -111,6 +112,9 @@ describe("Scenario 2/17 — roles, private channels, and no leaks via messages, 
   it("hides a private channel from members without access everywhere", async () => {
     await member.connect(); await owner.connect();
     secret = (await owner.post(`/api/guilds/${guild.id}/channels`, { name: "Staff Room", type: 0, private: true })).body;
+    const hidden = (await owner.post(`/api/channels/${secret.id}/invites`, {})).body;
+    const hp = (await outsider.get(`/api/invites/${hidden.code}`)).body;
+    assert.equal(hp.channel.type, 0); assert.equal(hp.channel.name, null); // a private channel's name stays out of the public preview
     assert.equal(secret.name, "Staff Room"); // names keep spaces and capitals
     const msg = (await owner.post(`/api/channels/${secret.id}/messages`, { content: "the secret password is pineapple" })).body;
     // Attachment in the private channel.

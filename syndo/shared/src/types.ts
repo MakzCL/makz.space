@@ -338,6 +338,8 @@ export interface Invite {
   code: string;
   guild: { id: string; name: string; icon: string | null; banner: string | null; description: string | null; member_count: number };
   channel_id: string | null;
+  /** The channel the invite opens, if any (name and kind only). */
+  channel?: { id: string; name: string | null; type: number } | null;
   inviter: User | null;
   uses: number;
   max_uses: number;

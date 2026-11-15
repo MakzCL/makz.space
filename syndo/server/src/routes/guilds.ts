@@ -712,11 +712,17 @@ export async function guildRoutes(app: FastifyInstance) {
 export async function inviteOut(code: string) {
   const r = await q1<any>(
     `select i.*, g.name, g.icon_key, g.banner_key, g.description, g.vanity_code, (select count(*)::int from members where guild_id = g.id) as member_count,
+            ch.name as ch_name, ch.type as ch_type,
+            -- Hidden from @everyone (itself or through its category): the public preview leaves the name out.
+            exists (select 1 from permission_overwrites o where o.channel_id in (ch.id, ch.parent_id) and o.target_id = g.id and (o.deny & 1) <> 0) as ch_private,
             ${USER_COLS}
-       from invites i join guilds g on g.id = i.guild_id left join users u on u.id = i.inviter_id where i.code = $1`, [code]);
+       from invites i join guilds g on g.id = i.guild_id left join channels ch on ch.id = i.channel_id
+       left join users u on u.id = i.inviter_id where i.code = $1`, [code]);
   if (!r) return null;
   return {
-    code: r.code, channel_id: r.channel_id, uses: r.uses, max_uses: r.max_uses, expires_at: r.expires_at, created_at: r.created_at,
+    code: r.code, channel_id: r.channel_id, uses: r.uses,
+    // The channel the invite opens (a voice invite drops people straight into that call). Name and kind only.
+    channel: r.ch_type == null ? null : { id: String(r.channel_id), name: r.ch_private ? null : r.ch_name, type: r.ch_type }, max_uses: r.max_uses, expires_at: r.expires_at, created_at: r.created_at,
     guild: { id: r.guild_id, name: r.name, icon: mediaUrl(r.icon_key), banner: mediaUrl(r.banner_key), description: r.description, member_count: r.member_count },
     inviter: r.username ? userOut(r) : null,
   };
@@ -724,7 +730,7 @@ export async function inviteOut(code: string) {
 
 async function resolveInvite(code: string) {
   const vanity = await q1<any>("select id::text, name, icon_key, banner_key, description, (select count(*)::int from members where guild_id = guilds.id) as member_count from guilds where vanity_code = $1", [code.toLowerCase()]);
-  if (vanity) return { vanity: true as const, guild_id: vanity.id, out: { code, channel_id: null, uses: 0, max_uses: 0, expires_at: null, created_at: null, inviter: null, guild: { id: vanity.id, name: vanity.name, icon: mediaUrl(vanity.icon_key), banner: mediaUrl(vanity.banner_key), description: vanity.description, member_count: vanity.member_count } } };
+  if (vanity) return { vanity: true as const, guild_id: vanity.id, out: { code, channel_id: null, channel: null, uses: 0, max_uses: 0, expires_at: null, created_at: null, inviter: null, guild: { id: vanity.id, name: vanity.name, icon: mediaUrl(vanity.icon_key), banner: mediaUrl(vanity.banner_key), description: vanity.description, member_count: vanity.member_count } } };
   const inv = await q1<any>("select * from invites where code = $1 and revoked_at is null and (expires_at is null or expires_at > now()) and (max_uses = 0 or uses < max_uses)", [code]);
   if (!inv) return null;
   return { vanity: false as const, guild_id: inv.guild_id as string, out: await inviteOut(code) };

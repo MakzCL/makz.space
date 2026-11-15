@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { InviteCards, onlyInviteLink } from "../features/VoiceInvite.tsx";
 import { EmoteMirror, backspaceEmote, collapseEmotes, expandEmotes, hasEmotes, type EmoteMap } from "../features/composerEmotes.tsx";
 import { askConfirm, askText } from "./overlay.tsx";
 import { Select } from "./Select.tsx";
@@ -483,7 +484,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           <InteractionLine m={m} guildId={guildId} />
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
-              {m.content && !(m.embeds?.length === 1 && (m.embeds[0]!.type === "gifv" || m.embeds[0]!.type === "image") && m.embeds[0]!.url === m.content.trim()) && <Markdown text={m.content} ctx={mdCtx} />}
+              {m.content && !onlyInviteLink(m.content) && !(m.embeds?.length === 1 && (m.embeds[0]!.type === "gifv" || m.embeds[0]!.type === "image") && m.embeds[0]!.url === m.content.trim()) && <Markdown text={m.content} ctx={mdCtx} />}
               {!m.content && (m.interaction as any)?.deferred && !m.embeds?.length && <em className="muted">{m.author.display_name || m.author.username} is thinking…</em>}
               {m.edited_at && <span className="muted edited-tag" title={`Edited ${fmtTime(m.edited_at)}`}> (edited)</span>}
             </div>
@@ -492,6 +493,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
           {m.snapshot && <Snapshot m={m} mdCtx={mdCtx} />}
           {m.poll && <PollView m={m} channel={channel} />}
           <GalleryCtx.Provider value={media.current}>{gridClass ? <div className={gridClass}>{m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</div> : m.attachments.map((a, i) => <AttachmentView key={a.id} a={a} index={i} />)}</GalleryCtx.Provider>
+          {!editing && <InviteCards content={m.content} mine={m.author.id === me?.id} />}
           <Embeds m={m} channel={channel} />
           <Components m={m} channel={channel} />
           {m.thread && <ThreadChip m={m} guildId={guildId} />}

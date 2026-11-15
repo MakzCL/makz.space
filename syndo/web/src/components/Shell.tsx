@@ -1,4 +1,5 @@
 import { askConfirm, askText } from "./overlay.tsx";
+import { VoiceInviteSheet, isVoiceChannel } from "../features/VoiceInvite.tsx";
 import { useShallow } from "zustand/react/shallow";
 import {
   ChevronDown, Hash, Headphones, HeadphoneOff, Megaphone, Mic, MicOff, Plus, Settings, Users, Volume2, Lock, MessageSquare,
@@ -56,7 +57,7 @@ function railArrows(e: React.KeyboardEvent<HTMLElement>) {
   items[Math.max(0, Math.min(items.length - 1, next))]?.focus();
 }
 
-export type Dialog = null | { kind: "createServer" } | { kind: "invite"; guildId: string; channelId?: string } | { kind: "createChannel"; guildId: string; parentId?: string | null; type?: number }
+export type Dialog = null | { kind: "createServer" } | { kind: "invite"; guildId: string; channelId?: string; /** the plain link settings, even for a voice channel */ link?: boolean } | { kind: "createChannel"; guildId: string; parentId?: string | null; type?: number }
   | { kind: "groupDm" } | { kind: "userSettings"; tab?: string } | { kind: "serverSettings"; guildId: string; tab?: string };
 
 export function Shell() {
@@ -131,7 +132,9 @@ export function Shell() {
             : <Friends onDialog={setDialog} />}
       </main>
       {dialog?.kind === "createServer" && <CreateServer onClose={() => setDialog(null)} />}
-      {dialog?.kind === "invite" && <InviteDialog guildId={dialog.guildId} channelId={dialog.channelId} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "invite" && (!dialog.link && dialog.channelId && isVoiceChannel(guilds[dialog.guildId]?.channels.find((c) => c.id === dialog.channelId)?.type)
+        ? <VoiceInviteSheet guildId={dialog.guildId} channelId={dialog.channelId} onClose={() => setDialog(null)} />
+        : <InviteDialog guildId={dialog.guildId} channelId={dialog.channelId} onClose={() => setDialog(null)} />)}
       {dialog?.kind === "createChannel" && <CreateChannel guildId={dialog.guildId} parentId={dialog.parentId ?? null} type={dialog.type} onClose={() => setDialog(null)} />}
       {dialog?.kind === "groupDm" && <NewGroupDm onClose={() => setDialog(null)} />}
       {dialog?.kind === "userSettings" && <UserSettings tab={dialog.tab} onClose={() => setDialog(null)} />}

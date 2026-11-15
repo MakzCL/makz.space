@@ -2764,3 +2764,46 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   /* Chat previews: a slim bar just above the controls */
   .stage .msg-preview { left: 12px !important; right: 12px !important; bottom: calc(118px + env(safe-area-inset-bottom)) !important; max-width: none !important; border-radius: 16px !important; }
 }
+
+/* Invite to a call (features/VoiceInvite.tsx): share buttons, a search box and Invite buttons per conversation. */
+.vinv .modal-b { display: flex; flex-direction: column; gap: 14px; }
+.vinv-share { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 12px; margin: 0 -2px; border-bottom: 1px solid var(--border, #ffffff14); scrollbar-width: none; }
+.vinv-share::-webkit-scrollbar { display: none; }
+.vinv-act { flex: none; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 0; padding: 0; color: var(--textMuted, #b5bac1); font-size: .8rem; text-align: center; text-decoration: none; cursor: pointer; }
+.vinv-act > span { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--text, #fff) 9%, var(--bg2)); color: var(--text, #fff); transition: background .15s, transform .15s; }
+.vinv-act:hover > span, .vinv-act.on > span { background: color-mix(in srgb, var(--accent) 30%, var(--bg2)); }
+.vinv-act:active > span { transform: scale(.94); }
+.vinv-act:disabled, .vinv-act[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.vinv-qr { display: grid; justify-items: center; gap: 6px; }
+.vinv-qr img { border-radius: 14px; background: #fff; padding: 8px; }
+.vinv-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--text, #fff) 14%, transparent); background: color-mix(in srgb, #000 18%, var(--bg2)); color: var(--textMuted, #b5bac1); }
+.vinv-search input { flex: 1; border: 0; background: none; padding: 12px 0; min-width: 0; outline: none; color: var(--text, #fff); box-shadow: none; }
+.vinv-search:focus-within { border-color: var(--accent); }
+.vinv-note { margin: 0; font-size: .9rem; }
+.vinv-note .link { color: var(--link, #5ea1ff); padding: 0; }
+.vinv-list { list-style: none; margin: 0; padding: 4px 0; border-radius: 16px; background: color-mix(in srgb, var(--text, #fff) 4%, var(--bg2)); overflow-y: auto; max-height: min(52dvh, 460px); }
+.vinv-list li { display: flex; align-items: center; gap: 14px; padding: 10px 14px; position: relative; }
+.vinv-list li + li::before { content: ""; position: absolute; top: 0; left: 68px; right: 0; border-top: 1px solid color-mix(in srgb, var(--text, #fff) 8%, transparent); }
+.vinv-name { flex: 1; min-width: 0; font-weight: 600; }
+.vinv-group { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--accent); color: #fff; }
+.vinv-list .btn { min-width: 84px; justify-content: center; background: color-mix(in srgb, var(--text, #fff) 10%, var(--bg2)); }
+.vinv-list .btn.vinv-sent { background: none; color: var(--ok, #23a55a); opacity: 1; }
+.vinv-empty { justify-content: center; text-align: center; padding: 18px !important; }
+
+/* An invite link in a message shows as a card; a call invite has a green Join Voice button. */
+.inv-card { margin-top: 6px; max-width: 432px; padding: 14px 16px; border-radius: 12px; background: color-mix(in srgb, #000 22%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--text, #fff) 8%, transparent); }
+.inv-card.loading { display: flex; align-items: center; gap: 12px; }
+.inv-card.dead { padding: 10px 14px; }
+.inv-head { font-size: .72rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--textMuted, #b5bac1); margin-bottom: 10px; }
+.inv-body { display: flex; align-items: center; gap: 12px; }
+.inv-ic { width: 48px; height: 48px; flex: none; border-radius: 14px; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 40%, var(--bg2)); font-size: .9rem; }
+.inv-ic img { width: 100%; height: 100%; object-fit: cover; }
+.inv-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.inv-text strong { display: flex; align-items: center; gap: 4px; }
+.inv-people { display: flex; flex: none; }
+.inv-people > * + * { margin-left: -8px; }
+.inv-people img, .inv-people .avatar { box-shadow: 0 0 0 2px color-mix(in srgb, #000 22%, var(--bg2)); border-radius: 50%; }
+.inv-card .btn.join-voice { background: var(--ok, #23a55a); color: #fff; border-color: transparent; font-weight: 700; flex: none; }
+.inv-card .btn.join-voice:hover:not(:disabled) { filter: brightness(1.1); }
+.inv-card .btn { flex: none; }
+@media (max-width: 760px) { .inv-people { display: none; } .inv-card { max-width: none; } }
