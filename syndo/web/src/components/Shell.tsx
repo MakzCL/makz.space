@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, openContextMenu, type MenuItem } from "./overlay.tsx";
-import { AudioLines, ChevronRight, FolderOpen, Music2, Search } from "lucide-react";
+import { AudioLines, Camera, CameraOff, ChevronRight, FolderOpen, Music2, Rocket, Search } from "lucide-react";
 import { contextMenuKey } from "./callMenus.tsx";
 import { isPhone } from "../mobile.ts";
 import { guildMenuItems, channelMenuItems, dmMenuItems, userMenuItems } from "./menus.tsx";
@@ -16,7 +16,7 @@ import { updateSettings } from "../actions.ts";
 import { gwSend } from "../gateway.ts";
 import { navigate, useRoute } from "../router.ts";
 import { can, channelTree, displayName, dmTitle, guildPerms, isUnread, toast, useStore } from "../store.ts";
-import { joinVoice, leaveVoice, setDeafened, setMuted, updateVoiceSettings, useVoice } from "../voice/session.ts";
+import { joinVoice, leaveVoice, setDeafened, setMuted, toggleCamera, updateVoiceSettings, useVoice } from "../voice/session.ts";
 import { MusicMini } from "../voice/music.tsx";
 import { suppressionFor } from "../voice/settings.ts";
 import { ChannelView } from "./ChannelView.tsx";
@@ -26,7 +26,7 @@ import { SavedMessages } from "./SavedMessages.tsx";
 import { ServerSettings } from "./ServerSettings.tsx";
 import { UserSettings } from "./UserSettings.tsx";
 import { Avatar, Mark, statusLabel } from "./ui.tsx";
-import { VoiceStage } from "./VoiceStage.tsx";
+import { SoundboardButton, VoiceStage } from "./VoiceStage.tsx";
 import { Backdrop, useActiveBackground } from "../appearance/Backdrop.tsx";
 import { useSoundboardActivity } from "../expressions.ts";
 import { ChannelGlyph } from "./ChannelGlyph.tsx";
@@ -517,10 +517,28 @@ function VoiceBar() {
           aria-label="AI noise suppression" title={aiNs ? "AI noise suppression is on" : "AI noise suppression is off"}><AudioLines size={18} /></button>
         <button className="icon-btn danger" onClick={() => leaveVoice()} aria-label="Disconnect"><PhoneOff size={18} /></button>
       </div>
+      {v.status !== "idle" && v.channelId && <VoiceActions channelId={v.channelId} gid={ch?.gid ?? "@me"} />}
       {v.channelId && <MusicMini channelId={v.channelId} />}
       {v.sharing && <div className="sharing-ind" role="status"><Monitor size={14} /> You're sharing your screen</div>}
     </section>
   );
+}
+
+/** The row under the connection: camera, share your screen, activities and the soundboard, without opening the call. */
+function VoiceActions({ channelId, gid }: { channelId: string; gid: string }) {
+  const v = useVoice(useShallow((s) => ({ camera: s.camera, sharing: s.sharing })));
+  const channel = useStore((s) => (gid !== "@me" ? s.guilds[gid]?.channels.find((c) => c.id === channelId) : s.dms[channelId]) ?? null);
+  const guild = useStore((s) => (gid !== "@me" ? s.guilds[gid] ?? null : null));
+  // Share and Activities live on the call screen: open it, then the picker.
+  const onCall = (event: string) => { navigate(`/channels/${gid}/${channelId}`); setTimeout(() => window.dispatchEvent(new Event(event)), 250); };
+  const video = channel ? can(channel, P.VIDEO) : false;
+  return <div className="vb-actions" role="toolbar" aria-label="Call actions">
+    <button className={`vb-act ${v.camera ? "on" : ""}`} disabled={!video} onClick={() => void toggleCamera()} aria-pressed={v.camera} aria-label={v.camera ? "Turn camera off" : "Turn camera on"} title={v.camera ? "Turn camera off" : "Turn camera on"}>{v.camera ? <Camera size={18} /> : <CameraOff size={18} />}</button>
+    <button className={`vb-act ${v.sharing ? "on" : ""}`} disabled={!video} onClick={() => onCall("send:open-share")} aria-label="Share your screen" title="Share your screen"><Monitor size={18} /></button>
+    <button className="vb-act" onClick={() => onCall("send:activity-picker")} aria-label="Activities" title="Activities"><Rocket size={18} /></button>
+    {channel && guild && guild.sounds !== undefined ? <SoundboardButton channel={channel} guild={guild} className="vb-act" size={18} />
+      : <button className="vb-act" disabled aria-label="Soundboard" title="The soundboard is for server voice channels"><Music2 size={18} /></button>}
+  </div>;
 }
 
 /* ------------------------------------------------------- user panel -- */

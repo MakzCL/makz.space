@@ -1,6 +1,6 @@
 import { Select } from "../components/Select.tsx";
-import { useEffect, useRef, useState } from "react";
-import { Gift, KeyRound, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState, type JSX } from "react";
+import { Gift, Headphones, Image as ImageIcon, KeyRound, MonitorUp, Smile, Sparkles, Trash2, Upload, Volume2 } from "lucide-react";
 import { BOOST_LEVELS, type Guild, type User } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { onEvent, toast, useStore } from "../store.ts";
@@ -96,17 +96,47 @@ function BoostServer({ guild, onClose }: { guild: Guild; onClose: () => void }) 
     try { for (const b of free.slice(0, n)) await api.put(`/api/premium/boosts/${b.id}`, { guild_id: guild.id }); toast(`Boosted ${guild.name}!`, "success"); load(); }
     catch (e) { toast(errMsg(e), "error"); }
   };
+  const spent = p ? p.boosts.filter((b) => b.guild_id).length : 0;
+  const getBoosts = () => { onClose(); window.dispatchEvent(new CustomEvent("send:dialog", { detail: { kind: "userSettings", tab: "boosts" } })); };
+  const perks = (l: (typeof BOOST_LEVELS)[number]): [JSX.Element, string][] => [
+    [<Smile size={15} />, `${l.emoji} emoji slots`], [<Volume2 size={15} />, `${l.sounds} soundboard slots`],
+    [<Upload size={15} />, `${l.upload_mb} MB uploads`], [<Headphones size={15} />, `${l.bitrate_kbps} kbps voice`],
+    [<MonitorUp size={15} />, `${l.stream} screen share`], ...(l.animated_banner ? [[<ImageIcon size={15} />, "Animated banner & badge"] as [JSX.Element, string]] : []),
+  ];
   return (
     <Modal title={<><Sparkles size={20} /> Server Boost</>} label="Server Boost" wide onClose={onClose}>
-      <div className="boost-hero">
-        <h3>{guild.name}</h3>
-        <p className="muted">{count} boost{count === 1 ? "" : "s"} · {tier ? `Level ${tier}` : "No level yet"}{next ? ` · ${next.boosts - count} more to reach Level ${next.level}` : " · Max level"}</p>
-        <div className="boost-bar" aria-hidden><i style={{ width: `${Math.min(100, (count / 14) * 100)}%` }} />{BOOST_LEVELS.slice(1).map((l) => <span key={l.level} style={{ left: `${(l.boosts / 14) * 100}%` }} className={count >= l.boosts ? "on" : ""}>{l.level}</span>)}</div>
-        {free.length > 0 ? <div className="row"><button className="btn primary" onClick={() => apply(1)}>Boost with 1 of your {free.length} free boosts</button>{free.length > 1 && <button className="btn" onClick={() => apply(free.length)}>Use all {free.length}</button>}</div>
-          : <button className="btn primary" onClick={() => { onClose(); window.dispatchEvent(new CustomEvent("send:dialog", { detail: { kind: "userSettings", tab: "boosts" } })); }}>Get boosts</button>}
+      <div className="boost-page">
+        <div className="bp-main">
+          <h3>Levels</h3>
+          <p className="muted small">{guild.name} levels up on its own once it has enough boosts. {next ? `${next.boosts - count} more for Level ${next.level}.` : "It's at the top level."}</p>
+          <div className="bp-levels">
+            {BOOST_LEVELS.slice(1).map((l) => {
+              const got = count >= l.boosts, prev = BOOST_LEVELS[l.level - 1]!.boosts;
+              const fill = got ? 100 : Math.max(0, Math.min(100, ((count - prev) / (l.boosts - prev)) * 100));
+              return <article key={l.level} className={`bp-level ${got ? "got" : ""} ${tier === l.level ? "cur" : ""}`} aria-label={`Level ${l.level}${got ? ", unlocked" : ""}`}>
+                <div className="bp-track"><span className="bp-gem" aria-hidden><Sparkles size={14} /></span><i aria-hidden><b style={{ width: `${fill}%` }} /></i></div>
+                <h4>Level {l.level}{got && <small className="tag">Unlocked</small>}</h4>
+                <ul>{perks(l).map(([icon, text]) => <li key={text}>{icon}<span>{text}</span></li>)}</ul>
+                <p className="bp-cost"><Sparkles size={14} /> {l.boosts} Boosts</p>
+              </article>;
+            })}
+          </div>
+          {boosters.length > 0 && <><h3>Boosting this server</h3><div className="boosters">{boosters.map((b) => <div key={b.user.id} className="member"><Avatar user={b.user} size={28} /><span className="ellipsis">{b.user.display_name || b.user.username}</span><small className="muted">{b.boosts}× · since {new Date(b.since).toLocaleDateString()}</small></div>)}</div></>}
+        </div>
+        <aside className="bp-side" aria-label="Your boosts">
+          <h3>Your boosts</h3>
+          <div className="bp-stats">
+            <div><b><Sparkles size={14} /> {free.length}</b><small>Available</small></div>
+            <div><b>{spent}</b><small>Spent</small></div>
+            <div><b>{p?.boosts.length ?? 0}</b><small>Total</small></div>
+          </div>
+          {free.length > 0 ? <>
+            <button className="btn primary bp-boost" onClick={() => apply(1)}><Sparkles size={16} /> Boost this server</button>
+            {free.length > 1 && <button className="btn bp-boost" onClick={() => apply(free.length)}>Use all {free.length}</button>}
+          </> : <button className="btn primary bp-boost" onClick={getBoosts}><Sparkles size={16} /> Get boosts</button>}
+          <p className="muted small">{count} {count === 1 ? "boost" : "boosts"} on this server · {tier ? `Level ${tier}` : "no level yet"}</p>
+        </aside>
       </div>
-      <BoostPerks tier={tier} />
-      {boosters.length > 0 && <><h4>Boosting this server</h4><div className="boosters">{boosters.map((b) => <div key={b.user.id} className="member"><Avatar user={b.user} size={28} /><span className="ellipsis">{b.user.display_name || b.user.username}</span><small className="muted">{b.boosts}× · since {new Date(b.since).toLocaleDateString()}</small></div>)}</div></>}
     </Modal>
   );
 }

@@ -2780,3 +2780,41 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
   /* Chat previews: a slim bar just above the controls */
   .stage .msg-preview { left: 12px !important; right: 12px !important; bottom: calc(118px + env(safe-area-inset-bottom)) !important; max-width: none !important; border-radius: 16px !important; }
 }
+
+/* Voice panel: a row of call actions under the connection, like a remote for the call */
+.vb-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.vb-actions .ctl-wrap { display: contents; }
+.vb-act { height: 34px; border-radius: 8px; border: 0; display: grid; place-items: center; cursor: pointer; color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent); transition: background .15s, color .15s; }
+.vb-act:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 15%, transparent); }
+.vb-act.on { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text); }
+.vb-act:disabled { opacity: .45; cursor: default; }
+.vb-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Server Boost: level cards on the left, your boosts on the right */
+.boost-page { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 22px; align-items: start; }
+.boost-page h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.bp-main > h3 + p { margin: 0 0 12px; }
+.bp-main > h3:not(:first-child) { margin-top: 20px; }
+.bp-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.bp-level { border: 1px solid var(--border, color-mix(in srgb, var(--text) 14%, transparent)); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  background: color-mix(in srgb, var(--bg1) 85%, transparent); }
+.bp-level.got { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--bg1)); }
+.bp-track { display: flex; align-items: center; gap: 8px; }
+.bp-gem { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--muted, #aab); background: color-mix(in srgb, var(--text) 10%, transparent); }
+.bp-level.got .bp-gem { color: var(--on-accent, #fff); background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ff7ad9)); }
+.bp-track i { flex: 1; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
+.bp-track b { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.bp-level h4 { margin: 2px 0 0; font-size: .98rem; display: flex; align-items: center; gap: 8px; }
+.bp-level ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.bp-level li { display: flex; align-items: center; gap: 8px; font-size: .84rem; color: var(--muted, #aab); }
+.bp-level li svg { flex: none; opacity: .85; }
+.bp-cost { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .86rem; color: var(--accent); }
+.bp-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 10px; }
+.bp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bp-stats div { border-radius: 10px; padding: 10px 4px; text-align: center; background: color-mix(in srgb, var(--text) 7%, transparent); display: flex; flex-direction: column; gap: 2px; }
+.bp-stats b { font-size: 1.15rem; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.bp-stats b svg { color: var(--accent); }
+.bp-stats small { font-size: .72rem; color: var(--muted, #aab); }
+.bp-boost { width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 720px) { .boost-page { grid-template-columns: 1fr; } .bp-side { position: static; order: -1; } }
