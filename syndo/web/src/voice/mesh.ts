@@ -3,6 +3,7 @@ import { onEvent, toast, useStore } from "../store.ts";
 import { primeCallAudio, type IceServer } from "./cloudflare.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
 import { denoiseTrack } from "./denoise.ts";
+import { preferVideoCodec } from "./codecs.ts";
 import { SCREEN_ECHO_NOTE, captureShare, shareMayEcho, streamBitrate, type ShareSource, type VoiceSettings } from "./settings.ts";
 
 /**
@@ -22,7 +23,8 @@ import { SCREEN_ECHO_NOTE, captureShare, shareMayEcho, streamBitrate, type Share
  */
 const CAM = { maxBitrate: 1_500_000, maxFramerate: 30 };
 /** `v: 2` = sends camera and screen on separate video slots. */
-interface PState { cam: boolean; mic: boolean; share: boolean; shareAudio?: boolean; v?: number }
+/** `watch`: whose screen shares this person is watching (newer versions); a share is only sent to its watchers. */
+interface PState { cam: boolean; mic: boolean; share: boolean; shareAudio?: boolean; v?: number; watch?: string[] }
 interface MPeer { pc: RTCPeerConnection; stream: MediaStream; queued: RTCIceCandidateInit[]; offerer: boolean; audio: HTMLAudioElement; screenAudio: HTMLAudioElement; state: PState; analyser?: AnalyserNode }
 
 export class MeshCall {
@@ -92,7 +94,7 @@ export class MeshCall {
 
   /* -------------------------------------------------------- signalling -- */
   private signal(to: string, type: string, data?: unknown) { gwSend("call_signal", { to, type, data }); }
-  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack, shareAudio: !!this.screenSound, v: 2 }; }
+  private myState(): PState { const v = useVoice.getState(); return { cam: !!this.cam && v.camera, mic: !!this.mic && !v.muted, share: !!this.screenTrack, shareAudio: !!this.screenSound, v: 2, watch: v.watching }; }
   sendState(to?: string) { const st = this.myState(); if (to) this.signal(to, "state", st); else for (const uid of this.peers.keys()) this.signal(uid, "state", st); }
   /** What a single-video-slot (older) peer gets: the screen while sharing, else the camera. */
   private outgoingVideo() { return this.screenTrack ?? this.cam ?? null; }
@@ -100,15 +102,24 @@ export class MeshCall {
   /** Both ends send camera and screen on their own slots (otherwise: the older one-slot layout). */
   private dual(p: MPeer) { return p.state.v === 2 && this.slots(p.pc, "video").length >= 2; }
   /** Put my camera, screen and screen sound on this connection's slots. */
+  /**
+   * Does this person get my screen share? Only while they watch it: every connection that carries it is another
+   * full encode on my computer, so someone who isn't watching costs nothing. Older versions don't say what they
+   * watch, so they always get it.
+   */
+  private wantsScreen(p: MPeer) { return !p.state.watch || p.state.watch.includes(this.me); }
   private async attach(p: MPeer) {
-    const [first, second] = this.dual(p) ? [this.cam, this.screenTrack] : [this.outgoingVideo(), null];
+    const [first, second] = this.dual(p) ? [this.cam, this.wantsScreen(p) ? this.screenTrack : null] : [this.outgoingVideo(), null];
     for (const [i, tr] of this.slots(p.pc, "video").entries()) {
       const track = i === 0 ? first : i === 1 ? second : null;
       if (tr.sender.track !== track) await tr.sender.replaceTrack(track).catch(() => {});
       this.tuneVideo(tr.sender);
     }
     const sound = this.slots(p.pc, "audio")[1];
-    if (sound && sound.sender.track !== this.screenSound) await sound.sender.replaceTrack(this.screenSound).catch(() => {});
+    const screenSound = this.wantsScreen(p) ? this.screenSound : null;
+    if (sound && sound.sender.track !== screenSound) await sound.sender.replaceTrack(screenSound).catch(() => {});
+    // Hardware video (H.264) where both ends have it: see codecs.ts.
+    for (const tr of this.slots(p.pc, "video")) preferVideoCodec(tr, useVoice.getState().settings.stream.codec);
   }
 
   private makePeer(uid: string, offerer: boolean): MPeer {
@@ -130,6 +141,7 @@ export class MeshCall {
       this.tuneVideo(v.sender);
       pc.addTransceiver(this.screenSound ?? "audio", { direction: "sendrecv", streams });
       pc.addTransceiver("video", { direction: "sendrecv", streams });
+      for (const tr of this.slots(pc, "video")) preferVideoCodec(tr, useVoice.getState().settings.stream.codec);
     }
     pc.onicecandidate = (e) => { if (e.candidate) this.signal(uid, "ice", e.candidate.toJSON()); };
     pc.ontrack = (e) => {
@@ -211,9 +223,9 @@ export class MeshCall {
       } else if (type === "state") {
         const p = this.peers.get(from);
         if (p) {
-          const was = this.dual(p);
-          p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share, shareAudio: !!data?.shareAudio, v: Number(data?.v) || 1 };
-          if (this.dual(p) !== was) await this.attach(p);
+          const was = this.dual(p), wanted = this.wantsScreen(p);
+          p.state = { cam: !!data?.cam, mic: data?.mic !== false, share: !!data?.share, shareAudio: !!data?.shareAudio, v: Number(data?.v) || 1, watch: Array.isArray(data?.watch) ? data.watch.filter((x: unknown) => typeof x === "string").slice(0, 25) : undefined };
+          if (this.dual(p) !== was || this.wantsScreen(p) !== wanted) await this.attach(p);
           this.sync();
         }
       } else if (type === "knock") {

@@ -1,4 +1,5 @@
 import { SCREEN_ECHO_NOTE, captureShare, shareMayEcho, streamBitrate, type ShareSource, type VoiceSettings } from "./settings.ts";
+import { preferVideoCodec } from "./codecs.ts";
 import { api } from "../api.ts";
 import { toast, useStore } from "../store.ts";
 import { deviceError, micConstraints, useVoice, type Peer } from "./session.ts";
@@ -46,7 +47,7 @@ export class CloudflareCall {
    if(changed)useVoice.setState({peers});},100);}
  /** Fetch the latest publications now (pushed by the gateway when someone starts/stops media). */
  pollNow(){if(this.stopped)return;if(this.timer){clearTimeout(this.timer);this.timer=null;this.poll();}else this.pollWanted=true;}
- async publish(kind:Kind,track:MediaStreamTrack){return this.serial(async()=>{if(this.stopped){track.stop();return;}const trans=this.producer.addTransceiver(track,{direction:"sendonly"});const offer=await this.producer.createOffer();await this.producer.setLocalDescription(offer);await gatherIce(this.producer);const name=`${kind}_${crypto.randomUUID().replaceAll("-","")}`;const response=await this.request("publish",{sessionDescription:{type:"offer",sdp:this.producer.localDescription!.sdp},tracks:[{kind,mid:trans.mid,name}]});await this.producer.setRemoteDescription(response.sessionDescription);this.tracks.set(kind,track);this.senders.set(kind,trans.sender);});}
+ async publish(kind:Kind,track:MediaStreamTrack){return this.serial(async()=>{if(this.stopped){track.stop();return;}const trans=this.producer.addTransceiver(track,{direction:"sendonly"});if(track.kind==="video")preferVideoCodec(trans,useVoice.getState().settings.stream.codec);const offer=await this.producer.createOffer();await this.producer.setLocalDescription(offer);await gatherIce(this.producer);const name=`${kind}_${crypto.randomUUID().replaceAll("-","")}`;const response=await this.request("publish",{sessionDescription:{type:"offer",sdp:this.producer.localDescription!.sdp},tracks:[{kind,mid:trans.mid,name}]});await this.producer.setRemoteDescription(response.sessionDescription);this.tracks.set(kind,track);this.senders.set(kind,trans.sender);});}
  microphone(){const next=this.micChanges.then(()=>this.buildMicrophone());this.micChanges=next.catch(()=>{});return next;}
  async buildMicrophone(){if(this.stopped||!useVoice.getState().grants?.speak)return;const s=useVoice.getState().settings;const early=this.preMic;this.preMic=null;const stream=early?await early.catch(()=>navigator.mediaDevices.getUserMedia({audio:micConstraints(s),video:false})):await navigator.mediaDevices.getUserMedia({audio:micConstraints(s),video:false});
  if(this.stopped){stream.getTracks().forEach(t=>t.stop());return;}const captured=stream.getAudioTracks()[0]!,raw=await denoiseTrack(captured,s),ctx=this.audioContext();
