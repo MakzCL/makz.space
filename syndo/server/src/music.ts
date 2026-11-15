@@ -59,6 +59,8 @@ interface Track {
   match?: string | null;
   /** Where a matched song actually plays from, e.g. "YouTube". */
   via?: string | null;
+  /** YouTube videos already tried for this song (blocked ones aren't picked again). */
+  tried?: string[];
   requester: { id: string; name: string };
 }
 interface Room {
@@ -213,10 +215,10 @@ async function ytPlaylist(list: string): Promise<{ title: string | null; items: 
   }).filter(Boolean) as Item[];
   return items.length ? { title: title ? xmlText(title) : null, items } : null;
 }
-async function ytSearch(query: string, duration?: number | null, title?: string): Promise<Item | null> {
+async function ytSearch(query: string, duration?: number | null, title?: string, exclude: string[] = []): Promise<Item | null> {
   if (!YT_KEY) return null;
   const d = await ytApi(`search?part=snippet&type=video&videoEmbeddable=true&maxResults=5&q=${encodeURIComponent(query)}`).catch((e) => { console.error("[music] youtube search", (e as Error).message); return null; });
-  const hits = (d?.items ?? []).filter((x: any) => x.id?.videoId && (!title || sameSong(title, xmlText(x.snippet?.title ?? ""), x.snippet?.channelTitle)));
+  const hits = (d?.items ?? []).filter((x: any) => x.id?.videoId && !exclude.includes(x.id.videoId) && (!title || sameSong(title, xmlText(x.snippet?.title ?? ""), x.snippet?.channelTitle)));
   if (!hits.length) return null;
   const durs = await ytDurations(hits.map((x: any) => x.id.videoId));
   const pick = (duration ? hits.find((x: any) => Math.abs((durs.get(x.id.videoId) ?? 0) - duration) <= 10) : null) ?? hits[0];
@@ -272,11 +274,13 @@ async function deezer(u: URL): Promise<Resolved> {
 const cleanTitle = (s: string) => s.replace(/[([](?:official|lyrics?|audio|video|visuali[sz]er|music video|hd|4k|remaster(?:ed)?|mv|live)[^)\]]*[)\]]/gi, "").replace(/\s*\|.*$/, "").replace(/\s{2,}/g, " ").trim();
 /** A YouTube video whose owner blocks other players: look for another version of the song instead of skipping it. */
 async function replaceBlocked(t: Track): Promise<boolean> {
-  if (t.via) return false;
-  const original = t.upstream;
-  t.match = `${t.artist && !t.title.toLowerCase().includes(t.artist.toLowerCase()) ? `${t.artist} - ` : ""}${cleanTitle(t.title)}`.slice(0, 200);
+  // One more try per song, never picking a video that was already blocked.
+  if (t.kind !== "youtube" || (t.tried?.length ?? 0) >= 2) return false;
+  const original = t.upstream, before = { kind: t.kind, via: t.via ?? null };
+  t.tried = [...(t.tried ?? []), original];
+  t.match = `${t.artist && !t.title.toLowerCase().includes(t.artist.toLowerCase()) ? `${t.artist} - ` : ""}${t.source === "youtube" ? cleanTitle(t.title) : t.title}`.slice(0, 200);
   const ok = await findPlayable(t).catch(() => false);
-  if (!ok || (t.kind === "youtube" && t.upstream === original)) { t.match = null; t.kind = "youtube"; t.upstream = original; t.via = null; return false; }
+  if (!ok || (t.kind === "youtube" && t.upstream === original)) { t.match = null; t.kind = before.kind; t.upstream = original; t.via = before.via; return false; }
   return true;
 }
 
@@ -284,7 +288,7 @@ async function replaceBlocked(t: Track): Promise<boolean> {
 async function findPlayable(t: Track): Promise<boolean> {
   // Only accept a result whose title really matches the song (a wrong song is worse than a skip).
   const title = t.source === "youtube" ? cleanTitle(t.title).replace(/^.*? - /, "") : t.title;
-  const hit = await ytSearch(t.match!, t.duration, title) ?? await searchAudius(t.match!, t.duration, title).catch(() => null);
+  const hit = await ytSearch(t.match!, t.duration, title, t.tried ?? []) ?? await searchAudius(t.match!, t.duration, title).catch(() => null);
   if (!hit) return false;
   t.kind = hit.kind; t.upstream = hit.upstream; t.via = hit.source === "youtube" ? "YouTube" : "Audius";
   if (hit.duration) t.duration = hit.duration;
@@ -411,9 +415,9 @@ async function next(r: Room, announce: boolean) {
     if (t.match && !(await findPlayable(t).catch(() => false))) { forget(t); unmatched.push(`${t.title}${t.artist ? ` by ${t.artist}` : ""}`); continue; }
     let check: { ok: true } | { ok: false; reason: string } = t.source === "test" ? (existsSync(ASSETS + t.upstream) ? { ok: true as const } : { ok: false as const, reason: "the file is missing" })
       : t.kind === "youtube" ? await ytOembed(t.upstream) : await probe(t.upstream);
-    if (!check.ok && t.source === "youtube" && /outside YouTube/.test(check.reason) && await replaceBlocked(t)) {
+    if (!check.ok && t.kind === "youtube" && /outside YouTube/.test(check.reason) && await replaceBlocked(t)) {
       check = t.kind === "youtube" ? await ytOembed(t.upstream) : await probe(t.upstream);
-      if (check.ok) await say(r, `ℹ️ **${t.title}** can't play outside YouTube, so I found a version on ${t.via}.`);
+      if (check.ok) await say(r, `ℹ️ **${t.title}** can't play outside YouTube, so I found another version on ${t.via}.`);
     }
     if (!check.ok) { forget(t); await say(r, `⚠️ Skipped **${t.title}** (requested by ${t.requester.name}): it couldn't be played, ${check.reason}.`); continue; }
     await flush();
@@ -471,7 +475,8 @@ const COMMANDS: Record<string, string> = { play: "play", p: "play", queue: "queu
 
 /** Runs one music command (from /commands or the call screen's buttons); the bot answers in `text`. */
 export async function handleMusicCommand(text: ChanRow, userId: string, content: string): Promise<boolean> {
-  const m = /^!([a-z]+)(?:\s+([\s\S]*))?$/i.exec(content.trim());
+  // "!play x" (internal) and "/play x" (the call screen's buttons) both work.
+  const m = /^[!/]([a-z]+)(?:\s+([\s\S]*))?$/i.exec(content.trim());
   const cmd = m && COMMANDS[m[1]!.toLowerCase()];
   if (!cmd || !text.guild_id) return false;
   const arg = (m![2] ?? "").trim().slice(0, 300);
@@ -635,7 +640,7 @@ export async function musicRoutes(app: FastifyInstance) {
         if (!why) return;
         if ((b.code === 101 || b.code === 150 || b.code === 153) && await replaceBlocked(c)) {
           if (c.duration != null) { r.startedAt = Date.now(); r.pausedAt = null; armTimer(r); } else { r.startedAt = Date.now(); r.pausedAt = null; clearTimer(r); }
-          await say(r, `ℹ️ **${c.title}** can't play outside YouTube, so I found a version on ${c.via}.`); await broadcast(r.channelId); return;
+          await say(r, `ℹ️ **${c.title}** can't play outside YouTube, so I found another version on ${c.via}.`); await broadcast(r.channelId); return;
         }
         await say(r, `⚠️ Skipped **${c.title}**: ${why}.`); await next(r, true);
         return;

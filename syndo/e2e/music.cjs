@@ -147,9 +147,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   said = await botSaid(since);
   const m8 = await musicOf(A, room1.id);
   console.log('audius:', said);
-  check('song-name search finds a playable Audius track', said.some((s) => /(Now playing|Queued) \*\*/.test(s)) && (m8.playing?.source === 'audius' || m8.queue.some((t) => t.source === 'audius')), m8.playing ? `${m8.playing.title} by ${m8.playing.artist}` : '');
+  const viaYT = m8.playing?.source === 'youtube' || m8.queue.some((t) => t.source === 'youtube');
+  check('song-name search finds a playable track (YouTube with a key, otherwise Audius)', said.some((s) => /(Now playing|Queued) \*\*/.test(s)) && (viaYT || m8.playing?.source === 'audius' || m8.queue.some((t) => t.source === 'audius')), m8.playing ? `${m8.playing.title} by ${m8.playing.artist} (${m8.playing.source})` : '');
   const h8 = await hear(A), h8b = await hear(B);
-  check('an Audius track streams real audio through SEND to both clients', m8.playing?.source === 'audius' && !h8.paused && h8.rms > 0.005 && h8b.rms > 0.005 && h8.t > 0.5, `rms ${h8.rms}/${h8b.rms}, t ${h8.t?.toFixed(1)}`);
+  if (!viaYT) check('an Audius track streams real audio through SEND to both clients', m8.playing?.source === 'audius' && !h8.paused && h8.rms > 0.005 && h8b.rms > 0.005 && h8.t > 0.5, `rms ${h8.rms}/${h8b.rms}, t ${h8.t?.toFixed(1)}`);
+  else console.log('(YouTube search result: it plays in YouTube\'s player, covered by e2e/music-links.cjs)');
 
   // 9. DJ rule: B (no DJ rights) can't stop while A is listening; A (owner) can.
   since = await lastId();

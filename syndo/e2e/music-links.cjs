@@ -23,7 +23,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1200);
   const state = () => api(A, 'GET', `/api/music/${room.id}`).then((r) => r.body);
   const bot = async () => (await api(A, 'GET', `/api/channels/${text.id}/messages?limit=10`)).body.filter((m) => m.author.username === 'sendmusic').map((m) => m.content);
-  const say = async (c, wait = 2500) => { await api(A, 'POST', `/api/channels/${text.id}/messages`, { content: c }); await sleep(wait); };
+  // Same as typing the /command in the message box.
+  const say = async (c, wait = 2500) => { const m = /^!(\w+)(?:\s+(.*))?$/.exec(c); const command = { np: 'nowplaying' }[m[1]] ?? m[1]; await api(A, 'POST', '/api/music/command', { channel_id: text.id, command, ...(m[2] ? { query: m[2] } : {}) }); await sleep(wait); };
   const stop = async () => { await say('!stop', 1500); };
 
   // YouTube video
