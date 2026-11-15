@@ -1,5 +1,21 @@
 # SEND restore points
 
+## 2026-11-15: desktop 0.8.4, boost perks, What's new shows only the latest update
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.3.yml` (backup of the feed that pointed at `SEND-Setup-0.8.3.exe`; that installer stays in the bucket) |
+| Backend (Worker `send-beta-api`) | version `74059103-538c-4fe6-96ff-50d21c069fd8` (`SOURCE_COMMIT` `a60d611`, download link to 0.8.3) |
+| Web (Pages `syndo-app`) | deployment `6f4ff9b0-078e-4066-97d0-da9273453b97` (`a60d611`) |
+| Database | migration `016_boost_perks.sql` only adds `guilds.perks` (jsonb, default `{}`); older backends ignore it |
+
+Released from commit `a3b3942` (CI run 43736213801): `SEND-Setup-0.8.4.exe`, 17,452,335 bytes, sha512 `Qvf5utZj8RypOpvqkq9/5qVSb8sGeYhAxfU1ZzqoKfJYqgC+db+L5tFedkOqvRz26+M0Kel6z7iOqRFLraoWww==` (public copy verified). Feed switched to 0.8.4; download link worker version `86f9d8e9-1302-4870-9399-e3ca5d5aa257` (same server code, `SOURCE_COMMIT` `a60d611`). Upload token deleted. Web Pages deployment `7d671abe-cc22-41e3-b4da-be42be96e910` (`a3b3942`). Android 0.9.202 published by CI.
+
+### Roll back
+1. Feed: copy `latest-0.8.3.yml` over `latest.yml` in the `syndo-desktop` bucket.
+2. Download link and backend: Workers, `send-beta-api`, deploy `74059103` at 100%. For the backend before boost perks, deploy the version before it (`SOURCE_COMMIT` `9c17aa3`).
+3. Web: Pages, `syndo-app`, roll back to `6f4ff9b0`.
+
 ## 2026-11-15: desktop 0.8.3 (dragged call tile stays on top)
 
 | Layer | Restore point (before this release) |
