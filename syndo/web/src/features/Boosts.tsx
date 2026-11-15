@@ -1,9 +1,9 @@
 import { Select } from "../components/Select.tsx";
-import { useEffect, useRef, useState, type JSX } from "react";
-import { Gift, Headphones, Image as ImageIcon, KeyRound, MonitorUp, Smile, Sparkles, Trash2, Upload, Volume2 } from "lucide-react";
-import { BOOST_LEVELS, type Guild, type User } from "@send/shared";
+import { useEffect, useRef, useState, type CSSProperties, type JSX } from "react";
+import { Check, Crown, Flame, Gem, Gift, Headphones, Heart, Leaf, Moon, Star, Zap, Image as ImageIcon, KeyRound, MonitorUp, Smile, Sparkles, Trash2, Upload, Volume2 } from "lucide-react";
+import { BOOST_EXTRA_PERKS, BOOST_LEVELS, P, TAG_BADGES, activePerk, has, type BoostExtraPerkId, type Guild, type GuildPerks, type TagBadge, type User } from "@send/shared";
 import { api, errMsg } from "../api.ts";
-import { onEvent, toast, useStore } from "../store.ts";
+import { guildPerms, onEvent, toast, useStore } from "../store.ts";
 import { Avatar, Field, Modal, Toggle } from "../components/ui.tsx";
 import { askConfirm } from "../components/overlay.tsx";
 import { openModal } from "./modals.tsx";
@@ -27,16 +27,21 @@ export function BoostPerks({ tier }: { tier: number }) {
       <tr><td>Animated banner & server badge</td>{BOOST_LEVELS.map((l) => <td key={l.level} className={l.level === tier ? "cur" : ""}>{l.animated_banner ? "✓" : "-"}</td>)}</tr></tbody></table>;
 }
 
-/** Under the server name (when the server turns it on): boost level, count and progress to the next level. */
+/** Under the server name (when the server turns it on): level, boost count and the road to Level 3. */
 export function ServerBoostBar({ guild }: { guild: Guild }) {
   const count = guild.premium_count ?? 0, tier = guild.premium_tier ?? 0;
   const max = BOOST_LEVELS[BOOST_LEVELS.length - 1]!.boosts;
   const next = BOOST_LEVELS.find((l) => l.boosts > count);
+  const accent = activePerk(guild, "accent");
   return (
-    <button className="server-boost-bar" onClick={() => openBoostServer(guild)} aria-label={`${tier ? `Level ${tier}` : "No boost level yet"}, ${count} boosts. Open Server Boost`}>
-      <span className="sbb-top"><Sparkles size={13} /><b>{tier ? `Level ${tier}` : "Server Boost"}</b><span className="sbb-count">{count} {count === 1 ? "boost" : "boosts"}</span></span>
-      <span className="sbb-track" aria-hidden><i style={{ width: `${Math.min(100, (count / max) * 100)}%` }} />{BOOST_LEVELS.slice(1).map((l) => <em key={l.level} className={count >= l.boosts ? "on" : ""} style={{ left: `${(l.boosts / max) * 100}%` }} />)}</span>
-      <span className="sbb-next">{next ? `${next.boosts - count} more for Level ${next.level}` : "Max level reached"}</span>
+    <button className="server-boost-bar" style={accent ? ({ "--sbb-a": accent, "--sbb-b": `color-mix(in srgb, ${accent} 60%, #FFFFFF)` } as CSSProperties) : undefined} onClick={() => openBoostServer(guild)}
+      title={next ? `${next.boosts - count} more for Level ${next.level}` : "Max level reached"}
+      aria-label={`${tier ? `Level ${tier}` : "No boost level yet"}, ${count} boosts. ${next ? `${next.boosts - count} more for Level ${next.level}.` : "Max level."} Open Server Boost`}>
+      <span className="sbb-top"><Sparkles size={15} /><b>{tier ? `Level ${tier}` : "Server Boost"}</b><span className="sbb-count">{count} {count === 1 ? "boost" : "boosts"}</span></span>
+      <span className="sbb-track" aria-hidden>
+        <i style={{ width: `${Math.min(100, (count / max) * 100)}%` }} />
+        {BOOST_LEVELS.slice(1).map((l) => <em key={l.level} className={count >= l.boosts ? "on" : ""} style={{ left: `${(l.boosts / max) * 100}%` }}>{l.level}</em>)}
+      </span>
     </button>
   );
 }
@@ -81,6 +86,63 @@ function flySparks(from: HTMLElement, onLanded: () => void) {
   }
 }
 
+const BADGE_ICONS: Record<TagBadge, typeof Star> = { star: Star, flame: Flame, bolt: Zap, heart: Heart, leaf: Leaf, moon: Moon, crown: Crown, gem: Gem };
+
+/** The badge next to a server's tag (Server tag badge perk). Nothing when the perk isn't on. */
+export function TagBadgeIcon({ guild, size = 12 }: { guild: Guild; size?: number }) {
+  const b = activePerk(guild, "tag_badge");
+  if (!b || !BADGE_ICONS[b]) return null;
+  const Icon = BADGE_ICONS[b];
+  return <Icon className="tag-badge" size={size} aria-label={`${b} badge`} />;
+}
+
+/** Server colour perk: CSS variables for the server's own colour, or nothing. */
+export const accentVars = (guild: Guild): CSSProperties | undefined => {
+  const a = activePerk(guild, "accent");
+  return a ? ({ "--srv-accent": a } as CSSProperties) : undefined;
+};
+
+const ACCENTS = ["#3D6BFF", "#22CC88", "#FFC93C", "#FF5C5C", "#B05CFF", "#FF8FD1", "#2EC4D6", "#FF8A3D"];
+
+function ExtraPerks({ guild, canManage }: { guild: Guild; canManage: boolean }) {
+  const count = guild.premium_count ?? 0;
+  const [busy, setBusy] = useState(false);
+  const save = async (perks: Partial<GuildPerks>, msg: string) => {
+    setBusy(true);
+    try { await api.patch(`/api/guilds/${guild.id}`, { perks }); toast(msg, "success"); } catch (e) { toast(errMsg(e), "error"); } finally { setBusy(false); }
+  };
+  const art = (id: BoostExtraPerkId) => {
+    const badge = guild.perks?.tag_badge ?? "star", Badge = BADGE_ICONS[badge] ?? Star;
+    if (id === "tag_badge") return <span className="xp-tag"><Badge size={14} />{guild.tag || "SEND"}</span>;
+    if (id === "animated_roles") return <span className="xp-role role-anim" style={{ backgroundImage: "linear-gradient(90deg, #5B8CFF, #FF8FD1, #FFC93C, #5B8CFF)" }}>Moderator</span>;
+    return <span className="xp-swatches">{ACCENTS.slice(0, 5).map((c) => <i key={c} style={{ background: c }} className={guild.perks?.accent === c ? "on" : ""} />)}</span>;
+  };
+  return (
+    <div className="xp-grid">
+      {BOOST_EXTRA_PERKS.map((def) => {
+        const afford = count >= def.boosts, on = !!activePerk(guild, def.id), set = !!guild.perks?.[def.id];
+        return <article key={def.id} className={`xp-card ${on ? "on" : ""}`} aria-label={`${def.name}${on ? ", enabled" : ""}`}>
+          <div className="xp-art" aria-hidden>{art(def.id)}</div>
+          <div className="xp-body">
+            <h4>{def.name}</h4>
+            <p className="muted small">{def.description}</p>
+            {canManage && afford && def.id === "tag_badge" && <div className="xp-pick" role="group" aria-label="Badge">{TAG_BADGES.map((b) => { const I = BADGE_ICONS[b]; return <button key={b} disabled={busy} className={guild.perks?.tag_badge === b ? "on" : ""} aria-pressed={guild.perks?.tag_badge === b} aria-label={b} title={b} onClick={() => save({ tag_badge: guild.perks?.tag_badge === b ? null : b }, guild.perks?.tag_badge === b ? "Badge removed." : "Badge set.")}><I size={15} /></button>; })}</div>}
+            {canManage && afford && def.id === "accent" && <div className="xp-pick" role="group" aria-label="Server colour">{ACCENTS.map((c) => <button key={c} disabled={busy} className={`sw ${guild.perks?.accent === c ? "on" : ""}`} style={{ background: c }} aria-pressed={guild.perks?.accent === c} aria-label={c} onClick={() => save({ accent: guild.perks?.accent === c ? null : c }, guild.perks?.accent === c ? "Server colour removed." : "Server colour set.")} />)}<label className="sw custom" title="Custom colour"><input type="color" value={guild.perks?.accent ?? "#B05CFF"} onChange={(e) => save({ accent: e.target.value.toUpperCase() }, "Server colour set.")} aria-label="Custom colour" /></label></div>}
+            {canManage && afford && def.id === "animated_roles" && <div className="xp-toggle"><Toggle label="Animate gradient roles" disabled={busy} checked={!!guild.perks?.animated_roles} onChange={(v) => save({ animated_roles: v }, v ? "Role colours now animate." : "Role colours are still.")} /></div>}
+            <div className="xp-foot">
+              <span className="xp-cost"><Sparkles size={13} /> {def.boosts} Boosts</span>
+              {on ? <span className="xp-state on"><Check size={14} /> Enabled</span>
+                : !afford ? <span className="xp-state">{def.boosts - count} more {def.boosts - count === 1 ? "boost" : "boosts"} needed</span>
+                : set ? <span className="xp-state">Off</span>
+                : <span className="xp-state">{canManage ? "Pick one to enable" : "Not turned on"}</span>}
+            </div>
+          </div>
+        </article>;
+      })}
+    </div>
+  );
+}
+
 export function openBoostServer(guild: Guild) { openModal((close) => <BoostServer guild={guild} onClose={close} />); }
 
 function BoostServer({ guild, onClose }: { guild: Guild; onClose: () => void }) {
@@ -96,6 +158,7 @@ function BoostServer({ guild, onClose }: { guild: Guild; onClose: () => void }) 
     try { for (const b of free.slice(0, n)) await api.put(`/api/premium/boosts/${b.id}`, { guild_id: guild.id }); toast(`Boosted ${guild.name}!`, "success"); load(); }
     catch (e) { toast(errMsg(e), "error"); }
   };
+  const canManage = has(guildPerms(live), P.MANAGE_GUILD);
   const spent = p ? p.boosts.filter((b) => b.guild_id).length : 0;
   const getBoosts = () => { onClose(); window.dispatchEvent(new CustomEvent("send:dialog", { detail: { kind: "userSettings", tab: "boosts" } })); };
   const perks = (l: (typeof BOOST_LEVELS)[number]): [JSX.Element, string][] => [
@@ -121,6 +184,9 @@ function BoostServer({ guild, onClose }: { guild: Guild; onClose: () => void }) 
               </article>;
             })}
           </div>
+          <h3>Additional perks</h3>
+          <p className="muted small">Extras that only need enough boosts, whatever the level. {canManage ? "Turn them on here." : "People who can manage the server turn them on."}</p>
+          <ExtraPerks guild={live} canManage={canManage} />
           {boosters.length > 0 && <><h3>Boosting this server</h3><div className="boosters">{boosters.map((b) => <div key={b.user.id} className="member"><Avatar user={b.user} size={28} /><span className="ellipsis">{b.user.display_name || b.user.username}</span><small className="muted">{b.boosts}× · since {new Date(b.since).toLocaleDateString()}</small></div>)}</div></>}
         </div>
         <aside className="bp-side" aria-label="Your boosts">

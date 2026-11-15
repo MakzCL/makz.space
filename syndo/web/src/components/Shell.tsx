@@ -40,7 +40,7 @@ import { ForumView, SidebarThreads, useActiveThreads } from "../features/Threads
 import { openServerNotifications } from "../features/Notifications.tsx";
 import { EventsButton, openEvents } from "../features/Events.tsx";
 import { Discovery } from "../features/Discovery.tsx";
-import { openBoostServer, ServerBoostBar } from "../features/Boosts.tsx";
+import { accentVars, openBoostServer, ServerBoostBar, TagBadgeIcon } from "../features/Boosts.tsx";
 import { InboxHost } from "../features/Inbox.tsx";
 import { OnboardingGate } from "../features/Onboarding.tsx";
 import { isMutedScope } from "../store.ts";
@@ -330,9 +330,9 @@ function GuildSidebar({ guild, current, onDialog }: { guild: Guild; current: str
   const bannerOk = useImageLoads(guild.banner);
   return (
     <>
-      <header className={`side-h guild-h ${bannerOk ? "has-banner" : ""}`} style={bannerOk ? { backgroundImage: `url("${guild.banner}")` } : undefined}>
+      <header className={`side-h guild-h ${bannerOk ? "has-banner" : ""} ${accentVars(guild) ? "srv-accent" : ""}`} style={{ ...accentVars(guild), ...(bannerOk ? { backgroundImage: `url("${guild.banner}")` } : {}) }}>
         <button ref={menuBtn} className="guild-menu-btn" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((m) => !m)} onContextMenu={(e) => openContextMenu(e, guildMenuItems(guild))}>
-          <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag">{guild.tag}</span>}<ChevronDown size={18} />
+          <span className="ellipsis">{guild.name}</span>{guild.tag && <span className="tag srv-tag"><TagBadgeIcon guild={guild} />{guild.tag}</span>}<ChevronDown size={18} />
         </button>
         {menu && (
           <Popover className="menu guild-menu" place="below" label={`${guild.name} options`} anchor={() => menuBtn.current} onClose={() => setMenu(false)} onClick={(e) => { if ((e.target as HTMLElement).closest("[role=menuitem]")) setMenu(false); }}>

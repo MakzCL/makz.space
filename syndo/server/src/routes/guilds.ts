@@ -18,7 +18,7 @@ import { guildFor } from "../ready.ts";
 import { USER_COLS, channelOut, mediaUrl, roleOut, userOut } from "../serialize.ts";
 import * as storage from "../storage.ts";
 import { readImage, shrinkImage, IMAGE_MAX } from "../uploads.ts";
-import { validateProfileTheme } from "@send/shared";
+import { validateProfileTheme, BOOST_EXTRA_PERKS, TAG_BADGES, type GuildPerks } from "@send/shared";
 import { createSystemMessage } from "./messages.ts";
 
 const ID = z.string().regex(/^\d{1,20}$/);
@@ -188,7 +188,24 @@ export async function guildRoutes(app: FastifyInstance) {
       verification_level: z.number().int().min(0).max(4).optional(),
       discoverable: z.boolean().optional(),
       show_boost_bar: z.boolean().optional(),
+      perks: z.object({
+        tag_badge: z.enum(TAG_BADGES).nullable().optional(),
+        animated_roles: z.boolean().optional(),
+        accent: z.string().regex(/^#[0-9A-Fa-f]{6}$/).transform((v) => v.toUpperCase()).nullable().optional(),
+      }).strict().optional(),
     }).strict().parse(req.body);
+    let perks: GuildPerks | undefined;
+    if (b.perks) {
+      const cur = await q1<any>("select perks, premium_count from guilds where id = $1", [guild.id]);
+      perks = { ...(cur?.perks ?? {}) } as GuildPerks;
+      for (const [k, v] of Object.entries(b.perks) as [keyof GuildPerks, any][]) {
+        if (v === undefined) continue;
+        const def = BOOST_EXTRA_PERKS.find((p) => p.id === k)!;
+        // Turning a perk on (or changing it) needs the boosts; turning it off never does.
+        if (v && (cur?.premium_count ?? 0) < def.boosts) throw bad(`${def.name} needs ${def.boosts} boosts.`);
+        if (v) (perks as any)[k] = v; else delete perks[k];
+      }
+    }
     for (const k of ["system_channel_id", "afk_channel_id", "rules_channel_id"] as const) {
       if (b[k]) {
         const ch = await q1<any>("select type from channels where id = $1 and guild_id = $2", [b[k], guild.id]);
@@ -200,7 +217,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const taken = await q1("select 1 from guilds where vanity_code = $1 and id <> $2 union select 1 from invites where lower(code) = $1", [b.vanity_code, guild.id]);
       if (taken) throw conflict("That invite link is taken.", "vanity_taken");
     }
-    const entries = Object.entries(b).filter(([, v]) => v !== undefined);
+    const entries = Object.entries({ ...b, perks }).filter(([, v]) => v !== undefined);
     if (entries.length) {
       await q(`update guilds set ${entries.map(([k], i) => `${k} = $${i + 2}`).join(", ")} where id = $1`, [guild.id, ...entries.map(([, v]) => v)]);
       await audit(guild.id, uid(req), "guild_update", guild.id, Object.fromEntries(entries));

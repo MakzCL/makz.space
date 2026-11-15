@@ -235,6 +235,25 @@ describe("Boosts, notifications, stage, announcements", () => {
     await o.post("/api/staff/grants", { user: "bm", slots: 1, days: 30 });
     assert.equal((await m.get("/api/premium")).body.boosts.length, 3);
   });
+  it("additional perks need enough boosts and only managers can set them", async () => {
+    const { g } = await serverWith(o, m);
+    const { pool } = await import("../src/db.ts");
+    await pool.query("update guilds set premium_count = 2, premium_tier = 1 where id = $1", [g.id]);
+    const ok = await o.patch(`/api/guilds/${g.id}`, { perks: { tag_badge: "flame" } });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.perks.tag_badge, "flame");
+    const short = await o.patch(`/api/guilds/${g.id}`, { perks: { animated_roles: true } });
+    assert.equal(short.status, 400, "3 boosts needed");
+    assert.match(short.body.message, /3 boosts/);
+    assert.equal((await o.patch(`/api/guilds/${g.id}`, { perks: { tag_badge: "nope" } })).status, 400, "unknown badge");
+    assert.equal((await m.patch(`/api/guilds/${g.id}`, { perks: { tag_badge: "star" } })).status, 403, "members can't");
+    await pool.query("update guilds set premium_count = 5 where id = $1", [g.id]);
+    const both = (await o.patch(`/api/guilds/${g.id}`, { perks: { animated_roles: true, accent: "#ff8fd1" } })).body;
+    assert.deepEqual(both.perks, { tag_badge: "flame", animated_roles: true, accent: "#FF8FD1" });
+    await pool.query("update guilds set premium_count = 0 where id = $1", [g.id]);
+    const off = (await o.patch(`/api/guilds/${g.id}`, { perks: { animated_roles: false, accent: null } })).body;
+    assert.deepEqual(off.perks, { tag_badge: "flame" }, "turning off never needs boosts; the rest is kept");
+  });
   it("notification settings: levels and timed mutes", async () => {
     const { g } = await serverWith(o, m);
     const r = (await m.put(`/api/users/@me/notification-settings/${g.id}`, { scope_kind: 0, level: 2, muted: true, mute_minutes: 60 })).body;

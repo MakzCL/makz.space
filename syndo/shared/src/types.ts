@@ -178,6 +178,8 @@ export interface Guild {
   premium_count?: number;
   /** Show the boost progress bar under the server banner (server setting). */
   show_boost_bar?: boolean;
+  /** Additional boost perks the server has set (see BOOST_EXTRA_PERKS and activePerk). */
+  perks?: GuildPerks;
   discovery_category?: string | null;
   discovery_keywords?: string[];
   /** Stage instances currently live in this server. */
@@ -325,6 +327,26 @@ export const BOOST_LEVELS = [
 ] as const;
 export const boostPerks = (tier: number | null | undefined) => BOOST_LEVELS[Math.max(0, Math.min(3, tier ?? 0))]!;
 export const boostLevelFor = (count: number) => [...BOOST_LEVELS].reverse().find((l) => count >= l.boosts)!.level;
+
+/**
+ * Additional perks: extras a server turns on once it has enough boosts, whatever its level.
+ * The setting is kept when boosts drop, but it only shows while the server has `boosts` or more.
+ */
+export const BOOST_EXTRA_PERKS = [
+  { id: "tag_badge", name: "Server tag badge", boosts: 2, description: "Pick a badge that sits next to your server tag in the server header." },
+  { id: "animated_roles", name: "Animated role colours", boosts: 3, description: "Roles with a gradient shimmer in chat and in the member list." },
+  { id: "accent", name: "Server colour", boosts: 5, description: "Choose the colour of your server's header, tag and boost bar for everyone." },
+] as const;
+export type BoostExtraPerkId = (typeof BOOST_EXTRA_PERKS)[number]["id"];
+export const TAG_BADGES = ["star", "flame", "bolt", "heart", "leaf", "moon", "crown", "gem"] as const;
+export type TagBadge = (typeof TAG_BADGES)[number];
+export interface GuildPerks { tag_badge?: TagBadge | null; animated_roles?: boolean; accent?: string | null }
+/** The perk's value when it's set and the server has enough boosts for it, otherwise null. */
+export function activePerk<K extends keyof GuildPerks>(g: { premium_count?: number; perks?: GuildPerks | null }, id: K): NonNullable<GuildPerks[K]> | null {
+  const def = BOOST_EXTRA_PERKS.find((p) => p.id === id)!;
+  const v = g.perks?.[id];
+  return (g.premium_count ?? 0) >= def.boosts && v ? (v as NonNullable<GuildPerks[K]>) : null;
+}
 
 export const MessageType = {
   DEFAULT: 0, RECIPIENT_ADD: 1, RECIPIENT_REMOVE: 2, CALL: 3, GROUP_RENAME: 4, PINNED: 6, MEMBER_JOIN: 7, BOOST: 8, BOOST_TIER: 9,

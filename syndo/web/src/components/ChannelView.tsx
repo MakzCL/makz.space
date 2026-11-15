@@ -8,7 +8,7 @@ import { MoreHorizontal,
   Search, SendHorizontal, SmilePlus, Trash2, Users, Video, X, RotateCcw, Megaphone, Volume2, UserPlus, Mic, Square, Bell, BellOff,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChannelType, MessageType, P, boostPerks, has, type Channel, type Message, type Sticker } from "@send/shared";
+import { ChannelType, MessageType, P, activePerk, boostPerks, has, type Channel, type Message, type Sticker } from "@send/shared";
 import { api, errMsg } from "../api.ts";
 import { ackChannel, discardFailed, loadMembers, loadMessages, openDm, sendMessage, sendTyping, setConversationMuted, startUpload, type PendingUpload } from "../actions.ts";
 import { CustomEmoji, Markdown, plainText } from "../markdown.tsx";
@@ -409,13 +409,13 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
     const g = s.guilds[guildId]; const mem = s.members[guildId]?.[m.author.id];
     if (!g || !mem) return null;
     const r = g.roles.filter((r) => mem.roles.includes(r.id) && r.color).sort((a, b) => b.position - a.position)[0];
-    return r ? { c: r.color!, c2: r.color2 } : null;
+    return r ? { c: r.color!, c2: r.color2, anim: !!r.color2 && !!activePerk(g, "animated_roles") } : null;
   }));
   if (m.type !== 0 && m.type !== 19 && m.type !== 20) return <SystemMessage m={m} channel={channel} />;
   const gridClass = useGridClass(m);
   const name = m.member_nick || memberName(guildId, m.author);
   const cos = useCosmetics(m.author, m.member?.profile_theme ?? undefined);
-  const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;
+  const nameStyle = roleColor ? (roleColor.c2 ? { backgroundImage: roleColor.anim ? `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2}, ${roleColor.c})` : `linear-gradient(90deg, ${roleColor.c}, ${roleColor.c2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: roleColor.c }) : undefined;
   const del = async (skipConfirm = false) => {
     if (!skipConfirm && !(await askConfirm({ title: "Delete message?", body: "Are you sure you want to delete this message? Hold Shift when clicking Delete to skip this.", confirmLabel: "Delete", danger: true }))) return;
     try { await api.del(`/api/channels/${channel.id}/messages/${m.id}`); } catch (e) { toast(errMsg(e), "error"); }
@@ -479,7 +479,7 @@ const MessageRow = memo(function MessageRow({ m, channel, grouped, onReply, mdCt
         <div className="msg-gutter">{grouped ? <time className="msg-time-hover" dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
           : <button className="av-btn" aria-label={`${name}'s profile`} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><Avatar user={m.author} size={40} src={m.member?.avatar ?? undefined} serverTheme={m.member?.profile_theme ?? undefined} /></button>}</div>
         <div className="msg-body">
-          {!grouped && <div className="msg-head"><button className="msg-name" style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">{m.webhook_id && !m.source ? "BOT" : "APP"}</span>}<SourceTag m={m} /><time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
+          {!grouped && <div className="msg-head"><button className={`msg-name ${roleColor?.anim ? "role-anim" : ""}`} style={nameStyle} onClick={(e) => mdCtx.onMention(m.author.id, e.currentTarget)} onContextMenu={authorMenu}><StyledName theme={cos.theme} animate={cos.animate}>{name}</StyledName></button>{m.author.bot && <span className="tag">{m.webhook_id && !m.source ? "BOT" : "APP"}</span>}<SourceTag m={m} /><time dateTime={m.created_at} className="muted small">{fmtTime(m.created_at)}</time></div>}
           <InteractionLine m={m} guildId={guildId} />
           {editing ? <EditBox m={m} onDone={() => setEditing(false)} /> : (
             <div className="msg-content">
@@ -1007,7 +1007,7 @@ function MemberList({ guildId, channel, onProfile, onClose }: { guildId: string;
             return (
               <button key={m.user.id} className={`member ${status === "offline" ? "off" : ""}`} onClick={(e) => onProfile(m.user.id, e.currentTarget)} onContextMenu={(e) => { const el = e.currentTarget; openContextMenu(e, userMenuItems(m.user, { guildId, onProfile: () => onProfile(m.user.id, el) })); }}>
                 <Avatar user={m.user} size={32} status={status} src={m.guild_avatar} serverTheme={m.guild_profile_theme ?? undefined} />
-                <span className="member-txt"><span className="ellipsis block" style={role ? { color: role.color! } : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}{m.premium_since && <span title="Server Booster" aria-label="Server Booster"> ✨</span>}{m.user.bot && <span className="tag">APP</span>}</span>
+                <span className="member-txt"><span className={`ellipsis block ${role?.color2 && activePerk(guild, "animated_roles") ? "role-anim" : ""}`} style={role ? (role.color2 ? { backgroundImage: activePerk(guild, "animated_roles") ? `linear-gradient(90deg, ${role.color}, ${role.color2}, ${role.color})` : `linear-gradient(90deg, ${role.color}, ${role.color2})`, WebkitBackgroundClip: "text", color: "transparent" } : { color: role.color! }) : undefined}>{m.nick || displayName(m.user)}{guild.owner_id === m.user.id && <span title="Server owner" aria-label="Server owner"> 👑</span>}{m.premium_since && <span title="Server Booster" aria-label="Server Booster"> ✨</span>}{m.user.bot && <span className="tag">APP</span>}</span>
                   <MemberActivity id={m.user.id} status={status === "offline" ? null : (m as any).guild_status ?? null} /></span>
               </button>
             );
