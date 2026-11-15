@@ -1,5 +1,12 @@
 # SEND restore points
 
+## 2026-11-15: SEND Music player with synced lyrics (LRCLIB)
+
+Before: backend worker `7e6a8e3c-d351-49f9-9700-7159ff0674c9` (SOURCE_COMMIT `4258b0b`), web Pages `d9b75d34-c3ec-4b0f-8716-f10cea9d47bc` (`9f2e5d0`). Source backup branch `backup/pre-player-20261115`.
+Change: new call-screen player (lyrics, progress, round buttons, YouTube player on its left). Worker code passes `MUSIC_LYRICS`; binding `MUSIC_LYRICS=lrclib` added (plain text). No database change.
+Lyrics: fetched from lrclib.net while a song plays, cached in memory only, never stored. Community-made, not licensed (owner's choice). Turn off by deleting the `MUSIC_LYRICS` binding.
+Roll back: Workers, `send-beta-api`, deploy `7e6a8e3c` at 100%; Pages `syndo-app`, roll back to `d9b75d34`.
+
 ## 2026-11-15: YouTube key, call-screen music buttons with the / commands, screen share echo
 
 Secret added: `YOUTUBE_API_KEY` on `send-beta-api` (YouTube search, Spotify matching, full YouTube playlists). Delete it to go back to Audius-only matching.
