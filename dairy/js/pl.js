@@ -357,7 +357,7 @@ export const PL = {
   'Message': 'Wiadomość', 'Send': 'Wyślij', 'Open chat': 'Otwórz', 'Link copied': 'Link skopiowany', 'Copy this link:': 'Skopiuj ten link:',
   'Checking the invite…': 'Sprawdzam zaproszenie…', 'Ask the farm admin for an invite link or code: More → Sync & phones → Invite a phone.': 'Poproś administratora o link lub kod zaproszenia: Więcej → Synchronizacja i telefony → Zaproś telefon.',
   'Make a link for a new person. It downloads the app and lets them create their own login.': 'Utwórz link dla nowej osoby. Pobierze aplikację i założy własne logowanie.',
-  'Join {f} on Dairy Herd: download the app and use code {c}.': 'Dołącz do {f} w Dairy Herd: pobierz aplikację i użyj kodu {c}.',
+  'Join {f} on Dairy Herd.\n1. Install the app (Android): {apk}\n2. Open it, tap “Join a farm with a code” and enter {c}.\nOr open: {link}': 'Dołącz do {f} w Dairy Herd.\n1. Zainstaluj aplikację (Android): {apk}\n2. Otwórz ją, stuknij „Dołącz do gospodarstwa z kodem” i wpisz {c}.\nAlbo otwórz: {link}',
   'Invite ready': 'Zaproszenie gotowe', 'For {n}': 'Dla: {n}', 'QR code for the invite link': 'Kod QR z linkiem zaproszenia',
   'Scan with the new phone’s camera, or send the link.': 'Zeskanuj aparatem nowego telefonu albo wyślij link.', 'works until {d}': 'ważne do {d}', '{n} people': 'osób: {n}',
   'Share link': 'Udostępnij link', 'Copy link': 'Kopiuj link', 'Dairy Herd invite': 'Zaproszenie do Dairy Herd',

@@ -35,6 +35,8 @@ async function upload(path, body, type, cache) {
 }
 
 await upload(name, apk, 'application/vnd.android.package-archive', 31536000);
+// Stable address for invites: always the newest version.
+await upload('releases/DairyHerd-latest.apk', apk, 'application/vnd.android.package-archive', 300);
 const latest = {
   versionCode, versionName, sha256, size: apk.length,
   url: `${base}/public/dairy-app/${name}`,

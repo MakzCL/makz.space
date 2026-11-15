@@ -19,7 +19,7 @@ const patterns = [
 for (const f of files.filter((x) => !skip.test(x))) {
   const s = readFileSync(f, 'utf8');
   for (const re of patterns) for (const m of s.matchAll(re)) {
-    for (const v of [m[2], m[4]]) if (v && /[a-z]{2}/i.test(v)) keys.add(v.replace(/\\'/g, "'"));
+    for (const v of [m[2], m[4]]) if (v && /[a-z]{2}/i.test(v)) keys.add(v.replace(/\\'/g, "'").replace(/\\n/g, '\n'));
   }
 }
 const missing = [...keys].filter((k) => !(k in PL) && !/^(#|\.|\[|[a-z]+$|[A-Z]{2,}$|stun:)/.test(k));

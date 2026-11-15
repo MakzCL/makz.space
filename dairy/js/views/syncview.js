@@ -5,7 +5,7 @@ import { isAdmin, currentUser, createJoinedUser } from '../auth.js';
 import * as sync from '../sync.js';
 import { fmtDateTime } from '../time.js';
 import { icon } from '../icons.js';
-import { WEB_URL } from '../config.js';
+import { WEB_URL, SYNC_URL } from '../config.js';
 import qrcode from '../vendor/qrcode.js';
 
 export function deviceLabel(name = currentUser()?.name) {
@@ -46,10 +46,10 @@ function qrSvg(text) {
 
 async function share(title, text, url) {
   try {
-    if (window.Capacitor?.isNativePlatform?.()) { await window.Capacitor.nativePromise('Share', 'share', { title, text, url, dialogTitle: title }); return; }
-    if (navigator.share) { await navigator.share({ title, text, url }); return; }
+    if (window.Capacitor?.isNativePlatform?.()) { await window.Capacitor.nativePromise('Share', 'share', { title, text, ...(url ? { url } : {}), dialogTitle: title }); return; }
+    if (navigator.share) { await navigator.share({ title, text, ...(url ? { url } : {}) }); return; }
   } catch (err) { if (/cancel|abort/i.test(err?.message || err?.name || '')) return; }
-  await copy(url);
+  await copy(url || text);
 }
 
 async function copy(text) {
@@ -146,7 +146,8 @@ export function inviteForm() {
 function inviteResult(r, note) {
   const link = inviteLink(r.code);
   const farm = sync.config()?.farmName || S().farmName || 'Dairy Herd';
-  const text = t('Join {f} on Dairy Herd: download the app and use code {c}.', { f: farm, c: prettyCode(r.code) });
+  const apk = `${SYNC_URL}/storage/v1/object/public/dairy-app/releases/DairyHerd-latest.apk`;
+  const text = t('Join {f} on Dairy Herd.\n1. Install the app (Android): {apk}\n2. Open it, tap “Join a farm with a code” and enter {c}.\nOr open: {link}', { f: farm, c: prettyCode(r.code), apk, link });
   openSheet(t('Invite ready'), html`
     <div class="invite" data-testid="invite-result">
       ${note ? html`<p class="invite-for">${t('For {n}', { n: note })}</p>` : ''}
@@ -161,7 +162,7 @@ function inviteResult(r, note) {
       <button type="button" class="btn big" data-copy>${t('Copy link')}</button>
     </div>`, {
     onMount(el) {
-      el.querySelector('[data-share]').onclick = () => share(t('Dairy Herd invite'), text, link);
+      el.querySelector('[data-share]').onclick = () => share(t('Dairy Herd invite'), text, '');
       el.querySelector('[data-copy]').onclick = () => copy(link);
       window.dispatchEvent(new Event('rerender'));
     },
