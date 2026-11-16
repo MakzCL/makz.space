@@ -372,4 +372,6 @@ export const PL = {
   'Production & sales': 'Produkcja i sprzedaż', '{y} yr {m} mo': '{y} l. {m} mies.', '{m} mo': '{m} mies.', 'All': 'Wszystkie', 'Cows': 'Krowy', 'Steers': 'Woły',
   'Search by code, tag or group': 'Szukaj po numerze, kolczyku lub grupie', 'To record for one cow, find her by code first.': 'Aby zapisać coś dla jednej krowy, najpierw znajdź ją po numerze.',
   'Messages and calls with everyone on the farm': 'Wiadomości i rozmowy z całym gospodarstwem',
+  'To check': 'Do badania', 'In milk': 'Dojna', 'Profile': 'Profil', 'Last service': 'Ostatnie krycie', 'Pregnancy status': 'Status cielności',
+  'Age': 'Wiek', 'Category': 'Kategoria', 'Upcoming': 'Nadchodzące', 'Add reminder': 'Dodaj przypomnienie',
 };

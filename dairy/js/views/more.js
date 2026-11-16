@@ -96,14 +96,18 @@ export function tasksView() {
   const tasks = D().tasks.slice().sort((a, b) => a.date.localeCompare(b.date));
   const open = tasks.filter((x) => !x.done); const done = tasks.filter((x) => x.done).reverse().slice(0, 30);
   const today = todayKey(tz());
-  const row = (x) => html`<div class="item ${!x.done && x.date < today ? 'warn' : ''}"><span class="item-k">${tr(x.kind === 'vet' ? 'Vet visit' : x.kind === 'pregcheck' ? 'Pregnancy check' : 'Reminder')}</span>
-    <span class="item-code">${x.title}</span><span>${fmtDay(x.date)}${x.done ? ` · ${tr('done')}` : ` (${inText(diffDays(today, x.date))})`}</span>
+  const row = (x) => html`<div class="item rem ${!x.done && x.date < today ? 'warn' : ''}"><span class="item-ico">${icon(x.kind === 'vet' ? 'stethoscope' : x.kind === 'pregcheck' ? 'pulse' : 'bell')}</span>
+    <span class="item-body"><span class="item-k">${tr(x.kind === 'vet' ? 'Vet visit' : x.kind === 'pregcheck' ? 'Pregnancy check' : 'Reminder')}</span>
+    <span class="item-code">${x.title}</span></span><span class="date-pill ${!x.done && x.date <= today ? 'due' : ''}">${x.done ? fmtDay(x.date) : x.date === today ? tr('Today') : fmtDay(x.date)}</span>
     ${!x.done ? html`<span class="item-actions"><button type="button" class="btn small" data-act="done" data-id="${x.id}">${tr('Done')}</button><button type="button" class="btn small ghost" data-act="edit" data-id="${x.id}">${tr('Edit')}</button></span>` : ''}</div>`;
   return {
-    html: html`<header class="top"><h1>${tr('Reminders')}</h1><button type="button" class="btn primary" data-act="add">+ ${tr('Add')}</button></header>
-      <div class="list">${open.length ? open.map(row) : empty('No open reminders.')}</div>
-      ${done.length ? html`<h2 class="h2">${tr('Done')}</h2><div class="list">${done.map(row)}</div>` : ''}`,
-    actions: { add: () => editTask(), done: (d) => completeTask(db.get('tasks', d.id)), edit: (d) => editTask(db.get('tasks', d.id)) },
+    html: html`<header class="top"><h1>${tr('Reminders')}</h1></header>
+      <div class="tabs"><span class="tab on">${tr('Upcoming')} (${open.length})</span>${done.length ? html`<button type="button" class="tab" data-act="toDone">${tr('Done')} (${done.length})</button>` : ''}</div>
+      <div class="list rem-list">${open.length ? open.map(row) : empty('No open reminders.')}</div>
+      <button type="button" class="btn primary big add-rem" data-act="add">${icon('plus')}${tr('Add reminder')}</button>
+      ${done.length ? html`<h2 class="h2" id="rem-done">${tr('Done')}</h2><div class="list rem-list">${done.map(row)}</div>` : ''}`,
+    actions: { add: () => editTask(), done: (d) => completeTask(db.get('tasks', d.id)), edit: (d) => editTask(db.get('tasks', d.id)),
+      toDone: () => document.getElementById('rem-done')?.scrollIntoView({ behavior: 'smooth' }) },
   };
 }
 

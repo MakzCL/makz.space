@@ -6,11 +6,12 @@ import { fmtDay, fmtDateTime, diffDays, todayKey, inText, dayKey, agoText } from
 import { periodChips, empty, calvingText, breedingHeadline } from '../components.js';
 import { recordExposure, recordPregCheck, setCheckReminder } from '../actions.js';
 import { t, plural } from '../i18n.js';
+import { thumb } from '../photos.js';
 
 const TABS = [['awaiting', 'Awaiting result'], ['pregnant', 'Pregnant'], ['inseminated', 'Inseminated'], ['exposures', 'Bull exposures'], ['heats', 'Heats']];
 
 function rowLink(a, main, sub, extra = '') {
-  return html`<div class="brow"><a class="brow-main" href="#/animal/${a.id}"><span class="row-code">${animalLabel(a)}</span>
+  return html`<div class="brow"><a class="brow-main" href="#/animal/${a.id}">${thumb(a)}<span class="row-code">${animalLabel(a)}</span>
     <span class="row-main"><span>${main}</span>${sub ? html`<span class="row-extra">${sub}</span>` : ''}</span></a>${extra}</div>`;
 }
 

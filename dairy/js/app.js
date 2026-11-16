@@ -38,7 +38,7 @@ function route() {
     case 'more': return ['more', moreView()];
     case 'health': return ['more', healthView()];
     case 'bulls': return ['more', bullsView()];
-    case 'tasks': return ['more', tasksView()];
+    case 'tasks': return ['tasks', tasksView()];
     case 'reports': return ['more', reportsView()];
     case 'settings': return ['more', isAdmin() ? settingsView() : adminOnly()];
     case 'data': return ['more', isAdmin() ? dataView() : adminOnly()];
@@ -110,7 +110,7 @@ function renderNav(active) {
   nav.setAttribute('aria-label', t('Main'));
   nav.innerHTML = String(html`${link(['today', '#/', 'Today'])}${link(['herd', '#/herd', 'Herd'])}
     <button type="button" class="nav-fab" data-quick aria-label="${t('Quick entry')}">${icon('plus', { size: 28 })}</button>
-    ${link(['breeding', '#/breeding/awaiting', 'Breeding'])}${link(['more', '#/more', 'More'])}`);
+    ${link(['tasks', '#/tasks', 'Reminders'])}${link(['more', '#/more', 'More'])}`);
 }
 
 /** The + in the middle of the bottom bar: the everyday entries, one tap away from any screen. */
@@ -137,7 +137,7 @@ function quickSheet() {
 nav.addEventListener('click', (e) => { if (e.target.closest('[data-quick]')) quickSheet(); });
 
 const ICONS = {
-  today: 'home', herd: 'cow', breeding: 'heart', milk: 'milk', chat: 'chat', more: 'grid',
+  today: 'home', herd: 'cow', breeding: 'heart', milk: 'milk', chat: 'chat', more: 'more', tasks: 'calendar',
 };
 
 export function render({ scroll = false } = {}) {

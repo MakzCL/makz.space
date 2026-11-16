@@ -118,17 +118,30 @@ export function ageText(a) {
   return y ? t('{y} yr {m} mo', { y, m: months }) : t('{m} mo', { m: months });
 }
 
+/** The one status pill at the right of a row, like the mockup: milk hold > breeding state > in milk. */
+export function rowStatus(a, w = withdrawals(D(), a.id)) {
+  if (!isActive(a)) return '';
+  if (w.milk.active) return html`<span class="pill red">${t('Withhold milk')}</span>`;
+  if (!isFemale(a) || a.type === 'calf') return '';
+  const st = breedingStatus(D(), a);
+  if (st.state === 'pregnant') return html`<span class="pill green">${t('Pregnant')}</span>`;
+  if (st.state === 'awaiting') return html`<span class="pill orange">${t('To check')}</span>`;
+  if (st.state === 'open' || st.state === 'lost') return html`<span class="pill grey">${t('Open')}</span>`;
+  if (a.type === 'cow') return html`<span class="pill blue">${t('In milk')}</span>`;
+  return '';
+}
+
 export function animalRow(a, extra = '') {
   const w = withdrawals(D(), a.id);
-  const st = isFemale(a) && isActive(a) && a.type !== 'calf' ? breedingStatus(D(), a) : null;
   return html`<a class="row" href="#/animal/${a.id}" data-testid="animal-row">
     ${thumb(a)}
     <span class="row-main"><span class="row-id"><span class="row-code ${codeSize(animalLabel(a))}">${animalLabel(a)}</span>${a.tag && a.tag !== a.code ? html`<span class="row-tag">${a.tag}</span>` : ''}</span>
-      <span class="row-meta">${[t(TYPES[a.type]), ageText(a), a.group].filter(Boolean).join(' · ')}</span>
+      <span class="row-meta">${[t(TYPES[a.type]), ageText(a)].filter(Boolean).join(' • ')}</span>
       ${extra ? html`<span class="row-extra">${extra}</span>` : ''}
-    <span class="row-badges">${st ? stateBadge(st) : ''}${w.milk.active ? html`<span class="badge danger">${icon('dropOff', { size: 14 })}${t('Withhold milk')}</span>` : ''}
+    <span class="row-badges">
     ${!isActive(a) ? html`<span class="badge muted">${t(STATUS[a.status])}</span>` : ''}
     ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</span></span>
+    <span class="row-side">${rowStatus(a, w)}</span>
     ${icon('chevron', { cls: 'row-chev' })}
   </a>`;
 }

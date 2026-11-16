@@ -6,7 +6,7 @@ import {
   withdrawals, treatmentMilkEnd, treatmentMeatEnd, overlappingTreatments, sireLabel,
 } from '../logic.js';
 import { fmtDay, fmtDateTime, dayKey } from '../time.js';
-import { breedingCard, holdText, animalRow, empty, treatmentsN, codeSize, ageText, stateBadge } from '../components.js';
+import { breedingCard, holdText, animalRow, empty, treatmentsN, codeSize, ageText, stateBadge, calvingText, rowStatus } from '../components.js';
 import { cowArt } from '../art.js';
 import { breedingStatus } from '../logic.js';
 import { t, plural } from '../i18n.js';
@@ -76,6 +76,15 @@ export function animalView(id) {
   const timeline = timelineItems(a);
   const missing = w.milk.treatments.find((x) => !treatmentMilkEnd(x));
   const sire = a.sireId && db.get('animals', a.sireId);
+  const bst = female ? breedingStatus(D(), a) : null;
+  const drow = (ic, k, v) => (v ? html`<div class="drow">${icon(ic, { size: 20 })}<span class="drow-k">${t(k)}</span><span class="drow-v">${v}</span></div>` : '');
+  const detailsList = html`<section class="card details" id="ap-details">
+    ${bst?.latest ? drow('syringe', 'Last service', fmtDay(dayKey(bst.latest.at || bst.latest.start, tz()))) : ''}
+    ${bst ? drow('heart', 'Pregnancy status', stateBadge(bst) || t('No breeding recorded')) : ''}
+    ${bst?.state === 'pregnant' ? drow('calendar', 'Expected calving', bst.calving ? calvingText(bst.calving) : t('unknown')) : ''}
+    ${drow('calendar', 'Age', ageText(a) || (a.birthDate ? fmtDay(a.birthDate) : t('unknown')))}
+    ${drow('tag', 'Category', [t(TYPES[a.type] || ''), a.group].filter(Boolean).join(' · '))}
+  </section>`;
 
   return {
     html: html`
@@ -87,7 +96,7 @@ export function animalView(id) {
     </header>
     <section class="animal-card">
       <div class="animal-title-row"><h1 class="code-xl ${codeSize(animalLabel(a))}" data-testid="animal-code">${animalLabel(a)}</h1>
-        ${female && active && a.type !== 'calf' ? stateBadge(breedingStatus(D(), a)) : ''}</div>
+        ${rowStatus(a)}</div>
       <p class="animal-sub">${icon('cow', { size: 18 })}<span>${t(TYPES[a.type] || '')}</span>${ageText(a) ? html`<span class="sep">·</span>${icon('calendar', { size: 18 })}<span>${ageText(a)}</span>` : ''}</p>
       <div class="chips-info">
         ${a.tag && a.tag !== a.code ? html`<span class="info-chip">${icon('tag', { size: 16 })}${a.tag}</span>` : ''}
@@ -96,7 +105,14 @@ export function animalView(id) {
         ${a.name ? html`<span class="info-chip">${a.name}</span>` : ''}
         ${!active ? html`<span class="badge muted">${t(STATUS[a.status])} ${a.statusDate ? fmtDay(a.statusDate) : ''}</span>` : ''}
         ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</div>
+      <div class="seg" role="group" aria-label="${t('Sections')}">
+        <button type="button" class="seg-btn on" data-act="jump" data-to="ap-details">${icon('user', { size: 20 })}<span>${t('Profile')}</span></button>
+        ${female ? html`<button type="button" class="seg-btn" data-act="jump" data-to="ap-breed">${icon('heart', { size: 20 })}<span>${t('Breeding')}</span></button>` : ''}
+        <button type="button" class="seg-btn" data-act="jump" data-to="ap-health">${icon('stethoscope', { size: 20 })}<span>${t('Health')}</span></button>
+        <button type="button" class="seg-btn" data-act="jump" data-to="ap-history">${icon('clipboard', { size: 20 })}<span>${t('History')}</span></button>
+      </div>
     </section>
+    ${detailsList}
 
     ${w.milk.active ? html`<div class="hold big" role="alert" data-testid="profile-hold"><strong class="hold-title">${icon('dropOff')}${t('WITHHOLD MILK')}</strong>
       <span>${holdText(w.milk)}</span>
@@ -104,10 +120,10 @@ export function animalView(id) {
       ${missing ? html`<button type="button" class="btn" data-act="editEvent" data-id="${missing.id}">${t('Add withdrawal end time')}</button>` : ''}</div>` : ''}
     ${w.meat.active ? html`<div class="hold meat" role="status">${icon('alert')}<strong>${t('Meat withdrawal')}</strong> ${holdText(w.meat)}</div>` : ''}
 
-    ${female ? breedingCard(a) : ''}
+    <div id="ap-breed">${female ? breedingCard(a) : ''}</div>
     ${female && active ? html`<button type="button" class="btn primary huge" data-act="insem" data-testid="record-insemination">${icon('syringe')}${t('Record insemination')}</button>` : ''}
 
-    ${active ? html`<div class="grid-actions">
+    ${active ? html`<div class="grid-actions" id="ap-health">
       ${female ? html`<button type="button" class="btn act" data-act="heat">${icon('flame')}<span>${t('Heat seen')}</span></button><button type="button" class="btn act" data-act="preg" data-testid="act-preg">${icon('pulse')}<span>${t('Pregnancy check')}</span></button>` : ''}
       ${isBull(a) ? html`<button type="button" class="btn act" data-act="bse">${icon('clipboard')}<span>${t('Soundness exam')}</span></button><button type="button" class="btn act" data-act="exposure">${icon('bull')}<span>${t('Put with group')}</span></button>` : ''}
       <button type="button" class="btn act" data-act="treat" data-testid="act-treat">${icon('pill')}<span>${t('Treatment')}</span></button>
@@ -132,7 +148,7 @@ export function animalView(id) {
       ${a.birthDate ? html`<p>${t('Born {d}', { d: fmtDay(a.birthDate) })}${a.birthWeight ? ` · ${a.birthWeight} kg` : ''}</p>` : ''}
       ${offspring.length ? html`<h3 class="h3">${t('Calves')}</h3>${offspring.map((c) => animalRow(c))}` : ''}</section>` : ''}
 
-    <section class="card"><h2 class="h2">${t('History')}</h2>
+    <section class="card" id="ap-history"><h2 class="h2">${t('History')}</h2>
       ${timeline.length ? html`<ol class="timeline" data-testid="timeline">${timeline.map((x) => html`<li class="tl-${x.kind} ${x.kind === 'treatment' && overlapIds.has(x.id) ? 'overlap' : ''}">
         <span class="tl-dot">${icon(KIND_ICON[x.kind] || 'clipboard', { size: 18 })}</span>
         <button type="button" class="link-row" ${x.id ? html`data-act="editEvent" data-id="${x.id}"` : x.exposureId ? html`data-act="editExposure" data-id="${x.exposureId}"` : html`data-act="editMilk" data-id="${x.milkId}"`}>
@@ -149,6 +165,10 @@ export function animalView(id) {
       calving: () => A.recordCalving(a), loss: () => A.recordLoss(a), treat: () => A.recordTreatment(a),
       health: () => A.recordHealth(a), vacc: () => A.recordVaccination(a), move: () => A.recordMovement(a),
       edit: () => A.editAnimal(a), bse: () => A.recordBSE(a), photo: () => photoSheet(a),
+      jump: (d, e) => {
+        document.getElementById(d.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        e.target.closest('.seg')?.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.to === d.to));
+      },
       exposure: () => A.recordExposure(null, isBull(a) ? { bullId: a.id } : {
         group: a.group,
         animalIds: a.group ? D().animals.filter((x) => isActive(x) && isFemale(x) && x.group === a.group).map((x) => x.id) : [a.id],

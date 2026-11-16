@@ -103,6 +103,12 @@ export function todayView() {
         <p class="hero-farm">${s.farmName || t('My farm')} · ${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</p></div>
       <span class="net" data-net hidden></span>
     </header>
+      <nav class="dash" aria-label="${t('Sections')}">
+      <a class="dtile" href="#/herd"><span class="dtile-ico">${icon('cow')}</span><strong>${t('Herd')}</strong><span>${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/breeding/awaiting"><span class="dtile-ico">${icon('heart')}</span><strong>${t('Breeding')}</strong><span>${t('Insemination & pregnancy')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/health"><span class="dtile-ico">${icon('stethoscope')}</span><strong>${t('Health')}</strong><span>${t('Treatments, vaccinations, vet')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/milk"><span class="dtile-ico">${icon('milk')}</span><strong>${t('Milk')}</strong><span>${t('Production & sales')}</span>${milkHoldsN ? html`<span class="dot">${milkHoldsN}</span>` : ''}${icon('chevron', { cls: 'dtile-chev' })}</a>
+    </nav>
       <section class="find find-card" aria-labelledby="find-label">
         <label id="find-label" for="find" class="find-label">${t('Find cow by code')}</label>
         <div class="search-row">
@@ -114,12 +120,6 @@ export function todayView() {
         <div id="results">${searchResults(ui.query)}</div>
       </section>
 
-    <nav class="dash" aria-label="${t('Sections')}">
-      <a class="dtile" href="#/herd"><span class="dtile-ico">${icon('cow')}</span><strong>${t('Herd')}</strong><span>${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
-      <a class="dtile" href="#/breeding/awaiting"><span class="dtile-ico">${icon('heart')}</span><strong>${t('Breeding')}</strong><span>${t('Insemination & pregnancy')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
-      <a class="dtile" href="#/health"><span class="dtile-ico">${icon('stethoscope')}</span><strong>${t('Health')}</strong><span>${t('Treatments, vaccinations, vet')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
-      <a class="dtile" href="#/milk"><span class="dtile-ico">${icon('milk')}</span><strong>${t('Milk')}</strong><span>${t('Production & sales')}</span>${milkHoldsN ? html`<span class="dot">${milkHoldsN}</span>` : ''}${icon('chevron', { cls: 'dtile-chev' })}</a>
-    </nav>
 
     ${updateBanner()}
     ${hasSample ? html`<div class="sample-banner">${icon('sun')}<span>${t('You are looking at sample data (marked “Sample”).')} <a href="#/data">${t('Remove sample data')}</a></span></div>` : ''}
@@ -127,8 +127,8 @@ export function todayView() {
     ${holds.length ? html`<section aria-label="${t('Milk holds')}" class="list">${holds.map(itemHtml)}</section>` : ''}
 
     <section aria-labelledby="att">
-      <h2 id="att" class="section-title">${t('Needs attention')}${rest.length ? html`<span class="count-badge">${rest.length}</span>` : ''}</h2>
-      ${rest.length ? html`<div class="list">${rest.map(itemHtml)}</div>`
+      <h2 id="att" class="section-title">${icon('calendar', { size: 20 })}${t('Needs attention')}${rest.length ? html`<span class="count-badge">${rest.length}</span>` : ''}</h2>
+      ${rest.length ? html`<div class="week card">${rest.map(itemHtml)}</div>`
         : html`<p class="all-clear">${icon('checkCircle')}${t('Nothing overdue or due soon.')}</p>`}
     </section>
 

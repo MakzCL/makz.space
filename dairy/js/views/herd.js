@@ -34,7 +34,7 @@ export function herdView() {
     </div>
     <label class="search-pill">${icon('search', { size: 20 })}<input id="herd-filter" type="search" placeholder="${t('Search by code, tag or group')}" value="${state.filter}" data-filter aria-label="${t('Filter')}"></label>
     ${state.tab === 'archive' ? html`<p class="muted small">${t('Sold, transferred and dead animals. Their full history is kept.')}</p>` : ''}
-    <div class="list" data-testid="herd-list">${list.length ? list.map((a) => animalRow(a, isBull(a) ? '' : breedingHeadline(a).main)) : empty(state.tab === 'active' ? 'No animals yet. Add your first animal.' : 'No archived animals.')}</div>`,
+    <div class="list" data-testid="herd-list">${list.length ? list.map((a) => animalRow(a)) : empty(state.tab === 'active' ? 'No animals yet. Add your first animal.' : 'No archived animals.')}</div>`,
     actions: {
       add: () => editAnimal(),
       tab: (d) => { state.tab = d.v; return 'render'; },

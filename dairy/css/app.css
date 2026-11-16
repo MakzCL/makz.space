@@ -654,3 +654,112 @@ main:has(> .animal-hero) { padding-top: 0; }
 .farm-top-r { min-width: 0; flex-shrink: 1; }
 .farm-top .sync-pill { min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hero-chat { flex: none; }
+
+/* =====================================================================================================
+   Mockup match (2026-11, second pass): the reference design's palette and shapes.
+   ===================================================================================================== */
+:root { --bg: #f8f9f7; --surface: #ffffff; --surface-2: #f6f7f4; --surface-3: #f1f2ef; --line: #ebede8; --line-2: #dfe2db;
+  --ink: #1b221e; --ink-2: #646b66; --ink-3: #9aa09b;
+  --brand: #1f6b3a; --brand-2: #2a7d48; --brand-soft: #e4f2e7;
+  --violet: #8456d6; --violet-soft: #f2ecfc;
+  --p-green: #e3f3e6; --p-green-ink: #1f6b3a; --p-grey: #f0f1ee; --p-grey-ink: #50575a;
+  --p-orange: #fde8cb; --p-orange-ink: #b8620f; --p-blue: #e2edfb; --p-blue-ink: #2b67bd; --p-red: #fde5e2; --p-red-ink: #c0392b;
+  --sh-1: 0 1px 2px rgba(16, 24, 20, .04); --sh-2: 0 4px 18px rgba(16, 24, 20, .07); }
+@media (prefers-color-scheme: dark) { :root { --bg: #0d1210; --surface: #161d19; --surface-2: #1b231f; --surface-3: #222b26; --line: #26302b; --line-2: #34403a;
+  --ink: #eef3ef; --ink-2: #aeb8b1; --ink-3: #7d8981; --brand: #5cc488; --brand-2: #7ad3a0; --brand-soft: #173124; --violet: #b796f2; --violet-soft: #2a2140;
+  --p-green: #173124; --p-green-ink: #7fd8a2; --p-grey: #26302b; --p-grey-ink: #c1cac4; --p-orange: #3a2a12; --p-orange-ink: #ffc06e;
+  --p-blue: #172a44; --p-blue-ink: #9fc2ff; --p-red: #3a1714; --p-red-ink: #ff8a80; } }
+body { background: var(--bg); }
+.card, .item, .row, .brow-main, .count, .tile, .menu-item, .dtile { border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.card { border-radius: 16px; }
+
+/* pills */
+.pill { display: inline-flex; align-items: center; white-space: nowrap; font-size: .76rem; font-weight: 650; padding: 4px 11px; border-radius: 999px; line-height: 1.25; }
+.pill.green { background: var(--p-green); color: var(--p-green-ink); }
+.pill.grey { background: var(--p-grey); color: var(--p-grey-ink); }
+.pill.orange { background: var(--p-orange); color: var(--p-orange-ink); }
+.pill.blue { background: var(--p-blue); color: var(--p-blue-ink); }
+.pill.red { background: var(--p-red); color: var(--p-red-ink); }
+.badge.good { background: var(--p-green); color: var(--p-green-ink); }
+.badge.info { background: var(--p-orange); color: var(--p-orange-ink); }
+.badge.warn { background: var(--p-orange); color: var(--p-orange-ink); }
+.badge.muted { background: var(--p-grey); color: var(--p-grey-ink); }
+
+/* home: greeting on the landscape, tiles overlapping its edge */
+.farm-hero { height: calc(268px + var(--sat)); border-radius: 0 0 24px 24px; }
+.farm-greet { bottom: 64px; }
+.farm-greet .hero-title { font-size: 1.9rem; }
+.dash { position: relative; z-index: 2; margin: -44px 2px 0; gap: 10px; }
+.dtile { border-radius: 16px; min-height: 112px; padding: 14px 12px 12px 14px; box-shadow: var(--sh-2); }
+.dtile-ico { background: transparent; width: auto; height: auto; justify-content: start; color: var(--brand); margin-bottom: 10px; }
+.dtile-ico .ico { width: 32px; height: 32px; stroke-width: 1.7; }
+.dtile strong { font-size: 1.02rem; font-weight: 750; }
+.find-card { margin: 14px 2px 0; box-shadow: var(--sh-1); border: 1px solid var(--line); border-radius: 16px; }
+.find-card .search-row input { background: var(--surface-3); border-radius: 12px; }
+.find-card .btn.kb { border-radius: 12px; }
+.section-title { font-size: 1.05rem; font-weight: 750; gap: 8px; }
+.section-title .ico { color: var(--brand); }
+.week { padding: 4px 14px; }
+.week .item { border: 0; box-shadow: none; border-radius: 0; padding: 12px 0; background: transparent; gap: 12px; }
+.week .item + .item { border-top: 1px solid var(--line); }
+.week .item-ico, .rem .item-ico { width: 38px; height: 38px; border-radius: 11px; background: var(--violet-soft); color: var(--violet); }
+.week .item.warn .item-ico { background: var(--p-orange); color: var(--p-orange-ink); }
+.week .item-k { text-transform: none; letter-spacing: 0; font-size: .92rem; font-weight: 700; color: var(--ink); }
+.week .item-code { font-size: .95rem; font-weight: 700; }
+.week .item-sub { font-size: .84rem; }
+.item.danger { border-radius: 16px; }
+
+/* tabs and chips: filled green when on, light grey otherwise */
+.tab, .chip { background: var(--surface-3); box-shadow: none; border: 0; color: var(--ink); font-weight: 600; }
+.tab.on, .chip.on { background: var(--brand); color: #fff; box-shadow: none; }
+.type-chips .chip { min-height: 34px; padding: 6px 13px; font-size: .84rem; }
+.search-pill { background: var(--surface-3); box-shadow: none; border-radius: 12px; }
+
+/* rows: photo, code, "Krowa • 4 l. 3 mies.", pill on the right */
+.row { padding: 10px 10px 10px 10px; border-radius: 16px; gap: 12px; }
+.thumb { width: 58px; height: 58px; border-radius: 12px; }
+.row-code { font-size: 1.12rem; font-weight: 750; }
+.row-tag { display: none; }
+.row-meta { font-size: .84rem; color: var(--ink-2); }
+.row-side { margin-left: auto; }
+
+/* animal page */
+.animal-card { border: 1px solid var(--line); border-radius: 20px; }
+.animal-title-row .code-xl { font-size: 2.2rem; font-weight: 800; }
+.animal-title-row .pill { font-size: .82rem; padding: 6px 13px; }
+.seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.seg-btn { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: .76rem; font-weight: 650; cursor: pointer; text-align: center; }
+.seg-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.seg-btn:focus-visible { outline: 3px solid var(--brand-2); }
+.details { padding: 4px 14px; }
+.drow { display: flex; align-items: center; gap: 12px; padding: 13px 0; font-size: .92rem; }
+.drow + .drow { border-top: 1px solid var(--line); }
+.drow .ico { color: var(--ink-3); flex: none; }
+.drow-k { flex: 1; color: var(--ink); font-weight: 550; }
+.drow-v { color: var(--ink); font-weight: 650; text-align: right; }
+#ap-details, #ap-breed, #ap-health, #ap-history { scroll-margin-top: calc(16px + var(--sat)); }
+
+/* breeding lists: photo rows with a green action */
+.brow { border: 0; }
+.brow-main { gap: 12px; border-radius: 16px; }
+.brow-main .thumb { width: 52px; height: 52px; }
+.brow-acts .btn.small:first-child { background: var(--brand); color: #fff; border-color: var(--brand); border-radius: 999px; }
+.brow-acts .btn.small { border-radius: 999px; }
+
+/* reminders */
+.rem { align-items: center; }
+.rem .item-k { text-transform: none; letter-spacing: 0; font-size: .95rem; font-weight: 700; color: var(--ink); }
+.rem .item-code { font-size: .86rem; font-weight: 500; color: var(--ink-2); }
+.date-pill { flex: none; font-size: .78rem; font-weight: 650; padding: 4px 10px; border-radius: 999px; background: var(--p-grey); color: var(--p-grey-ink); }
+.date-pill.due { background: var(--p-red); color: var(--p-red-ink); }
+.rem .item-actions { flex-basis: 100%; }
+.rem { flex-wrap: wrap; }
+.add-rem { width: 100%; justify-content: center; border-radius: 16px; min-height: 56px; margin: 16px 0 8px; }
+
+/* bottom bar */
+.bottom-nav { border-radius: 0; box-shadow: 0 -1px 0 var(--line); }
+.bottom-nav a { color: var(--ink-2); }
+.bottom-nav a.on { color: var(--brand); }
+.bottom-nav a.on .nav-ico .ico { stroke-width: 2.4; }
+.nav-fab { width: 56px; height: 56px; margin-top: -22px; box-shadow: 0 6px 16px rgba(31, 107, 58, .35), 0 0 0 5px var(--surface); }
+.quick-ico { background: var(--brand-soft); }
