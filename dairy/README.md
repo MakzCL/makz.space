@@ -22,8 +22,8 @@ reminders, settings and the PIN users.
   download straight away (a few seconds). They also check every 30 seconds.
 - If two phones change the same record, the later change wins.
 - The admin can see the farm's phones and remove a lost one.
-- Server: Supabase project "kuklinskikarol04@gmail.com's Project"
-  (`venkviplwtvjkqbjlous`). Schema in `server/schema.sql`. Tables sit in a
+- Server: Supabase project "dairy-herd" (`lqlcsfgfsosavolujnku`), moved on 2026-11-16 from
+  the earlier project `venkviplwtvjkqbjlous` with all farms, devices and records. Schema in `server/schema.sql`. Tables sit in a
   private `dairy` schema; phones can only call the `dairy_*` functions, which
   check each phone's secret device key (stored on the server as a hash).
   Anyone with the app can start a new, empty farm, but nobody can read a farm
