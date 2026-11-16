@@ -2851,3 +2851,25 @@ html[dir="rtl"] .fwd-body { border-left: 0; border-right: 3px solid var(--line);
 .xp-cost { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: .84rem; color: #FF8FD1; }
 .xp-state { margin-left: auto; font-size: .8rem; color: var(--muted); }
 .xp-state.on { display: inline-flex; align-items: center; gap: 4px; color: #3BD67F; font-weight: 700; }
+
+/* Calls on phones: a grid that fits the people in the call (Discord-like). 1-2 people stack, 3 = one big
+   tile on top and two below, 4 = 2×2, 5-6 = 2×3, more = a scrolling two-column grid. Avatars scale to their
+   tile, the name sits in the corner instead of over the face, and video tiles always show the name on touch
+   screens (there is no hover there). */
+@media (max-width: 760px) {
+  .stage:not(.has-music) .tiles:not([data-count="1"]):not([data-count="2"]) .tile-grid {
+    display: grid !important; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: 10px !important; height: 100%; }
+  .stage:not(.has-music) .tiles[data-count="3"] .tile-grid > .tile:first-child { grid-column: 1 / -1; }
+  .stage:not(.has-music) .tiles:not([data-count="1"]):not([data-count="2"]):not([data-count="3"]):not([data-count="4"]):not([data-count="5"]):not([data-count="6"]) .tile-grid {
+    grid-auto-rows: minmax(190px, 1fr); height: auto; overflow-y: auto; }
+  .stage .tile-grid > .tile { min-width: 0; border-radius: 22px !important; }
+  .stage .tile-grid > .tile .tile-av { max-width: 100%; max-height: 100%; display: grid; place-items: center; }
+  .stage:not(.has-music) .tiles:not([data-count="1"]):not([data-count="2"]) .tile-grid > .tile .tile-av > * { transform: scale(.72); }
+  .stage .tile figcaption { left: 10px !important; right: auto !important; bottom: 10px !important; transform: none !important; max-width: calc(100% - 20px);
+    padding: 5px 11px !important; border-radius: 12px !important; font-size: .86rem !important; background: #000b !important; }
+  .stage .tile figcaption .tile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (hover: none) {
+  .tile.has-video figcaption, .tile.has-video:not(:hover):not(:focus-within) figcaption:not(:has(svg, .live)) { opacity: 1 !important; }
+  .tile.has-video:not(:hover):not(:focus-within) figcaption .tile-name { display: inline !important; }
+}
