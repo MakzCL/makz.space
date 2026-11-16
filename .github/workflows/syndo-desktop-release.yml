@@ -1,0 +1,50 @@
+# Publishes an already-built SEND for Windows installer to the update feed (R2 bucket syndo-desktop).
+# Runs only when a release/send-desktop-* branch is pushed; the run id and version come from syndo/desktop-release.json.
+# Order: back up the current feed, upload the installer, check the public copy is byte-for-byte the build, then switch.
+name: SEND desktop release
+on:
+  push:
+    branches: ["release/send-desktop-*"]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ github.token }}
+      BUCKET: syndo-desktop
+      PUBLIC: https://pub-77db39df34ad414fb86b513f573fd57e.r2.dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the built installer
+        run: |
+          RUN=$(jq -r .run syndo/desktop-release.json); VERSION=$(jq -r .version syndo/desktop-release.json)
+          echo "RUN=$RUN" >> $GITHUB_ENV; echo "VERSION=$VERSION" >> $GITHUB_ENV
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n send-windows-lite -D rel
+          ls -l rel
+          grep -q "^version: $VERSION$" rel/latest.yml
+          WANT=$(awk '/^sha512:/{print $2}' rel/latest.yml)
+          GOT=$(openssl dgst -sha512 -binary "rel/SEND-Setup-$VERSION.exe" | base64 -w0)
+          [ "$WANT" = "$GOT" ] || { echo "::error::installer does not match latest.yml"; exit 1; }
+          echo "SHA=$WANT" >> $GITHUB_ENV
+      - name: Back up the current feed
+        run: |
+          curl -fsS "$PUBLIC/latest.yml?x=$RANDOM" -o prev.yml
+          OLD=$(awk '/^version:/{print $2}' prev.yml); echo "OLD=$OLD" >> $GITHUB_ENV
+          echo "feed was $OLD"
+          npx --yes wrangler@4 r2 object put "$BUCKET/latest-$OLD.yml" --file prev.yml --content-type text/yaml --cache-control no-cache --remote
+      - name: Upload the installer and check the public copy
+        run: |
+          npx --yes wrangler@4 r2 object put "$BUCKET/SEND-Setup-$VERSION.exe" --file "rel/SEND-Setup-$VERSION.exe" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --remote
+          GOT=$(curl -fsS "$PUBLIC/SEND-Setup-$VERSION.exe" | openssl dgst -sha512 -binary | base64 -w0)
+          [ "$GOT" = "$SHA" ] || { echo "::error::public copy does not match"; exit 1; }
+          echo "public copy matches"
+      - name: Switch the feed
+        run: |
+          npx --yes wrangler@4 r2 object put "$BUCKET/latest.yml" --file rel/latest.yml --content-type text/yaml --cache-control no-cache --remote
+          sleep 3
+          curl -fsS "$PUBLIC/latest.yml?x=$RANDOM" | head -1
+          curl -fsS "$PUBLIC/latest-$OLD.yml" | head -1
