@@ -1,0 +1,26 @@
+{
+  "name": "send",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SEND — a free, self-hostable community chat, voice and video platform.",
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w @send/server",
+    "dev:web": "npm run dev -w @syndo/web",
+    "migrate": "npm run migrate -w @send/server",
+    "test": "npm test -w @send/server",
+    "typecheck": "npm run typecheck -w @send/shared && npm run typecheck -w @send/server && npm run typecheck -w @syndo/web",
+    "build": "npm run build -w @syndo/web",
+    "test:web": "TSX_TSCONFIG_PATH=web/tsconfig.json node --import tsx --test web/test/*.test.tsx"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261103.1"
+  }
+}

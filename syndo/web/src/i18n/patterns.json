@@ -1,0 +1,332 @@
+{
+"pl": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nowych wiadomości od ostatniej wizyty"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nowych wiadomości od $2"
+],
+[
+"^Message (.+)$",
+"Napisz na $1"
+],
+[
+"^Answer (\\d+)$",
+"Odpowiedź $1"
+],
+[
+"^Welcome to (.+)!$",
+"Witaj na kanale $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Dobrze cię znowu widzieć w $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
+]
+],
+"fr": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nouveaux messages depuis votre dernière visite"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nouveaux messages depuis $2"
+],
+[
+"^Message (.+)$",
+"Envoyer un message dans $1"
+],
+[
+"^Answer (\\d+)$",
+"Réponse $1"
+],
+[
+"^Welcome to (.+)!$",
+"Bienvenue dans $1 !"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Ravi de vous revoir sur $1."
+],
+[
+"^(\\d+) Online$",
+"$1 en ligne"
+]
+],
+"es": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 mensajes nuevos desde tu última visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 mensajes nuevos desde $2"
+],
+[
+"^Message (.+)$",
+"Enviar mensaje a $1"
+],
+[
+"^Answer (\\d+)$",
+"Respuesta $1"
+],
+[
+"^Welcome to (.+)!$",
+"¡Te damos la bienvenida a $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Qué bien verte de nuevo en $1."
+],
+[
+"^(\\d+) Online$",
+"$1 en línea"
+]
+],
+"de": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 neue Nachrichten seit deinem letzten Besuch"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 neue Nachrichten seit $2"
+],
+[
+"^Message (.+)$",
+"Nachricht an $1"
+],
+[
+"^Answer (\\d+)$",
+"Antwort $1"
+],
+[
+"^Welcome to (.+)!$",
+"Willkommen in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Schön, dich wieder auf $1 zu sehen."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
+]
+],
+"pt": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 novas mensagens desde sua última visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 novas mensagens desde $2"
+],
+[
+"^Message (.+)$",
+"Conversar em $1"
+],
+[
+"^Answer (\\d+)$",
+"Resposta $1"
+],
+[
+"^Welcome to (.+)!$",
+"Boas-vindas a $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Que bom ver você de novo no $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
+]
+],
+"it": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nuovi messaggi dalla tua ultima visita"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nuovi messaggi da $2"
+],
+[
+"^Message (.+)$",
+"Scrivi in $1"
+],
+[
+"^Answer (\\d+)$",
+"Risposta $1"
+],
+[
+"^Welcome to (.+)!$",
+"Benvenuto in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Che bello rivederti su $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
+]
+],
+"nl": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 nieuwe berichten sinds je laatste bezoek"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 nieuwe berichten sinds $2"
+],
+[
+"^Message (.+)$",
+"Bericht in $1"
+],
+[
+"^Answer (\\d+)$",
+"Antwoord $1"
+],
+[
+"^Welcome to (.+)!$",
+"Welkom in $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Fijn je weer te zien op $1."
+],
+[
+"^(\\d+) Online$",
+"$1 online"
+]
+],
+"ru": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Новых сообщений с вашего последнего визита: $1"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"Новых сообщений: $1 с $2"
+],
+[
+"^Message (.+)$",
+"Написать в $1"
+],
+[
+"^Answer (\\d+)$",
+"Ответ $1"
+],
+[
+"^Welcome to (.+)!$",
+"Добро пожаловать в $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Рады снова видеть вас в $1."
+],
+[
+"^(\\d+) Online$",
+"$1 в сети"
+]
+],
+"uk": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Нових повідомлень з вашого останнього візиту: $1"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"Нових повідомлень: $1 з $2"
+],
+[
+"^Message (.+)$",
+"Написати в $1"
+],
+[
+"^Answer (\\d+)$",
+"Відповідь $1"
+],
+[
+"^Welcome to (.+)!$",
+"Ласкаво просимо до $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Раді знову бачити вас у $1."
+],
+[
+"^(\\d+) Online$",
+"$1 у мережі"
+]
+],
+"ar": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"$1 رسائل جديدة منذ زيارتك الأخيرة"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$1 رسائل جديدة منذ $2"
+],
+[
+"^Message (.+)$",
+"راسل $1"
+],
+[
+"^Answer (\\d+)$",
+"الإجابة $1"
+],
+[
+"^Welcome to (.+)!$",
+"مرحبًا بك في $1!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"سعداء برؤيتك مجددًا على $1."
+],
+[
+"^(\\d+) Online$",
+"$1 متصل"
+]
+],
+"tr": [
+[
+"^(\\d+\\+?) new messages? since you were last here$",
+"Son ziyaretinden beri $1 yeni mesaj"
+],
+[
+"^(\\d+\\+?) new messages? since (.+)$",
+"$2 itibarıyla $1 yeni mesaj"
+],
+[
+"^Message (.+)$",
+"$1 kanalına mesaj gönder"
+],
+[
+"^Answer (\\d+)$",
+"Yanıt $1"
+],
+[
+"^Welcome to (.+)!$",
+"$1 kanalına hoş geldin!"
+],
+[
+"^Good to see you again on (.+)\\.$",
+"Seni $1'de yeniden görmek güzel."
+],
+[
+"^(\\d+) Online$",
+"$1 çevrimiçi"
+]
+]
+}
