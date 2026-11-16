@@ -1,5 +1,20 @@
 # SEND restore points
 
+## 2026-11-16: desktop 0.8.6 (stream sound without SEND's own, streams only to watchers, H.264)
+
+| Layer | Restore point (before this release) |
+|---|---|
+| Desktop feed | `syndo-desktop/latest-0.8.5.yml` (feed that pointed at `SEND-Setup-0.8.5.exe`; that installer stays in the bucket) |
+| Source | branch `backup/pre-desktop-086-20261115` (`b33fa38`) |
+
+Released from commit `29e9897` (CI run 43770476234): `SEND-Setup-0.8.6.exe`, 17,462,184 bytes, sha512 `Ljm37L/XXifoYEA3qAOYQ5hVbAlOjuX4Zbw408TEkI79smJqgcfXNiQ4XEjdH81uohqJ1WLpwise5uWwN8J8fw==` (public copy verified). Feed switched to 0.8.6.
+Published by GitHub Actions (run 43777984333, workflow `syndo-desktop-release.yml` on branch `release/send-desktop-0.8.6`) with the repository's Cloudflare token, because the Cloudflare connector was signed out. That token can write R2 but not Pages or Workers, so:
+- the site's download link (Worker `send-beta-api`) still serves 0.8.5; new installs update to 0.8.6 on first start;
+- the web app is not deployed yet: Pages `syndo-app` still serves `6dd7526`; the Git build of `29e9897` is queued.
+
+### Roll back
+1. Feed: copy `latest-0.8.5.yml` over `latest.yml` in the `syndo-desktop` bucket.
+
 ## 2026-11-15: desktop 0.8.5 (soundboard panel background)
 
 | Layer | Restore point (before this release) |
