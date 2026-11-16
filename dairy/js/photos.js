@@ -1,6 +1,7 @@
 // Animal photos: a small square thumbnail (360 px JPEG, ~25 KB) made on the
 // phone, stored in the `photos` store keyed by animal id, synced like any record.
 import * as db from './db.js';
+import { cowArt } from './art.js';
 import { html, openSheet, closeSheet, toast } from './ui.js';
 import { t } from './i18n.js';
 import { icon } from './icons.js';
@@ -15,7 +16,7 @@ export function thumb(a, cls = 'thumb') {
   const src = photoOf(a.id);
   return src
     ? html`<img class="${cls}" src="${src}" alt="${t('Photo of {code}', { code: animalLabel(a) })}" loading="lazy" decoding="async">`
-    : html`<span class="${cls} thumb-empty" aria-hidden="true">${icon('camera')}</span>`;
+    : html`<span class="${cls} thumb-empty thumb-art" aria-hidden="true">${cowArt(a.type)}</span>`;
 }
 
 async function loadImage(file) {

@@ -108,14 +108,25 @@ export function breedingCard(a) {
   </div>`;
 }
 
+/** Age from the birth date: "4 yr 3 mo", "7 mo". Empty when unknown. */
+export function ageText(a) {
+  if (!a.birthDate) return '';
+  const [y1, m1, d1] = a.birthDate.split('-').map(Number); const [y2, m2, d2] = todayKey(tz()).split('-').map(Number);
+  let months = (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+  if (months < 0) return '';
+  const y = Math.floor(months / 12); months %= 12;
+  return y ? t('{y} yr {m} mo', { y, m: months }) : t('{m} mo', { m: months });
+}
+
 export function animalRow(a, extra = '') {
   const w = withdrawals(D(), a.id);
+  const st = isFemale(a) && isActive(a) && a.type !== 'calf' ? breedingStatus(D(), a) : null;
   return html`<a class="row" href="#/animal/${a.id}" data-testid="animal-row">
     ${thumb(a)}
     <span class="row-main"><span class="row-id"><span class="row-code ${codeSize(animalLabel(a))}">${animalLabel(a)}</span>${a.tag && a.tag !== a.code ? html`<span class="row-tag">${a.tag}</span>` : ''}</span>
-      <span class="row-meta">${[t(TYPES[a.type]), a.group].filter(Boolean).join(' · ')}</span>
+      <span class="row-meta">${[t(TYPES[a.type]), ageText(a), a.group].filter(Boolean).join(' · ')}</span>
       ${extra ? html`<span class="row-extra">${extra}</span>` : ''}
-    <span class="row-badges">${w.milk.active ? html`<span class="badge danger">${icon('dropOff', { size: 14 })}${t('Withhold milk')}</span>` : ''}
+    <span class="row-badges">${st ? stateBadge(st) : ''}${w.milk.active ? html`<span class="badge danger">${icon('dropOff', { size: 14 })}${t('Withhold milk')}</span>` : ''}
     ${!isActive(a) ? html`<span class="badge muted">${t(STATUS[a.status])}</span>` : ''}
     ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</span></span>
     ${icon('chevron', { cls: 'row-chev' })}

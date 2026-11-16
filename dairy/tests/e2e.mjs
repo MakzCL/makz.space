@@ -75,9 +75,9 @@ try {
   await p.click('[data-testid=photo-btn]');
   const [chooser] = await Promise.all([p.waitForEvent('filechooser'), p.click('[data-testid=photo-gallery]')]);
   await chooser.setFiles(new URL('../icons/icon-512.png', import.meta.url).pathname);
-  await p.waitForSelector('.animal-head img.photo-lg');
+  await p.waitForSelector('.animal-hero img.hero-img');
   await p.reload();
-  await p.waitForSelector('.animal-head img.photo-lg');
+  await p.waitForSelector('.animal-hero img.hero-img');
   ok('photo saved, cropped and still there after reload');
 
   step('Scenario 2: second insemination, both kept, counts once');

@@ -1,5 +1,7 @@
 import * as db from './db.js';
-import { html, dropSheet, sheetIsOpen, toast } from './ui.js';
+import { html, dropSheet, sheetIsOpen, toast, openSheet } from './ui.js';
+import { milkForm, collectionForm } from './views/milk.js';
+import { editAnimal, recordExposure, editTask } from './actions.js';
 import { S, ui } from './store.js';
 import { todayView } from './views/today.js';
 import { animalView } from './views/animal.js';
@@ -102,16 +104,40 @@ function unlock() {
 window.addEventListener('locked', () => { document.getElementById('toast')?.classList.remove('show'); gateOpen = false; gate(); });
 
 function renderNav(active) {
-  const holds = milkHolds(D()).length;
-  const items = [['today', '#/', 'Today'], ['herd', '#/herd', 'Herd'], ['breeding', '#/breeding/awaiting', 'Breeding'], ['milk', '#/milk', 'Milk'], ['chat', '#/chat', 'Chat'], ['more', '#/more', 'More']];
   const unread = chat.totalUnread();
+  const link = ([k, href, label]) => html`<a href="${href}" class="${active === k ? 'on' : ''}" ${active === k ? html`aria-current="page"` : ''}>
+    <span class="nav-ico">${icon(ICONS[k])}</span><span class="nav-l">${t(label)}</span>${k === 'more' && unread ? html`<span class="dot" data-testid="chat-dot" aria-label="${t('{n} unread messages', { n: unread })}">${unread}</span>` : ''}</a>`;
   nav.setAttribute('aria-label', t('Main'));
-  nav.innerHTML = String(html`${items.map(([k, href, label]) => html`<a href="${href}" class="${active === k ? 'on' : ''}" ${active === k ? html`aria-current="page"` : ''}>
-    <span class="nav-ico">${icon(ICONS[k])}</span><span class="nav-l">${t(label)}</span>${k === 'milk' && holds ? html`<span class="dot" aria-label="${t('{n} milk holds', { n: holds })}">${holds}</span>` : ''}${k === 'chat' && unread ? html`<span class="dot" data-testid="chat-dot" aria-label="${t('{n} unread messages', { n: unread })}">${unread}</span>` : ''}</a>`)}`);
+  nav.innerHTML = String(html`${link(['today', '#/', 'Today'])}${link(['herd', '#/herd', 'Herd'])}
+    <button type="button" class="nav-fab" data-quick aria-label="${t('Quick entry')}">${icon('plus', { size: 28 })}</button>
+    ${link(['breeding', '#/breeding/awaiting', 'Breeding'])}${link(['more', '#/more', 'More'])}`);
 }
 
+/** The + in the middle of the bottom bar: the everyday entries, one tap away from any screen. */
+function quickSheet() {
+  const items = [
+    ['milk', 'milk', 'Record milk', () => milkForm()],
+    ['truck', 'collection', 'Milk collection', () => collectionForm()],
+    ['syringe', 'find', 'Record insemination', () => { location.hash = '#/'; setTimeout(() => document.getElementById('find')?.focus(), 250); }],
+    ['bull', 'exposure', 'Bull with group', () => recordExposure()],
+    ['stethoscope', 'vet', 'Vet visit / reminder', () => editTask()],
+    ['plus', 'add', 'Add animal', () => editAnimal()],
+  ];
+  openSheet(t('Quick entry'), html`<div class="quick-grid">${items.map(([ic, k, l]) => html`<button type="button" class="quick-tile" data-q="${k}"><span class="quick-ico">${icon(ic)}</span><span>${t(l)}</span></button>`)}</div>
+    <p class="muted small">${t('To record for one cow, find her by code first.')}</p>`, {
+    onMount(el) {
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-q]'); if (!b) return;
+        const it = items.find((x) => x[1] === b.dataset.q);
+        dropSheet(); it[3]();
+      });
+    },
+  });
+}
+nav.addEventListener('click', (e) => { if (e.target.closest('[data-quick]')) quickSheet(); });
+
 const ICONS = {
-  today: 'home', herd: 'herd', breeding: 'heart', milk: 'milk', chat: 'chat', more: 'grid',
+  today: 'home', herd: 'cow', breeding: 'heart', milk: 'milk', chat: 'chat', more: 'grid',
 };
 
 export function render({ scroll = false } = {}) {

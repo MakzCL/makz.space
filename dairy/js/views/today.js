@@ -11,6 +11,9 @@ import { icon } from '../icons.js';
 import * as db from '../db.js';
 import { syncPill } from './syncview.js';
 import { updateBanner } from './updateview.js';
+import { farmScene } from '../art.js';
+import * as chat from '../chat.js';
+import { milkHolds } from '../logic.js';
 
 export function searchResults(q) {
   const list = searchAnimals(D().animals, q);
@@ -86,15 +89,21 @@ export function todayView() {
   const backupDays = lastBackup ? Math.floor((Date.now() - Date.parse(lastBackup)) / 86400000) : null;
   const recordCount = D().events.length + D().milk.length;
   const herdSize = D().animals.filter((a) => (a.status || 'active') === 'active').length;
+  const unread = chat.totalUnread();
+  const milkHoldsN = milkHolds(D()).length;
 
   return {
     html: html`
-    <header class="hero">
-      <div class="hero-top"><p class="hero-date">${fmtLong(todayKey(tz()))}</p>${syncPill()}</div>
-      <h1 class="hero-title">${greeting()}</h1>
-      <p class="hero-farm">${s.farmName || t('My farm')} · ${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</p>
+    <header class="farm-hero">
+      <div class="farm-scene">${farmScene()}</div>
+      <div class="farm-top"><span class="farm-brand">${icon('cow', { size: 22 })}Mleczna Droga</span>
+        <span class="farm-top-r">${syncPill()}<a class="hero-chat" href="#/chat" aria-label="${t('Chat')}">${icon('chat', { size: 20 })}${unread ? html`<span class="dot">${unread}</span>` : ''}</a></span></div>
+      <div class="farm-greet"><p class="hero-date">${fmtLong(todayKey(tz()))}</p>
+        <h1 class="hero-title">${greeting()}!</h1>
+        <p class="hero-farm">${s.farmName || t('My farm')} · ${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</p></div>
       <span class="net" data-net hidden></span>
-      <section class="find" aria-labelledby="find-label">
+    </header>
+      <section class="find find-card" aria-labelledby="find-label">
         <label id="find-label" for="find" class="find-label">${t('Find cow by code')}</label>
         <div class="search-row">
           <span class="search-field">${icon('search', { cls: 'search-ico' })}
@@ -104,7 +113,13 @@ export function todayView() {
         </div>
         <div id="results">${searchResults(ui.query)}</div>
       </section>
-    </header>
+
+    <nav class="dash" aria-label="${t('Sections')}">
+      <a class="dtile" href="#/herd"><span class="dtile-ico">${icon('cow')}</span><strong>${t('Herd')}</strong><span>${plural(herdSize, ['animal', 'animals'], ['zwierzę', 'zwierzęta', 'zwierząt'])}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/breeding/awaiting"><span class="dtile-ico">${icon('heart')}</span><strong>${t('Breeding')}</strong><span>${t('Insemination & pregnancy')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/health"><span class="dtile-ico">${icon('stethoscope')}</span><strong>${t('Health')}</strong><span>${t('Treatments, vaccinations, vet')}</span>${icon('chevron', { cls: 'dtile-chev' })}</a>
+      <a class="dtile" href="#/milk"><span class="dtile-ico">${icon('milk')}</span><strong>${t('Milk')}</strong><span>${t('Production & sales')}</span>${milkHoldsN ? html`<span class="dot">${milkHoldsN}</span>` : ''}${icon('chevron', { cls: 'dtile-chev' })}</a>
+    </nav>
 
     ${updateBanner()}
     ${hasSample ? html`<div class="sample-banner">${icon('sun')}<span>${t('You are looking at sample data (marked “Sample”).')} <a href="#/data">${t('Remove sample data')}</a></span></div>` : ''}

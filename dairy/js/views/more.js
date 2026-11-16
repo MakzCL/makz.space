@@ -30,6 +30,7 @@ function langSwitch() {
 
 export function moreView() {
   const links = [
+    ['#/chat', 'Chat', 'Messages and calls with everyone on the farm', 'chat'],
     ['#/sync', 'Sync & phones', 'Share the farm with other phones, live', 'cloud'],
     ['#/health', 'Health & treatments', 'Milk holds, mastitis, lameness, vaccinations', 'stethoscope'],
     ['#/bulls', 'Bulls', 'Profiles, groups, soundness exams', 'bull'],

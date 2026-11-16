@@ -102,8 +102,8 @@ try {
   await A.click('[data-testid=photo-btn]');
   const [chooser] = await Promise.all([A.waitForEvent('filechooser'), A.click('[data-testid=photo-gallery]')]);
   await chooser.setFiles(new URL('../icons/icon-512.png', import.meta.url).pathname);
-  await A.waitForSelector('.animal-head img.photo-lg');
-  const size = await A.evaluate(() => document.querySelector('.animal-head img.photo-lg').src.length);
+  await A.waitForSelector('.animal-hero img.hero-img');
+  const size = await A.evaluate(() => document.querySelector('.animal-hero img.hero-img').src.length);
   assert.ok(size < 60000, `thumbnail is small (${size} chars)`);
   await B.fill('#find', '0042');
   await B.waitForSelector('#results img.thumb', { timeout: 15000 });

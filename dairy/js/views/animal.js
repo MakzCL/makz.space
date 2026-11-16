@@ -6,7 +6,9 @@ import {
   withdrawals, treatmentMilkEnd, treatmentMeatEnd, overlappingTreatments, sireLabel,
 } from '../logic.js';
 import { fmtDay, fmtDateTime, dayKey } from '../time.js';
-import { breedingCard, holdText, animalRow, empty, treatmentsN, codeSize } from '../components.js';
+import { breedingCard, holdText, animalRow, empty, treatmentsN, codeSize, ageText, stateBadge } from '../components.js';
+import { cowArt } from '../art.js';
+import { breedingStatus } from '../logic.js';
 import { t, plural } from '../i18n.js';
 import * as A from '../actions.js';
 import { icon, KIND_ICON } from '../icons.js';
@@ -77,15 +79,16 @@ export function animalView(id) {
 
   return {
     html: html`
-    <div class="page-bar"><a href="#/" class="back" data-act="back" aria-label="${t('Back')}">${icon('back')}<span>${t('Back')}</span></a>
-      ${active ? html`<button type="button" class="icon-btn" data-act="edit" aria-label="${t('Edit details')}">${icon('edit')}</button>` : ''}</div>
-    <header class="animal-head">
-      <div class="animal-id">
-        <button type="button" class="photo-btn" data-act="photo" data-testid="photo-btn" aria-label="${t(photoOf(a.id) ? 'Change photo' : 'Add photo')}">
-          ${photoOf(a.id) ? thumb(a, 'photo-lg') : html`<span class="photo-lg photo-empty">${icon('camera')}<span>${t('Add photo')}</span></span>`}</button>
-        <div class="animal-title"><p class="type">${t(TYPES[a.type] || '')}</p>
-        <h1 class="code-xl ${codeSize(animalLabel(a))}" data-testid="animal-code">${animalLabel(a)}</h1></div>
-      </div>
+    <header class="animal-hero">
+      <button type="button" class="hero-photo" data-act="photo" data-testid="photo-btn" aria-label="${t(photoOf(a.id) ? 'Change photo' : 'Add photo')}">
+        ${photoOf(a.id) ? thumb(a, 'hero-img') : html`<span class="hero-art">${cowArt(a.type)}</span><span class="hero-add">${icon('camera', { size: 18 })}${t('Add photo')}</span>`}</button>
+      <div class="hero-bar"><a href="#/" class="hero-btn" data-act="back" aria-label="${t('Back')}">${icon('back')}</a>
+        ${active ? html`<button type="button" class="hero-btn" data-act="edit" aria-label="${t('Edit details')}">${icon('edit')}</button>` : ''}</div>
+    </header>
+    <section class="animal-card">
+      <div class="animal-title-row"><h1 class="code-xl ${codeSize(animalLabel(a))}" data-testid="animal-code">${animalLabel(a)}</h1>
+        ${female && active && a.type !== 'calf' ? stateBadge(breedingStatus(D(), a)) : ''}</div>
+      <p class="animal-sub">${icon('cow', { size: 18 })}<span>${t(TYPES[a.type] || '')}</span>${ageText(a) ? html`<span class="sep">·</span>${icon('calendar', { size: 18 })}<span>${ageText(a)}</span>` : ''}</p>
       <div class="chips-info">
         ${a.tag && a.tag !== a.code ? html`<span class="info-chip">${icon('tag', { size: 16 })}${a.tag}</span>` : ''}
         ${a.group ? html`<span class="info-chip">${icon('herd', { size: 16 })}${a.group}</span>` : ''}
@@ -93,7 +96,7 @@ export function animalView(id) {
         ${a.name ? html`<span class="info-chip">${a.name}</span>` : ''}
         ${!active ? html`<span class="badge muted">${t(STATUS[a.status])} ${a.statusDate ? fmtDay(a.statusDate) : ''}</span>` : ''}
         ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</div>
-    </header>
+    </section>
 
     ${w.milk.active ? html`<div class="hold big" role="alert" data-testid="profile-hold"><strong class="hold-title">${icon('dropOff')}${t('WITHHOLD MILK')}</strong>
       <span>${holdText(w.milk)}</span>

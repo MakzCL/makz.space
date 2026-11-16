@@ -367,4 +367,9 @@ export const PL = {
   'I already have a login on this farm (new phone)': 'Mam już logowanie w tym gospodarstwie (nowy telefon)', 'Your account': 'Twoje konto',
   'Create invite link': 'Utwórz link', 'Who is it for?': 'Dla kogo?', 'e.g. Tomek': 'np. Tomek', 'Link works for': 'Link ważny przez',
   'How many people can use it': 'Ile osób może go użyć', '1 day': '1 dzień', '2 days': '2 dni', 'One person': 'Jedna osoba', '3 people': '3 osoby', '10 people': '10 osób',
+  // Redesign (2026-11)
+  'Sections': 'Działy', 'Insemination & pregnancy': 'Inseminacja i cielność', 'Treatments, vaccinations, vet': 'Leczenie, szczepienia, weterynarz',
+  'Production & sales': 'Produkcja i sprzedaż', '{y} yr {m} mo': '{y} l. {m} mies.', '{m} mo': '{m} mies.', 'All': 'Wszystkie', 'Cows': 'Krowy', 'Steers': 'Woły',
+  'Search by code, tag or group': 'Szukaj po numerze, kolczyku lub grupie', 'To record for one cow, find her by code first.': 'Aby zapisać coś dla jednej krowy, najpierw znajdź ją po numerze.',
+  'Messages and calls with everyone on the farm': 'Wiadomości i rozmowy z całym gospodarstwem',
 };
