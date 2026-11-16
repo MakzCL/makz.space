@@ -727,7 +727,7 @@ body { background: var(--bg); }
 .animal-card { border: 1px solid var(--line); border-radius: 20px; }
 .animal-title-row .code-xl { font-size: 2.2rem; font-weight: 800; }
 .animal-title-row .pill { font-size: .82rem; padding: 6px 13px; }
-.seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.ap-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .seg-btn { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: .76rem; font-weight: 650; cursor: pointer; text-align: center; }
 .seg-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .seg-btn:focus-visible { outline: 3px solid var(--brand-2); }

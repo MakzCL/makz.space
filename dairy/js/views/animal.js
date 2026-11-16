@@ -105,7 +105,7 @@ export function animalView(id) {
         ${a.name ? html`<span class="info-chip">${a.name}</span>` : ''}
         ${!active ? html`<span class="badge muted">${t(STATUS[a.status])} ${a.statusDate ? fmtDay(a.statusDate) : ''}</span>` : ''}
         ${a.sample ? html`<span class="badge sample">${t('Sample')}</span>` : ''}</div>
-      <div class="seg" role="group" aria-label="${t('Sections')}">
+      <div class="ap-tabs" role="group" aria-label="${t('Sections')}">
         <button type="button" class="seg-btn on" data-act="jump" data-to="ap-details">${icon('user', { size: 20 })}<span>${t('Profile')}</span></button>
         ${female ? html`<button type="button" class="seg-btn" data-act="jump" data-to="ap-breed">${icon('heart', { size: 20 })}<span>${t('Breeding')}</span></button>` : ''}
         <button type="button" class="seg-btn" data-act="jump" data-to="ap-health">${icon('stethoscope', { size: 20 })}<span>${t('Health')}</span></button>
@@ -167,7 +167,7 @@ export function animalView(id) {
       edit: () => A.editAnimal(a), bse: () => A.recordBSE(a), photo: () => photoSheet(a),
       jump: (d, e) => {
         document.getElementById(d.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        e.target.closest('.seg')?.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.to === d.to));
+        e.target.closest('.ap-tabs')?.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.to === d.to));
       },
       exposure: () => A.recordExposure(null, isBull(a) ? { bullId: a.id } : {
         group: a.group,
