@@ -80,7 +80,7 @@ async function gate() {
   dropSheet();
   nav.hidden = true;
   if (!hasUsers()) {
-    view.innerHTML = String(html`<section class="login"><img src="icons/icon.svg" alt="" class="login-logo" width="72" height="72"><h1>Dairy Herd</h1>
+    view.innerHTML = String(html`<section class="login"><img src="icons/icon.svg" alt="" class="login-logo" width="72" height="72"><h1>Mleczna Droga</h1>
       <p>${t('Set up a login before using the app.')}</p>
       <button type="button" class="btn primary big" data-setup data-testid="gate-new">${t('Start a new farm')}</button>
       <button type="button" class="btn big" data-join data-testid="gate-join">${t('Join a farm with a code')}</button></section>`);

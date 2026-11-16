@@ -144,7 +144,7 @@ export function showLogin(root) {
       const sel = list.find((u) => u.id === last)?.id || list[0]?.id;
       root.innerHTML = String(html`<section class="login" aria-labelledby="login-h">
         <img src="icons/icon.svg" alt="" class="login-logo" width="72" height="72">
-        <h1 id="login-h">Dairy Herd</h1>
+        <h1 id="login-h">Mleczna Droga</h1>
         <p class="farm">${S().farmName || ''}</p>
         <form class="form login-form" novalidate>
           <div class="form-error" role="alert" ${err ? '' : 'hidden'}>${err}</div>
@@ -219,7 +219,7 @@ export async function createFirstOwner(name, pin, pin2) {
 export function createOwnerForm({ onDone } = {}) {
   openForm({
     title: 'Create your login',
-    header: html`<p class="lead">${t('Only people with a login can open Dairy Herd on this phone. You are the admin: you can add workers later.')}</p>`,
+    header: html`<p class="lead">${t('Only people with a login can open Mleczna Droga on this phone. You are the admin: you can add workers later.')}</p>`,
     values: {},
     submitLabel: 'Create login',
     fields: [

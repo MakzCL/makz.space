@@ -1,5 +1,7 @@
-# Dairy Herd
+# Mleczna Droga
 
+
+(Formerly "Dairy Herd". Internal names such as the Android package `space.makz.dairyherd`, the backup format and the storage bucket keep the old name so updates and backups keep working.)
 A mobile-first, installable web app for one dairy farm on one phone: breeding
 (insemination first), pregnancy checks, calving, bulls, milk from milking to
 payment, milk quality, herd health and withdrawals. Records are saved on the

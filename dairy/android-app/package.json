@@ -2,7 +2,7 @@
   "name": "dairy-herd-android",
   "private": true,
   "type": "module",
-  "description": "Android (APK) build of Dairy Herd. The app itself lives one folder up; this wraps it with Capacitor.",
+  "description": "Android (APK) build of Mleczna Droga. The app itself lives one folder up; this wraps it with Capacitor.",
   "scripts": {
     "web": "node scripts/copy-web.mjs",
     "sync": "npm run web && npx cap sync android",

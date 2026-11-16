@@ -59,7 +59,7 @@ export const updateActions = {
       await installUpdate();
     } catch (err) {
       if (err instanceof NeedsPermission) {
-        toast(t('Allow “Install unknown apps” for Dairy Herd, come back, and tap Download and install again.'), { ms: 9000 });
+        toast(t('Allow “Install unknown apps” for Mleczna Droga, come back, and tap Download and install again.'), { ms: 9000 });
       } else toast(t('Update failed: {m}', { m: err.message }), { kind: 'err', ms: 8000 });
     } finally {
       busy = false; rerender();

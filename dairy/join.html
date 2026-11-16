@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dairy Herd — zaproszenie</title>
-  <meta name="description" content="Join a farm on Dairy Herd.">
+  <title>Mleczna Droga: zaproszenie</title>
+  <meta name="description" content="Join a farm on Mleczna Droga.">
   <meta name="theme-color" content="#154a2d">
   <meta name="robots" content="noindex">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -33,19 +33,19 @@
 
     const T = {
       en: {
-        title: 'You are invited', farm: 'Join {f} on Dairy Herd', role_worker: 'as a worker', role_admin: 'as an admin',
+        title: 'You are invited', farm: 'Join {f} on Mleczna Droga', role_worker: 'as a worker', role_admin: 'as an admin',
         s1: 'Download the app', s1d: 'Android phone. After downloading, open the file and allow the install if asked. On Samsung, Auto Blocker must be off.',
-        dl: 'Download Dairy Herd {v}', s2: 'Open the app and join', s2d: 'Once the app is installed, tap “Open in the app” below. Or open the app, choose “Join a farm with a code” and enter:',
+        dl: 'Download Mleczna Droga {v}', s2: 'Open the app and join', s2d: 'Once the app is installed, tap “Open in the app” below. Or open the app, choose “Join a farm with a code” and enter:',
         open: 'Open in the app', s3: 'Create your account', s3d: 'Choose your name and PIN. That is your login for this farm.',
-        web: 'iPhone or computer?', webd: 'Use Dairy Herd in the browser instead:', webb: 'Open in the browser', copy: 'Copy code', copied: 'Copied',
+        web: 'iPhone or computer?', webd: 'Use Mleczna Droga in the browser instead:', webb: 'Open in the browser', copy: 'Copy code', copied: 'Copied',
         bad: 'This invite has expired or was already used.', badd: 'Ask the farm admin for a new link.', until: 'Works until {d}',
       },
       pl: {
-        title: 'Zaproszenie', farm: 'Dołącz do {f} w Dairy Herd', role_worker: 'jako pracownik', role_admin: 'jako administrator',
+        title: 'Zaproszenie', farm: 'Dołącz do {f} w Mlecznej Drodze', role_worker: 'jako pracownik', role_admin: 'jako administrator',
         s1: 'Pobierz aplikację', s1d: 'Telefon z Androidem. Po pobraniu otwórz plik i zezwól na instalację, jeśli telefon zapyta. W Samsungu wyłącz Auto Blocker.',
-        dl: 'Pobierz Dairy Herd {v}', s2: 'Otwórz aplikację i dołącz', s2d: 'Po instalacji stuknij „Otwórz w aplikacji” poniżej. Albo otwórz aplikację, wybierz „Dołącz do gospodarstwa z kodem” i wpisz:',
+        dl: 'Pobierz Mleczną Drogę {v}', s2: 'Otwórz aplikację i dołącz', s2d: 'Po instalacji stuknij „Otwórz w aplikacji” poniżej. Albo otwórz aplikację, wybierz „Dołącz do gospodarstwa z kodem” i wpisz:',
         open: 'Otwórz w aplikacji', s3: 'Załóż konto', s3d: 'Wybierz imię i PIN. To będzie Twoje logowanie w tym gospodarstwie.',
-        web: 'iPhone lub komputer?', webd: 'Użyj Dairy Herd w przeglądarce:', webb: 'Otwórz w przeglądarce', copy: 'Kopiuj kod', copied: 'Skopiowano',
+        web: 'iPhone lub komputer?', webd: 'Użyj Mlecznej Drogi w przeglądarce:', webb: 'Otwórz w przeglądarce', copy: 'Kopiuj kod', copied: 'Skopiowano',
         bad: 'To zaproszenie wygasło lub zostało już użyte.', badd: 'Poproś administratora o nowy link.', until: 'Ważne do {d}',
       },
     };
@@ -74,13 +74,13 @@
       document.documentElement.lang = lang;
       const langs = `<div class="j-lang"><button class="chip ${lang === 'pl' ? 'on' : ''}" data-l="pl">Polski</button><button class="chip ${lang === 'en' ? 'on' : ''}" data-l="en">English</button></div>`;
       if (!info?.valid) {
-        root.innerHTML = `<div class="j-hero"><img src="icons/icon-192.png" alt=""><h1>Dairy Herd</h1></div>
+        root.innerHTML = `<div class="j-hero"><img src="icons/icon-192.png" alt=""><h1>Mleczna Droga</h1></div>
           <section class="card j-bad"><h2 class="h2">${tr('bad')}</h2><p class="muted">${tr('badd')}</p></section>${langs}`;
       } else {
         const until = new Date(info.expires_at).toLocaleString(lang === 'pl' ? 'pl-PL' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
         root.innerHTML = `
           <div class="j-hero"><img src="icons/icon-192.png" alt=""><p>${tr('title')}</p>
-            <h1>${tr('farm', { f: info.farm_name || 'Dairy Herd' })}</h1><p>${tr(info.role === 'admin' ? 'role_admin' : 'role_worker')} · ${tr('until', { d: until })}</p></div>
+            <h1>${tr('farm', { f: info.farm_name || 'Mleczna Droga' })}</h1><p>${tr(info.role === 'admin' ? 'role_admin' : 'role_worker')} · ${tr('until', { d: until })}</p></div>
           <section class="card j-step"><span class="j-num">1</span><div><h2>${tr('s1')}</h2><p class="muted small">${tr('s1d')}</p>
             ${latest ? `<a class="btn primary big" href="${esc(latest.url)}" data-testid="download">${tr('dl', { v: latest.versionName })}</a>` : ''}</div></section>
           <section class="card j-step"><span class="j-num">2</span><div><h2>${tr('s2')}</h2>

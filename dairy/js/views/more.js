@@ -50,7 +50,7 @@ export function moreView() {
     <nav class="menu">${links.map(([h, a, b, ic]) => html`<a class="menu-item" href="${h}"><span class="menu-ico">${icon(ic)}</span><span class="menu-text"><strong>${tr(a)}</strong><span>${tr(b)}</span></span>${icon('chevron', { cls: 'row-chev' })}</a>`)}</nav>
     <h2 class="section-title">${icon('language', { size: 18 })} Język / Language</h2>${langSwitch()}
     ${updateCard()}
-    <p class="muted small center">${tr('Dairy Herd · all records are stored on this device')}</p>`,
+    <p class="muted small center">${tr('Mleczna Droga · all records are stored on this device')}</p>`,
     actions: { lang: (d) => changeLang(d.v), lock: () => lock(), ...updateActions },
   };
 }
@@ -215,7 +215,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
   const zones = timeZones();
   if (!zones.includes(s.timeZone)) zones.unshift(s.timeZone);
   openForm({
-    title: first ? 'Welcome to Dairy Herd' : 'Farm settings', tz: s.timeZone, recordId: 'farm',
+    title: first ? 'Welcome to Mleczna Droga' : 'Farm settings', tz: s.timeZone, recordId: 'farm',
     header: first ? html`<p class="lead">${tr('Set up your farm. You can change these later in More → Farm settings.')}</p>` : '',
     values: { ...s, language: lang(), sample: first ? true : undefined, online: first ? navigator.onLine : undefined, ...keep },
     submitLabel: first ? 'Start' : 'Save settings',
@@ -224,7 +224,7 @@ export function openSettingsForm(first = false, keep = {}, onDone = null) {
       { name: 'farmName', label: 'Farm name' },
       ...(first ? [
         { type: 'heading', label: 'Your login' },
-        { type: 'info', html: html`<p class="help">${tr('Only people with a login can open Dairy Herd on this phone. You are the admin: you can add workers later.')}</p>` },
+        { type: 'info', html: html`<p class="help">${tr('Only people with a login can open Mleczna Droga on this phone. You are the admin: you can add workers later.')}</p>` },
         { name: 'ownerName', label: 'Your name', required: true },
         { name: 'pin', label: 'PIN or password (at least 4)', type: 'password', required: true },
         { name: 'pin2', label: 'Repeat PIN or password', type: 'password', required: true },
@@ -323,7 +323,7 @@ export function dataView() {
         if (!file) return;
         try {
           const parsed = JSON.parse(await file.text());
-          if (parsed.app !== 'dairy-herd' || !parsed.data) throw new Error(tr('This is not a Dairy Herd backup file.'));
+          if (parsed.app !== 'dairy-herd' || !parsed.data) throw new Error(tr('This is not a Mleczna Droga backup file.'));
           if (sync.isConnected()) throw new Error(tr('This phone syncs, so the records are already kept online. To restore an old backup, stop syncing first (More → Sync & phones).'));
           const n = Object.values(parsed.data).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
           if (!confirm(tr('Restore backup from {d} with {n} records? Everything currently on this device will be replaced.', { d: fmtDateTime(parsed.exportedAt, tz()), n }))) return;

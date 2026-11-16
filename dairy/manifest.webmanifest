@@ -1,6 +1,6 @@
 {
-  "name": "Dairy Herd",
-  "short_name": "Dairy Herd",
+  "name": "Mleczna Droga",
+  "short_name": "Mleczna Droga",
   "description": "Breeding, milk and herd health records for one dairy farm. Works offline.",
   "start_url": "./index.html",
   "scope": "./",

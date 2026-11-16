@@ -47,7 +47,7 @@ export async function open() {
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
-    r.onblocked = () => rej(new Error('Close other Dairy Herd tabs and reload'));
+    r.onblocked = () => rej(new Error('Close other Mleczna Droga tabs and reload'));
   });
   const tx = idb.transaction([...STORES, OUTBOX], 'readonly');
   await Promise.all([...STORES, OUTBOX].map(async (s) => {
