@@ -739,3 +739,9 @@ Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100% (voice 
    `begin; truncate syndo.messages; insert into syndo.messages select * from syndo_backup_20261104.messages; commit;`
    Do this table by table, and only for tables a later migration changed. New migrations are additive,
    so a backend rollback normally needs no database restore.
+
+## 2026-11-23: phone call grid (web)
+
+- Deployed: web Pages 24c453d6 from commit 0285f35 (phone call grid, names on video tiles). It also takes the 0.8.6 web changes live (watch-only streaming, H.264, sound line).
+- Before: Pages aee82b83 at 6dd7526. Branch backup: backup/pre-call-grid-20261121.
+- Roll back: Cloudflare Pages, syndo-app, deployment aee82b83, "Rollback to this deployment".
