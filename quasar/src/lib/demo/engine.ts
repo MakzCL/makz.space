@@ -116,7 +116,7 @@ export class DemoEngine {
       macros: this.macros,
       settings: this.settings,
       platform: "web",
-      version: "0.1.4",
+      version: "0.1.5",
     });
   }
 

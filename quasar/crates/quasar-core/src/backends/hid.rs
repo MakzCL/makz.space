@@ -232,3 +232,27 @@ impl Backend for Hid {
         Some(DeviceStatus { connected: true, battery, charging: false })
     }
 }
+
+/// Every HID interface on the system, deduplicated, for diagnostics: lets a
+/// bug report name the exact vendor/product ids of unsupported hardware.
+pub fn inventory() -> Vec<serde_json::Value> {
+    let Ok(api) = HidApi::new() else { return Vec::new() };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut out = Vec::new();
+    for d in api.device_list() {
+        let key = (d.vendor_id(), d.product_id(), d.interface_number(), d.usage_page(), d.usage());
+        if !seen.insert(key) {
+            continue;
+        }
+        out.push(serde_json::json!({
+            "vid": format!("{:04x}", d.vendor_id()),
+            "pid": format!("{:04x}", d.product_id()),
+            "manufacturer": d.manufacturer_string().unwrap_or(""),
+            "product": d.product_string().unwrap_or(""),
+            "interface": d.interface_number(),
+            "usage_page": format!("{:04x}", d.usage_page()),
+            "usage": format!("{:04x}", d.usage()),
+        }));
+    }
+    out
+}

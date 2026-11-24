@@ -1,13 +1,12 @@
 {
-  "version": "0.1.4",
+  "version": "0.1.5",
   "date": "2026-11-24",
   "notes": [
-    "Test LEDs button on every device page",
-    "Richer diagnostics: active scene, brightness, writes per device"
+    "Diagnostics list connected USB lighting devices, to add support for unsupported hardware"
   ],
   "windows": {
-    "url": "https://quasar.makz.space/download/QUASAR_0.1.4_x64-setup.exe",
-    "sha256": "2a5fed442699377a05891de6658b26b66980eca4818b8c35cc909b32c73c8a9e",
-    "size": 3464310
+    "url": "https://quasar.makz.space/download/QUASAR_0.1.5_x64-setup.exe",
+    "sha256": "d61e5d2a9e09262cc1246a6453ae946addf6ef6ba3ba465bc5b9257b2d784a12",
+    "size": 3466607
   }
 }

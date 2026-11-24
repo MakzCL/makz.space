@@ -122,7 +122,7 @@ export function Rig() {
       </div>
       {api.desktop && snap.devices.length > 0 && (
         <p className="dim" style={{ fontSize: 12.5, margin: "-6px 0 14px" }}>
-          Missing something? OpenRGB keeps finding devices for a while after it starts, and they appear here on their own. Close iCUE, Synapse, G HUB or Armoury Crate, which lock their devices. Fans on motherboard ARGB headers show up once you open the motherboard and set its LED headers under Lighting.
+          Missing something? OpenRGB keeps finding devices for a while after it starts, and they appear here on their own. Close iCUE, Synapse, G HUB, NZXT CAM or Armoury Crate, which lock their devices. Fans on motherboard ARGB headers show up once you open the motherboard and set its LED headers under Lighting.
         </p>
       )}
       {snap.devices.length === 0 && (

@@ -345,6 +345,7 @@ pub fn diagnostics(app: State<App>) -> String {
             "layers": e.state.profile().scene.layers.iter().map(|l| serde_json::json!({"effect": l.effect, "enabled": l.enabled, "opacity": l.opacity, "blend": l.blend})).collect::<Vec<_>>(),
         },
         "devices": devices,
+        "usb_hid": quasar_core::backends::hid::inventory(),
     });
     serde_json::to_string_pretty(&report).unwrap_or_default()
 }
