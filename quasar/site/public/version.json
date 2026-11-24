@@ -1,14 +1,12 @@
 {
-  "version": "0.1.7",
+  "version": "0.1.8",
   "date": "2026-11-24",
   "notes": [
-    "Attack Shark X11 mouse: lighting, DPI, polling rate",
-    "Lights re-sent every second, so static colours stick",
-    "No keyboard hook unless a feature needs it",
-    "Installer built on Windows by GitHub"
+    "Macro shortcuts: run a macro from any key combination or mouse side button",
+    "Apply / Save to device buttons, and Apply to all"
   ],
   "windows": {
-    "url": "https://github.com/MakzCL/makz.space/releases/download/quasar-v0.1.7/QUASAR_0.1.7_x64-setup.exe",
-    "sha256": "f5e8951af07c5e4a728e508908a4c8049c65f08a455cd861f5d7988e4e1f362e"
+    "url": "https://github.com/MakzCL/makz.space/releases/download/quasar-v0.1.8/QUASAR_0.1.8_x64-setup.exe",
+    "sha256": "ea2cd1bf5f724b7ebbc9287c9868262396bcdad48b2b0b740ebf564d255a7cc3"
   }
 }
