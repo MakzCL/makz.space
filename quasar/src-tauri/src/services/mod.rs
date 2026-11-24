@@ -5,7 +5,9 @@ pub mod audio;
 pub mod frame_loop;
 pub mod gsi;
 pub mod input;
+pub mod openrgb;
 pub mod screen;
+pub mod updates;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,6 +19,14 @@ use crate::App;
 pub fn start(handle: AppHandle, app: App) {
     let analyzer = Arc::new(parking_lot::Mutex::new(None));
     let screen = Arc::new(parking_lot::Mutex::new(None));
+    spawn("openrgb", {
+        let (h, app) = (handle.clone(), app.clone());
+        move || openrgb::boot(h, app)
+    });
+    spawn("updates", {
+        let (h, app) = (handle.clone(), app.clone());
+        move || updates::run(h, app)
+    });
     spawn("frame-loop", {
         let (app, analyzer, screen) = (app.clone(), analyzer.clone(), screen.clone());
         move || frame_loop::run(handle, app, analyzer, screen)

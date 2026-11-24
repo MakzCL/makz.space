@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../app/store";
 import { Preview } from "../components/Preview";
 import { DeviceArt } from "../components/DeviceArt";
+import { overhang, zOrder } from "../components/art";
+import { LayoutGrid } from "lucide-react";
 import { EffectThumb } from "../components/EffectThumb";
 import { ParamControls } from "../components/ParamControls";
 import { Seg, Slider } from "../components/controls";
@@ -157,7 +159,7 @@ export function Studio() {
 }
 
 function Desk({ onPress, onPlace, sel, setSel }: { onPress: (u: number, v: number) => void; onPlace: (id: string, p: Placement, commit: boolean) => void; sel: string | null; setSel: (id: string | null) => void }) {
-  const { snap } = useStore();
+  const { snap, setSnap, api } = useStore();
   const box = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 600, h: 375 });
@@ -184,11 +186,14 @@ function Desk({ onPress, onPlace, sel, setSel }: { onPress: (u: number, v: numbe
         <div ref={box} className="desk" style={{ width: size.w, height: size.h, margin: 0, flex: "none" }} onPointerDown={(e) => e.target === e.currentTarget && setSel(null)}>
           <Preview onPress={onPress} />
           <div className="gridlines" />
-          {snap.devices.map((d) => {
+          {[...snap.devices].sort((a, b) => zOrder(a.info.kind) - zOrder(b.info.kind)).map((d) => {
             const p = place(d.info.id);
             if (!p.visible) return null;
-            const w = ((d.info.layout.width * p.scale) / 1000) * size.w;
-            const h = ((d.info.layout.height * p.scale) / (1000 / ASPECT)) * size.h;
+            // the element covers the layout box plus the art's overhang, so
+            // DeviceArt (padding 0) maps LEDs exactly onto the canvas
+            const ov = overhang(d.info.kind) * 2;
+            const w = (((d.info.layout.width + ov) * p.scale) / 1000) * size.w;
+            const h = (((d.info.layout.height + ov) * p.scale) / (1000 / ASPECT)) * size.h;
             return (
               <div
                 key={d.info.id}
@@ -221,7 +226,7 @@ function Desk({ onPress, onPlace, sel, setSel }: { onPress: (u: number, v: numbe
                   else update(d.info.id, { ...q, scale: Math.min(Math.max(q.scale * (e.deltaY < 0 ? 1.06 : 0.94), 0.2), 4) }, true);
                 }}
               >
-                <DeviceArt device={d.info} padding={0} desk />
+                <DeviceArt device={d.info} padding={0} />
                 <div className="outline" />
                 <div className="tag">{d.info.name}</div>
               </div>
@@ -242,7 +247,18 @@ function Desk({ onPress, onPlace, sel, setSel }: { onPress: (u: number, v: numbe
             <Seg value={place(selDev.info.id).visible ? "on" : "off"} options={[["on", "On canvas"], ["off", "Hidden"]]} onChange={(v) => update(selDev.info.id, { ...place(selDev.info.id), visible: v === "on" }, true)} />
           </>
         ) : (
-          <span>Drag devices to place them · scroll to resize · shift+scroll to rotate · click the canvas to send a ripple</span>
+          <>
+            <span style={{ flex: 1 }}>Drag to place · scroll to resize · shift+scroll to rotate · click the canvas to send a ripple</span>
+            <button
+              className="btn sm"
+              onClick={async () => {
+                setLocal({});
+                setSnap(await api.arrange());
+              }}
+            >
+              <LayoutGrid size={13} /> Auto-arrange
+            </button>
+          </>
         )}
       </div>
     </>

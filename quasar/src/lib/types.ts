@@ -124,6 +124,8 @@ export interface Macro { id: string; name: string; steps: Step[]; repeat: Repeat
 export interface Settings {
   fps: number;
   openrgb_enabled: boolean;
+  openrgb_managed: boolean;
+  auto_update_check: boolean;
   openrgb_host: string;
   openrgb_port: number;
   hid_enabled: boolean;
@@ -161,3 +163,7 @@ export interface Frame {
   devices: Map<string, Uint8Array>;
   stats: Stats;
 }
+
+export type OpenRgbPhase = "unknown" | "not-installed" | "downloading" | "installing" | "starting" | "running" | "external" | "stopped" | "error" | "unsupported";
+export interface OpenRgbStatus { phase: OpenRgbPhase; progress: number; message: string | null; path: string | null; version: string; size_mb: number }
+export interface UpdateInfo { current: string; latest: string; date: string; notes: string[]; installable: boolean }

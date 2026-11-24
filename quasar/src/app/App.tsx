@@ -5,6 +5,7 @@ import type { EffectInfo, Snapshot } from "../lib/types";
 import { StoreProvider, useStore } from "./store";
 import { Intro } from "../components/Intro";
 import { TitleBar } from "../components/TitleBar";
+import { UpdateBanner } from "../components/UpdateBanner";
 import { Ambient } from "../components/Preview";
 import { Rig } from "../pages/Rig";
 import { DevicePage } from "../pages/Device";
@@ -99,6 +100,7 @@ export function App() {
           <div className="grain" />
           <div className="app">
             <TitleBar />
+            <UpdateBanner />
             <Pages />
           </div>
           <DemoKeys />

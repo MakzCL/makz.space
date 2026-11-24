@@ -507,3 +507,13 @@ body { background: var(--bg); }
 .step { border-radius: 4px; }
 .toast { border-radius: 4px; border-color: rgba(46,230,255,.35); font: 500 12.5px var(--font); }
 .intro { background: radial-gradient(70% 60% at 50% 45%, #0c1620 0%, #05070a 70%); }
+
+.update { grid-column: 1 / -1; overflow: hidden; position: relative; background: linear-gradient(90deg, rgba(46,230,255,.14), rgba(46,230,255,.04)); border-bottom: 1px solid rgba(46,230,255,.35); }
+.update .inner { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: var(--ion); font-size: 13px; }
+.update .inner b { color: var(--text); }
+.update .bar { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--ion); box-shadow: 0 0 10px var(--ion); transition: width .2s; }
+.app:has(.update) { grid-template-rows: 52px auto 1fr; }
+.progress { height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+.progress > div { height: 100%; background: var(--ion); box-shadow: 0 0 10px var(--ion); transition: width .2s; }
+.progress > div.indet { width: 40% !important; animation: indet 1.1s ease-in-out infinite; }
+@keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(250%); } }

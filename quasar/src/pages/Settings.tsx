@@ -7,6 +7,7 @@ import type { Settings } from "../lib/types";
 export function SettingsPage() {
   const { snap, setSnap, api, toast } = useStore();
   const [s, setS] = useState<Settings>(snap.settings);
+  const [checked, setChecked] = useState<string | null>(null);
   const set = async (patch: Partial<Settings>) => {
     const next = { ...s, ...patch };
     setS(next);
@@ -24,9 +25,6 @@ export function SettingsPage() {
         <h3>Performance</h3>
         <Row label="Lighting frame rate" hint="How often the canvas renders and devices update. 60 is smooth; 30 halves the CPU and USB traffic.">
           <Seg value={s.fps} options={[[30, "30"], [60, "60"], [90, "90"], [120, "120"]]} onChange={(v) => set({ fps: v })} />
-        </Row>
-        <Row label="Demo rig" hint="Show the simulated devices next to your real ones.">
-          <Toggle on={s.demo_rig} onChange={(v) => set({ demo_rig: v })} />
         </Row>
         <Row label="Switch profiles automatically" hint="When a linked app is running.">
           <Toggle on={s.auto_switch} onChange={(v) => set({ auto_switch: v })} />
@@ -49,6 +47,29 @@ export function SettingsPage() {
         </Row>
         <Row label="Start in the tray" hint="Open silently; the lighting runs without the window.">
           <Toggle on={s.start_minimized} onChange={(v) => set({ start_minimized: v })} />
+        </Row>
+      </div>
+      <div className="card pad" style={{ marginBottom: 16 }}>
+        <h3>Updates</h3>
+        <Row label={`Version ${snap.version}`} hint={checked ?? "Beta builds come from quasar.makz.space."}>
+          <button
+            className="btn sm"
+            disabled={!api.desktop}
+            onClick={async () => {
+              setChecked("Checking…");
+              try {
+                const u = await api.checkUpdates();
+                setChecked(u ? `Version ${u.latest} is available. See the banner at the top.` : "You're on the latest version.");
+              } catch (e) {
+                setChecked(`Could not check: ${e}`);
+              }
+            }}
+          >
+            Check now
+          </button>
+        </Row>
+        <Row label="Check automatically" hint="At launch and every six hours. Nothing installs without your click.">
+          <Toggle on={s.auto_update_check} onChange={(v) => set({ auto_update_check: v })} />
         </Row>
       </div>
       <div className="card pad row" style={{ gap: 18 }}>

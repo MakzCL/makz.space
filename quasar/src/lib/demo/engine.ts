@@ -116,7 +116,7 @@ export class DemoEngine {
       macros: this.macros,
       settings: this.settings,
       platform: "web",
-      version: "0.1.0",
+      version: "0.1.1",
     });
   }
 
@@ -140,6 +140,15 @@ export class DemoEngine {
     if (this.profiles.length <= 1) throw new Error("Keep at least one profile.");
     this.profiles = this.profiles.filter((p) => p.id !== id);
     if (this.active === id) this.activate(this.profiles[0].id);
+  }
+  /** The seed placements come from the Rust arranger; restore them. */
+  arrange() {
+    const seedDevs = seed.devices as unknown as DeviceView[];
+    for (const d of this.devices) {
+      const s = seedDevs.find((x) => x.info.id === d.info.id);
+      if (s) d.placement = { ...s.placement };
+    }
+    this.relayout();
   }
   setPlacement(id: string, p: Placement) {
     const d = this.devices.find((d) => d.info.id === id);

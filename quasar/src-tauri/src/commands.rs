@@ -136,6 +136,14 @@ pub fn set_placement(app: State<App>, id: String, placement: Placement) {
     app.touch();
 }
 
+/// Put every device back into the uniform layout.
+#[tauri::command]
+pub fn arrange_layout(app: State<App>) -> Snapshot {
+    app.engine.lock().arrange();
+    app.touch();
+    snap(&app)
+}
+
 #[tauri::command]
 pub fn set_device_settings(app: State<App>, id: String, settings: DeviceSettings) {
     app.engine.lock().set_device_settings(&id, settings);
@@ -257,4 +265,45 @@ pub fn set_autostart(handle: AppHandle, app: State<App>, enabled: bool) -> R<()>
     app.engine.lock().state.settings.launch_at_login = enabled;
     app.touch();
     Ok(())
+}
+
+// ---- built-in OpenRGB ----------------------------------------------------
+
+#[tauri::command]
+pub fn openrgb_status(app: State<App>) -> crate::services::openrgb::Status {
+    let mut s = app.openrgb.lock().clone();
+    s.version = crate::services::openrgb::VERSION;
+    s
+}
+
+#[tauri::command]
+pub fn openrgb_install(handle: AppHandle, app: State<App>) {
+    crate::services::openrgb::install(handle, app.inner().clone());
+}
+
+#[tauri::command]
+pub fn openrgb_start(handle: AppHandle, app: State<App>) -> R<()> {
+    let exe = crate::services::openrgb::find(&handle).ok_or("OpenRGB is not installed.")?;
+    crate::services::openrgb::start(&handle, app.inner(), &exe)
+}
+
+#[tauri::command]
+pub fn openrgb_stop(handle: AppHandle, app: State<App>) {
+    crate::services::openrgb::stop(app.inner());
+    app.openrgb.lock().phase = crate::services::openrgb::Phase::Stopped;
+    let _ = tauri::Emitter::emit(&handle, "openrgb", app.openrgb.lock().clone());
+    crate::configure_backends(&mut app.engine.lock());
+}
+
+// ---- updates ---------------------------------------------------------------
+
+#[tauri::command]
+pub async fn check_updates(handle: AppHandle, app: State<'_, App>) -> R<Option<crate::services::updates::Update>> {
+    let (h, a) = (handle.clone(), app.inner().clone());
+    tauri::async_runtime::spawn_blocking(move || crate::services::updates::check(&h, &a)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn install_update(handle: AppHandle, app: State<App>) {
+    crate::services::updates::install(handle, app.inner().clone());
 }

@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use serde::Serialize;
 
-use crate::backends::{virtual_rig, Backend};
+use crate::backends::Backend;
 use crate::canvas::Canvas;
 use crate::color::Rgb;
 use crate::device::{DeviceInfo, DeviceSettings, DeviceStatus, LightingMode};
@@ -145,19 +145,18 @@ impl Engine {
                 Err(e) => self.backend_errors[bi] = Some(e.to_string()),
             }
         }
-        let mut n_new = 0;
+        // anything new joins the uniform layout; placed devices stay put
+        if self.devices.iter().any(|d| !self.state.placements.contains_key(&d.info.id)) {
+            let fresh: Vec<String> = self.devices.iter().map(|d| d.info.id.clone()).filter(|id| !self.state.placements.contains_key(id)).collect();
+            let all = self.arranged();
+            for id in fresh {
+                if let Some(p) = all.get(&id) {
+                    self.state.placements.insert(id, *p);
+                }
+            }
+        }
         for d in &self.devices {
             let id = d.info.id.clone();
-            if !self.state.placements.contains_key(&id) {
-                let p = if d.info.virtual_device {
-                    virtual_rig::default_placement(&id)
-                } else {
-                    // stagger real hardware so it is not all stacked in the middle
-                    n_new += 1;
-                    Placement { x: 0.2 + (n_new % 4) as f32 * 0.2, y: 0.25 + (n_new / 4 % 3) as f32 * 0.25, ..Default::default() }
-                };
-                self.state.placements.insert(id.clone(), p);
-            }
             for prof in &mut self.state.profiles {
                 prof.devices.entry(id.clone()).or_insert_with(|| DeviceSettings::for_device(&d.info));
             }
@@ -226,6 +225,19 @@ impl Engine {
         self.load_scene();
         self.apply_all_settings();
         true
+    }
+
+    fn arranged(&self) -> std::collections::BTreeMap<String, Placement> {
+        let items: Vec<crate::layout::Item> = self.devices.iter().map(|d| crate::layout::Item { kind: d.info.kind, w: d.info.layout.width, h: d.info.layout.height }).collect();
+        let places = crate::layout::arrange(&items, self.canvas.aspect());
+        self.devices.iter().map(|d| d.info.id.clone()).zip(places).collect()
+    }
+
+    /// Reset every device to the uniform layout.
+    pub fn arrange(&mut self) {
+        let all = self.arranged();
+        self.state.placements.extend(all);
+        self.relayout();
     }
 
     pub fn set_placement(&mut self, id: &str, p: Placement) {
@@ -403,7 +415,7 @@ mod tests {
     use crate::backends::virtual_rig::VirtualRig;
 
     fn engine() -> Engine {
-        let mut e = Engine::new(State::default());
+        let mut e = Engine::new(State::demo());
         e.add_backend(Box::new(VirtualRig::default()));
         e.scan();
         e

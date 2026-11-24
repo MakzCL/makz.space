@@ -56,9 +56,15 @@ fn default_accent() -> String {
     "#7c5cff".into()
 }
 
+/// Missing fields take their defaults, so older state files keep loading
+/// as settings are added.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct Settings {
     pub fps: u32,
+    /// Start (and stop) the bundled OpenRGB server together with QUASAR.
+    pub openrgb_managed: bool,
+    pub auto_update_check: bool,
     pub openrgb_enabled: bool,
     pub openrgb_host: String,
     pub openrgb_port: u16,
@@ -81,6 +87,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             fps: 60,
+            openrgb_managed: true,
+            auto_update_check: true,
             openrgb_enabled: true,
             openrgb_host: "127.0.0.1".into(),
             openrgb_port: crate::backends::openrgb::DEFAULT_PORT,
@@ -113,65 +121,77 @@ pub struct State {
     pub settings: Settings,
 }
 
+/// Current state file version. 2 dropped the demo rig and sample data.
+pub const STATE_VERSION: u32 = 2;
+
 impl Default for State {
+    /// A clean install: one profile, real hardware only, no sample macros.
     fn default() -> Self {
-        let scene = |layers: Vec<LayerSpec>| Scene { layers };
         let mut ripple = LayerSpec::new("l2", "ripple");
         ripple.blend = Blend::Screen;
         ripple.params.insert("bg".into(), crate::params::ParamValue::Text("#000000".into()));
         ripple.params.insert("idle".into(), crate::params::ParamValue::Bool(false));
-        let profiles = vec![
-            Profile {
+        Self {
+            version: STATE_VERSION,
+            profiles: vec![Profile {
                 id: "default".into(),
-                name: "Nebula".into(),
+                name: "Default".into(),
                 apps: vec![],
-                scene: scene(vec![LayerSpec::new("l1", "nebula"), ripple]),
+                scene: Scene { layers: vec![LayerSpec::new("l1", "nebula"), ripple] },
                 devices: BTreeMap::new(),
                 brightness: 0.9,
-                accent: "#7c5cff".into(),
-            },
-            Profile {
-                id: "fps".into(),
-                name: "Competitive".into(),
-                apps: vec!["cs2.exe".into(), "VALORANT-Win64-Shipping.exe".into()],
-                scene: scene(vec![LayerSpec::new("l1", "game-pulse")]),
-                devices: BTreeMap::new(),
-                brightness: 1.0,
-                accent: "#ff3db8".into(),
-            },
-            Profile {
-                id: "focus".into(),
-                name: "Focus".into(),
-                apps: vec!["Code.exe".into(), "figma.exe".into()],
-                scene: scene(vec![LayerSpec::new("l1", "breathing")]),
-                devices: BTreeMap::new(),
-                brightness: 0.5,
                 accent: "#2ee6ff".into(),
-            },
-            Profile {
-                id: "movie".into(),
-                name: "Cinema".into(),
-                apps: vec!["vlc.exe".into(), "mpv.exe".into()],
-                scene: scene(vec![LayerSpec::new("l1", "ambience")]),
-                devices: BTreeMap::new(),
-                brightness: 0.8,
-                accent: "#ffb547".into(),
-            },
-        ];
-        Self {
-            version: 1,
-            profiles,
+            }],
             active_profile: "default".into(),
             placements: BTreeMap::new(),
-            macros: crate::macros::examples(),
-            settings: Settings::default(),
+            macros: Vec::new(),
+            settings: Settings { demo_rig: false, ..Settings::default() },
         }
     }
 }
 
 impl State {
+    /// The showcase state used by the browser demo and tests: preset
+    /// profiles and example macros. Never written to a user's disk.
+    pub fn demo() -> Self {
+        let mut s = State::default();
+        s.profiles[0].name = "Nebula".into();
+        s.profiles[0].accent = "#7c5cff".into();
+        let scene = |layers: Vec<LayerSpec>| Scene { layers };
+        let preset = |id: &str, name: &str, apps: &[&str], fx: &str, b: f32, accent: &str| Profile {
+            id: id.into(),
+            name: name.into(),
+            apps: apps.iter().map(|a| a.to_string()).collect(),
+            scene: scene(vec![LayerSpec::new("l1", fx)]),
+            devices: BTreeMap::new(),
+            brightness: b,
+            accent: accent.into(),
+        };
+        s.profiles.push(preset("fps", "Competitive", &["cs2.exe"], "game-pulse", 1.0, "#ff3db8"));
+        s.profiles.push(preset("focus", "Focus", &["Code.exe"], "breathing", 0.5, "#2ee6ff"));
+        s.profiles.push(preset("movie", "Cinema", &["vlc.exe"], "ambience", 0.8, "#ffb547"));
+        s.macros = crate::macros::examples();
+        s.settings.demo_rig = true;
+        s
+    }
+
+    /// Bring an older state file up to date.
+    fn migrate(mut self) -> Self {
+        if self.version < 2 {
+            // 0.1.0 shipped with the simulated rig on and sample macros
+            self.settings.demo_rig = false;
+            self.placements.retain(|id, _| !id.starts_with("virtual:"));
+            for p in &mut self.profiles {
+                p.devices.retain(|id, _| !id.starts_with("virtual:"));
+            }
+            self.macros.retain(|m| m.id != "m-gg" && m.id != "m-burst");
+        }
+        self.version = STATE_VERSION;
+        self
+    }
+
     pub fn load(path: &Path) -> Self {
-        std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+        std::fs::read(path).ok().and_then(|b| serde_json::from_slice::<State>(&b).ok()).map(State::migrate).unwrap_or_default()
     }
 
     /// Atomic write: temp file then rename, so a crash never leaves half a file.
@@ -218,9 +238,30 @@ mod tests {
 
     #[test]
     fn app_matching_is_case_insensitive() {
-        let s = State::default();
+        let s = State::demo();
         assert_eq!(s.match_app(["explorer.exe", "CS2.EXE"]).unwrap().id, "fps");
+        assert!(State::default().macros.is_empty() && !State::default().settings.demo_rig);
         assert!(s.match_app(["explorer.exe"]).is_none());
+    }
+
+    #[test]
+    fn migrates_v1_demo_data_away() {
+        let mut old = State::demo();
+        old.version = 1;
+        old.placements.insert("virtual:kb".into(), Default::default());
+        old.placements.insert("openrgb:real".into(), Default::default());
+        let m = old.migrate();
+        assert_eq!(m.version, STATE_VERSION);
+        assert!(!m.settings.demo_rig);
+        assert!(m.macros.is_empty());
+        assert_eq!(m.placements.keys().collect::<Vec<_>>(), vec!["openrgb:real"]);
+    }
+
+    #[test]
+    fn settings_tolerate_missing_fields() {
+        let s: Settings = serde_json::from_str(r#"{"fps":30}"#).unwrap();
+        assert_eq!(s.fps, 30);
+        assert!(s.openrgb_managed && s.auto_update_check);
     }
 
     #[test]

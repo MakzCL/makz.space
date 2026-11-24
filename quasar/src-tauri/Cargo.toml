@@ -26,6 +26,9 @@ cpal = "0.18"
 sysinfo = "0.40"
 tiny_http = "0.12"
 xcap = "0.9"
+ureq = "3.5.2"
+sha2 = "0.11.1"
+zip = { version = "9.8.2", default-features = false, features = ["deflate"] }
 
 # Global key hooks. `grab` (needed to remap/block keys) is used on Windows and
 # macOS; Linux listens only, since grabbing there needs evdev permissions.

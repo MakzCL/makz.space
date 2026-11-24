@@ -207,22 +207,3 @@ impl Backend for VirtualRig {
     }
 }
 
-/// Where the virtual rig sits on the canvas by default: a desk viewed from
-/// above with the PC to the right.
-pub fn default_placement(id: &str) -> crate::layout::Placement {
-    use crate::layout::Placement;
-    let p = |x, y, scale, rotation| Placement { x, y, scale, rotation, visible: true };
-    match id {
-        "virtual:strip" => p(0.40, 0.08, 1.0, 0.0),
-        "virtual:pad" => p(0.40, 0.62, 2.0, 0.0),
-        "virtual:kb" => p(0.34, 0.62, 1.15, 0.0),
-        "virtual:mouse" => p(0.62, 0.64, 1.2, 0.0),
-        "virtual:headset" => p(0.08, 0.36, 1.1, 0.0),
-        "virtual:gpu" => p(0.86, 0.62, 0.7, 90.0),
-        "virtual:fan1" => p(0.86, 0.20, 1.0, 0.0),
-        "virtual:fan2" => p(0.86, 0.38, 1.0, 0.0),
-        "virtual:ram1" => p(0.80, 0.80, 2.0, 0.0),
-        "virtual:ram2" => p(0.82, 0.80, 2.0, 0.0),
-        _ => Placement::default(),
-    }
-}

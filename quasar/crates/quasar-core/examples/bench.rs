@@ -9,7 +9,7 @@ use quasar_core::profiles::State;
 use quasar_core::Engine;
 
 fn main() {
-    let mut e = Engine::new(State::default());
+    let mut e = Engine::new(State::demo());
     e.add_backend(Box::new(VirtualRig::default()));
     e.scan();
     for id in ["default", "fps", "focus", "movie"] {

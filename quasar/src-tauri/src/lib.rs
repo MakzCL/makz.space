@@ -26,6 +26,9 @@ pub struct Shared {
     pub base_profile: Mutex<String>,
     pub recording: Mutex<Option<services::input::Recording>>,
     pub ready: AtomicBool,
+    pub openrgb: Mutex<services::openrgb::Status>,
+    pub openrgb_child: Mutex<Option<std::process::Child>>,
+    pub update: Mutex<Option<services::updates::Manifest>>,
 }
 
 impl Shared {
@@ -125,6 +128,9 @@ pub fn run() {
                 base_profile: Mutex::new(base),
                 recording: Mutex::new(None),
                 ready: AtomicBool::new(false),
+                openrgb: Mutex::new(Default::default()),
+                openrgb_child: Mutex::new(None),
+                update: Mutex::new(None),
             });
             app.manage(shared.clone());
             build_tray(app.handle())?;
@@ -163,7 +169,22 @@ pub fn run() {
             commands::cs2_config,
             commands::install_cs2_config,
             commands::set_autostart,
+            commands::arrange_layout,
+            commands::openrgb_status,
+            commands::openrgb_install,
+            commands::openrgb_start,
+            commands::openrgb_stop,
+            commands::check_updates,
+            commands::install_update,
         ])
-        .run(tauri::generate_context!())
-        .expect("QUASAR failed to start");
+        .build(tauri::generate_context!())
+        .expect("QUASAR failed to start")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // never leave an OpenRGB server we started running behind us
+                let shared = app.state::<App>();
+                shared.save_now();
+                services::openrgb::stop(&shared);
+            }
+        });
 }

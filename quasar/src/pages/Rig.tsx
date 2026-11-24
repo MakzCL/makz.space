@@ -5,6 +5,7 @@ import { useFrame, useStore } from "../app/store";
 import { Preview } from "../components/Preview";
 import { DeviceArt } from "../components/DeviceArt";
 import { Dial } from "../components/Dial";
+import { OpenRgbActions, useOpenRgb } from "../components/OpenRgbPanel";
 import { kindName } from "../components/icons";
 
 export function Rig() {
@@ -22,6 +23,7 @@ export function Rig() {
     if (wps.current) wps.current.textContent = f.stats.writes_per_sec.toFixed(0);
   });
   const layer = profile.scene.layers.find((l) => l.enabled);
+  const orgb = useOpenRgb();
 
   return (
     <div className="page">
@@ -118,6 +120,21 @@ export function Rig() {
         <h1 style={{ fontSize: 17 }}>Devices</h1>
         <span className="muted" style={{ fontSize: 13 }}>{snap.devices.length} connected across {new Set(snap.devices.map((d) => d.info.vendor)).size} brands</span>
       </div>
+      {snap.devices.length === 0 && (
+        <div className="card pad" style={{ maxWidth: 760 }}>
+          <h3>No devices found yet</h3>
+          <ol className="muted" style={{ margin: "10px 0 16px", paddingLeft: 18, lineHeight: 1.8, fontSize: 13.5 }}>
+            <li>Close other RGB apps (Synapse, G HUB, iCUE, Armoury Crate, SignalRGB). Only one program can drive the LEDs at a time.</li>
+            <li>For most brands, QUASAR uses OpenRGB. Install it with the button below and QUASAR runs it for you.</li>
+            <li>Supported Razer and Logitech mice and keyboards are found directly, with no OpenRGB needed.</li>
+            <li>Press <b>Rescan</b>.</li>
+          </ol>
+          <div className="col" style={{ gap: 12 }}>
+            <OpenRgbActions st={orgb} />
+            <div><button className="btn" onClick={async () => setSnap(await api.rescan())}>Rescan now</button></div>
+          </div>
+        </div>
+      )}
       <div className="devgrid">
         {snap.devices.map((d, i) => (
           <motion.button

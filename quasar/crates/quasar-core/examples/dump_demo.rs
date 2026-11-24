@@ -8,7 +8,7 @@ use quasar_core::profiles::State;
 use quasar_core::Engine;
 
 fn main() {
-    let mut e = Engine::new(State::default());
+    let mut e = Engine::new(State::demo());
     e.add_backend(Box::new(virtual_rig::VirtualRig::default()));
     e.scan();
     let out = serde_json::json!({

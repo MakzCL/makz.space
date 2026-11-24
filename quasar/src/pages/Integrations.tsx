@@ -2,6 +2,7 @@ import { AudioLines, Crosshair, Keyboard, MonitorUp, Network, Usb, Copy, Zap } f
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../app/store";
 import { Toggle } from "../components/controls";
+import { OpenRgbActions, OpenRgbBadge, useOpenRgb } from "../components/OpenRgbPanel";
 import type { Settings } from "../lib/types";
 
 function Block({ icon, title, status, children }: { icon: ReactNode; title: string; status: ReactNode; children: ReactNode }) {
@@ -27,6 +28,7 @@ export function Integrations() {
     setS(next);
     setSnap(await api.setSettings(next));
   };
+  const orgb = useOpenRgb();
   const backend = (id: string) => snap.backends.find((b) => b.id === id);
   const st = (id: string, on: boolean) => {
     const b = backend(id);
@@ -46,10 +48,20 @@ export function Integrations() {
         </div>
       </div>
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <Block icon={<Network size={19} />} title="OpenRGB" status={st("openrgb", s.openrgb_enabled)}>
+        <Block icon={<Network size={19} />} title="OpenRGB" status={api.desktop ? <OpenRgbBadge st={orgb} /> : st("openrgb", s.openrgb_enabled)}>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-            Hundreds of devices from most brands — motherboards, RAM, GPUs, coolers, keyboards, mice, strips. Run OpenRGB with its SDK server on, and QUASAR drives every LED it knows.
+            Hundreds of devices from most brands: motherboards, RAM, GPUs, coolers, keyboards, mice and strips. QUASAR keeps its own copy of OpenRGB and runs it quietly in the background while QUASAR is open. If you already run OpenRGB, QUASAR uses that instead.
           </p>
+          {api.desktop && (
+            <div style={{ marginBottom: 14 }}>
+              <OpenRgbActions st={orgb} />
+              <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+                <span className="muted" style={{ fontSize: 12.5 }}>Start OpenRGB with QUASAR</span>
+                <Toggle on={s.openrgb_managed} onChange={(v) => set({ openrgb_managed: v })} />
+              </div>
+              <p className="dim" style={{ fontSize: 11.5, margin: "8px 0 0" }}>Motherboard and RAM lighting needs OpenRGB's SMBus access: run QUASAR as administrator once, with the PawnIO driver installed (see OpenRGB’s SMBus notes).</p>
+            </div>
+          )}
           <div className="row">
             <input className="input mono" style={{ flex: 1 }} value={s.openrgb_host} onChange={(e) => setS({ ...s, openrgb_host: e.target.value })} onBlur={() => set({})} />
             <input className="input mono" style={{ width: 90 }} type="number" value={s.openrgb_port} onChange={(e) => setS({ ...s, openrgb_port: +e.target.value })} onBlur={() => set({})} />
