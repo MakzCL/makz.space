@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "QUASAR",
+  "version": "0.1.0",
+  "identifier": "space.makz.quasar",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "splash",
+        "url": "splash.html",
+        "width": 420,
+        "height": 420,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "center": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "focus": false
+      },
+      {
+        "label": "main",
+        "url": "index.html",
+        "title": "QUASAR",
+        "width": 1380,
+        "height": 880,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "visible": false,
+        "decorations": false,
+        "center": true,
+        "backgroundColor": "#07070c"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "MAKZ",
+    "homepage": "https://quasar.makz.space",
+    "category": "Utility",
+    "shortDescription": "One app for every RGB device and gaming peripheral.",
+    "longDescription": "QUASAR drives lighting across every brand from one canvas, and tunes DPI, polling rate, buttons, macros and profiles for supported mice and keyboards.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "windows": {
+      "nsis": { "installMode": "currentUser", "installerIcon": "icons/icon.ico" }
+    },
+    "linux": {
+      "deb": { "depends": ["libudev1"] }
+    }
+  }
+}

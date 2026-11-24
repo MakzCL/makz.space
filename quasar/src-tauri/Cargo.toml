@@ -1,0 +1,36 @@
+[package]
+name = "quasar"
+description = "QUASAR — one app for every RGB device and gaming peripheral."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "quasar_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+quasar-core = { path = "../crates/quasar-core", features = ["hid"] }
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-autostart = "2.7"
+enigo = "0.6"
+cpal = "0.18"
+sysinfo = "0.40"
+tiny_http = "0.12"
+xcap = "0.9"
+
+# Global key hooks. `grab` (needed to remap/block keys) is used on Windows and
+# macOS; Linux listens only, since grabbing there needs evdev permissions.
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+rdev = { version = "0.5", features = ["unstable_grab"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rdev = "0.5"

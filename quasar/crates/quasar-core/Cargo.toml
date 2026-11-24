@@ -1,0 +1,29 @@
+[package]
+name = "quasar-core"
+description = "QUASAR engine: device model, lighting canvas, effects, drivers and profiles."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Native USB HID drivers (Razer, Logitech HID++). Pulls in hidapi.
+hid = ["dep:hidapi"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+
+# hidapi per platform: the pure-Rust backend on Windows (no C toolchain),
+# hidraw on Linux, IOKit on macOS.
+[target.'cfg(windows)'.dependencies]
+hidapi = { version = "2", optional = true, default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+hidapi = { version = "2", optional = true, default-features = false, features = ["linux-static-hidraw"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hidapi = { version = "2", optional = true, default-features = false }

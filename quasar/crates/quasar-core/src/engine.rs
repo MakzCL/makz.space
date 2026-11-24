@@ -1,0 +1,469 @@
+//! The frame loop: render the scene, sample every LED, ship colour to devices.
+
+use std::time::Instant;
+
+use serde::Serialize;
+
+use crate::backends::{virtual_rig, Backend};
+use crate::canvas::Canvas;
+use crate::color::Rgb;
+use crate::device::{DeviceInfo, DeviceSettings, DeviceStatus, LightingMode};
+use crate::effects::{self, AudioFrame, Effect, FrameCtx, Press, ScreenFrame};
+use crate::game::GameState;
+use crate::layout::Placement;
+use crate::profiles::{LayerSpec, Scene, State};
+
+struct Layer {
+    spec: LayerSpec,
+    fx: Box<dyn Effect>,
+    scratch: Canvas,
+}
+
+struct Managed {
+    info: DeviceInfo,
+    backend: usize,
+    uv: Vec<(f32, f32)>,
+    colors: Vec<Rgb>,
+    sent: Vec<Rgb>,
+    status: DeviceStatus,
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct Stats {
+    pub fps: f32,
+    pub frame_ms: f32,
+    pub leds: usize,
+    pub devices: usize,
+    pub writes_per_sec: f32,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DeviceView {
+    pub info: DeviceInfo,
+    pub placement: Placement,
+    pub settings: DeviceSettings,
+    pub status: DeviceStatus,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct BackendView {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub devices: usize,
+    pub error: Option<String>,
+}
+
+/// One preview frame for the UI. Colour data is base64 RGB8.
+#[derive(Clone, Debug, Serialize)]
+pub struct Frame {
+    pub w: usize,
+    pub h: usize,
+    pub canvas: String,
+    pub devices: Vec<(String, String)>,
+    pub stats: Stats,
+}
+
+pub struct Engine {
+    pub state: State,
+    canvas: Canvas,
+    layers: Vec<Layer>,
+    devices: Vec<Managed>,
+    backends: Vec<Box<dyn Backend>>,
+    backend_errors: Vec<Option<String>>,
+    pub audio: AudioFrame,
+    pub screen: Option<ScreenFrame>,
+    pub game: GameState,
+    presses: Vec<Press>,
+    t: f32,
+    stats: Stats,
+    writes: u32,
+    stat_window: f32,
+    frames: u32,
+    frame_time_acc: f32,
+}
+
+impl Engine {
+    pub fn new(state: State) -> Self {
+        let mut e = Self {
+            state,
+            canvas: Canvas::new(Canvas::DEFAULT_W, Canvas::DEFAULT_H),
+            layers: Vec::new(),
+            devices: Vec::new(),
+            backends: Vec::new(),
+            backend_errors: Vec::new(),
+            audio: AudioFrame::default(),
+            screen: None,
+            game: GameState::default(),
+            presses: Vec::new(),
+            t: 0.0,
+            stats: Stats::default(),
+            writes: 0,
+            stat_window: 0.0,
+            frames: 0,
+            frame_time_acc: 0.0,
+        };
+        e.load_scene();
+        e
+    }
+
+    pub fn add_backend(&mut self, b: Box<dyn Backend>) {
+        self.backends.push(b);
+        self.backend_errors.push(None);
+    }
+
+    pub fn remove_backend(&mut self, id: &str) {
+        if let Some(i) = self.backends.iter().position(|b| b.id() == id) {
+            self.backends.remove(i);
+            self.backend_errors.remove(i);
+            self.devices.retain(|d| d.backend != i);
+            for d in &mut self.devices {
+                if d.backend > i {
+                    d.backend -= 1;
+                }
+            }
+        }
+    }
+
+    pub fn has_backend(&self, id: &str) -> bool {
+        self.backends.iter().any(|b| b.id() == id)
+    }
+
+    /// Rediscover devices on every backend. Placements and settings persist by id.
+    pub fn scan(&mut self) {
+        self.devices.clear();
+        for (bi, b) in self.backends.iter_mut().enumerate() {
+            match b.scan() {
+                Ok(list) => {
+                    self.backend_errors[bi] = None;
+                    for info in list {
+                        let status = b.status(&info.id).unwrap_or(DeviceStatus { connected: true, ..Default::default() });
+                        self.devices.push(Managed { info, backend: bi, uv: Vec::new(), colors: Vec::new(), sent: Vec::new(), status, error: None });
+                    }
+                }
+                Err(e) => self.backend_errors[bi] = Some(e.to_string()),
+            }
+        }
+        let mut n_new = 0;
+        for d in &self.devices {
+            let id = d.info.id.clone();
+            if !self.state.placements.contains_key(&id) {
+                let p = if d.info.virtual_device {
+                    virtual_rig::default_placement(&id)
+                } else {
+                    // stagger real hardware so it is not all stacked in the middle
+                    n_new += 1;
+                    Placement { x: 0.2 + (n_new % 4) as f32 * 0.2, y: 0.25 + (n_new / 4 % 3) as f32 * 0.25, ..Default::default() }
+                };
+                self.state.placements.insert(id.clone(), p);
+            }
+            for prof in &mut self.state.profiles {
+                prof.devices.entry(id.clone()).or_insert_with(|| DeviceSettings::for_device(&d.info));
+            }
+        }
+        self.relayout();
+        self.apply_all_settings();
+    }
+
+    fn relayout(&mut self) {
+        let aspect = self.canvas.aspect();
+        for d in &mut self.devices {
+            let p = self.state.placements.get(&d.info.id).copied().unwrap_or_default();
+            d.uv = d.info.layout.project(&p, aspect);
+            d.colors = vec![Rgb::BLACK; d.uv.len()];
+        }
+        self.stats.leds = self.devices.iter().map(|d| d.uv.len()).sum();
+        self.stats.devices = self.devices.len();
+    }
+
+    fn apply_all_settings(&mut self) {
+        let ids: Vec<String> = self.devices.iter().map(|d| d.info.id.clone()).collect();
+        for id in ids {
+            self.push_settings(&id);
+        }
+    }
+
+    fn push_settings(&mut self, id: &str) {
+        let Some(s) = self.state.profile().devices.get(id).cloned() else { return };
+        if let Some(d) = self.devices.iter_mut().find(|d| d.info.id == id) {
+            d.error = self.backends[d.backend].apply_settings(id, &s).err().map(|e| e.to_string());
+            d.sent.clear(); // force a colour write too
+        }
+    }
+
+    /// Rebuild live layers from the active profile's scene, keeping the
+    /// state of layers whose effect did not change (so ripples keep rippling).
+    pub fn load_scene(&mut self) {
+        let scene = self.state.profile().scene.clone();
+        let mut old: Vec<Layer> = std::mem::take(&mut self.layers);
+        for spec in scene.layers {
+            let kept = old.iter().position(|l| l.spec.id == spec.id && l.spec.effect == spec.effect).map(|i| old.remove(i));
+            let layer = match kept {
+                Some(mut l) => {
+                    l.spec = spec;
+                    l
+                }
+                None => match effects::create(&spec.effect) {
+                    Some(fx) => Layer { spec, fx, scratch: Canvas::new(self.canvas.w, self.canvas.h) },
+                    None => continue,
+                },
+            };
+            self.layers.push(layer);
+        }
+    }
+
+    pub fn set_scene(&mut self, scene: Scene) {
+        self.state.profile_mut().scene = scene;
+        self.load_scene();
+    }
+
+    pub fn activate_profile(&mut self, id: &str) -> bool {
+        if self.state.active_profile == id || !self.state.profiles.iter().any(|p| p.id == id) {
+            return false;
+        }
+        self.state.active_profile = id.to_string();
+        self.load_scene();
+        self.apply_all_settings();
+        true
+    }
+
+    pub fn set_placement(&mut self, id: &str, p: Placement) {
+        self.state.placements.insert(id.to_string(), p);
+        self.relayout();
+    }
+
+    pub fn set_device_settings(&mut self, id: &str, s: DeviceSettings) {
+        self.state.profile_mut().devices.insert(id.to_string(), s);
+        self.push_settings(id);
+    }
+
+    pub fn press_at(&mut self, u: f32, v: f32) {
+        if self.presses.len() < 64 {
+            self.presses.push(Press { u, v });
+        }
+    }
+
+    /// A key went down: ripple from wherever that key is on every keyboard.
+    /// `labels` are aliases for the same key (`"Esc"`, `"Escape"`), since
+    /// drivers name keys differently.
+    pub fn press_key(&mut self, labels: &[&str]) {
+        let hits: Vec<(f32, f32)> = self
+            .devices
+            .iter()
+            .filter(|d| d.info.kind == crate::device::DeviceKind::Keyboard)
+            .filter_map(|d| {
+                d.info
+                    .layout
+                    .leds
+                    .iter()
+                    .position(|l| l.label.as_deref().is_some_and(|x| labels.iter().any(|k| x.eq_ignore_ascii_case(k))))
+                    .map(|i| d.uv[i])
+            })
+            .collect();
+        if hits.is_empty() {
+            // no keyboard knows that key: ripple from the first keyboard's centre
+            if let Some(p) = self.devices.iter().find(|d| d.info.kind == crate::device::DeviceKind::Keyboard).and_then(|d| self.state.placements.get(&d.info.id)) {
+                let (u, v) = (p.x, p.y);
+                self.press_at(u, v);
+            }
+        }
+        for (u, v) in hits {
+            self.press_at(u, v);
+        }
+    }
+
+    /// Advance one frame.
+    pub fn tick(&mut self, dt: f32) {
+        let started = Instant::now();
+        self.t += dt;
+        self.game.advance(dt);
+        let presses = std::mem::take(&mut self.presses);
+        let ctx = FrameCtx {
+            t: self.t,
+            dt,
+            aspect: self.canvas.aspect(),
+            audio: &self.audio,
+            screen: self.screen.as_ref(),
+            presses: &presses,
+            game: &self.game,
+        };
+        self.canvas.fill([0.0; 3]);
+        for l in &mut self.layers {
+            if !l.spec.enabled {
+                continue;
+            }
+            l.fx.render(&ctx, &l.spec.params, &mut l.scratch);
+            self.canvas.composite(&l.scratch, l.spec.blend, l.spec.opacity);
+        }
+        let profile = self.state.profile();
+        let global = profile.brightness;
+        for d in &mut self.devices {
+            let s = profile.devices.get(&d.info.id);
+            let k = global * s.map(|s| s.brightness).unwrap_or(1.0);
+            let mode = s.map(|s| &s.lighting).unwrap_or(&LightingMode::Engine);
+            match mode {
+                LightingMode::Engine => {
+                    for (c, (u, v)) in d.colors.iter_mut().zip(d.uv.iter()) {
+                        let px = self.canvas.sample(*u, *v);
+                        *c = Rgb::from_f([px[0] * k, px[1] * k, px[2] * k]);
+                    }
+                }
+                LightingMode::Static { color } => d.colors.fill(color.scale(k)),
+                LightingMode::Off => d.colors.fill(Rgb::BLACK),
+                LightingMode::Hardware { .. } => continue,
+            }
+            if d.info.caps.per_led && d.colors != d.sent {
+                match self.backends[d.backend].write_leds(&d.info.id, &d.colors) {
+                    Ok(()) => {
+                        d.sent.clone_from(&d.colors);
+                        d.error = None;
+                        self.writes += 1;
+                    }
+                    Err(e) => d.error = Some(e.to_string()),
+                }
+            }
+        }
+        self.frames += 1;
+        self.frame_time_acc += started.elapsed().as_secs_f32() * 1000.0;
+        self.stat_window += dt;
+        if self.stat_window >= 1.0 {
+            self.stats.fps = self.frames as f32 / self.stat_window;
+            self.stats.frame_ms = self.frame_time_acc / self.frames.max(1) as f32;
+            self.stats.writes_per_sec = self.writes as f32 / self.stat_window;
+            self.frames = 0;
+            self.writes = 0;
+            self.frame_time_acc = 0.0;
+            self.stat_window = 0.0;
+        }
+    }
+
+    /// Poll batteries and connection state (call every few seconds, not per frame).
+    pub fn poll_status(&mut self) {
+        for d in &mut self.devices {
+            if let Some(s) = self.backends[d.backend].status(&d.info.id) {
+                d.status = s;
+            }
+        }
+    }
+
+    pub fn frame(&self, w: usize, h: usize) -> Frame {
+        Frame {
+            w,
+            h,
+            canvas: crate::b64::encode(&self.canvas.to_rgb8(w, h, 1.0)),
+            devices: self
+                .devices
+                .iter()
+                .map(|d| (d.info.id.clone(), crate::b64::encode(&d.colors.iter().flat_map(|c| [c.r, c.g, c.b]).collect::<Vec<_>>())))
+                .collect(),
+            stats: self.stats.clone(),
+        }
+    }
+
+    pub fn devices(&self) -> Vec<DeviceView> {
+        let prof = self.state.profile();
+        self.devices
+            .iter()
+            .map(|d| DeviceView {
+                info: d.info.clone(),
+                placement: self.state.placements.get(&d.info.id).copied().unwrap_or_default(),
+                settings: prof.devices.get(&d.info.id).cloned().unwrap_or_else(|| DeviceSettings::for_device(&d.info)),
+                status: d.status.clone(),
+                error: d.error.clone(),
+            })
+            .collect()
+    }
+
+    pub fn backends(&self) -> Vec<BackendView> {
+        self.backends
+            .iter()
+            .enumerate()
+            .map(|(i, b)| BackendView {
+                id: b.id(),
+                name: b.name(),
+                devices: self.devices.iter().filter(|d| d.backend == i).count(),
+                error: self.backend_errors[i].clone(),
+            })
+            .collect()
+    }
+
+    pub fn device_colors(&self, id: &str) -> Option<&[Rgb]> {
+        self.devices.iter().find(|d| d.info.id == id).map(|d| d.colors.as_slice())
+    }
+
+    pub fn stats(&self) -> &Stats {
+        &self.stats
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backends::virtual_rig::VirtualRig;
+
+    fn engine() -> Engine {
+        let mut e = Engine::new(State::default());
+        e.add_backend(Box::new(VirtualRig::default()));
+        e.scan();
+        e
+    }
+
+    #[test]
+    fn scan_places_and_configures_devices() {
+        let e = engine();
+        let views = e.devices();
+        assert_eq!(views.len(), 10);
+        let mouse = views.iter().find(|d| d.info.id == "virtual:mouse").unwrap();
+        assert_eq!(mouse.settings.current_dpi(), Some(1600));
+        assert_eq!(mouse.settings.polling_rate, Some(8000));
+        assert!(e.stats().leds > 150);
+    }
+
+    #[test]
+    fn solid_scene_reaches_every_led_with_brightness() {
+        let mut e = engine();
+        let mut layer = LayerSpec::new("a", "solid");
+        layer.params.insert("color".into(), crate::params::ParamValue::Text("#ff0000".into()));
+        e.set_scene(Scene { layers: vec![layer] });
+        e.state.profile_mut().brightness = 0.5;
+        e.tick(1.0 / 60.0);
+        let kb = e.device_colors("virtual:kb").unwrap();
+        assert!(kb.iter().all(|c| *c == Rgb::new(128, 0, 0)));
+    }
+
+    #[test]
+    fn static_and_off_override_engine() {
+        let mut e = engine();
+        let mut s = e.devices().into_iter().find(|d| d.info.id == "virtual:pad").unwrap().settings;
+        s.lighting = LightingMode::Off;
+        e.set_device_settings("virtual:pad", s);
+        e.tick(0.016);
+        assert!(e.device_colors("virtual:pad").unwrap().iter().all(|c| *c == Rgb::BLACK));
+    }
+
+    #[test]
+    fn profile_switch_changes_scene() {
+        let mut e = engine();
+        assert!(e.activate_profile("focus"));
+        assert_eq!(e.state.profile().scene.layers[0].effect, "breathing");
+        assert!(!e.activate_profile("focus"));
+        assert!(!e.activate_profile("missing"));
+    }
+
+    #[test]
+    fn frame_is_well_formed_and_fast() {
+        let mut e = engine();
+        let t = Instant::now();
+        for _ in 0..120 {
+            e.press_key(&["W"]);
+            e.tick(1.0 / 60.0);
+        }
+        let per_frame = t.elapsed().as_secs_f32() * 1000.0 / 120.0;
+        // debug build; release is ~10x faster. Generous bound to catch regressions.
+        assert!(per_frame < 50.0, "frame took {per_frame} ms");
+        let f = e.frame(96, 60);
+        assert_eq!(f.canvas.len(), (96 * 60 * 3usize).div_ceil(3) * 4);
+        assert_eq!(f.devices.len(), 10);
+    }
+}

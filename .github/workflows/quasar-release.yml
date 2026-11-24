@@ -1,0 +1,58 @@
+name: QUASAR — release installers
+
+# Push a tag like `quasar-v0.1.0` (matching quasar/package.json and
+# tauri.conf.json) to build Windows, macOS and Linux installers and publish
+# them on a GitHub release. The website links to these file names.
+on:
+  push:
+    tags: ["quasar-v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux libraries
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libudev-dev \
+            libxdo-dev libasound2-dev libpipewire-0.3-dev libclang-dev libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            libxtst-dev libgbm-dev libegl-dev libwayland-dev libdbus-1-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: quasar
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quasar/package-lock.json
+      - run: npm ci
+        working-directory: quasar
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: quasar
+          tagName: quasar-v__VERSION__
+          releaseName: QUASAR v__VERSION__
+          releaseBody: "Installers for Windows, macOS and Linux. Not code-signed yet: Windows SmartScreen and macOS Gatekeeper will ask for confirmation."
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

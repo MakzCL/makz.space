@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>QUASAR</title>
+  </head>
+  <body>
+    <main class="splash">
+      <div class="orbit"><i></i></div>
+      <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+        <defs>
+          <linearGradient id="r" x1="80" y1="330" x2="432" y2="182" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#2EE6FF" /><stop offset=".5" stop-color="#7C5CFF" /><stop offset="1" stop-color="#FF3DB8" />
+          </linearGradient>
+          <linearGradient id="j" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#fff" stop-opacity="0" /><stop offset=".5" stop-color="#fff" /><stop offset="1" stop-color="#fff" stop-opacity="0" />
+          </linearGradient>
+          <radialGradient id="c" cx="256" cy="256" r="92" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#fff" /><stop offset=".34" stop-color="#E9F9FF" /><stop offset=".55" stop-color="#7FE9FF" stop-opacity=".55" /><stop offset="1" stop-color="#7C5CFF" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        <g transform="rotate(-24 256 256)">
+          <path class="back" d="M86 256a170 60 0 0 1 340 0" stroke="url(#r)" stroke-width="22" fill="none" opacity=".42" />
+          <path class="jet" d="M256 14 270 256 256 498 242 256Z" fill="url(#j)" />
+          <circle class="glow" cx="256" cy="256" r="92" fill="url(#c)" />
+          <circle class="core" cx="256" cy="256" r="34" fill="#fff" />
+          <path class="front" d="M86 256a170 60 0 0 0 340 0" stroke="url(#r)" stroke-width="26" fill="none" />
+        </g>
+      </svg>
+      <img class="word" src="./wordmark.svg" alt="QUASAR" />
+      <p class="status" id="status">Igniting core</p>
+    </main>
+    <script type="module" src="/src/splash.ts"></script>
+  </body>
+</html>

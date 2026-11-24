@@ -8,6 +8,10 @@ Live at **[makz.space](https://makz.space)**.
 
 > `factory/` holds a separate app — the Skalarki Electronics factory app
 > (Vite + React, Cloudflare Pages). See [`factory/README.md`](factory/README.md).
+>
+> `quasar/` holds QUASAR, a desktop app for RGB lighting and gaming
+> peripherals across brands (Rust + Tauri + React), with its website for
+> quasar.makz.space. See [`quasar/README.md`](quasar/README.md).
 
 ---
 

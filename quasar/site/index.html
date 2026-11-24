@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QUASAR — Every device. One light.</title>
+    <meta name="description" content="QUASAR drives RGB lighting across every brand from one canvas and tunes DPI, polling rate, buttons, macros and profiles for your mice and keyboards. Built in Rust. Free." />
+    <meta name="theme-color" content="#07070c" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icon-1024.png" />
+    <meta property="og:title" content="QUASAR — Every device. One light." />
+    <meta property="og:description" content="One app for every RGB device and gaming peripheral." />
+    <meta property="og:image" content="/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="QUASAR home">
+        <img src="/mark.svg" alt="" width="28" height="28" />
+        <img src="/wordmark.svg" alt="QUASAR" height="12" />
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#demo">Live demo</a>
+        <a href="#devices">Devices</a>
+        <a href="#brand">Brand</a>
+        <a class="cta" href="#download">Download</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-mark">
+          <svg viewBox="0 0 512 512" aria-hidden="true">
+            <defs>
+              <linearGradient id="hr" x1="80" y1="330" x2="432" y2="182" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2EE6FF" /><stop offset=".5" stop-color="#7C5CFF" /><stop offset="1" stop-color="#FF3DB8" /></linearGradient>
+              <linearGradient id="hj" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0" /><stop offset=".5" stop-color="#fff" /><stop offset="1" stop-color="#fff" stop-opacity="0" /></linearGradient>
+              <radialGradient id="hc" cx="256" cy="256" r="92" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" /><stop offset=".34" stop-color="#E9F9FF" /><stop offset=".55" stop-color="#7FE9FF" stop-opacity=".55" /><stop offset="1" stop-color="#7C5CFF" stop-opacity="0" /></radialGradient>
+            </defs>
+            <g transform="rotate(-24 256 256)">
+              <path class="back" d="M86 256a170 60 0 0 1 340 0" stroke="url(#hr)" stroke-width="22" fill="none" opacity=".42" pathLength="1" />
+              <path class="jet" d="M256 14 270 256 256 498 242 256Z" fill="url(#hj)" />
+              <circle class="glow" cx="256" cy="256" r="92" fill="url(#hc)" />
+              <circle class="core" cx="256" cy="256" r="34" fill="#fff" />
+              <path class="front" d="M86 256a170 60 0 0 0 340 0" stroke="url(#hr)" stroke-width="26" fill="none" pathLength="1" />
+            </g>
+          </svg>
+        </div>
+        <h1 class="sr">QUASAR</h1>
+        <img class="hero-word" src="/wordmark.svg" alt="" />
+        <p class="tagline">Every device. <span class="grad">One light.</span></p>
+        <p class="lede">
+          One app for your whole setup. QUASAR runs lighting across every brand from a single canvas, and tunes DPI, polling rate, buttons, macros and profiles on your mice and keyboards. The engine is written in Rust and it's free.
+        </p>
+        <div class="ctas">
+          <a class="btn primary" href="#download" id="cta-download">Download for Windows</a>
+          <a class="btn" href="/demo/" target="_blank" rel="noopener">Try it in your browser →</a>
+        </div>
+        <ul class="facts">
+          <li><b>16</b> effects</li>
+          <li><b>&lt;1 ms</b> per frame</li>
+          <li><b>Hundreds</b> of devices via OpenRGB</li>
+          <li><b>Rust</b> + Tauri</li>
+        </ul>
+      </section>
+
+      <section id="demo" class="demo reveal">
+        <div class="section-head">
+          <div class="eyebrow">Not a video</div>
+          <h2>The real app, running in this tab.</h2>
+          <p>This is the QUASAR interface, built for the web. It runs a simulated ten-device rig through the same effects. Press keys to send ripples across it.</p>
+        </div>
+        <div class="window">
+          <div class="chrome"><i></i><i></i><i></i><span>QUASAR — demo rig</span><a href="/demo/" target="_blank" rel="noopener">Open full screen ↗</a></div>
+          <iframe id="demo-frame" title="QUASAR live demo" loading="lazy" data-src="/demo/"></iframe>
+          <button class="play" id="demo-play">Launch the demo</button>
+        </div>
+      </section>
+
+      <section id="features" class="features">
+        <div class="section-head reveal">
+          <div class="eyebrow">What it does</div>
+          <h2>Everything a peripheral suite should do,<br />for every brand at once.</h2>
+        </div>
+        <div class="fgrid">
+          <article class="f reveal wide">
+            <canvas class="fx" data-effect="rainbow-wave" data-params='{"shape":"spiral","scale":0.9,"saturation":0.8,"speed":0.25}'></canvas>
+            <div>
+              <h3>One canvas for the whole desk</h3>
+              <p>Drag your keyboard, mouse, mat, fans, strips and RAM to where they really sit. Effects are painted onto one shared surface, so a wave starts on your keyboard and carries on across your mouse, then your case. Layer effects and blend them like a photo editor.</p>
+            </div>
+          </article>
+          <article class="f reveal">
+            <span class="ic">◎</span>
+            <h3>Every brand</h3>
+            <p>An OpenRGB SDK client built in reaches hundreds of controllers: Corsair, SteelSeries, ASUS Aura, MSI, Gigabyte, G.Skill, Lian Li, HyperX, Logitech, Razer and more. Native USB drivers add what lighting tools leave out.</p>
+          </article>
+          <article class="f reveal">
+            <span class="ic">⌖</span>
+            <h3>Performance tuning</h3>
+            <p>Up to five DPI stages with colours, polling rates up to 8k, lift-off distance and battery level. Razer and Logitech HID++ mice are supported natively.</p>
+          </article>
+          <article class="f reveal">
+            <span class="ic">⌘</span>
+            <h3>Remaps and macros</h3>
+            <p>Rebind any key or button to keys, media, macros, DPI clutch, profile switching or launching an app. Overdrive adds a second layer of bindings while you hold a key. Record macros and edit them step by step.</p>
+          </article>
+          <article class="f reveal">
+            <canvas class="fx" data-effect="visualizer" data-params='{"style":"bars"}'></canvas>
+            <h3>It reacts</h3>
+            <p>An audio visualiser listens to what your PC is playing. Screen ambience extends your monitor's colours onto the desk. Keypresses send ripples from the exact key you hit.</p>
+          </article>
+          <article class="f reveal">
+            <canvas class="fx" data-effect="game-pulse"></canvas>
+            <h3>Game aware</h3>
+            <p>Counter-Strike 2 integration, set up in one click. Health shows as a bar of light, damage flashes red, flashbangs white you out and the bomb ticks across the room.</p>
+          </article>
+          <article class="f reveal">
+            <span class="ic">⇄</span>
+            <h3>Profiles that switch themselves</h3>
+            <p>A profile holds a lighting scene plus every device's settings. Link it to <code>cs2.exe</code> or <code>Code.exe</code> and QUASAR swaps the moment that app starts, then swaps back when it closes.</p>
+          </article>
+          <article class="f reveal">
+            <span class="ic">⚙</span>
+            <h3>Light on your PC</h3>
+            <p>The engine is native Rust: one render thread, a 192×120 float canvas, and USB writes only when a colour actually changes. It runs from the tray and never makes an account or a network call.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="effects reveal">
+        <div class="section-head">
+          <div class="eyebrow">Effect library</div>
+          <h2>Sixteen effects at launch.</h2>
+        </div>
+        <div class="strip" id="strip"></div>
+      </section>
+
+      <section id="devices" class="devices reveal">
+        <div class="section-head">
+          <div class="eyebrow">Compatibility</div>
+          <h2>Bring what you already own.</h2>
+        </div>
+        <div class="compat">
+          <div>
+            <h3>Lighting</h3>
+            <p>Any device <a href="https://openrgb.org/devices.html" target="_blank" rel="noopener">OpenRGB supports</a>: keyboards, mice, mats, headsets, motherboards, RAM, GPUs, coolers, fans, strips, cases. Run OpenRGB with its SDK server on, and QUASAR drives each one LED by LED.</p>
+          </div>
+          <div>
+            <h3>DPI, polling and battery</h3>
+            <p>Native drivers for Razer mice and keyboards (DeathAdder V2, Basilisk V3, Viper, BlackWidow V3, Huntsman V2 and more) and Logitech HID++ mice (G502 HERO, G203, PRO X Superlight, Lightspeed). The list grows with each release.</p>
+          </div>
+          <div>
+            <h3>Platforms</h3>
+            <p>Windows 10 and 11 first. macOS and Linux builds are published too; on Linux, remapping listens but doesn't block keys, and HID access needs a udev rule.</p>
+          </div>
+        </div>
+        <div class="marquee" aria-hidden="true"><div id="brands"></div></div>
+      </section>
+
+      <section id="brand" class="brandkit reveal">
+        <div class="section-head">
+          <div class="eyebrow">Brand</div>
+          <h2>The mark.</h2>
+          <p>A quasar is the brightest object in the universe: a core that outshines whole galaxies, fed by a spinning disk and firing jets of light. It's a fair picture of one light source driving everything around it.</p>
+        </div>
+        <div class="kit">
+          <div class="tile big"><img src="/mark.svg" alt="QUASAR mark" /></div>
+          <div class="tile"><img src="/icon.svg" alt="QUASAR app icon" /></div>
+          <div class="tile sizes" aria-label="Favicon sizes">
+            <img src="/icon.svg" alt="" width="64" height="64" style="width:64px" />
+            <img src="/icon.svg" alt="" width="32" height="32" style="width:32px" />
+            <img src="/icon.svg" alt="" width="16" height="16" style="width:16px" />
+            <span>Icon · 64 · 32 · 16</span>
+          </div>
+          <div class="tile word"><img src="/wordmark.svg" alt="QUASAR wordmark" /></div>
+          <div class="swatches">
+            <div style="--c: #2ee6ff"><b>Ion</b><span>#2EE6FF</span></div>
+            <div style="--c: #7c5cff"><b>Core</b><span>#7C5CFF</span></div>
+            <div style="--c: #ff3db8"><b>Flare</b><span>#FF3DB8</span></div>
+            <div style="--c: #ffb547"><b>Corona</b><span>#FFB547</span></div>
+            <div style="--c: #07070c"><b>Void</b><span>#07070C</span></div>
+          </div>
+        </div>
+        <p class="kit-links"><a href="/mark.svg" download>mark.svg</a> · <a href="/icon.svg" download>icon.svg</a> · <a href="/wordmark.svg" download>wordmark.svg</a> · <a href="/icon-1024.png" download>icon-1024.png</a></p>
+      </section>
+
+      <section id="download" class="download reveal">
+        <img src="/icon.svg" alt="" width="96" height="96" />
+        <h2>Get QUASAR</h2>
+        <p class="muted">Version <span class="ver"></span> · free · no account</p>
+        <div class="dl">
+          <a class="btn primary" data-os="windows">Windows installer (.exe)</a>
+          <a class="btn" data-os="msi">Windows (.msi)</a>
+          <a class="btn" data-os="mac">macOS (.dmg)</a>
+          <a class="btn" data-os="appimage">Linux (.AppImage)</a>
+          <a class="btn" data-os="deb">Linux (.deb)</a>
+        </div>
+        <p class="small">Not code-signed yet, so Windows SmartScreen may ask you to confirm. All builds are on <a class="rel" target="_blank" rel="noopener">the release page</a>.</p>
+      </section>
+    </main>
+
+    <footer>
+      <img src="/mark.svg" alt="" width="20" height="20" />
+      <span>QUASAR is made by <a href="https://makz.space">MAKZ</a>. Device protocols build on OpenRGB, OpenRazer, Solaar and libratbag. Brand names belong to their owners. QUASAR is not affiliated with any of them.</span>
+    </footer>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

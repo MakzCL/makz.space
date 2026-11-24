@@ -1,0 +1,38 @@
+{
+  "name": "quasar",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "QUASAR \u2014 one app for every RGB device and gaming peripheral.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --base ./ --outDir site/public/demo --emptyOutDir",
+    "build:site": "npm run build:demo && vite build --config site/vite.config.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "package": "tauri build",
+    "site": "vite --config site/vite.config.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/unbounded": "^5.3.0",
+    "@tauri-apps/api": "^2.12.5",
+    "@tauri-apps/plugin-autostart": "^2.7.0",
+    "lucide-react": "^1.79.0",
+    "motion": "^14.14.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

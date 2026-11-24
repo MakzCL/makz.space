@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 100" fill="none">
+  <defs>
+    <linearGradient id="wm-acc" x1="60" y1="60" x2="96" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2EE6FF"/><stop offset=".5" stop-color="#7C5CFF"/><stop offset="1" stop-color="#FF3DB8"/>
+    </linearGradient>
+    <clipPath id="wm-clip"><rect width="760" height="100"/></clipPath>
+  </defs>
+  <g clip-path="url(#wm-clip)" stroke="#F4F6FF" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="10">
+<path d="M50 6a44 44 0 1 0 0.01 0Z"/>
+<path d="M60 60 96 100" stroke="url(#wm-acc)"/>
+<g transform="translate(132 0)"><path d="M8 0V50a42 42 0 0 0 84 0V0"/></g>
+<g transform="translate(264 0)"><path d="M4 108 50 16 96 108"/></g>
+<g transform="translate(396 0)"><path d="M96 8H30a21 21 0 0 0 0 42H70a21 21 0 0 1 0 42H4"/></g>
+<g transform="translate(528 0)"><path d="M4 108 50 16 96 108"/></g>
+<g transform="translate(660 0)"><path d="M10 108V8H66a22 22 0 0 1 0 44H10M60 52 96 108"/></g>
+</g>
+</svg>

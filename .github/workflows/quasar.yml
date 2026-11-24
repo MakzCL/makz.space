@@ -1,0 +1,72 @@
+name: QUASAR — test and deploy site
+
+on:
+  push:
+    paths: ["quasar/**", ".github/workflows/quasar.yml"]
+  pull_request:
+    paths: ["quasar/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: quasar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: quasar
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev \
+            libxdo-dev libasound2-dev libpipewire-0.3-dev libclang-dev libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            libxtst-dev libgbm-dev libegl-dev libwayland-dev libdbus-1-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: quasar
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quasar/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo run --release -p quasar-core --example bench
+
+  site:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: quasar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quasar/package-lock.json
+      - run: npm ci
+      - run: npm run build:site
+      - name: Deploy to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          npx --yes wrangler@4 pages project create quasar --production-branch=main || true
+          npx --yes wrangler@4 pages deploy site/dist --project-name=quasar --branch="${GITHUB_REF_NAME}" --commit-dirty=true
+      - name: Explain missing secrets
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "::notice::Site built. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repo secrets to deploy to https://quasar.pages.dev, then attach quasar.makz.space as a custom domain."
