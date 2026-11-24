@@ -18,10 +18,10 @@ const files: Record<string, string> = {
   appimage: `QUASAR_${VERSION}_amd64.AppImage`,
   deb: `QUASAR_${VERSION}_amd64.deb`,
 };
-// The Windows beta is served from this site; the other platforms come from
-// the GitHub release built by .github/workflows/quasar-release.yml.
-const local: Record<string, string> = { windows: `/download/${files.windows}` };
-document.querySelectorAll<HTMLAnchorElement>(".dl a").forEach((a) => (a.href = local[a.dataset.os!] ?? `${REPO}/releases/download/${TAG}/${files[a.dataset.os!]}`));
+// Every installer comes from the GitHub release built on each platform's own
+// runner by .github/workflows/quasar-release.yml.
+const local: Record<string, string> = { windows: `${REPO}/releases/download/${TAG}/${files.windows}` };
+document.querySelectorAll<HTMLAnchorElement>(".dl a").forEach((a) => (a.href = `${REPO}/releases/download/${TAG}/${files[a.dataset.os!]}`));
 document.querySelectorAll<HTMLAnchorElement>("a.rel").forEach((a) => (a.href = `${REPO}/releases/tag/${TAG}`));
 document.querySelectorAll(".ver").forEach((e) => (e.textContent = VERSION));
 const ua = navigator.userAgent;

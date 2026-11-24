@@ -5,7 +5,7 @@ use std::ffi::CString;
 
 use hidapi::{HidApi, HidDevice};
 
-use super::{logitech, razer, Backend};
+use super::{attackshark, logitech, razer, Backend};
 use crate::color::Rgb;
 use crate::device::{Capabilities, DeviceInfo, DeviceSettings, DeviceStatus, DpiCaps};
 use crate::layout::Layout;
@@ -14,6 +14,9 @@ use crate::{Error, Result};
 enum Driver {
     Razer { model: &'static razer::Model },
     Logitech { model: &'static logitech::Model, features: HashMap<u16, u8> },
+    /// Every collection of the vendor interface; which one takes the
+    /// feature reports differs by OS, so we try them and remember.
+    AttackShark { wireless: bool, extra: Vec<HidDevice>, good: Option<usize>, sent: HashMap<u8, Vec<u8>> },
 }
 
 struct Open {
@@ -24,6 +27,31 @@ struct Open {
 pub struct Hid {
     api: Option<HidApi>,
     open: HashMap<String, Open>,
+}
+
+/// Send one Attack Shark report if it differs from what the mouse already has.
+fn shark_send(o: &mut Open, packet: Vec<u8>) -> Result<()> {
+    let Open { dev, driver } = o;
+    let Driver::AttackShark { extra, good, sent, .. } = driver else { return Ok(()) };
+    if sent.get(&packet[0]) == Some(&packet) {
+        return Ok(());
+    }
+    let n = 1 + extra.len();
+    let order: Vec<usize> = good.map(|g| vec![g]).unwrap_or_default().into_iter().chain(0..n).collect();
+    let mut last = String::new();
+    for i in order {
+        let d = if i == 0 { &*dev } else { &extra[i - 1] };
+        match d.send_feature_report(&packet) {
+            Ok(()) => {
+                *good = Some(i);
+                sent.insert(packet[0], packet);
+                std::thread::sleep(std::time::Duration::from_millis(attackshark::TRANSFER_DELAY_MS));
+                return Ok(());
+            }
+            Err(e) => last = e.to_string(),
+        }
+    }
+    Err(Error::Protocol(format!("Attack Shark rejected report: {last}")))
 }
 
 impl Default for Hid {
@@ -125,6 +153,39 @@ impl Backend for Hid {
                     zones: Vec::new(),
                 });
                 self.open.insert(id, Open { dev, driver: Driver::Razer { model: m } });
+            } else if vid == attackshark::VID && (pid == attackshark::PID_WIRELESS || pid == attackshark::PID_WIRED) {
+                if d.interface_number() != attackshark::INTERFACE {
+                    continue;
+                }
+                let id = format!("hid:1d57:{pid:04x}:{serial}");
+                let Ok(dev) = api.open_path(&path) else { continue };
+                if let Some(o) = self.open.get_mut(&id) {
+                    if let Driver::AttackShark { extra, .. } = &mut o.driver {
+                        extra.push(dev);
+                    }
+                    continue;
+                }
+                let wireless = pid == attackshark::PID_WIRELESS;
+                out.push(DeviceInfo {
+                    id: id.clone(),
+                    name: "Attack Shark X11".into(),
+                    vendor: "Attack Shark".into(),
+                    kind: crate::device::DeviceKind::Mouse,
+                    backend: "hid".into(),
+                    firmware: None,
+                    serial: Some(serial).filter(|s| !s.is_empty()),
+                    layout: crate::layout::for_kind(crate::device::DeviceKind::Mouse, 1).unwrap_or_default(),
+                    caps: Capabilities {
+                        per_led: false,
+                        dpi: Some(DpiCaps { min: 50, max: 22000, step: 50, max_stages: 6 }),
+                        polling_rates: attackshark::RATES.to_vec(),
+                        hardware_modes: attackshark::MODES.iter().map(|s| s.to_string()).collect(),
+                        ..Default::default()
+                    },
+                    virtual_device: false,
+                    zones: Vec::new(),
+                });
+                self.open.insert(id, Open { dev, driver: Driver::AttackShark { wireless, extra: Vec::new(), good: None, sent: HashMap::new() } });
             } else if vid == logitech::VID {
                 let Some(m) = logitech::model(pid) else { continue };
                 // HID++ long reports live on the vendor collection
@@ -178,6 +239,7 @@ impl Backend for Hid {
                 }
                 razer_send(&o.dev, razer::custom_frame_apply(model.tid))?;
             }
+            Driver::AttackShark { .. } => {}
             Driver::Logitech { model, features } => {
                 // 0x8070 is not a streaming interface; only send on change and keep it cheap
                 if let Some(i) = features.get(&logitech::feature::COLOR_LED_EFFECTS) {
@@ -191,6 +253,27 @@ impl Backend for Hid {
     }
 
     fn apply_settings(&mut self, device_id: &str, s: &DeviceSettings) -> Result<()> {
+        if let Some(o) = self.open.get_mut(device_id) {
+            if let Driver::AttackShark { wireless, .. } = o.driver {
+                use crate::device::LightingMode as L;
+                let purple = crate::color::Rgb::new(0x7c, 0x5c, 0xff);
+                let (light, c) = match &s.lighting {
+                    L::Static { color } => (attackshark::Light::Static, color.scale(s.brightness)),
+                    L::Hardware { effect } => (attackshark::Light::from_name(effect), purple),
+                    L::Off => (attackshark::Light::Off, crate::color::Rgb::BLACK),
+                    L::Engine => (attackshark::Light::Static, purple.scale(s.brightness)),
+                };
+                shark_send(o, attackshark::prefs_packet(light, c.r, c.g, c.b, 3, wireless))?;
+                if !s.dpi_stages.is_empty() {
+                    let dpis: Vec<u32> = s.dpi_stages.iter().map(|st| st.dpi).collect();
+                    shark_send(o, attackshark::dpi_packet(&dpis, s.active_stage, wireless))?;
+                }
+                if let Some(hz) = s.polling_rate {
+                    shark_send(o, attackshark::rate_packet(hz))?;
+                }
+                return Ok(());
+            }
+        }
         let o = self.open.get(device_id).ok_or_else(|| Error::DeviceNotFound(device_id.into()))?;
         match &o.driver {
             Driver::Razer { model } => {
@@ -212,6 +295,7 @@ impl Backend for Hid {
                     }
                 }
             }
+            Driver::AttackShark { .. } => {} // handled above
         }
         Ok(())
     }

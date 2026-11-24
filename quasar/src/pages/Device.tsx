@@ -279,7 +279,7 @@ function Lighting({ device, s, commit, setS }: P) {
         <label>Source</label>
         <Seg
           value={mode}
-          options={[["engine", "Lighting Studio"], ["static", "Static colour"], ...(device.info.caps.hardware_modes.length ? [["hardware", "Onboard effect"] as ["hardware", string]] : []), ["off", "Off"]]}
+          options={[...(device.info.caps.per_led ? [["engine", "Lighting Studio"] as ["engine", string]] : []), ["static", "Static colour"], ...(device.info.caps.hardware_modes.length ? [["hardware", "Onboard effect"] as ["hardware", string]] : []), ["off", "Off"]]}
           onChange={(m) =>
             commit({ ...s, lighting: m === "static" ? { mode: "static", color: "#7c5cff" } : m === "hardware" ? { mode: "hardware", effect: device.info.caps.hardware_modes[0] } : { mode: m } as DeviceSettings["lighting"] })
           }

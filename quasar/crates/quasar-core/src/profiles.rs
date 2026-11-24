@@ -127,17 +127,15 @@ pub const STATE_VERSION: u32 = 2;
 impl Default for State {
     /// A clean install: one profile, real hardware only, no sample macros.
     fn default() -> Self {
-        let mut ripple = LayerSpec::new("l2", "ripple");
-        ripple.blend = Blend::Screen;
-        ripple.params.insert("bg".into(), crate::params::ParamValue::Text("#000000".into()));
-        ripple.params.insert("idle".into(), crate::params::ParamValue::Bool(false));
         Self {
             version: STATE_VERSION,
             profiles: vec![Profile {
                 id: "default".into(),
                 name: "Default".into(),
                 apps: vec![],
-                scene: Scene { layers: vec![LayerSpec::new("l1", "nebula"), ripple] },
+                // no keystroke layer by default: that needs a global keyboard
+                // hook, which QUASAR only installs when a scene asks for it
+                scene: Scene { layers: vec![LayerSpec::new("l1", "nebula")] },
                 devices: BTreeMap::new(),
                 brightness: 0.9,
                 accent: "#2ee6ff".into(),
@@ -155,6 +153,11 @@ impl State {
     /// profiles and example macros. Never written to a user's disk.
     pub fn demo() -> Self {
         let mut s = State::default();
+        let mut ripple = LayerSpec::new("l2", "ripple");
+        ripple.blend = Blend::Screen;
+        ripple.params.insert("bg".into(), crate::params::ParamValue::Text("#000000".into()));
+        ripple.params.insert("idle".into(), crate::params::ParamValue::Bool(false));
+        s.profiles[0].scene.layers.push(ripple);
         s.profiles[0].name = "Nebula".into();
         s.profiles[0].accent = "#7c5cff".into();
         let scene = |layers: Vec<LayerSpec>| Scene { layers };

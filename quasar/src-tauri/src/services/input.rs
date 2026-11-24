@@ -216,8 +216,29 @@ pub fn play(m: Macro) {
     });
 }
 
-#[cfg(any(windows, target_os = "macos"))]
+/// The global hook is only installed once a feature needs it: a
+/// keystroke-reactive layer, a remapped key or button, or macro recording.
+/// Until then QUASAR never sees a keypress.
+fn needed(app: &App) -> bool {
+    let wants_keys = {
+        let e = app.engine.lock();
+        let p = e.state.profile();
+        let reactive = e.state.settings.keys_enabled && p.scene.layers.iter().any(|l| l.enabled && l.effect == "ripple");
+        let bindings = e.state.profiles.iter().any(|p| p.devices.values().any(|d| !d.bindings.is_empty() || !d.overdrive.is_empty()));
+        reactive || bindings
+    };
+    wants_keys || app.recording.lock().is_some()
+}
+
 pub fn run(app: App) {
+    while !needed(&app) {
+        std::thread::sleep(std::time::Duration::from_millis(750));
+    }
+    hook(app);
+}
+
+#[cfg(any(windows, target_os = "macos"))]
+fn hook(app: App) {
     // grab takes an `Fn`, so the remapper lives behind a lock. It is rebuilt
     // at most once a second so binding edits apply without a restart.
     let state = parking_lot::Mutex::new((remapper(&app), Instant::now()));
@@ -234,7 +255,7 @@ pub fn run(app: App) {
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
-pub fn run(app: App) {
+fn hook(app: App) {
     let mut remap = remapper(&app);
     let mut built = Instant::now();
     let res = rdev::listen(move |ev| {

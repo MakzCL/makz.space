@@ -185,6 +185,10 @@ impl DeviceSettings {
             s.active_stage = 2.min(s.dpi_stages.len().saturating_sub(1));
         }
         s.polling_rate = info.caps.polling_rates.iter().copied().max();
+        if !info.caps.per_led {
+            // devices that keep one stored colour cannot follow the canvas
+            s.lighting = LightingMode::Static { color: Rgb::new(0x7c, 0x5c, 0xff) };
+        }
         if info.caps.lift_off {
             s.lift_off_mm = Some(1.0);
         }

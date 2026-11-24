@@ -11,6 +11,7 @@
 //!   `hid` feature.
 //! - `virtual`  — a simulated rig, so the app is explorable with no hardware.
 
+pub mod attackshark;
 pub mod logitech;
 pub mod openrgb;
 pub mod razer;

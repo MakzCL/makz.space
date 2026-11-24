@@ -28,7 +28,13 @@ struct Managed {
     status: DeviceStatus,
     error: Option<String>,
     counters: Counters,
+    last_write: Option<Instant>,
 }
+
+/// Re-send unchanged colours this often. Devices drop or reset colours
+/// (mode switches, sleep, a missed packet); with a static scene nothing
+/// would ever correct that otherwise.
+const KEEPALIVE: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// Per-device write telemetry for diagnostics.
 #[derive(Clone, Debug, Default, Serialize)]
@@ -153,7 +159,7 @@ impl Engine {
                     self.backend_errors[bi] = None;
                     for info in list {
                         let status = b.status(&info.id).unwrap_or(DeviceStatus { connected: true, ..Default::default() });
-                        self.devices.push(Managed { info, backend: bi, uv: Vec::new(), colors: Vec::new(), sent: Vec::new(), status, error: None, counters: Counters::default() });
+                        self.devices.push(Managed { info, backend: bi, uv: Vec::new(), colors: Vec::new(), sent: Vec::new(), status, error: None, counters: Counters::default(), last_write: None });
                     }
                 }
                 Err(e) => self.backend_errors[bi] = Some(e.to_string()),
@@ -367,10 +373,12 @@ impl Engine {
                 LightingMode::Off => d.colors.fill(Rgb::BLACK),
                 LightingMode::Hardware { .. } => continue,
             }
-            if d.info.caps.per_led && d.colors != d.sent {
+            let stale = d.last_write.is_none_or(|t| t.elapsed() >= KEEPALIVE);
+            if d.info.caps.per_led && (d.colors != d.sent || stale) {
                 match self.backends[d.backend].write_leds(&d.info.id, &d.colors) {
                     Ok(()) => {
                         d.sent.clone_from(&d.colors);
+                        d.last_write = Some(Instant::now());
                         d.error = None;
                         self.writes += 1;
                         d.counters.writes += 1;
@@ -546,6 +554,20 @@ mod tests {
         let c = e.counters("virtual:pad").unwrap();
         assert_eq!(c.writes, 1);
         assert_eq!(c.last_sent.as_deref(), Some("#ff0000"));
+    }
+
+    #[test]
+    fn static_scene_is_resent_as_keepalive() {
+        let mut e = engine();
+        let layer = LayerSpec::new("a", "solid");
+        e.set_scene(Scene { layers: vec![layer] });
+        e.tick(0.016);
+        let first = e.counters("virtual:kb").unwrap().writes;
+        e.tick(0.016);
+        assert_eq!(e.counters("virtual:kb").unwrap().writes, first, "no resend within a second");
+        std::thread::sleep(KEEPALIVE + std::time::Duration::from_millis(20));
+        e.tick(0.016);
+        assert_eq!(e.counters("virtual:kb").unwrap().writes, first + 1, "resent after a second");
     }
 
     #[test]
