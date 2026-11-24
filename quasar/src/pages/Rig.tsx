@@ -5,6 +5,7 @@ import { useFrame, useStore } from "../app/store";
 import { Preview } from "../components/Preview";
 import { DeviceArt } from "../components/DeviceArt";
 import { Dial } from "../components/Dial";
+import { HealthNotes } from "../components/HealthNotes";
 import { OpenRgbActions, useOpenRgb } from "../components/OpenRgbPanel";
 import { kindName } from "../components/icons";
 
@@ -61,6 +62,7 @@ export function Rig() {
         </button>
       </div>
 
+      <HealthNotes />
       <div className="hero">
         <div className="card stage" onClick={() => go({ page: "studio" })} style={{ cursor: "pointer" }}>
           <Preview />

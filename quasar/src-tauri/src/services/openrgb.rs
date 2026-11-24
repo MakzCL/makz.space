@@ -309,3 +309,78 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 }
+
+/// Why RAM and some motherboard lighting (SMBus) may be missing, read from
+/// OpenRGB's own log lines (i2c_smbus_pawnio.cpp in OpenRGB 1.1).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Smbus {
+    Unknown,
+    Ok,
+    /// OpenRGB is not elevated: PawnIO refuses it.
+    NeedsAdmin,
+    /// The PawnIO driver is not installed.
+    PawnioMissing,
+}
+
+pub fn smbus_status(handle: &AppHandle) -> Smbus {
+    let log = log_tail(handle, 2000).join("\n");
+    if log.contains("Permission Denied, PawnIO initialization aborted") {
+        Smbus::NeedsAdmin
+    } else if log.contains("Could not open PawnIO") {
+        Smbus::PawnioMissing
+    } else if log.contains("PawnIO SMBus") || log.contains("Start PawnIO") {
+        Smbus::Ok
+    } else {
+        Smbus::Unknown
+    }
+}
+
+/// Other OpenRGB processes than ours: two instances fight over the same
+/// USB and I2C devices, and devices go missing or ignore colours.
+pub fn other_instances(app: &App) -> usize {
+    let ours = app.openrgb_child.lock().as_ref().map(|c| c.id());
+    let Ok(mut sys) = sysinfo::System::new() else { return 0 };
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    sys.processes()
+        .iter()
+        .filter(|(pid, p)| p.name().to_string_lossy().eq_ignore_ascii_case("OpenRGB.exe") && Some(pid.as_u32()) != ours)
+        .count()
+}
+
+/// Whether this process runs as administrator (Windows only).
+pub fn elevated() -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // `net session` only succeeds for administrators
+        return Command::new("net").arg("session").creation_flags(0x0800_0000).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map(|s| s.success()).unwrap_or(false);
+    }
+    #[allow(unreachable_code)]
+    false
+}
+
+/// Relaunch QUASAR elevated (one UAC prompt), then quit this instance so
+/// the new one can take over OpenRGB and the single-instance lock.
+pub fn relaunch_elevated(handle: &AppHandle, app: &App) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let script = format!("Start-Sleep -Milliseconds 1500; Start-Process -FilePath '{}' -Verb RunAs", exe.display().to_string().replace('\'', "''"));
+        Command::new("powershell")
+            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script])
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .map_err(|e| format!("could not ask for administrator rights: {e}"))?;
+        app.save_now();
+        stop(app);
+        handle.exit(0);
+        return Ok(());
+    }
+    #[allow(unreachable_code)]
+    {
+        let _ = (handle, app);
+        Err("Only needed on Windows.".into())
+    }
+}

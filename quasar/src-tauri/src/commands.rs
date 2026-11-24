@@ -347,6 +347,8 @@ pub fn diagnostics(handle: AppHandle, app: State<App>) -> String {
         "devices": devices,
         "usb_hid": quasar_core::backends::hid::inventory(),
         "openrgb_log": crate::services::openrgb::log_tail(&handle, 80),
+        "smbus": crate::services::openrgb::smbus_status(&handle),
+        "elevated": crate::services::openrgb::elevated(),
     });
     serde_json::to_string_pretty(&report).unwrap_or_default()
 }
@@ -372,4 +374,29 @@ pub fn apply_device(app: State<App>, id: String, save: bool) -> R<()> {
 #[tauri::command]
 pub fn apply_all(app: State<App>, save: bool) -> Vec<(String, String)> {
     app.engine.lock().apply_all(save)
+}
+
+#[derive(Serialize)]
+pub struct Health {
+    smbus: crate::services::openrgb::Smbus,
+    elevated: bool,
+    other_openrgb: usize,
+}
+
+/// Things the user can fix: RAM access, duplicate OpenRGB instances.
+#[tauri::command]
+pub async fn health(handle: AppHandle, app: State<'_, App>) -> R<Health> {
+    let a = app.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || Health {
+        smbus: crate::services::openrgb::smbus_status(&handle),
+        elevated: crate::services::openrgb::elevated(),
+        other_openrgb: crate::services::openrgb::other_instances(&a),
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn relaunch_elevated(handle: AppHandle, app: State<App>) -> R<()> {
+    crate::services::openrgb::relaunch_elevated(&handle, app.inner())
 }
