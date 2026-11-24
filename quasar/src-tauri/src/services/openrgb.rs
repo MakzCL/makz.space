@@ -130,7 +130,13 @@ pub fn start(handle: &AppHandle, app: &App, exe: &Path) -> Result<(), String> {
         s.message = None;
     });
     let mut cmd = Command::new(exe);
-    cmd.args(["--server", "--server-port", &port.to_string(), "--noautoconnect"]);
+    cmd.args(["--server", "--server-port", &port.to_string(), "--noautoconnect", "--verbose"]);
+    // keep OpenRGB's own log for diagnostics
+    if let Ok(f) = std::fs::create_dir_all(root(handle)).and_then(|_| std::fs::File::create(log_path(handle))) {
+        if let Ok(f2) = f.try_clone() {
+            cmd.stdout(f).stderr(f2);
+        }
+    }
     if exe.starts_with(root(handle)) {
         // keep our copy's config beside it, not in the user's profile
         cmd.arg("--localconfig");
@@ -175,6 +181,32 @@ pub fn start(handle: &AppHandle, app: &App, exe: &Path) -> Result<(), String> {
         });
     });
     Ok(())
+}
+
+pub fn log_path(handle: &AppHandle) -> PathBuf {
+    root(handle).join("openrgb.log")
+}
+
+/// The last `n` lines of the managed server's log.
+pub fn log_tail(handle: &AppHandle, n: usize) -> Vec<String> {
+    let text = std::fs::read(log_path(handle)).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+    let lines: Vec<String> = text.lines().map(|l| l.trim_end().to_string()).filter(|l| !l.is_empty()).collect();
+    lines[lines.len().saturating_sub(n)..].to_vec()
+}
+
+/// Open OpenRGB's own window as a client of the server QUASAR talks to, so
+/// a person can check a device in OpenRGB directly.
+pub fn open_gui(handle: &AppHandle, app: &App) -> Result<(), String> {
+    let exe = find(handle).ok_or("OpenRGB is not installed.")?;
+    let port = app.engine.lock().state.settings.openrgb_port;
+    let cfg = root(handle).join("gui-config");
+    let _ = std::fs::create_dir_all(&cfg);
+    let mut cmd = Command::new(&exe);
+    cmd.arg("--client").arg(format!("127.0.0.1:{port}")).args(["--nodetect", "--gui", "--config"]).arg(&cfg);
+    if let Some(dir) = exe.parent() {
+        cmd.current_dir(dir);
+    }
+    cmd.spawn().map(|_| ()).map_err(|e| format!("could not open OpenRGB: {e}"))
 }
 
 pub fn stop(app: &App) {

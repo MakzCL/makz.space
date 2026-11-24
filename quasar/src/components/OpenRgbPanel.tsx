@@ -66,6 +66,11 @@ export function OpenRgbActions({ st }: { st: OpenRgbStatus | null }) {
             <Download size={13} /> Try again
           </button>
         )}
+        {(st.phase === "running" || st.phase === "external") && st.path && (
+          <button className="btn sm" title="OpenRGB's own window, attached to the same server, to check a device directly" onClick={() => api.openrgbOpenGui().catch((e) => toast(String(e)))}>
+            Open OpenRGB window
+          </button>
+        )}
         {st.phase === "running" && (
           <button className="btn sm" onClick={() => api.openrgbStop()}>
             <Square size={12} /> Stop

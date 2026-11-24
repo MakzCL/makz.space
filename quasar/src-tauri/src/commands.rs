@@ -318,7 +318,7 @@ pub fn resize_zone(app: State<App>, id: String, zone: usize, size: u32) -> R<Sna
 
 /// Everything useful for a bug report, as text.
 #[tauri::command]
-pub fn diagnostics(app: State<App>) -> String {
+pub fn diagnostics(handle: AppHandle, app: State<App>) -> String {
     let e = app.engine.lock();
     let devices: Vec<_> = e
         .devices()
@@ -346,6 +346,7 @@ pub fn diagnostics(app: State<App>) -> String {
         },
         "devices": devices,
         "usb_hid": quasar_core::backends::hid::inventory(),
+        "openrgb_log": crate::services::openrgb::log_tail(&handle, 80),
     });
     serde_json::to_string_pretty(&report).unwrap_or_default()
 }
@@ -354,4 +355,9 @@ pub fn diagnostics(app: State<App>) -> String {
 #[tauri::command]
 pub fn test_device(app: State<App>, id: String) {
     app.engine.lock().test_device(&id);
+}
+
+#[tauri::command]
+pub fn openrgb_open_gui(handle: AppHandle, app: State<App>) -> R<()> {
+    crate::services::openrgb::open_gui(&handle, app.inner())
 }
