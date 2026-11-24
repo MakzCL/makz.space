@@ -5,13 +5,13 @@ import { useStore } from "../app/store";
 import { DeviceArt } from "../components/DeviceArt";
 import { Row, Seg, Slider, Swatch, Tabs } from "../components/controls";
 import { BindingEditor, describe } from "../components/BindingEditor";
-import { kindName } from "../components/icons";
+import { kindIcon, kindName } from "../components/icons";
 import type { Binding, DeviceSettings, DeviceView } from "../lib/types";
 
 type Tab = "performance" | "buttons" | "lighting" | "info";
 
 export function DevicePage({ device }: { device: DeviceView }) {
-  const { api, setSnap, snap } = useStore();
+  const { api, setSnap, snap, go } = useStore();
   const caps = device.info.caps;
   const tabs = useMemo(() => {
     const t: [Tab, string][] = [];
@@ -36,6 +36,16 @@ export function DevicePage({ device }: { device: DeviceView }) {
 
   return (
     <div className="page">
+      <div className="devswitch">
+        {snap.devices.map((d) => {
+          const I = kindIcon[d.info.kind];
+          return (
+            <button key={d.info.id} className={d.info.id === device.info.id ? "on" : ""} onClick={() => go({ page: "device", id: d.info.id })}>
+              <I size={14} /> {d.info.name}
+            </button>
+          );
+        })}
+      </div>
       <div className="page-head">
         <div>
           <div className="eyebrow">{device.info.vendor} · {kindName[device.info.kind]}</div>

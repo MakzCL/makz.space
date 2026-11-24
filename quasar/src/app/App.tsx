@@ -5,7 +5,6 @@ import type { EffectInfo, Snapshot } from "../lib/types";
 import { StoreProvider, useStore } from "./store";
 import { Intro } from "../components/Intro";
 import { TitleBar } from "../components/TitleBar";
-import { Sidebar } from "../components/Sidebar";
 import { Ambient } from "../components/Preview";
 import { Rig } from "../pages/Rig";
 import { DevicePage } from "../pages/Device";
@@ -100,7 +99,6 @@ export function App() {
           <div className="grain" />
           <div className="app">
             <TitleBar />
-            <Sidebar />
             <Pages />
           </div>
           <DemoKeys />

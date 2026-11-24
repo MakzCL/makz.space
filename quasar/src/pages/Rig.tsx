@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useFrame, useStore } from "../app/store";
 import { Preview } from "../components/Preview";
 import { DeviceArt } from "../components/DeviceArt";
-import { Slider } from "../components/controls";
+import { Dial } from "../components/Dial";
 import { kindName } from "../components/icons";
 
 export function Rig() {
@@ -51,6 +51,8 @@ export function Rig() {
         <div className="card stage" onClick={() => go({ page: "studio" })} style={{ cursor: "pointer" }}>
           <Preview />
           <div className="glass" />
+          <div className="reticle" />
+          <div className="coords">CANVAS <b>128×80</b> · LAYERS <b>{profile.scene.layers.filter((l) => l.enabled).length}</b> · PROFILE <b>{profile.name.toUpperCase()}</b></div>
           <div className="hud">
             <div style={{ flex: 1 }}>
               <div className="eyebrow" style={{ color: "rgba(255,255,255,.6)" }}>Now playing</div>
@@ -80,12 +82,10 @@ export function Rig() {
               ))}
             </div>
           </div>
-          <div className="card pad">
-            <div className="label" style={{ marginBottom: 10 }}>
-              <span className="row" style={{ gap: 6 }}><Sun size={14} /> Brightness</span>
-              <b>{Math.round(bright * 100)}%</b>
-            </div>
-            <Slider
+          <div className="card pad" style={{ paddingBottom: 8 }}>
+            <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 6 }}><Sun size={12} /> Output</div>
+            <Dial
+              label="BRIGHTNESS"
               value={bright}
               onChange={(v) => {
                 setBright(v);

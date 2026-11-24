@@ -51,8 +51,8 @@ jobs:
         with:
           projectPath: quasar
           tagName: quasar-v__VERSION__
-          releaseName: QUASAR v__VERSION__
-          releaseBody: "Installers for Windows, macOS and Linux. Not code-signed yet: Windows SmartScreen and macOS Gatekeeper will ask for confirmation."
+          releaseName: QUASAR v__VERSION__ (beta)
+          releaseBody: "First public beta. Installers for Windows, macOS and Linux. Not code-signed yet: Windows SmartScreen and macOS Gatekeeper will ask for confirmation. Please report device issues with the device model and what happened."
           releaseDraft: false
-          prerelease: false
+          prerelease: true
           args: ${{ matrix.args }}

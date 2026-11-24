@@ -135,3 +135,11 @@ footer a { color: var(--muted); }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0s !important; transition-duration: 0.001ms !important; }
   .reveal { opacity: 1; transform: none; }
 }
+.beta-pill { display: inline-block; margin: 26px 0 0; padding: 5px 14px; border-radius: 999px; font: 600 11px var(--font); letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan); border: 1px solid rgba(46, 230, 255, 0.35); background: rgba(46, 230, 255, 0.06); opacity: 0; animation: rise 0.9s ease 1.45s forwards; }
+.beta-pill + .tagline { margin-top: 16px; }
+/* match the app's Ion skin */
+.btn { border-radius: 6px; }
+.btn.primary, .play, .nav nav a.cta { background: var(--cyan); color: #031016; box-shadow: 0 0 0 1px rgba(46, 230, 255, 0.45), 0 16px 40px -16px var(--cyan); }
+.f, .compat > div, .window, .tile { border-radius: 10px; }
+.ic { background: rgba(46, 230, 255, 0.1); color: var(--cyan); border-radius: 6px; }
+.eyebrow { font-family: var(--mono); color: var(--cyan); letter-spacing: 0.16em; }
