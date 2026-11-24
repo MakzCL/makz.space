@@ -101,7 +101,7 @@ impl Backend for Hid {
                     }
                     l
                 } else {
-                    Layout::strip(cols.max(1) as usize, cols.max(1) as f32 * 20.0)
+                    crate::layout::for_kind(m.kind, cols as usize).unwrap_or_else(|| Layout::strip(cols.max(1) as usize, cols.max(1) as f32 * 20.0))
                 };
                 out.push(DeviceInfo {
                     id: id.clone(),
@@ -146,7 +146,7 @@ impl Backend for Hid {
                     backend: "hid".into(),
                     firmware: None,
                     serial: Some(serial).filter(|s| !s.is_empty()),
-                    layout: Layout::strip(m.zones.max(1) as usize, 40.0),
+                    layout: crate::layout::for_kind(crate::device::DeviceKind::Mouse, m.zones as usize).unwrap_or_default(),
                     caps: Capabilities {
                         per_led: features.contains_key(&logitech::feature::COLOR_LED_EFFECTS) && m.zones > 0,
                         dpi: features.contains_key(&logitech::feature::ADJUSTABLE_DPI).then_some(DpiCaps { min: 100, max: m.max_dpi, step: 50, max_stages: 5 }),

@@ -1,15 +1,13 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "date": "2026-11-24",
   "notes": [
-    "Built-in OpenRGB: one-click install, starts with QUASAR",
-    "Update checks with in-app install",
-    "Detailed device artwork and a uniform Auto-arrange layout",
-    "No demo devices or sample data in the desktop app"
+    "Fixes a blank window after installing OpenRGB",
+    "Real OpenRGB devices are drawn in their proper shape"
   ],
   "windows": {
-    "url": "https://quasar.makz.space/download/QUASAR_0.1.1_x64-setup.exe",
-    "sha256": "17725831b8eb92079bd34609f7e3041b9dad47227ab7689f7d47a01b4108973e",
-    "size": 3448928
+    "url": "https://quasar.makz.space/download/QUASAR_0.1.2_x64-setup.exe",
+    "sha256": "31a271dd9745355653e26bbc753f017354b174553eebfd3dfa57f7a736de05da",
+    "size": 3452522
   }
 }

@@ -15,6 +15,13 @@ export function DeviceArt({ device, padding = 14, highlight }: { device: DeviceI
   const ov = overhang(device.kind);
 
   const draw = (colors?: Uint8Array) => {
+    try {
+      paint(colors);
+    } catch (e) {
+      console.warn("QUASAR: drawing", device.name, e);
+    }
+  };
+  const paint = (colors?: Uint8Array) => {
     const c = ref.current;
     if (!c) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);

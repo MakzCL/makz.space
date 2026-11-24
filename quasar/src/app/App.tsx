@@ -6,6 +6,7 @@ import { StoreProvider, useStore } from "./store";
 import { Intro } from "../components/Intro";
 import { TitleBar } from "../components/TitleBar";
 import { UpdateBanner } from "../components/UpdateBanner";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Ambient } from "../components/Preview";
 import { Rig } from "../pages/Rig";
 import { DevicePage } from "../pages/Device";
@@ -38,7 +39,7 @@ function Pages() {
     <main className="main">
       <AnimatePresence mode="wait">
         <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
-          {page}
+          <ErrorBoundary resetKey={key}>{page}</ErrorBoundary>
         </motion.div>
       </AnimatePresence>
     </main>

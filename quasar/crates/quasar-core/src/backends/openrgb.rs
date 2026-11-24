@@ -194,6 +194,17 @@ pub fn kind_of(t: i32) -> DeviceKind {
 /// linear zones as strips, stacked top to bottom.
 pub fn layout_of(ctrl: &Controller) -> Layout {
     const PITCH: f32 = 19.0;
+    // devices with a known shape get a layout that matches it; keyboards keep
+    // their key matrix, motherboards and unknowns their zones
+    let total: usize = ctrl.zones.iter().map(|z| z.leds_count as usize).sum();
+    if let Some(mut l) = crate::layout::for_kind(kind_of(ctrl.kind), total) {
+        if !matches!(kind_of(ctrl.kind), DeviceKind::Mouse) {
+            for (i, led) in l.leds.iter_mut().enumerate() {
+                led.label = label(ctrl, i);
+            }
+        }
+        return l;
+    }
     let mut leds = Vec::new();
     let mut y = 0.0f32;
     let mut width = 0.0f32;

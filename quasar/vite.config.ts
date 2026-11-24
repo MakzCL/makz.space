@@ -7,6 +7,8 @@ import { resolve } from "node:path";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  // inline config: never pick up the website's postcss.config.mjs one folder up
+  css: { postcss: {} },
   server: { port: 1420, strictPort: true },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

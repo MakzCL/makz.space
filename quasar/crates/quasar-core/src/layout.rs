@@ -228,3 +228,95 @@ mod arrange_tests {
         assert!(p[0].x < p[1].x);
     }
 }
+
+/// A display layout for `n` LEDs of a device kind whose driver gives no
+/// positions (OpenRGB linear zones, USB drivers). LED order is kept, so the
+/// colour sent to LED `i` still lands on the device's LED `i`; only where
+/// they are drawn and sampled changes, to match the shape of the hardware.
+pub fn for_kind(kind: crate::device::DeviceKind, n: usize) -> Option<Layout> {
+    use crate::device::DeviceKind as K;
+    let even = |i: usize, len: f32, pad: f32| pad + (len - 2.0 * pad) * (i as f32 + 0.5) / n.max(1) as f32;
+    Some(match kind {
+        K::Fan | K::Cooler => Layout::ring(n, 120.0),
+        K::Ram => Layout { width: 8.0, height: 40.0, leds: (0..n).map(|i| Layout::led(4.0, even(i, 40.0, 1.0))).collect() },
+        K::Gpu => Layout { width: 300.0, height: 40.0, leds: (0..n).map(|i| Layout::led(even(i, 300.0, 14.0), 6.0)).collect() },
+        K::Mousepad => {
+            // around the edge, clockwise from the top-left corner
+            let (w, h) = (360.0f32, 280.0f32);
+            let per = 2.0 * (w + h);
+            let leds = (0..n)
+                .map(|i| {
+                    let d = per * (i as f32 + 0.5) / n.max(1) as f32;
+                    let (x, y) = if d < w {
+                        (d, 3.0)
+                    } else if d < w + h {
+                        (w - 3.0, d - w)
+                    } else if d < 2.0 * w + h {
+                        (w - (d - w - h), h - 3.0)
+                    } else {
+                        (3.0, h - (d - 2.0 * w - h))
+                    };
+                    Layout::led(x, y)
+                })
+                .collect();
+            Layout { width: w, height: h, leds }
+        }
+        K::Mouse => {
+            // scroll wheel and logo first, the rest down both sides
+            let named = |x: f32, y: f32, l: &str, w: f32, h: f32| Led { x, y, label: Some(l.into()), w: Some(w), h: Some(h) };
+            let mut leds = Vec::new();
+            match n {
+                0 => {}
+                1 => leds.push(named(34.0, 92.0, "Logo", 20.0, 20.0)),
+                _ => {
+                    leds.push(named(34.0, 26.0, "Scroll", 8.0, 18.0));
+                    leds.push(named(34.0, 92.0, "Logo", 20.0, 20.0));
+                    let rest = n - 2;
+                    let per_side = rest.div_ceil(2);
+                    for i in 0..rest {
+                        let (side, k) = if i < per_side { ("Left", i) } else { ("Right", i - per_side) };
+                        let cnt = if side == "Left" { per_side } else { rest - per_side };
+                        let y = 36.0 + 52.0 * (k as f32 + 0.5) / cnt.max(1) as f32;
+                        let x = if side == "Left" { 4.0 } else { 64.0 };
+                        leds.push(named(x, y, &format!("{side} {}", k + 1), 4.0, 16.0));
+                    }
+                }
+            }
+            Layout { width: 68.0, height: 126.0, leds }
+        }
+        K::Headset | K::HeadsetStand => {
+            // split between the two cups, each on a ring
+            let half = n.div_ceil(2);
+            let leds = (0..n)
+                .map(|i| {
+                    let (cx, k, cnt) = if i < half { (18.0, i, half) } else { (162.0, i - half, n - half) };
+                    let a = k as f32 / cnt.max(1) as f32 * std::f32::consts::TAU;
+                    Layout::led(cx + 10.0 * a.cos(), 150.0 + 18.0 * a.sin())
+                })
+                .collect();
+            Layout { width: 180.0, height: 190.0, leds }
+        }
+        K::LedStrip | K::Light => Layout::strip(n.max(1), (n as f32 * 16.0).clamp(120.0, 1000.0)),
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod kind_tests {
+    use super::*;
+    use crate::device::DeviceKind as K;
+
+    #[test]
+    fn layouts_keep_led_count_and_stay_inside() {
+        for k in [K::Fan, K::Cooler, K::Ram, K::Gpu, K::Mousepad, K::Mouse, K::Headset, K::LedStrip] {
+            for n in [0usize, 1, 2, 3, 7, 24] {
+                let l = for_kind(k, n).unwrap();
+                assert_eq!(l.leds.len(), if k == K::LedStrip && n == 0 { 1 } else { n }, "{k:?} {n}");
+                for p in &l.leds {
+                    assert!(p.x >= 0.0 && p.x <= l.width && p.y >= 0.0 && p.y <= l.height, "{k:?} {n} {p:?}");
+                }
+            }
+        }
+        assert!(for_kind(K::Keyboard, 10).is_none());
+    }
+}

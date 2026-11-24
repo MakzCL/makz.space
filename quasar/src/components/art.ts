@@ -22,7 +22,7 @@ export interface PaintOpts {
 }
 
 const rgb = (c: RGB, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const ledColor = (colors: Uint8Array | undefined, i: number): RGB => (colors ? [colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]] : [24, 30, 40]);
+const ledColor = (colors: Uint8Array | undefined, i: number): RGB => (colors && i >= 0 && i * 3 + 2 < colors.length ? [colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]] : [24, 30, 40]);
 const lum = (c: RGB) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
 /** Lift dim colours a little so an unlit LED still reads as a diffuser. */
 const lit = (c: RGB): RGB => [Math.max(c[0], 18), Math.max(c[1], 22), Math.max(c[2], 30)];
@@ -34,11 +34,15 @@ function lin(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, stops: [n
 }
 
 function rr(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
+  // roundRect throws on negative radii; real devices can be tiny
+  w = Math.max(w, 0.01);
+  h = Math.max(h, 0.01);
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2));
+  ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2)));
 }
 
 function glow(ctx: Ctx, x: number, y: number, r: number, c: RGB, a = 0.55) {
+  if (!(r > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, rgb(c, a));
   g.addColorStop(1, rgb(c, 0));
@@ -313,10 +317,21 @@ function headset(ctx: Ctx, d: DeviceInfo, o: PaintOpts) {
     ctx.fillStyle = lin(ctx, x - 2, 0, x + 2, 0, [[0, "#4a515c"], [0.5, "#8a93a0"], [1, "#4a515c"]]);
     ctx.fill();
   }
-  // ear cups, outer shell + lit ring + grille
-  leds.forEach((l, i) => {
-    const c = lit(ledColor(o.colors, i));
-    const cw = l.w ?? 30, ch = l.h ?? 50;
+  // two ear cups, each lit by the average of the LEDs on its side
+  const avg = (sel: (x: number) => boolean): RGB => {
+    const idx = leds.map((l, i) => (sel(l.x) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) return idx.length === 0 && leds.length ? ledColor(o.colors, 0) : [24, 30, 40];
+    const sum = idx.reduce((acc, i) => { const c = ledColor(o.colors, i); return [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]]; }, [0, 0, 0] as number[]);
+    return sum.map((v) => Math.round(v / idx.length)) as RGB;
+  };
+  const cups = [
+    { x: W * 0.1, c: lit(avg((x) => x < W / 2)) },
+    { x: W * 0.9, c: lit(avg((x) => x >= W / 2)) },
+  ];
+  const cw = W * 0.17, ch = H * 0.27, cy = H * 0.79;
+  for (const cup of cups) {
+    const l = { x: cup.x, y: cy };
+    const c = cup.c;
     ctx.save();
     ctx.shadowColor = "rgba(0,0,0,0.6)";
     ctx.shadowBlur = 6 * o.s;
@@ -334,7 +349,6 @@ function headset(ctx: Ctx, d: DeviceInfo, o: PaintOpts) {
     ctx.strokeStyle = rgb(c, 0.95);
     ctx.lineWidth = 1.6;
     ctx.stroke();
-    // grille dots
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     for (let gy = -ch / 2 + 9; gy < ch / 2 - 8; gy += 3.2)
       for (let gx = -cw / 2 + 8; gx < cw / 2 - 7; gx += 3.2) {
@@ -343,14 +357,14 @@ function headset(ctx: Ctx, d: DeviceInfo, o: PaintOpts) {
         ctx.arc(l.x + gx, l.y + gy, 0.7, 0, Math.PI * 2);
         ctx.fill();
       }
-  });
+  }
   // mic boom on the left cup
-  const left = leds[0];
-  if (left) {
+  {
+    const left = { x: cups[0].x, y: cy };
     ctx.strokeStyle = "#20242b";
     ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(left.x, left.y + (left.h ?? 50) / 2 - 4);
+    ctx.moveTo(left.x, left.y + ch / 2 - 4);
     ctx.quadraticCurveTo(left.x + 8, H + 6, left.x + 34, H - 2);
     ctx.stroke();
     rr(ctx, left.x + 31, H - 5.5, 9, 7, 3);
@@ -557,8 +571,24 @@ export function overhang(kind: DeviceInfo["kind"]): number {
 }
 
 export function paintDevice(ctx: Ctx, d: DeviceInfo, o: PaintOpts) {
-  (PAINTERS[d.kind] ?? generic)(ctx, d, o);
+  const painter = PAINTERS[d.kind] ?? generic;
+  ctx.save();
+  try {
+    painter(ctx, d, o);
+  } catch (e) {
+    // an unexpected layout must never take the UI down: fall back to dots
+    ctx.restore();
+    ctx.save();
+    if (!warned.has(d.id)) {
+      warned.add(d.id);
+      console.warn(`QUASAR: detailed art failed for ${d.name}`, e);
+    }
+    generic(ctx, d, o);
+  } finally {
+    ctx.restore();
+  }
 }
+const warned = new Set<string>();
 
 /** Draw order on the desk: mats under everything, then peripherals. */
 export const zOrder = (k: DeviceInfo["kind"]) => (k === "mousepad" ? 0 : k === "led-strip" ? 1 : 2);
