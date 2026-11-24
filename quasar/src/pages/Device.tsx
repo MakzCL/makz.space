@@ -223,9 +223,52 @@ function Buttons({ device, s, commit }: P) {
   );
 }
 
+function Zones({ device }: { device: DeviceView }) {
+  const { api, setSnap, toast } = useStore();
+  const zones = (device.info.zones ?? []).map((z, i) => ({ ...z, i })).filter((z) => z.max > z.min);
+  const [sizes, setSizes] = useState<Record<number, number>>({});
+  if (!zones.length) return null;
+  const apply = async (i: number, n: number) => {
+    try {
+      setSnap(await api.resizeZone(device.info.id, i, n));
+      toast(`Zone set to ${n} LEDs`);
+    } catch (e) {
+      toast(String(e));
+    }
+  };
+  return (
+    <div className="card pad" style={{ maxWidth: 760, marginBottom: 16 }}>
+      <h3>LED headers</h3>
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+        Fans and strips plugged into these headers stay dark until you say how many LEDs are on each one. A typical 120 mm ARGB fan has 16 to 24 LEDs, so three daisy-chained fans are about 48.
+      </p>
+      {zones.map((z) => {
+        const v = sizes[z.i] ?? z.count;
+        return (
+          <div key={z.i} className="row" style={{ justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid var(--line)", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 550 }}>{z.name}</div>
+              <div className="dim mono" style={{ fontSize: 11 }}>{z.count} LEDs now · up to {z.max}</div>
+            </div>
+            <div className="row" style={{ gap: 6 }}>
+              {[16, 32, 48].filter((n) => n <= z.max).map((n) => (
+                <button key={n} className="btn sm" onClick={() => apply(z.i, n)}>{n / 16} fan{n > 16 ? "s" : ""}</button>
+              ))}
+              <input className="input mono" style={{ width: 76, height: 30 }} type="number" min={z.min} max={z.max} value={v} onChange={(e) => setSizes({ ...sizes, [z.i]: Math.max(z.min, Math.min(z.max, +e.target.value)) })} />
+              <button className="btn sm primary" disabled={v === z.count} onClick={() => apply(z.i, v)}>Set</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Lighting({ device, s, commit, setS }: P) {
   const mode = s.lighting.mode;
   return (
+    <>
+    <Zones device={device} />
     <div className="card pad" style={{ maxWidth: 760 }}>
       <div className="field" style={{ marginBottom: 18 }}>
         <label>Source</label>
@@ -268,5 +311,6 @@ function Lighting({ device, s, commit, setS }: P) {
         </div>
       )}
     </div>
+    </>
   );
 }

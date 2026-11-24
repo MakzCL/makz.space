@@ -12,7 +12,7 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::Backend;
 use crate::color::Rgb;
@@ -29,6 +29,9 @@ pub mod pkt {
     pub const REQUEST_PROTOCOL_VERSION: u32 = 40;
     pub const SET_CLIENT_NAME: u32 = 50;
     pub const DEVICE_LIST_UPDATED: u32 = 100;
+    /// OpenRGB 1.x: detection finished (sent to clients of any version).
+    pub const DETECTION_COMPLETE: u32 = 103;
+    pub const RESIZE_ZONE: u32 = 1000;
     pub const UPDATE_LEDS: u32 = 1050;
     pub const SET_CUSTOM_MODE: u32 = 1100;
 }
@@ -58,6 +61,8 @@ pub fn update_leds_payload(colors: &[Rgb]) -> Vec<u8> {
 pub struct Zone {
     pub name: String,
     pub kind: i32,
+    pub leds_min: u32,
+    pub leds_max: u32,
     pub leds_count: u32,
     /// Row-major matrix of LED indices into the zone (`u32::MAX` = no LED).
     pub matrix: Option<(u32, u32, Vec<u32>)>,
@@ -142,8 +147,8 @@ pub fn parse_controller(b: &[u8], proto: u32) -> Result<Controller> {
     for _ in 0..num_zones {
         let zname = c.str()?;
         let zkind = c.i32()?;
-        let _min = c.u32()?;
-        let _max = c.u32()?;
+        let leds_min = c.u32()?;
+        let leds_max = c.u32()?;
         let count = c.u32()?;
         let mlen = c.u16()?;
         let matrix = if mlen > 0 {
@@ -157,7 +162,7 @@ pub fn parse_controller(b: &[u8], proto: u32) -> Result<Controller> {
         } else {
             None
         };
-        zones.push(Zone { name: zname, kind: zkind, leds_count: count, matrix });
+        zones.push(Zone { name: zname, kind: zkind, leds_min, leds_max, leds_count: count, matrix });
     }
     let num_leds = c.u16()?;
     let mut leds = Vec::new();
@@ -248,20 +253,32 @@ fn label(ctrl: &Controller, i: usize) -> Option<String> {
     ctrl.leds.get(i).map(|s| s.trim_start_matches("Key: ").to_string())
 }
 
+/// One colour update may be in flight per controller. After each
+/// UPDATE_LEDS we queue a REQUEST_CONTROLLER_DATA for the same controller:
+/// OpenRGB handles both on that controller's queue in order, so the reply
+/// means the colours are on the hardware. Slow devices (I2C GPUs and
+/// motherboards, ~20-40 updates/s) are paced by their own speed instead of
+/// building an ever-growing backlog in OpenRGB's unbounded queue.
+const IN_FLIGHT_TIMEOUT: Duration = Duration::from_millis(1500);
+
 pub struct OpenRgb {
     addr: String,
     stream: Option<TcpStream>,
     proto: u32,
     /// device id -> controller index
     index: Vec<String>,
+    /// bytes read but not yet parsed
+    rx: Vec<u8>,
+    in_flight: Vec<Option<Instant>>,
+    changed: bool,
 }
 
 impl OpenRgb {
     pub fn new(host: &str, port: u16) -> Self {
-        Self { addr: format!("{host}:{port}"), stream: None, proto: 0, index: Vec::new() }
+        Self { addr: format!("{host}:{port}"), stream: None, proto: 0, index: Vec::new(), rx: Vec::new(), in_flight: Vec::new(), changed: false }
     }
 
-    fn connect(&mut self) -> Result<&mut TcpStream> {
+    fn connect(&mut self) -> Result<()> {
         if self.stream.is_none() {
             let addr = self
                 .addr
@@ -270,15 +287,22 @@ impl OpenRgb {
                 .ok_or_else(|| Error::Other(format!("cannot resolve {}", self.addr)))?;
             let s = TcpStream::connect_timeout(&addr, Duration::from_millis(400))?;
             s.set_nodelay(true)?;
-            s.set_read_timeout(Some(Duration::from_secs(2)))?;
+            s.set_read_timeout(Some(Duration::from_secs(3)))?;
             self.stream = Some(s);
+            self.rx.clear();
             self.send(0, pkt::SET_CLIENT_NAME, b"QUASAR\0")?;
             self.send(0, pkt::REQUEST_PROTOCOL_VERSION, &MAX_PROTOCOL.to_le_bytes())?;
             let reply = self.recv(pkt::REQUEST_PROTOCOL_VERSION)?;
             let server = u32::from_le_bytes(reply.get(..4).and_then(|b| b.try_into().ok()).unwrap_or([0; 4]));
             self.proto = server.min(MAX_PROTOCOL);
         }
-        Ok(self.stream.as_mut().unwrap())
+        Ok(())
+    }
+
+    fn drop_connection(&mut self) {
+        self.stream = None;
+        self.rx.clear();
+        self.in_flight.iter_mut().for_each(|f| *f = None);
     }
 
     fn send(&mut self, dev: u32, id: u32, payload: &[u8]) -> Result<()> {
@@ -287,28 +311,93 @@ impl OpenRgb {
         buf.extend_from_slice(&header(dev, id, payload.len() as u32));
         buf.extend_from_slice(payload);
         if let Err(e) = s.write_all(&buf) {
-            self.stream = None;
+            self.drop_connection();
             return Err(e.into());
         }
         Ok(())
     }
 
-    /// Read packets until one with `want` arrives (skipping notifications).
-    fn recv(&mut self, want: u32) -> Result<Vec<u8>> {
-        let s = self.stream.as_mut().ok_or_else(|| Error::Other("not connected".into()))?;
-        loop {
-            let mut h = [0u8; 16];
-            s.read_exact(&mut h)?;
-            if &h[..4] != b"ORGB" {
-                self.stream = None;
-                return Err(Error::Protocol("bad magic".into()));
+    /// Take one complete packet out of `rx`, if there is one.
+    fn next_packet(&mut self) -> Result<Option<(u32, u32, Vec<u8>)>> {
+        if self.rx.len() < 16 {
+            return Ok(None);
+        }
+        if &self.rx[..4] != b"ORGB" {
+            self.drop_connection();
+            return Err(Error::Protocol("bad magic".into()));
+        }
+        let dev = u32::from_le_bytes(self.rx[4..8].try_into().unwrap());
+        let id = u32::from_le_bytes(self.rx[8..12].try_into().unwrap());
+        let len = u32::from_le_bytes(self.rx[12..16].try_into().unwrap()) as usize;
+        if self.rx.len() < 16 + len {
+            return Ok(None);
+        }
+        let body = self.rx[16..16 + len].to_vec();
+        self.rx.drain(..16 + len);
+        Ok(Some((dev, id, body)))
+    }
+
+    /// Handle a packet we did not ask for in a blocking `recv`.
+    fn note(&mut self, dev: u32, id: u32) {
+        match id {
+            pkt::DEVICE_LIST_UPDATED | pkt::DETECTION_COMPLETE => self.changed = true,
+            pkt::REQUEST_CONTROLLER_DATA => {
+                if let Some(f) = self.in_flight.get_mut(dev as usize) {
+                    *f = None;
+                }
             }
-            let id = u32::from_le_bytes(h[8..12].try_into().unwrap());
-            let len = u32::from_le_bytes(h[12..16].try_into().unwrap()) as usize;
-            let mut body = vec![0u8; len];
-            s.read_exact(&mut body)?;
-            if id == want {
-                return Ok(body);
+            _ => {}
+        }
+    }
+
+    /// Read whatever has arrived without blocking and act on it.
+    fn pump(&mut self) -> Result<()> {
+        let Some(s) = self.stream.as_mut() else { return Ok(()) };
+        s.set_nonblocking(true)?;
+        let mut buf = [0u8; 16 * 1024];
+        let res = loop {
+            match s.read(&mut buf) {
+                Ok(0) => break Err(Error::Other("OpenRGB closed the connection".into())),
+                Ok(n) => self.rx.extend_from_slice(&buf[..n]),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break Ok(()),
+                Err(e) => break Err(e.into()),
+            }
+        };
+        if let Some(s) = self.stream.as_mut() {
+            let _ = s.set_nonblocking(false);
+        }
+        if res.is_err() {
+            self.drop_connection();
+            self.changed = true;
+            return res;
+        }
+        while let Some((dev, id, _)) = self.next_packet()? {
+            self.note(dev, id);
+        }
+        Ok(())
+    }
+
+    /// Block until a packet with `want` arrives, handling others on the way.
+    fn recv(&mut self, want: u32) -> Result<Vec<u8>> {
+        loop {
+            while let Some((dev, id, body)) = self.next_packet()? {
+                if id == want {
+                    return Ok(body);
+                }
+                self.note(dev, id);
+            }
+            let s = self.stream.as_mut().ok_or_else(|| Error::Other("not connected".into()))?;
+            let mut buf = [0u8; 16 * 1024];
+            match s.read(&mut buf) {
+                Ok(0) => {
+                    self.drop_connection();
+                    return Err(Error::Other("OpenRGB closed the connection".into()));
+                }
+                Ok(n) => self.rx.extend_from_slice(&buf[..n]),
+                Err(e) => {
+                    self.drop_connection();
+                    return Err(e.into());
+                }
             }
         }
     }
@@ -327,10 +416,11 @@ impl Backend for OpenRgb {
     }
 
     fn scan(&mut self) -> Result<Vec<DeviceInfo>> {
-        self.stream = None;
+        self.drop_connection();
+        self.changed = false;
         self.connect()?;
         self.send(0, pkt::REQUEST_CONTROLLER_COUNT, &[])?;
-        let count = u32::from_le_bytes(self.recv(pkt::REQUEST_CONTROLLER_COUNT)?[..4].try_into().unwrap());
+        let count = u32::from_le_bytes(self.recv(pkt::REQUEST_CONTROLLER_COUNT)?.get(..4).and_then(|b| b.try_into().ok()).unwrap_or([0; 4]));
         let mut out = Vec::new();
         self.index.clear();
         for i in 0..count {
@@ -343,6 +433,7 @@ impl Backend for OpenRgb {
             // take over the LEDs; hardware effects stay available in OpenRGB
             self.send(i, pkt::SET_CUSTOM_MODE, &[])?;
             self.index.push(id.clone());
+            let zones = ctrl.zones.iter().map(|z| crate::device::ZoneInfo { name: z.name.clone(), count: z.leds_count, min: z.leds_min, max: z.leds_max }).collect();
             out.push(DeviceInfo {
                 id,
                 name: ctrl.name.clone(),
@@ -352,17 +443,35 @@ impl Backend for OpenRgb {
                 firmware: Some(ctrl.version.clone()).filter(|s| !s.is_empty()),
                 serial: Some(ctrl.serial.clone()).filter(|s| !s.is_empty()),
                 layout: layout_of(&ctrl),
-                caps: Capabilities { per_led: true, brightness: true, hardware_modes: ctrl.modes.clone(), ..Default::default() },
+                caps: Capabilities { per_led: !ctrl.leds.is_empty(), brightness: true, hardware_modes: ctrl.modes.clone(), ..Default::default() },
                 virtual_device: false,
+                zones,
             });
         }
+        self.in_flight = vec![None; self.index.len()];
         Ok(out)
     }
 
     fn write_leds(&mut self, device_id: &str, colors: &[Rgb]) -> Result<()> {
         let idx = self.controller_index(device_id).ok_or_else(|| Error::DeviceNotFound(device_id.into()))?;
-        self.connect()?;
-        self.send(idx, pkt::UPDATE_LEDS, &update_leds_payload(colors))
+        if self.stream.is_none() {
+            // reconnecting means a fresh client: indices may have moved
+            self.changed = true;
+            return Err(Error::Other("OpenRGB disconnected".into()));
+        }
+        self.pump()?;
+        if let Some(Some(t)) = self.in_flight.get(idx as usize) {
+            if t.elapsed() < IN_FLIGHT_TIMEOUT {
+                return Err(Error::Busy);
+            }
+        }
+        self.send(idx, pkt::UPDATE_LEDS, &update_leds_payload(colors))?;
+        let proto = self.proto;
+        self.send(idx, pkt::REQUEST_CONTROLLER_DATA, &proto.to_le_bytes())?;
+        if let Some(f) = self.in_flight.get_mut(idx as usize) {
+            *f = Some(Instant::now());
+        }
+        Ok(())
     }
 
     fn apply_settings(&mut self, _device_id: &str, _s: &DeviceSettings) -> Result<()> {
@@ -371,6 +480,19 @@ impl Backend for OpenRgb {
 
     fn status(&mut self, _device_id: &str) -> Option<DeviceStatus> {
         Some(DeviceStatus { connected: self.stream.is_some(), battery: None, charging: false })
+    }
+
+    fn resize_zone(&mut self, device_id: &str, zone: usize, size: u32) -> Result<()> {
+        let idx = self.controller_index(device_id).ok_or_else(|| Error::DeviceNotFound(device_id.into()))?;
+        let mut p = Vec::with_capacity(8);
+        p.extend_from_slice(&(zone as i32).to_le_bytes());
+        p.extend_from_slice(&(size as i32).to_le_bytes());
+        self.send(idx, pkt::RESIZE_ZONE, &p)
+    }
+
+    fn take_changed(&mut self) -> bool {
+        let _ = self.pump();
+        std::mem::take(&mut self.changed)
     }
 }
 
@@ -434,6 +556,10 @@ mod tests {
         v
     }
 
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+    use std::time::{Duration, Instant};
+
     #[test]
     fn parses_controller_v3_and_v0() {
         for proto in [0, 3] {
@@ -450,6 +576,121 @@ mod tests {
             // A is at row 1, col 0
             assert!(l.leds[2].y > l.leds[0].y && (l.leds[2].x - l.leds[0].x).abs() < 1e-4);
         }
+    }
+
+    /// A fake OpenRGB server: answers the handshake, lists one controller,
+    /// records every packet, and only answers the flow-control request
+    /// when told to (as a slow device would).
+    #[test]
+    fn flow_control_notifications_and_resize_against_a_fake_server() {
+        use std::net::TcpListener;
+        use std::sync::mpsc;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (seen_tx, seen_rx) = mpsc::channel::<(u32, u32, Vec<u8>)>();
+        let (cmd_tx, cmd_rx) = mpsc::channel::<u32>(); // packet ids for the server to send
+        let blob3 = blob(3);
+        std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            s.set_read_timeout(Some(Duration::from_millis(20))).unwrap();
+            let mut rx = Vec::new();
+            let mut held: Vec<u32> = Vec::new(); // controller-data requests not yet answered
+            let mut answer_data = true; // answer immediately until the scan is done
+            loop {
+                let mut buf = [0u8; 4096];
+                match s.read(&mut buf) {
+                    Ok(0) => return,
+                    Ok(n) => rx.extend_from_slice(&buf[..n]),
+                    Err(_) => {}
+                }
+                while rx.len() >= 16 {
+                    let len = u32::from_le_bytes(rx[12..16].try_into().unwrap()) as usize;
+                    if rx.len() < 16 + len {
+                        break;
+                    }
+                    let dev = u32::from_le_bytes(rx[4..8].try_into().unwrap());
+                    let id = u32::from_le_bytes(rx[8..12].try_into().unwrap());
+                    let body = rx[16..16 + len].to_vec();
+                    rx.drain(..16 + len);
+                    let reply = |s: &mut TcpStream, id: u32, body: &[u8]| {
+                        s.write_all(&header(dev, id, body.len() as u32)).unwrap();
+                        s.write_all(body).unwrap();
+                    };
+                    match id {
+                        pkt::REQUEST_PROTOCOL_VERSION => reply(&mut s, id, &6u32.to_le_bytes()),
+                        pkt::REQUEST_CONTROLLER_COUNT => reply(&mut s, id, &1u32.to_le_bytes()),
+                        pkt::REQUEST_CONTROLLER_DATA if answer_data => reply(&mut s, id, &blob3),
+                        pkt::REQUEST_CONTROLLER_DATA => held.push(dev),
+                        pkt::SET_CUSTOM_MODE => answer_data = false,
+                        _ => {}
+                    }
+                    seen_tx.send((dev, id, body)).unwrap();
+                }
+                while let Ok(cmd) = cmd_rx.try_recv() {
+                    if cmd == pkt::REQUEST_CONTROLLER_DATA {
+                        for d in held.drain(..) {
+                            s.write_all(&header(d, cmd, blob3.len() as u32)).unwrap();
+                            s.write_all(&blob3).unwrap();
+                        }
+                    } else {
+                        s.write_all(&header(0, cmd, 0)).unwrap();
+                    }
+                }
+            }
+        });
+
+        let mut o = OpenRgb::new("127.0.0.1", port);
+        let devs = o.scan().unwrap();
+        assert_eq!(devs.len(), 1);
+        assert_eq!(o.proto, 3, "negotiates down to what we parse");
+        assert_eq!(devs[0].zones.len(), 2);
+        let id = devs[0].id.clone();
+        let red = vec![Rgb::new(255, 0, 0); 5];
+
+        // first frame goes out, the next is held until the device catches up
+        o.write_leds(&id, &red).unwrap();
+        assert!(matches!(o.write_leds(&id, &red), Err(Error::Busy)));
+        cmd_tx.send(pkt::REQUEST_CONTROLLER_DATA).unwrap();
+        let t = Instant::now();
+        loop {
+            std::thread::sleep(Duration::from_millis(30));
+            match o.write_leds(&id, &red) {
+                Ok(()) => break,
+                Err(Error::Busy) if t.elapsed() < Duration::from_secs(2) => continue,
+                other => panic!("expected the second frame to go out, got {other:?}"),
+            }
+        }
+        let mut updates = Vec::new();
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_millis(500) {
+            updates.extend(seen_rx.try_iter().filter(|(_, id, _)| *id == pkt::UPDATE_LEDS));
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(updates.len(), 2, "exactly one update per acknowledged frame");
+        assert_eq!(&updates[0].2[6..10], &[255, 0, 0, 0]);
+
+        // a device-list notification is reported once
+        assert!(!o.take_changed());
+        cmd_tx.send(pkt::DEVICE_LIST_UPDATED).unwrap();
+        let t = Instant::now();
+        while !o.take_changed() {
+            assert!(t.elapsed() < Duration::from_secs(2), "notification not seen");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!o.take_changed());
+
+        // resize: zone index and size as two little-endian i32
+        o.resize_zone(&id, 1, 48).unwrap();
+        let t = Instant::now();
+        let resize = loop {
+            if let Some(p) = seen_rx.try_iter().find(|(_, id, _)| *id == pkt::RESIZE_ZONE) {
+                break p;
+            }
+            assert!(t.elapsed() < Duration::from_secs(2));
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        assert_eq!(resize.2, [1i32.to_le_bytes(), 48i32.to_le_bytes()].concat());
     }
 
     #[test]

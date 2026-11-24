@@ -128,6 +128,7 @@ pub fn devices() -> Vec<DeviceInfo> {
         layout,
         caps,
         virtual_device: true,
+        zones: Vec::new(),
     };
     vec![
         dev(

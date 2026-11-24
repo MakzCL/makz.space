@@ -35,4 +35,13 @@ pub trait Backend: Send {
     fn status(&mut self, _device_id: &str) -> Option<DeviceStatus> {
         None
     }
+    /// Set how many LEDs hang off a resizable zone (an ARGB header).
+    fn resize_zone(&mut self, device_id: &str, _zone: usize, _size: u32) -> Result<()> {
+        Err(crate::Error::Unsupported(format!("{device_id} has no resizable zones")))
+    }
+    /// True once if the backend's device list changed since the last call
+    /// (OpenRGB finishing detection, a device plugged in).
+    fn take_changed(&mut self) -> bool {
+        false
+    }
 }

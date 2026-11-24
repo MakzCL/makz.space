@@ -14,6 +14,9 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("{0}")]
     Other(String),
+    /// The device is still applying the previous frame; try again later.
+    #[error("busy")]
+    Busy,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

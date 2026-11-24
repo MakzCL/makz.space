@@ -122,6 +122,7 @@ impl Backend for Hid {
                         ..Default::default()
                     },
                     virtual_device: false,
+                    zones: Vec::new(),
                 });
                 self.open.insert(id, Open { dev, driver: Driver::Razer { model: m } });
             } else if vid == logitech::VID {
@@ -155,6 +156,7 @@ impl Backend for Hid {
                         ..Default::default()
                     },
                     virtual_device: false,
+                    zones: Vec::new(),
                 });
                 self.open.insert(id, Open { dev, driver: Driver::Logitech { model: m, features } });
             }

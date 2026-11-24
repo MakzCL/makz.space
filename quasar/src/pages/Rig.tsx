@@ -120,6 +120,11 @@ export function Rig() {
         <h1 style={{ fontSize: 17 }}>Devices</h1>
         <span className="muted" style={{ fontSize: 13 }}>{snap.devices.length} connected across {new Set(snap.devices.map((d) => d.info.vendor)).size} brands</span>
       </div>
+      {api.desktop && snap.devices.length > 0 && (
+        <p className="dim" style={{ fontSize: 12.5, margin: "-6px 0 14px" }}>
+          Missing something? OpenRGB keeps finding devices for a while after it starts, and they appear here on their own. Close iCUE, Synapse, G HUB or Armoury Crate, which lock their devices. Fans on motherboard ARGB headers show up once you open the motherboard and set its LED headers under Lighting.
+        </p>
+      )}
       {snap.devices.length === 0 && (
         <div className="card pad" style={{ maxWidth: 760 }}>
           <h3>No devices found yet</h3>

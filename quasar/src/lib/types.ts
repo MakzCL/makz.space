@@ -35,7 +35,10 @@ export interface DeviceInfo {
   layout: Layout;
   caps: Capabilities;
   virtual_device: boolean;
+  zones?: ZoneInfo[];
 }
+
+export interface ZoneInfo { name: string; count: number; min: number; max: number }
 
 export interface DpiStage { dpi: number; dpi_y: number | null; color: Hex }
 

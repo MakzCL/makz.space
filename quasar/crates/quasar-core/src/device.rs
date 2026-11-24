@@ -76,6 +76,18 @@ pub struct DeviceInfo {
     /// Simulated hardware, shown with a badge in the UI.
     #[serde(default)]
     pub virtual_device: bool,
+    /// Lighting zones as the driver reports them. Zones whose size can be
+    /// set (motherboard ARGB headers) have `min < max`.
+    #[serde(default)]
+    pub zones: Vec<ZoneInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ZoneInfo {
+    pub name: String,
+    pub count: u32,
+    pub min: u32,
+    pub max: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

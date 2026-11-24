@@ -66,6 +66,8 @@ export function StoreProvider({ api, initial, library, children }: { api: Api; i
   }, []);
 
   const refresh = useCallback(async () => setSnap(await api.snapshot()), [api]);
+  // OpenRGB finds devices over several seconds; follow along everywhere
+  useEffect(() => api.on("devices-changed", () => void refresh()), [api, refresh]);
   const profile = snap.profiles.find((p) => p.id === snap.active_profile) ?? snap.profiles[0];
 
   const updateProfile = useCallback(

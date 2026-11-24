@@ -151,8 +151,9 @@ pub fn start(handle: &AppHandle, app: &App, exe: &Path) -> Result<(), String> {
         let t = Instant::now();
         while t.elapsed() < Duration::from_secs(45) {
             if listening("127.0.0.1", port) {
-                // give detection a moment to finish before listing controllers
-                std::thread::sleep(Duration::from_secs(3));
+                // list what is there now; the frame loop rescans each time
+                // OpenRGB reports more devices as its detection continues
+                std::thread::sleep(Duration::from_millis(500));
                 crate::configure_backends(&mut app.engine.lock());
                 app.touch();
                 set(&handle, &app, |s| s.phase = Phase::Running);

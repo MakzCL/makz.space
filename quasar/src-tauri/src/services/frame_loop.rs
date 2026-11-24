@@ -15,6 +15,7 @@ pub fn run(handle: AppHandle, app: App, analyzer: Arc<Mutex<Option<Analyzer>>>, 
     let mut last_preview = Instant::now();
     let mut last_status = Instant::now();
     let mut last_save = Instant::now();
+    let mut last_poll = Instant::now();
     loop {
         let fps = app.engine.lock().state.settings.fps.clamp(10, 144);
         let budget = Duration::from_secs_f32(1.0 / fps as f32);
@@ -40,6 +41,15 @@ pub fn run(handle: AppHandle, app: App, analyzer: Arc<Mutex<Option<Analyzer>>>, 
             last_preview = Instant::now();
             let frame = app.engine.lock().frame(96, 60);
             let _ = handle.emit("frame", frame);
+        }
+        // OpenRGB finishes detection in stages and announces each change
+        if last_poll.elapsed() >= Duration::from_millis(1500) {
+            last_poll = Instant::now();
+            let changed = app.engine.lock().poll_backends();
+            if changed {
+                app.touch();
+                let _ = handle.emit("devices-changed", ());
+            }
         }
         if last_status.elapsed() >= Duration::from_secs(5) {
             last_status = Instant::now();

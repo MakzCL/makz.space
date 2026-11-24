@@ -307,3 +307,38 @@ pub async fn check_updates(handle: AppHandle, app: State<'_, App>) -> R<Option<c
 pub fn install_update(handle: AppHandle, app: State<App>) {
     crate::services::updates::install(handle, app.inner().clone());
 }
+
+/// Set the LED count of a resizable zone (a motherboard ARGB header).
+#[tauri::command]
+pub fn resize_zone(app: State<App>, id: String, zone: usize, size: u32) -> R<Snapshot> {
+    app.engine.lock().resize_zone(&id, zone, size).map_err(|e| e.to_string())?;
+    app.touch();
+    Ok(snap(&app))
+}
+
+/// Everything useful for a bug report, as text.
+#[tauri::command]
+pub fn diagnostics(app: State<App>) -> String {
+    let e = app.engine.lock();
+    let devices: Vec<_> = e
+        .devices()
+        .into_iter()
+        .map(|d| {
+            serde_json::json!({
+                "name": d.info.name, "vendor": d.info.vendor, "kind": d.info.kind, "backend": d.info.backend,
+                "leds": d.info.layout.leds.len(), "zones": d.info.zones, "modes": d.info.caps.hardware_modes,
+                "lighting": d.settings.lighting, "error": d.error,
+            })
+        })
+        .collect();
+    let report = serde_json::json!({
+        "quasar": env!("CARGO_PKG_VERSION"),
+        "os": std::env::consts::OS,
+        "backends": e.backends(),
+        "stats": e.stats(),
+        "openrgb": *app.openrgb.lock(),
+        "settings": e.state.settings,
+        "devices": devices,
+    });
+    serde_json::to_string_pretty(&report).unwrap_or_default()
+}

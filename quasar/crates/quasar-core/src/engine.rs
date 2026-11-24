@@ -332,6 +332,9 @@ impl Engine {
                         d.error = None;
                         self.writes += 1;
                     }
+                    // still applying the last frame: keep `sent` stale so the
+                    // newest colours go out as soon as the device is ready
+                    Err(crate::Error::Busy) => {}
                     Err(e) => d.error = Some(e.to_string()),
                 }
             }
@@ -348,6 +351,29 @@ impl Engine {
             self.frame_time_acc = 0.0;
             self.stat_window = 0.0;
         }
+    }
+
+    /// Rescan if any backend reports its device list changed. Returns true
+    /// when it did, so the shell can refresh the UI.
+    pub fn poll_backends(&mut self) -> bool {
+        let mut changed = false;
+        for b in &mut self.backends {
+            changed |= b.take_changed();
+        }
+        if changed {
+            self.scan();
+        }
+        changed
+    }
+
+    pub fn resize_zone(&mut self, id: &str, zone: usize, size: u32) -> crate::Result<()> {
+        let bi = self.devices.iter().find(|d| d.info.id == id).map(|d| d.backend).ok_or_else(|| crate::Error::DeviceNotFound(id.into()))?;
+        self.backends[bi].resize_zone(id, zone, size)?;
+        // layouts and LED counts change; forget the old placement so the
+        // resized device is arranged again at its new size
+        self.state.placements.remove(id);
+        self.scan();
+        Ok(())
     }
 
     /// Poll batteries and connection state (call every few seconds, not per frame).

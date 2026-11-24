@@ -68,6 +68,17 @@ export function SettingsPage() {
             Check now
           </button>
         </Row>
+        <Row label="Diagnostics" hint="Copies what QUASAR sees (devices, zones, OpenRGB status, errors) for a bug report. No personal data.">
+          <button
+            className="btn sm"
+            onClick={async () => {
+              await navigator.clipboard.writeText(await api.diagnostics());
+              toast("Diagnostics copied");
+            }}
+          >
+            Copy diagnostics
+          </button>
+        </Row>
         <Row label="Check automatically" hint="At launch and every six hours. Nothing installs without your click.">
           <Toggle on={s.auto_update_check} onChange={(v) => set({ auto_update_check: v })} />
         </Row>

@@ -176,6 +176,8 @@ pub fn run() {
             commands::openrgb_stop,
             commands::check_updates,
             commands::install_update,
+            commands::resize_zone,
+            commands::diagnostics,
         ])
         .build(tauri::generate_context!())
         .expect("QUASAR failed to start")

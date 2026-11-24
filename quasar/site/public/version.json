@@ -1,13 +1,15 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.3",
   "date": "2026-11-24",
   "notes": [
-    "Fixes a blank window after installing OpenRGB",
-    "Real OpenRGB devices are drawn in their proper shape"
+    "OpenRGB devices now change colour: updates are paced to each device's speed",
+    "Devices OpenRGB finds later (keyboards, mice) appear automatically",
+    "Set LED counts for fans on motherboard ARGB headers",
+    "Settings → Copy diagnostics for bug reports"
   ],
   "windows": {
-    "url": "https://quasar.makz.space/download/QUASAR_0.1.2_x64-setup.exe",
-    "sha256": "31a271dd9745355653e26bbc753f017354b174553eebfd3dfa57f7a736de05da",
-    "size": 3452522
+    "url": "https://quasar.makz.space/download/QUASAR_0.1.3_x64-setup.exe",
+    "sha256": "6d38169cd9354feeea9630e468d8b26ad721bff44d84cd2932a59ce0e68cd683",
+    "size": 3462511
   }
 }
