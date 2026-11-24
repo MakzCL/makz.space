@@ -1,13 +1,14 @@
 {
-  "version": "0.1.6",
+  "version": "0.1.7",
   "date": "2026-11-24",
   "notes": [
-    "Open OpenRGB window: check a device in OpenRGB directly",
-    "OpenRGB's log is included in Copy diagnostics"
+    "Attack Shark X11 mouse: lighting, DPI, polling rate",
+    "Lights re-sent every second, so static colours stick",
+    "No keyboard hook unless a feature needs it",
+    "Installer built on Windows by GitHub"
   ],
   "windows": {
-    "url": "https://quasar.makz.space/download/QUASAR_0.1.6_x64-setup.exe",
-    "sha256": "1accf2bdbdeb42332877e62f2e310e29b5b54f8689ff9e636895cbf1ad5b55f6",
-    "size": 3470264
+    "url": "https://github.com/MakzCL/makz.space/releases/download/quasar-v0.1.7/QUASAR_0.1.7_x64-setup.exe",
+    "sha256": "f5e8951af07c5e4a728e508908a4c8049c65f08a455cd861f5d7988e4e1f362e"
   }
 }
