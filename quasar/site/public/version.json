@@ -1,15 +1,13 @@
 {
-  "version": "0.1.3",
+  "version": "0.1.4",
   "date": "2026-11-24",
   "notes": [
-    "OpenRGB devices now change colour: updates are paced to each device's speed",
-    "Devices OpenRGB finds later (keyboards, mice) appear automatically",
-    "Set LED counts for fans on motherboard ARGB headers",
-    "Settings → Copy diagnostics for bug reports"
+    "Test LEDs button on every device page",
+    "Richer diagnostics: active scene, brightness, writes per device"
   ],
   "windows": {
-    "url": "https://quasar.makz.space/download/QUASAR_0.1.3_x64-setup.exe",
-    "sha256": "6d38169cd9354feeea9630e468d8b26ad721bff44d84cd2932a59ce0e68cd683",
-    "size": 3462511
+    "url": "https://quasar.makz.space/download/QUASAR_0.1.4_x64-setup.exe",
+    "sha256": "2a5fed442699377a05891de6658b26b66980eca4818b8c35cc909b32c73c8a9e",
+    "size": 3464310
   }
 }

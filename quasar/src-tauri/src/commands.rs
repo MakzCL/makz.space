@@ -328,6 +328,7 @@ pub fn diagnostics(app: State<App>) -> String {
                 "name": d.info.name, "vendor": d.info.vendor, "kind": d.info.kind, "backend": d.info.backend,
                 "leds": d.info.layout.leds.len(), "zones": d.info.zones, "modes": d.info.caps.hardware_modes,
                 "lighting": d.settings.lighting, "error": d.error,
+                "writes": e.counters(&d.info.id),
             })
         })
         .collect();
@@ -338,7 +339,18 @@ pub fn diagnostics(app: State<App>) -> String {
         "stats": e.stats(),
         "openrgb": *app.openrgb.lock(),
         "settings": e.state.settings,
+        "profile": {
+            "name": e.state.profile().name,
+            "brightness": e.state.profile().brightness,
+            "layers": e.state.profile().scene.layers.iter().map(|l| serde_json::json!({"effect": l.effect, "enabled": l.enabled, "opacity": l.opacity, "blend": l.blend})).collect::<Vec<_>>(),
+        },
         "devices": devices,
     });
     serde_json::to_string_pretty(&report).unwrap_or_default()
+}
+
+/// Flash a device red, green, blue to check it responds.
+#[tauri::command]
+pub fn test_device(app: State<App>, id: String) {
+    app.engine.lock().test_device(&id);
 }

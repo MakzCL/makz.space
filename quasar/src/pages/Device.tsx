@@ -11,7 +11,7 @@ import type { Binding, DeviceSettings, DeviceView } from "../lib/types";
 type Tab = "performance" | "buttons" | "lighting" | "info";
 
 export function DevicePage({ device }: { device: DeviceView }) {
-  const { api, setSnap, snap, go } = useStore();
+  const { api, setSnap, snap, go, toast } = useStore();
   const caps = device.info.caps;
   const tabs = useMemo(() => {
     const t: [Tab, string][] = [];
@@ -56,6 +56,11 @@ export function DevicePage({ device }: { device: DeviceView }) {
           <span className="badge" style={{ height: 28, fontSize: 12 }}>
             <BatteryMedium size={14} /> {device.status.battery}%{device.status.charging ? " · charging" : ""}
           </span>
+        )}
+        {device.info.caps.per_led && (
+          <button className="btn sm" onClick={() => (api.testDevice(device.info.id), toast("Flashing red, green, blue…"))}>
+            Test LEDs
+          </button>
         )}
         {device.info.virtual_device ? <span className="badge demo">Demo device</span> : <span className="badge live">Connected via {device.info.backend}</span>}
       </div>

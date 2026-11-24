@@ -27,6 +27,17 @@ struct Managed {
     sent: Vec<Rgb>,
     status: DeviceStatus,
     error: Option<String>,
+    counters: Counters,
+}
+
+/// Per-device write telemetry for diagnostics.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct Counters {
+    pub writes: u64,
+    pub busy: u64,
+    pub errors: u64,
+    /// First LED of the last frame actually sent, `#rrggbb`.
+    pub last_sent: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -78,6 +89,8 @@ pub struct Engine {
     presses: Vec<Press>,
     t: f32,
     stats: Stats,
+    /// Device being flashed red, green, blue by "Test LEDs", and since when.
+    test: Option<(String, Instant)>,
     writes: u32,
     stat_window: f32,
     frames: u32,
@@ -99,6 +112,7 @@ impl Engine {
             presses: Vec::new(),
             t: 0.0,
             stats: Stats::default(),
+            test: None,
             writes: 0,
             stat_window: 0.0,
             frames: 0,
@@ -139,7 +153,7 @@ impl Engine {
                     self.backend_errors[bi] = None;
                     for info in list {
                         let status = b.status(&info.id).unwrap_or(DeviceStatus { connected: true, ..Default::default() });
-                        self.devices.push(Managed { info, backend: bi, uv: Vec::new(), colors: Vec::new(), sent: Vec::new(), status, error: None });
+                        self.devices.push(Managed { info, backend: bi, uv: Vec::new(), colors: Vec::new(), sent: Vec::new(), status, error: None, counters: Counters::default() });
                     }
                 }
                 Err(e) => self.backend_errors[bi] = Some(e.to_string()),
@@ -310,7 +324,35 @@ impl Engine {
         }
         let profile = self.state.profile();
         let global = profile.brightness;
+        if self.test.as_ref().is_some_and(|(_, t)| t.elapsed().as_secs_f32() > 3.0) {
+            self.test = None;
+        }
+        let test = self.test.clone();
         for d in &mut self.devices {
+            if let Some((id, t)) = test.as_ref().filter(|(id, _)| *id == d.info.id) {
+                let _ = id;
+                let c = match (t.elapsed().as_secs_f32() as u32).min(2) {
+                    0 => Rgb::new(255, 0, 0),
+                    1 => Rgb::new(0, 255, 0),
+                    _ => Rgb::new(0, 0, 255),
+                };
+                d.colors.fill(c);
+                if d.colors != d.sent {
+                    match self.backends[d.backend].write_leds(&d.info.id, &d.colors) {
+                        Ok(()) => {
+                            d.sent.clone_from(&d.colors);
+                            d.counters.writes += 1;
+                            d.counters.last_sent = Some(c.to_hex());
+                        }
+                        Err(crate::Error::Busy) => d.counters.busy += 1,
+                        Err(e) => {
+                            d.counters.errors += 1;
+                            d.error = Some(e.to_string());
+                        }
+                    }
+                }
+                continue;
+            }
             let s = profile.devices.get(&d.info.id);
             let k = global * s.map(|s| s.brightness).unwrap_or(1.0);
             let mode = s.map(|s| &s.lighting).unwrap_or(&LightingMode::Engine);
@@ -331,11 +373,16 @@ impl Engine {
                         d.sent.clone_from(&d.colors);
                         d.error = None;
                         self.writes += 1;
+                        d.counters.writes += 1;
+                        d.counters.last_sent = d.colors.first().map(|c| c.to_hex());
                     }
                     // still applying the last frame: keep `sent` stale so the
                     // newest colours go out as soon as the device is ready
-                    Err(crate::Error::Busy) => {}
-                    Err(e) => d.error = Some(e.to_string()),
+                    Err(crate::Error::Busy) => d.counters.busy += 1,
+                    Err(e) => {
+                        d.counters.errors += 1;
+                        d.error = Some(e.to_string());
+                    }
                 }
             }
         }
@@ -351,6 +398,16 @@ impl Engine {
             self.frame_time_acc = 0.0;
             self.stat_window = 0.0;
         }
+    }
+
+    /// Flash one device red, green, blue (a second each), bypassing the
+    /// scene, to check the path to the hardware.
+    pub fn test_device(&mut self, id: &str) {
+        self.test = Some((id.to_string(), Instant::now()));
+    }
+
+    pub fn counters(&self, id: &str) -> Option<&Counters> {
+        self.devices.iter().find(|d| d.info.id == id).map(|d| &d.counters)
     }
 
     /// Rescan if any backend reports its device list changed. Returns true
@@ -478,6 +535,17 @@ mod tests {
         e.set_device_settings("virtual:pad", s);
         e.tick(0.016);
         assert!(e.device_colors("virtual:pad").unwrap().iter().all(|c| *c == Rgb::BLACK));
+    }
+
+    #[test]
+    fn test_pattern_overrides_scene_and_counts_writes() {
+        let mut e = engine();
+        e.test_device("virtual:pad");
+        e.tick(0.016);
+        assert!(e.device_colors("virtual:pad").unwrap().iter().all(|c| *c == Rgb::new(255, 0, 0)));
+        let c = e.counters("virtual:pad").unwrap();
+        assert_eq!(c.writes, 1);
+        assert_eq!(c.last_sent.as_deref(), Some("#ff0000"));
     }
 
     #[test]
