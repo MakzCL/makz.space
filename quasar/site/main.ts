@@ -18,13 +18,22 @@ const files: Record<string, string> = {
   appimage: `QUASAR_${VERSION}_amd64.AppImage`,
   deb: `QUASAR_${VERSION}_amd64.deb`,
 };
-document.querySelectorAll<HTMLAnchorElement>(".dl a").forEach((a) => (a.href = `${REPO}/releases/download/${TAG}/${files[a.dataset.os!]}`));
+// The Windows beta is served from this site; the other platforms come from
+// the GitHub release built by .github/workflows/quasar-release.yml.
+const local: Record<string, string> = { windows: `/download/${files.windows}` };
+document.querySelectorAll<HTMLAnchorElement>(".dl a").forEach((a) => (a.href = local[a.dataset.os!] ?? `${REPO}/releases/download/${TAG}/${files[a.dataset.os!]}`));
 document.querySelectorAll<HTMLAnchorElement>("a.rel").forEach((a) => (a.href = `${REPO}/releases/tag/${TAG}`));
 document.querySelectorAll(".ver").forEach((e) => (e.textContent = VERSION));
 const ua = navigator.userAgent;
 const cta = document.getElementById("cta-download") as HTMLAnchorElement;
 if (/Mac/.test(ua)) cta.textContent = "Download for macOS";
 else if (/Linux/.test(ua) && !/Android/.test(ua)) cta.textContent = "Download for Linux";
+cta.addEventListener("click", (e) => {
+  if (!/Mac|Linux/.test(ua) || /Android/.test(ua)) {
+    e.preventDefault();
+    location.href = local.windows;
+  }
+});
 
 // ---- sky: the Nebula effect itself, low-res and blurred by CSS --------------
 function runEffect(el: HTMLCanvasElement, id: string, params: Params, w: number, h: number, fps = 30) {
