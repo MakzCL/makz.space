@@ -33,6 +33,18 @@ export function Rig() {
           <h1>Rig</h1>
         </div>
         <div className="spacer" />
+        {snap.devices.some((d) => d.info.caps.per_led) && (
+          <button
+            className="btn"
+            title="Send the current colours to every device now, re-selecting each one's control mode"
+            onClick={async () => {
+              const errs = await api.applyAll(false);
+              toast(errs.length ? `Applied, ${errs.length} failed: ${errs.map(([n, e]) => `${n}: ${e}`).join("; ")}` : "Applied to all devices");
+            }}
+          >
+            Apply to all
+          </button>
+        )}
         <button
           className="btn"
           onClick={async () => {

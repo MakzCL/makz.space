@@ -58,9 +58,25 @@ export function DevicePage({ device }: { device: DeviceView }) {
           </span>
         )}
         {device.info.caps.per_led && (
-          <button className="btn sm" onClick={() => (api.testDevice(device.info.id), toast("Flashing red, green, blue…"))}>
-            Test LEDs
-          </button>
+          <>
+            <button className="btn sm" onClick={() => (api.testDevice(device.info.id), toast("Flashing red, green, blue…"))}>
+              Test LEDs
+            </button>
+            <button
+              className="btn sm"
+              title="Send this device's colours now, re-selecting its control mode"
+              onClick={() => api.applyDevice(device.info.id, false).then(() => toast("Applied"), (e) => toast(`Apply failed: ${e}`))}
+            >
+              Apply
+            </button>
+            <button
+              className="btn sm primary"
+              title="Apply and store on the device, so it keeps this lighting even without QUASAR running"
+              onClick={() => api.applyDevice(device.info.id, true).then(() => toast("Saved to device"), (e) => toast(`Save failed: ${e}`))}
+            >
+              Save to device
+            </button>
+          </>
         )}
         {device.info.virtual_device ? <span className="badge demo">Demo device</span> : <span className="badge live">Connected via {device.info.backend}</span>}
       </div>

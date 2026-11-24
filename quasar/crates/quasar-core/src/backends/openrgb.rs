@@ -34,6 +34,8 @@ pub mod pkt {
     pub const RESIZE_ZONE: u32 = 1000;
     pub const UPDATE_LEDS: u32 = 1050;
     pub const SET_CUSTOM_MODE: u32 = 1100;
+    pub const UPDATE_MODE: u32 = 1101;
+    pub const SAVE_MODE: u32 = 1102;
 }
 
 pub fn header(dev: u32, id: u32, len: u32) -> [u8; 16] {
@@ -68,6 +70,41 @@ pub struct Zone {
     pub matrix: Option<(u32, u32, Vec<u32>)>,
 }
 
+/// A mode exactly as the server described it, so it can be sent back
+/// unchanged (OpenRGB validates UPDATE_MODE against its own copy).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Mode {
+    pub name: String,
+    pub color_mode: u32,
+    /// The serialised mode description.
+    pub raw: Vec<u8>,
+    /// Offset of `u16 num_colors` inside `raw`.
+    pub colors_at: usize,
+}
+
+pub const COLORS_PER_LED: u32 = 1;
+pub const COLORS_MODE_SPECIFIC: u32 = 2;
+
+impl Mode {
+    /// The description with every mode colour replaced by `c`.
+    pub fn with_color(&self, c: Rgb) -> Vec<u8> {
+        let n = u16::from_le_bytes([self.raw[self.colors_at], self.raw[self.colors_at + 1]]);
+        let mut out = self.raw[..self.colors_at + 2].to_vec();
+        for _ in 0..n {
+            out.extend_from_slice(&[c.r, c.g, c.b, 0]);
+        }
+        out
+    }
+}
+
+/// OpenRGB's own choice for software control: Direct, then Custom, then
+/// Static, taking per-LED or mode-specific colour (RGBController::SetCustomMode).
+pub fn custom_mode(modes: &[Mode]) -> Option<usize> {
+    ["Direct", "Custom", "Static"].iter().find_map(|want| {
+        modes.iter().position(|m| m.name == *want && (m.color_mode == COLORS_PER_LED || m.color_mode == COLORS_MODE_SPECIFIC))
+    })
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Controller {
     pub kind: i32,
@@ -78,6 +115,7 @@ pub struct Controller {
     pub serial: String,
     pub location: String,
     pub modes: Vec<String>,
+    pub mode_data: Vec<Mode>,
     pub zones: Vec<Zone>,
     pub leds: Vec<String>,
 }
@@ -128,8 +166,10 @@ pub fn parse_controller(b: &[u8], proto: u32) -> Result<Controller> {
     let num_modes = c.u16()?;
     let _active = c.i32()?;
     let mut modes = Vec::new();
+    let mut mode_data = Vec::new();
     for _ in 0..num_modes {
-        modes.push(c.str()?);
+        let start = c.i;
+        let name = c.str()?;
         c.take(4 * 4)?; // value, flags, speed_min, speed_max
         if proto >= 3 {
             c.take(4 * 2)?; // brightness min/max
@@ -138,9 +178,13 @@ pub fn parse_controller(b: &[u8], proto: u32) -> Result<Controller> {
         if proto >= 3 {
             c.take(4)?; // brightness
         }
-        c.take(4 * 2)?; // direction, color_mode
+        c.take(4)?; // direction
+        let color_mode = c.u32()?;
+        let colors_at = c.i - start;
         let n = c.u16()? as usize;
         c.take(n * 4)?;
+        modes.push(name.clone());
+        mode_data.push(Mode { name, color_mode, raw: b[start..c.i].to_vec(), colors_at });
     }
     let num_zones = c.u16()?;
     let mut zones = Vec::new();
@@ -170,7 +214,7 @@ pub fn parse_controller(b: &[u8], proto: u32) -> Result<Controller> {
         leds.push(c.str()?);
         c.u32()?;
     }
-    Ok(Controller { kind, name, vendor, description, version, serial, location, modes, zones, leds })
+    Ok(Controller { kind, name, vendor, description, version, serial, location, modes, mode_data, zones, leds })
 }
 
 pub fn kind_of(t: i32) -> DeviceKind {
@@ -271,11 +315,12 @@ pub struct OpenRgb {
     rx: Vec<u8>,
     in_flight: Vec<Option<Instant>>,
     changed: bool,
+    modes: Vec<Vec<Mode>>,
 }
 
 impl OpenRgb {
     pub fn new(host: &str, port: u16) -> Self {
-        Self { addr: format!("{host}:{port}"), stream: None, proto: 0, index: Vec::new(), rx: Vec::new(), in_flight: Vec::new(), changed: false }
+        Self { addr: format!("{host}:{port}"), stream: None, proto: 0, index: Vec::new(), rx: Vec::new(), in_flight: Vec::new(), changed: false, modes: Vec::new() }
     }
 
     fn connect(&mut self) -> Result<()> {
@@ -423,6 +468,7 @@ impl Backend for OpenRgb {
         let count = u32::from_le_bytes(self.recv(pkt::REQUEST_CONTROLLER_COUNT)?.get(..4).and_then(|b| b.try_into().ok()).unwrap_or([0; 4]));
         let mut out = Vec::new();
         self.index.clear();
+        self.modes.clear();
         for i in 0..count {
             let proto = self.proto;
             self.send(i, pkt::REQUEST_CONTROLLER_DATA, &proto.to_le_bytes())?;
@@ -433,6 +479,7 @@ impl Backend for OpenRgb {
             // take over the LEDs; hardware effects stay available in OpenRGB
             self.send(i, pkt::SET_CUSTOM_MODE, &[])?;
             self.index.push(id.clone());
+            self.modes.push(ctrl.mode_data.clone());
             let zones = ctrl.zones.iter().map(|z| crate::device::ZoneInfo { name: z.name.clone(), count: z.leds_count, min: z.leds_min, max: z.leds_max }).collect();
             out.push(DeviceInfo {
                 id,
@@ -493,6 +540,36 @@ impl Backend for OpenRgb {
     fn take_changed(&mut self) -> bool {
         let _ = self.pump();
         std::mem::take(&mut self.changed)
+    }
+
+    /// What OpenRGB's own Apply button does: send the software-control mode
+    /// in full (UPDATE_MODE, or SAVE_MODE to store it on the device), then
+    /// the colours. Not paced: an explicit, one-off action.
+    fn apply(&mut self, device_id: &str, colors: &[Rgb], save: bool) -> Result<()> {
+        let idx = self.controller_index(device_id).ok_or_else(|| Error::DeviceNotFound(device_id.into()))?;
+        if self.stream.is_none() {
+            self.connect()?;
+        }
+        let _ = self.pump();
+        let modes = self.modes.get(idx as usize).cloned().unwrap_or_default();
+        if let Some(mi) = custom_mode(&modes) {
+            let m = &modes[mi];
+            let desc = if m.color_mode == COLORS_MODE_SPECIFIC { m.with_color(colors.first().copied().unwrap_or_default()) } else { m.raw.clone() };
+            let mut p = Vec::with_capacity(8 + desc.len());
+            p.extend_from_slice(&((8 + desc.len()) as u32).to_le_bytes());
+            p.extend_from_slice(&(mi as i32).to_le_bytes());
+            p.extend_from_slice(&desc);
+            self.send(idx, if save { pkt::SAVE_MODE } else { pkt::UPDATE_MODE }, &p)?;
+        } else {
+            self.send(idx, pkt::SET_CUSTOM_MODE, &[])?;
+        }
+        if !colors.is_empty() {
+            self.send(idx, pkt::UPDATE_LEDS, &update_leds_payload(colors))?;
+        }
+        if let Some(f) = self.in_flight.get_mut(idx as usize) {
+            *f = None;
+        }
+        Ok(())
     }
 }
 
@@ -691,6 +768,28 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
         };
         assert_eq!(resize.2, [1i32.to_le_bytes(), 48i32.to_le_bytes()].concat());
+    }
+
+    #[test]
+    fn modes_are_kept_verbatim_and_recoloured() {
+        let c = parse_controller(&blob(3), 3).unwrap();
+        assert_eq!(c.mode_data.len(), 1);
+        let m = &c.mode_data[0];
+        assert_eq!(m.name, "Direct");
+        // the colour count sits right after colors_at, then one colour
+        assert_eq!(u16::from_le_bytes([m.raw[m.colors_at], m.raw[m.colors_at + 1]]), 1);
+        assert_eq!(&m.raw[m.colors_at + 2..], &[1, 2, 3, 0]);
+        let re = m.with_color(Rgb::new(9, 8, 7));
+        assert_eq!(re.len(), m.raw.len());
+        assert_eq!(&re[re.len() - 4..], &[9, 8, 7, 0]);
+        let modes = vec![
+            Mode { name: "Rainbow".into(), color_mode: 0, raw: vec![], colors_at: 0 },
+            Mode { name: "Static".into(), color_mode: COLORS_PER_LED, raw: vec![], colors_at: 0 },
+            Mode { name: "Direct".into(), color_mode: COLORS_PER_LED, raw: vec![], colors_at: 0 },
+        ];
+        assert_eq!(custom_mode(&modes), Some(2), "Direct wins over Static");
+        assert_eq!(custom_mode(&modes[..2]), Some(1));
+        assert_eq!(custom_mode(&modes[..1]), None);
     }
 
     #[test]

@@ -180,6 +180,8 @@ pub fn run() {
             commands::diagnostics,
             commands::test_device,
             commands::openrgb_open_gui,
+            commands::apply_device,
+            commands::apply_all,
         ])
         .build(tauri::generate_context!())
         .expect("QUASAR failed to start")

@@ -45,4 +45,9 @@ pub trait Backend: Send {
     fn take_changed(&mut self) -> bool {
         false
     }
+    /// Push colours now, re-asserting the device's control mode first where
+    /// the backend has one. `save` stores the result on the device itself.
+    fn apply(&mut self, device_id: &str, colors: &[Rgb], _save: bool) -> Result<()> {
+        self.write_leds(device_id, colors)
+    }
 }

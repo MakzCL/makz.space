@@ -344,7 +344,8 @@ impl Engine {
                 };
                 d.colors.fill(c);
                 if d.colors != d.sent {
-                    match self.backends[d.backend].write_leds(&d.info.id, &d.colors) {
+                    // through apply(): re-asserts the control mode with each colour
+                    match self.backends[d.backend].apply(&d.info.id, &d.colors, false) {
                         Ok(()) => {
                             d.sent.clone_from(&d.colors);
                             d.counters.writes += 1;
@@ -406,6 +407,33 @@ impl Engine {
             self.frame_time_acc = 0.0;
             self.stat_window = 0.0;
         }
+    }
+
+    /// Push one device's current colours now, re-sending its control mode
+    /// (and storing it on the device when `save`).
+    pub fn apply_device(&mut self, id: &str, save: bool) -> crate::Result<()> {
+        let d = self.devices.iter_mut().find(|d| d.info.id == id).ok_or_else(|| crate::Error::DeviceNotFound(id.into()))?;
+        let r = self.backends[d.backend].apply(&d.info.id, &d.colors, save);
+        match &r {
+            Ok(()) => {
+                d.sent.clone_from(&d.colors);
+                d.last_write = Some(Instant::now());
+                d.counters.writes += 1;
+                d.counters.last_sent = d.colors.first().map(|c| c.to_hex());
+                d.error = None;
+            }
+            Err(e) => {
+                d.counters.errors += 1;
+                d.error = Some(e.to_string());
+            }
+        }
+        r
+    }
+
+    /// `apply_device` for every device; returns the errors by device name.
+    pub fn apply_all(&mut self, save: bool) -> Vec<(String, String)> {
+        let ids: Vec<(String, String)> = self.devices.iter().filter(|d| d.info.caps.per_led).map(|d| (d.info.id.clone(), d.info.name.clone())).collect();
+        ids.into_iter().filter_map(|(id, name)| self.apply_device(&id, save).err().map(|e| (name, e.to_string()))).collect()
     }
 
     /// Flash one device red, green, blue (a second each), bypassing the

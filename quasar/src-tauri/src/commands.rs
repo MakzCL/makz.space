@@ -361,3 +361,15 @@ pub fn test_device(app: State<App>, id: String) {
 pub fn openrgb_open_gui(handle: AppHandle, app: State<App>) -> R<()> {
     crate::services::openrgb::open_gui(&handle, app.inner())
 }
+
+/// Push a device's colours now, re-sending its control mode; `save` also
+/// stores it on the device so it survives without QUASAR.
+#[tauri::command]
+pub fn apply_device(app: State<App>, id: String, save: bool) -> R<()> {
+    app.engine.lock().apply_device(&id, save).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn apply_all(app: State<App>, save: bool) -> Vec<(String, String)> {
+    app.engine.lock().apply_all(save)
+}

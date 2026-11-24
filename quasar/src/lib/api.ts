@@ -40,6 +40,8 @@ export interface Api {
   diagnostics(): Promise<string>;
   testDevice(id: string): Promise<void>;
   openrgbOpenGui(): Promise<void>;
+  applyDevice(id: string, save: boolean): Promise<void>;
+  applyAll(save: boolean): Promise<[string, string][]>;
   /** Backend events: openrgb, update, update-progress, update-error, devices-changed. */
   on<T>(event: string, cb: (payload: T) => void): () => void;
   /** Demo only: simulate a keypress / a hit in game. */
@@ -91,6 +93,8 @@ async function desktopApi(): Promise<Api> {
     diagnostics: () => invoke("diagnostics"),
     testDevice: (id) => invoke("test_device", { id }),
     openrgbOpenGui: () => invoke("openrgb_open_gui"),
+    applyDevice: (id, save) => invoke("apply_device", { id, save }),
+    applyAll: (save) => invoke("apply_all", { save }),
     on(event, cb) {
       let un: (() => void) | undefined;
       let dead = false;
@@ -174,6 +178,8 @@ async function demoApi(): Promise<Api> {
     resizeZone: () => Promise.reject("Needs the desktop app."),
     testDevice: () => ok(undefined),
     openrgbOpenGui: () => Promise.reject("Needs the desktop app."),
+    applyDevice: () => ok(undefined),
+    applyAll: () => ok([]),
     diagnostics: () => ok(JSON.stringify({ quasar: "web demo", devices: e.snapshot().devices.map((d) => d.info.name) }, null, 2)),
     on: () => () => {},
     onFrame(cb) {

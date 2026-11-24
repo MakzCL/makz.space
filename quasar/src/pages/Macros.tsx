@@ -12,7 +12,7 @@ export function Macros() {
 
   const save = async (next: Macro) => setSnap({ ...snap, macros: await api.saveMacro(next) });
   const create = async () => {
-    const n: Macro = { id: `m-${Date.now().toString(36)}`, name: "New macro", steps: [], repeat: { mode: "once" } };
+    const n: Macro = { id: `m-${Date.now().toString(36)}`, name: "New macro", steps: [], repeat: { mode: "once" }, hotkey: null };
     await save(n);
     setSel(n.id);
   };
@@ -93,6 +93,7 @@ function Editor({ m, rec, onSave, onRecord, onPlay, onDelete }: { m: Macro; rec:
         <button className="btn" onClick={onPlay}><Play size={14} /> Play</button>
         <button className="btn icon danger" onClick={onDelete} aria-label="Delete macro"><Trash2 size={15} /></button>
       </div>
+      <Shortcut m={m} onSave={onSave} />
       <div className="row" style={{ marginBottom: 16, flexWrap: "wrap" }}>
         <span className="label">Repeat</span>
         <Seg
@@ -136,6 +137,59 @@ function Editor({ m, rec, onSave, onRecord, onPlay, onDelete }: { m: Macro; rec:
         <button className="btn sm" onClick={() => setSteps([...steps, { type: "delay", ms: 50 }])}><Plus size={13} /> Delay</button>
         <button className="btn sm" onClick={() => setSteps([...steps, { type: "text", text: "" }])}><Plus size={13} /> Text</button>
       </div>
+    </div>
+  );
+}
+
+const KEY_NAMES: Record<string, string> = {
+  " ": "Space", Escape: "Esc", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right",
+  Enter: "Enter", Backspace: "Backspace", Tab: "Tab", Delete: "Del", Insert: "Ins", PageUp: "PgUp", PageDown: "PgDn",
+  Home: "Home", End: "End", CapsLock: "Caps", PrintScreen: "PrtSc", ScrollLock: "ScrLk", Pause: "Pause",
+};
+const MODS = ["Control", "Shift", "Alt", "Meta"];
+
+/** Press a key combination (or a mouse side button) to set the macro's shortcut. */
+function Shortcut({ m, onSave }: { m: Macro; onSave: (m: Macro) => void }) {
+  const [listening, setListening] = useState(false);
+  const label = m.hotkey ? [...m.hotkey.modifiers, m.hotkey.key].join(" + ") : null;
+  const set = (key: string, modifiers: string[]) => {
+    onSave({ ...m, hotkey: { key, modifiers } });
+    setListening(false);
+  };
+  return (
+    <div className="row" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+      <span className="label">Shortcut</span>
+      <button
+        className={`btn sm${listening ? " rec" : ""}`}
+        style={{ minWidth: 170, fontFamily: "var(--mono)" }}
+        onClick={() => setListening(true)}
+        onBlur={() => setListening(false)}
+        onKeyDown={(e) => {
+          if (!listening) return;
+          e.preventDefault();
+          if (MODS.includes(e.key)) return;
+          if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.shiftKey) return setListening(false);
+          const code = /^Key([A-Z])$/.exec(e.code)?.[1] ?? /^Digit(\d)$/.exec(e.code)?.[1];
+          const key = code ?? KEY_NAMES[e.key] ?? (/^F\d{1,2}$/.test(e.key) ? e.key : e.key.length === 1 ? e.key.toUpperCase() : e.key);
+          set(key, [e.ctrlKey && "Ctrl", e.shiftKey && "Shift", e.altKey && "Alt", e.metaKey && "Win"].filter(Boolean) as string[]);
+        }}
+        onMouseDown={(e) => {
+          if (!listening || e.button < 1) return;
+          e.preventDefault();
+          const b = ({ 1: "Middle", 3: "Back", 4: "Forward" } as Record<number, string>)[e.button];
+          if (b) set(b, [e.ctrlKey && "Ctrl", e.shiftKey && "Shift", e.altKey && "Alt"].filter(Boolean) as string[]);
+        }}
+      >
+        {listening ? "Press keys…" : label ?? "Set shortcut"}
+      </button>
+      {m.hotkey && (
+        <button className="btn sm ghost" onClick={() => onSave({ ...m, hotkey: null })}>
+          Clear
+        </button>
+      )}
+      <span className="dim" style={{ fontSize: 12 }}>
+        Works anywhere in Windows while QUASAR runs. Use a combination with Ctrl, Alt or Shift, or a mouse side button, so you don't take over a normal key.
+      </span>
     </div>
   );
 }

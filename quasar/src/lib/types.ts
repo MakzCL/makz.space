@@ -122,7 +122,8 @@ export type Step =
   | { type: "text"; text: string };
 
 export type Repeat = { mode: "once" } | { mode: "times"; n: number } | { mode: "while-held" } | { mode: "toggle" };
-export interface Macro { id: string; name: string; steps: Step[]; repeat: Repeat }
+export interface Hotkey { key: string; modifiers: string[] }
+export interface Macro { id: string; name: string; steps: Step[]; repeat: Repeat; hotkey?: Hotkey | null }
 
 export interface Settings {
   fps: number;

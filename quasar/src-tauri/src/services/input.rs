@@ -5,7 +5,12 @@ use std::time::Instant;
 
 use enigo::{Direction, Enigo, Keyboard, Mouse, Settings};
 use quasar_core::device::Binding;
-use quasar_core::macros::{Macro, Repeat, Step};
+use quasar_core::macros::{Hotkey, Macro, Repeat, Step};
+use std::collections::{BTreeSet, HashMap};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock};
+
+use parking_lot::Mutex;
 use quasar_core::remap::{Action, Remapper};
 use rdev::{Event, EventType};
 
@@ -61,6 +66,40 @@ fn remapper(app: &App) -> Remapper {
 }
 
 /// Handle one event; return false to swallow it (grab mode only).
+/// Keys and buttons currently held (to tell auto-repeat from a new press).
+static DOWN: LazyLock<Mutex<BTreeSet<String>>> = LazyLock::new(Default::default);
+/// Hotkey presses we swallowed, so their release is swallowed too.
+static SWALLOWED: LazyLock<Mutex<BTreeSet<String>>> = LazyLock::new(Default::default);
+/// Macros running until stopped: toggles by macro id, while-held by key.
+static RUNNING: LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = LazyLock::new(Default::default);
+static HELD: LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = LazyLock::new(Default::default);
+/// > 0 while a macro is typing: its own events must not trigger anything.
+static INJECTING: AtomicUsize = AtomicUsize::new(0);
+
+/// Start a macro as its repeat mode says, in response to `key`.
+fn trigger(m: Macro, key: &str) {
+    match m.repeat {
+        Repeat::Toggle => {
+            if let Some(flag) = RUNNING.lock().remove(&m.id) {
+                flag.store(true, Ordering::Relaxed);
+                return;
+            }
+            let flag = Arc::new(AtomicBool::new(false));
+            RUNNING.lock().insert(m.id.clone(), flag.clone());
+            run_macro(m, Some(flag));
+        }
+        Repeat::WhileHeld => {
+            if HELD.lock().contains_key(key) {
+                return;
+            }
+            let flag = Arc::new(AtomicBool::new(false));
+            HELD.lock().insert(key.to_string(), flag.clone());
+            run_macro(m, Some(flag));
+        }
+        _ => run_macro(m, None),
+    }
+}
+
 fn on_event(app: &App, remap: &mut Remapper, ev: &Event) -> bool {
     let (key, down) = match &ev.event_type {
         EventType::KeyPress(k) => (keys::labels(k).first().map(|s| s.to_string()), true),
@@ -70,6 +109,40 @@ fn on_event(app: &App, remap: &mut Remapper, ev: &Event) -> bool {
         _ => return true,
     };
     let Some(key) = key else { return true };
+    let repeat = {
+        let mut d = DOWN.lock();
+        if down {
+            !d.insert(key.clone())
+        } else {
+            d.remove(&key);
+            false
+        }
+    };
+    if !down {
+        // releasing a while-held macro's key stops it
+        if let Some(flag) = HELD.lock().remove(&key) {
+            flag.store(true, Ordering::Relaxed);
+        }
+        if SWALLOWED.lock().remove(&key) {
+            return false;
+        }
+    }
+    let injecting = INJECTING.load(Ordering::Relaxed) > 0;
+    if down && !injecting && app.recording.lock().is_none() && Hotkey::canonical(&key).is_none() {
+        let held: Vec<String> = DOWN.lock().iter().filter(|k| Hotkey::canonical(k).is_some()).cloned().collect();
+        let held: Vec<&str> = held.iter().map(|s| s.as_str()).collect();
+        let hit = app.engine.lock().state.macros.iter().find(|m| m.hotkey.as_ref().is_some_and(|h| h.matches(&key, &held))).cloned();
+        if let Some(m) = hit {
+            SWALLOWED.lock().insert(key.clone());
+            if !repeat {
+                trigger(m, &key);
+            }
+            return false;
+        }
+    }
+    if injecting {
+        return true;
+    }
     if let Some(rec) = app.recording.lock().as_mut() {
         let is_button = matches!(ev.event_type, EventType::ButtonPress(_) | EventType::ButtonRelease(_));
         rec.push(match (is_button, down) {
@@ -91,19 +164,19 @@ fn on_event(app: &App, remap: &mut Remapper, ev: &Event) -> bool {
         Action::Pass => true,
         Action::Block => false,
         Action::Do(b) => {
-            if down {
-                perform(app, b);
+            if down && !repeat {
+                perform(app, b, &key);
             }
             false
         }
     }
 }
 
-fn perform(app: &App, b: Binding) {
+fn perform(app: &App, b: Binding, key: &str) {
     match b {
         Binding::Macro { id } => {
             if let Some(m) = app.engine.lock().state.macros.iter().find(|m| m.id == id).cloned() {
-                play(m);
+                trigger(m, key);
             }
         }
         Binding::DpiUp | Binding::DpiDown | Binding::DpiCycle => {
@@ -179,16 +252,30 @@ fn mouse(name: &str) -> enigo::Button {
     }
 }
 
-/// Play a macro on its own thread.
+/// Play a macro once (or N times), as the Macros page's Play button does.
 pub fn play(m: Macro) {
+    run_macro(m, None);
+}
+
+/// Run a macro on its own thread. With `stop`, loop until it is set (toggle
+/// and while-held); otherwise once or N times.
+fn run_macro(m: Macro, stop: Option<Arc<AtomicBool>>) {
     std::thread::spawn(move || {
         let Ok(mut en) = Enigo::new(&Settings::default()) else { return };
-        let times = match m.repeat {
-            Repeat::Times { n } => n.clamp(1, 100),
+        INJECTING.fetch_add(1, Ordering::Relaxed);
+        let stopped = || stop.as_ref().is_some_and(|f| f.load(Ordering::Relaxed));
+        let times = match (&m.repeat, &stop) {
+            (_, Some(_)) => u32::MAX,
+            (Repeat::Times { n }, None) => (*n).clamp(1, 100),
             _ => 1,
         };
-        for _ in 0..times {
+        // a looping macro with no delay would flood the system
+        let has_delay = m.steps.iter().any(|s| matches!(s, Step::Delay { ms } if *ms > 0));
+        'outer: for _ in 0..times {
             for s in &m.steps {
+                if stopped() {
+                    break 'outer;
+                }
                 match s {
                     Step::KeyDown { key } => {
                         if let Some(k) = keys::to_enigo(key) {
@@ -206,12 +293,27 @@ pub fn play(m: Macro) {
                     Step::MouseUp { button } => {
                         let _ = en.button(mouse(button), Direction::Release);
                     }
-                    Step::Delay { ms } => std::thread::sleep(std::time::Duration::from_millis(*ms as u64)),
+                    Step::Delay { ms } => {
+                        // sleep in slices so a stop is honoured quickly
+                        let mut left = *ms as u64;
+                        while left > 0 && !stopped() {
+                            let n = left.min(25);
+                            std::thread::sleep(std::time::Duration::from_millis(n));
+                            left -= n;
+                        }
+                    }
                     Step::Text { text } => {
                         let _ = en.text(text);
                     }
                 }
             }
+            if stop.is_some() && !has_delay {
+                std::thread::sleep(std::time::Duration::from_millis(30));
+            }
+        }
+        INJECTING.fetch_sub(1, Ordering::Relaxed);
+        if let Some(own) = &stop {
+            RUNNING.lock().retain(|_, f| !Arc::ptr_eq(f, own));
         }
     });
 }
@@ -225,7 +327,8 @@ fn needed(app: &App) -> bool {
         let p = e.state.profile();
         let reactive = e.state.settings.keys_enabled && p.scene.layers.iter().any(|l| l.enabled && l.effect == "ripple");
         let bindings = e.state.profiles.iter().any(|p| p.devices.values().any(|d| !d.bindings.is_empty() || !d.overdrive.is_empty()));
-        reactive || bindings
+        let hotkeys = e.state.macros.iter().any(|m| m.hotkey.is_some());
+        reactive || bindings || hotkeys
     };
     wants_keys || app.recording.lock().is_some()
 }
