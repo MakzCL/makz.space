@@ -1,12 +1,14 @@
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useStore } from "../app/store";
+import { OpenRgbService, useOpenRgb } from "./OpenRgbPanel";
 
 type Health = Awaited<ReturnType<ReturnType<typeof useStore>["api"]["health"]>>;
 
 /** Problems QUASAR can see and the user can fix, with the fix attached. */
 export function HealthNotes() {
   const { api, toast } = useStore();
+  const orgb = useOpenRgb();
   const [h, setH] = useState<Health | null>(null);
   useEffect(() => {
     if (!api.desktop) return;
@@ -39,9 +41,12 @@ export function HealthNotes() {
         <ShieldCheck size={18} color="var(--ion)" style={{ flex: "none", marginTop: 2 }} />
         <div style={{ fontSize: 13, flex: 1 }}>
           <b>RAM lighting is hidden.</b>{" "}
-          <span className="muted">Memory (and some motherboard) lighting sits on a bus Windows only opens to administrators. Restart QUASAR as administrator once; Windows will ask to confirm.</span>
+          <span className="muted">Memory (and some motherboard) lighting sits on a bus Windows only opens to administrators. The lasting fix is running OpenRGB as a Windows service; restarting QUASAR as administrator works until you close it.</span>
+          <div style={{ marginTop: 10 }}>
+            <OpenRgbService st={orgb} />
+          </div>
         </div>
-        <button className="btn sm primary" onClick={() => api.relaunchElevated().catch((e) => toast(String(e)))}>
+        <button className="btn sm" onClick={() => api.relaunchElevated().catch((e) => toast(String(e)))}>
           Restart as administrator
         </button>
       </div>,

@@ -14,6 +14,7 @@ const LABEL: Record<OpenRgbStatus["phase"], [string, string]> = {
   stopped: ["Stopped", ""],
   error: ["Error", "err"],
   unsupported: ["Install it yourself", ""],
+  service: ["Windows service", "live"],
 };
 
 export function useOpenRgb() {
@@ -38,6 +39,43 @@ export function OpenRgbBadge({ st }: { st: OpenRgbStatus | null }) {
 }
 
 /** Install / start / stop the bundled OpenRGB server. */
+/** Install or remove the QuasarOpenRGB Windows service. */
+export function OpenRgbService({ st }: { st: OpenRgbStatus | null }) {
+  const { api, toast, snap } = useStore();
+  const [busy, setBusy] = useState(false);
+  if (!st || snap.platform !== "windows") return null;
+  const run = async (f: () => Promise<void>, ok: string) => {
+    setBusy(true);
+    try {
+      await f();
+      toast(ok);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return st.service ? (
+    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <span className="muted" style={{ fontSize: 12.5 }}>
+        Running as the Windows service <b className="mono">QuasarOpenRGB</b> ({st.service}): it starts with Windows, before you log in, and can reach RAM lighting.
+      </span>
+      <button className="btn sm" disabled={busy} onClick={() => run(api.openrgbServiceRemove, "Service removed")}>
+        {busy ? "Waiting for Windows…" : "Remove service"}
+      </button>
+    </div>
+  ) : (
+    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <span className="muted" style={{ fontSize: 12.5, flex: 1, minWidth: 240 }}>
+        <b>Run OpenRGB as a Windows service.</b> It starts automatically with Windows and has the access RAM and some motherboard lighting need, with no administrator prompt each time. Windows asks to confirm once; QUASAR downloads the official OpenRGB {st.version} and checks it before installing.
+      </span>
+      <button className="btn sm primary" disabled={busy} onClick={() => run(api.openrgbServiceInstall, "OpenRGB service installed")}>
+        {busy ? "Waiting for Windows…" : "Install service"}
+      </button>
+    </div>
+  );
+}
+
 export function OpenRgbActions({ st }: { st: OpenRgbStatus | null }) {
   const { api, toast } = useStore();
   if (!st) return null;
@@ -66,7 +104,7 @@ export function OpenRgbActions({ st }: { st: OpenRgbStatus | null }) {
             <Download size={13} /> Try again
           </button>
         )}
-        {(st.phase === "running" || st.phase === "external") && st.path && (
+        {(st.phase === "running" || st.phase === "external" || st.phase === "service") && (
           <button className="btn sm" title="OpenRGB's own window, attached to the same server, to check a device directly" onClick={() => api.openrgbOpenGui().catch((e) => toast(String(e)))}>
             Open OpenRGB window
           </button>

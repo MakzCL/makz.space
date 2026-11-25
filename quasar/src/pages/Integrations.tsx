@@ -2,7 +2,7 @@ import { AudioLines, Crosshair, Keyboard, MonitorUp, Network, Usb, Copy, Zap } f
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../app/store";
 import { Toggle } from "../components/controls";
-import { OpenRgbActions, OpenRgbBadge, useOpenRgb } from "../components/OpenRgbPanel";
+import { OpenRgbActions, OpenRgbBadge, OpenRgbService, useOpenRgb } from "../components/OpenRgbPanel";
 import type { Settings } from "../lib/types";
 
 function Block({ icon, title, status, children }: { icon: ReactNode; title: string; status: ReactNode; children: ReactNode }) {
@@ -55,11 +55,14 @@ export function Integrations() {
           {api.desktop && (
             <div style={{ marginBottom: 14 }}>
               <OpenRgbActions st={orgb} />
+              <div style={{ marginTop: 12 }}>
+                <OpenRgbService st={orgb} />
+              </div>
               <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
                 <span className="muted" style={{ fontSize: 12.5 }}>Start OpenRGB with QUASAR</span>
                 <Toggle on={s.openrgb_managed} onChange={(v) => set({ openrgb_managed: v })} />
               </div>
-              <p className="dim" style={{ fontSize: 11.5, margin: "8px 0 0" }}>Motherboard and RAM lighting needs OpenRGB's SMBus access: run QUASAR as administrator once, with the PawnIO driver installed (see OpenRGB’s SMBus notes).</p>
+              <p className="dim" style={{ fontSize: 11.5, margin: "8px 0 0" }}>RAM and some motherboard lighting also need the PawnIO driver (pawnio.eu), which OpenRGB uses to reach them.</p>
             </div>
           )}
           <div className="row">

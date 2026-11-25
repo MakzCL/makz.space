@@ -114,6 +114,12 @@ The same port draws the live effect thumbnails in the app.
   not per-device, and is not written to the mouse's onboard memory. On Linux
   the hook only listens, so the original key still fires.
 - Installers are not code-signed.
+- **OpenRGB as a Windows service** (Links → OpenRGB → Install service): one
+  UAC prompt; the elevated step downloads the pinned OpenRGB release, checks
+  its SHA-256, unpacks it to `C:\Program Files\QUASAR OpenRGB` and registers
+  the automatic service `QuasarOpenRGB` (LocalSystem, OpenRGB 1.1's native
+  service mode), with permission for users to start/stop it. RAM lighting
+  then works at every boot without running QUASAR as administrator.
 
 ## Deploying the website
 

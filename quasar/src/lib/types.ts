@@ -168,6 +168,6 @@ export interface Frame {
   stats: Stats;
 }
 
-export type OpenRgbPhase = "unknown" | "not-installed" | "downloading" | "installing" | "starting" | "running" | "external" | "stopped" | "error" | "unsupported";
-export interface OpenRgbStatus { phase: OpenRgbPhase; progress: number; message: string | null; path: string | null; version: string; size_mb: number }
+export type OpenRgbPhase = "unknown" | "not-installed" | "downloading" | "installing" | "starting" | "running" | "external" | "stopped" | "error" | "unsupported" | "service";
+export interface OpenRgbStatus { phase: OpenRgbPhase; progress: number; message: string | null; path: string | null; version: string; size_mb: number; service?: string | null }
 export interface UpdateInfo { current: string; latest: string; date: string; notes: string[]; installable: boolean }

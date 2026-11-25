@@ -42,6 +42,8 @@ pub enum Phase {
     Error,
     /// Not on this OS: install OpenRGB yourself.
     Unsupported,
+    /// The QuasarOpenRGB Windows service is serving.
+    Service,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -53,6 +55,8 @@ pub struct Status {
     pub path: Option<String>,
     pub version: &'static str,
     pub size_mb: u32,
+    /// State of the QuasarOpenRGB Windows service, when installed.
+    pub service: Option<String>,
 }
 
 pub fn root(handle: &AppHandle) -> PathBuf {
@@ -83,6 +87,7 @@ fn set(handle: &AppHandle, app: &App, f: impl FnOnce(&mut Status)) {
     let s = {
         let mut st = app.openrgb.lock();
         f(&mut st);
+        st.service = service::state();
         st.version = VERSION;
         st.size_mb = SIZE_MB;
         st.clone()
@@ -97,6 +102,13 @@ pub fn boot(handle: AppHandle, app: App) {
         let s = &app.engine.lock().state.settings;
         (s.openrgb_managed && s.openrgb_enabled, s.openrgb_host.clone(), s.openrgb_port)
     };
+    if let Some(state) = service::state() {
+        if state != "running" {
+            service::start();
+        }
+        wait_and_scan(handle, app, port, Phase::Service);
+        return;
+    }
     if listening(&host, port) {
         set(&handle, &app, |s| s.phase = Phase::External);
         return;
@@ -183,13 +195,184 @@ pub fn start(handle: &AppHandle, app: &App, exe: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Wait for a server on `port`, then rescan and report `phase`.
+fn wait_and_scan(handle: AppHandle, app: App, port: u16, phase: Phase) {
+    set(&handle, &app, |s| {
+        s.phase = Phase::Starting;
+        s.message = None;
+    });
+    std::thread::spawn(move || {
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_secs(60) {
+            if listening("127.0.0.1", port) {
+                std::thread::sleep(Duration::from_millis(500));
+                crate::configure_backends(&mut app.engine.lock());
+                app.touch();
+                set(&handle, &app, |s| s.phase = phase);
+                let _ = handle.emit("devices-changed", ());
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        set(&handle, &app, |s| {
+            s.phase = Phase::Error;
+            s.message = Some("The OpenRGB service did not open its server. Check it in Windows Services (QuasarOpenRGB).".into());
+        });
+    });
+}
+
+/// The QuasarOpenRGB Windows service: OpenRGB 1.1 runs as a service natively
+/// (startup/main_Windows.cpp: server mode, config in `service_config` beside
+/// the exe), as LocalSystem, so PawnIO can reach RAM without elevating the app.
+pub mod service {
+    use super::*;
+
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub const NAME: &str = "QuasarOpenRGB";
+
+    /// Where the service's copy lives. Must be admin-only: a LocalSystem
+    /// service run from a user-writable folder is a privilege escalation.
+    pub fn dir() -> PathBuf {
+        PathBuf::from(std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into())).join("QUASAR OpenRGB")
+    }
+
+    #[cfg(windows)]
+    fn hidden(cmd: &mut Command) -> &mut Command {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000)
+    }
+
+    /// `running`, `stopped`, ... or None when not installed (or not Windows).
+    pub fn state() -> Option<String> {
+        #[cfg(windows)]
+        {
+            let out = hidden(&mut Command::new("sc.exe")).args(["query", NAME]).output().ok()?;
+            if !out.status.success() {
+                return None;
+            }
+            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            for s in ["running", "stopped", "start_pending", "stop_pending"] {
+                if text.contains(s) {
+                    return Some(s.replace('_', "-"));
+                }
+            }
+            return Some("unknown".into());
+        }
+        #[allow(unreachable_code)]
+        None
+    }
+
+    /// Start it; allowed without elevation by the ACL set at install.
+    pub fn start() {
+        #[cfg(windows)]
+        let _ = hidden(&mut Command::new("sc.exe")).args(["start", NAME]).status();
+    }
+
+    /// Newest log file the service wrote.
+    pub fn log() -> Option<PathBuf> {
+        let dir = dir().join("service_config").join("logs");
+        std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok()).map(|e| e.path())
+    }
+
+    /// Run a PowerShell script elevated (one UAC prompt) and wait for it.
+    /// The script travels as -EncodedCommand, never as a file: a script on
+    /// disk could be swapped between writing it and the elevated run. Only
+    /// its "ok"/error text comes back through a file.
+    #[cfg(windows)]
+    fn run_elevated(script: &str) -> Result<(), String> {
+        let result = std::env::temp_dir().join("quasar-openrgb-service.txt");
+        let _ = std::fs::remove_file(&result);
+        let q = |p: &Path| p.display().to_string().replace('\'', "''");
+        let body = format!(
+            "$ErrorActionPreference = 'Stop'\ntry {{\n{script}\n  'ok' | Set-Content -Path '{r}'\n}} catch {{ $_.Exception.Message | Set-Content -Path '{r}' }}\n",
+            r = q(&result)
+        );
+        let utf16: Vec<u8> = body.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+        let encoded = quasar_core::b64::encode(&utf16);
+        let launcher = format!(
+            "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','{encoded}'"
+        );
+        let st = hidden(&mut Command::new("powershell")).args(["-NoProfile", "-Command", &launcher]).status().map_err(|e| e.to_string())?;
+        match std::fs::read_to_string(&result) {
+            Ok(s) if s.trim() == "ok" => Ok(()),
+            Ok(s) => Err(s.trim().to_string()),
+            Err(_) if !st.success() => Err("Windows did not grant administrator rights.".into()),
+            Err(_) => Err("The setup was cancelled.".into()),
+        }
+    }
+
+    /// Register and start the service. The elevated step fetches the
+    /// pinned OpenRGB release itself and checks its SHA-256, so nothing
+    /// from a user-writable folder ever becomes a LocalSystem service.
+    pub fn install(handle: &AppHandle, app: &App) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            stop(app); // free the port
+            let q = |p: &Path| p.display().to_string().replace('\'', "''");
+            let dst = dir();
+            let exe = dst.join("OpenRGB.exe");
+            let script = format!(
+                r#"  if (Get-Service -Name {NAME} -ErrorAction SilentlyContinue) {{ Stop-Service -Name {NAME} -Force -ErrorAction SilentlyContinue; sc.exe delete {NAME} | Out-Null; Start-Sleep -Seconds 1 }}
+  $dst = '{dst}'
+  New-Item -ItemType Directory -Force -Path $dst | Out-Null
+  $zip = Join-Path $dst 'openrgb.zip'
+  $tmp = Join-Path $dst 'unpack'
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  Invoke-WebRequest -Uri '{URL}' -OutFile $zip -UseBasicParsing
+  if ((Get-FileHash -Path $zip -Algorithm SHA256).Hash -ne '{SHA256}') {{ Remove-Item $zip -Force; throw 'The OpenRGB download did not match its checksum.' }}
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  Expand-Archive -Path $zip -DestinationPath $tmp -Force
+  Copy-Item -Path (Join-Path $tmp 'OpenRGB Windows 64-bit\*') -Destination $dst -Recurse -Force
+  Remove-Item $tmp, $zip -Recurse -Force
+  New-Service -Name {NAME} -BinaryPathName '"{exe}"' -DisplayName 'QUASAR OpenRGB' -Description 'OpenRGB SDK server for QUASAR, with access to RAM and motherboard lighting.' -StartupType Automatic | Out-Null
+  sc.exe sdset {NAME} 'D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWRPWPLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)' | Out-Null
+  Start-Service -Name {NAME}"#,
+                dst = q(&dst),
+                exe = q(&exe),
+            );
+            run_elevated(&script)?;
+            let port = app.engine.lock().state.settings.openrgb_port;
+            wait_and_scan(handle.clone(), app.clone(), port, Phase::Service);
+            return Ok(());
+        }
+        #[allow(unreachable_code)]
+        {
+            let _ = (handle, app);
+            Err("The OpenRGB service is for Windows.".into())
+        }
+    }
+
+    /// Stop and delete the service and its folder; QUASAR goes back to
+    /// running OpenRGB itself.
+    pub fn remove(handle: &AppHandle, app: &App) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            let q = |p: &Path| p.display().to_string().replace('\'', "''");
+            let script = format!(
+                "  Stop-Service -Name {NAME} -Force -ErrorAction SilentlyContinue\n  sc.exe delete {NAME} | Out-Null\n  Start-Sleep -Seconds 1\n  Remove-Item -Path '{}' -Recurse -Force -ErrorAction SilentlyContinue",
+                q(&dir())
+            );
+            run_elevated(&script)?;
+            let (h, a) = (handle.clone(), app.clone());
+            std::thread::spawn(move || boot(h, a));
+            return Ok(());
+        }
+        #[allow(unreachable_code)]
+        {
+            let _ = (handle, app);
+            Err("The OpenRGB service is for Windows.".into())
+        }
+    }
+}
+
 pub fn log_path(handle: &AppHandle) -> PathBuf {
     root(handle).join("openrgb.log")
 }
 
 /// The last `n` lines of the managed server's log.
 pub fn log_tail(handle: &AppHandle, n: usize) -> Vec<String> {
-    let text = std::fs::read(log_path(handle)).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+    let path = if service::state().is_some() { service::log().unwrap_or_else(|| log_path(handle)) } else { log_path(handle) };
+    let text = std::fs::read(path).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
     let lines: Vec<String> = text.lines().map(|l| l.trim_end().to_string()).filter(|l| !l.is_empty()).collect();
     lines[lines.len().saturating_sub(n)..].to_vec()
 }
@@ -197,7 +380,8 @@ pub fn log_tail(handle: &AppHandle, n: usize) -> Vec<String> {
 /// Open OpenRGB's own window as a client of the server QUASAR talks to, so
 /// a person can check a device in OpenRGB directly.
 pub fn open_gui(handle: &AppHandle, app: &App) -> Result<(), String> {
-    let exe = find(handle).ok_or("OpenRGB is not installed.")?;
+    let svc = service::dir().join("OpenRGB.exe");
+    let exe = find(handle).or_else(|| svc.is_file().then_some(svc)).ok_or("OpenRGB is not installed.")?;
     let port = app.engine.lock().state.settings.openrgb_port;
     let cfg = root(handle).join("gui-config");
     let _ = std::fs::create_dir_all(&cfg);
@@ -342,10 +526,13 @@ pub fn other_instances(app: &App) -> usize {
     let ours = app.openrgb_child.lock().as_ref().map(|c| c.id());
     let Ok(mut sys) = sysinfo::System::new() else { return 0 };
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-    sys.processes()
+    let n = sys
+        .processes()
         .iter()
         .filter(|(pid, p)| p.name().to_string_lossy().eq_ignore_ascii_case("OpenRGB.exe") && Some(pid.as_u32()) != ours)
-        .count()
+        .count();
+    // the service's own OpenRGB is expected
+    n.saturating_sub(usize::from(service::state().as_deref() == Some("running")))
 }
 
 /// Whether this process runs as administrator (Windows only).

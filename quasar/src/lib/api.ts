@@ -44,6 +44,8 @@ export interface Api {
   applyAll(save: boolean): Promise<[string, string][]>;
   health(): Promise<{ smbus: "unknown" | "ok" | "needs-admin" | "pawnio-missing"; elevated: boolean; other_openrgb: number }>;
   relaunchElevated(): Promise<void>;
+  openrgbServiceInstall(): Promise<void>;
+  openrgbServiceRemove(): Promise<void>;
   /** Backend events: openrgb, update, update-progress, update-error, devices-changed. */
   on<T>(event: string, cb: (payload: T) => void): () => void;
   /** Demo only: simulate a keypress / a hit in game. */
@@ -99,6 +101,8 @@ async function desktopApi(): Promise<Api> {
     applyAll: (save) => invoke("apply_all", { save }),
     health: () => invoke("health"),
     relaunchElevated: () => invoke("relaunch_elevated"),
+    openrgbServiceInstall: () => invoke("openrgb_service_install"),
+    openrgbServiceRemove: () => invoke("openrgb_service_remove"),
     on(event, cb) {
       let un: (() => void) | undefined;
       let dead = false;
@@ -186,6 +190,8 @@ async function demoApi(): Promise<Api> {
     applyAll: () => ok([]),
     health: () => ok({ smbus: "ok", elevated: false, other_openrgb: 0 }),
     relaunchElevated: () => ok(undefined),
+    openrgbServiceInstall: () => Promise.reject("Needs the desktop app on Windows."),
+    openrgbServiceRemove: () => ok(undefined),
     diagnostics: () => ok(JSON.stringify({ quasar: "web demo", devices: e.snapshot().devices.map((d) => d.info.name) }, null, 2)),
     on: () => () => {},
     onFrame(cb) {

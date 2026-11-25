@@ -273,6 +273,7 @@ pub fn set_autostart(handle: AppHandle, app: State<App>, enabled: bool) -> R<()>
 pub fn openrgb_status(app: State<App>) -> crate::services::openrgb::Status {
     let mut s = app.openrgb.lock().clone();
     s.version = crate::services::openrgb::VERSION;
+    s.service = crate::services::openrgb::service::state();
     s
 }
 
@@ -399,4 +400,16 @@ pub async fn health(handle: AppHandle, app: State<'_, App>) -> R<Health> {
 #[tauri::command]
 pub fn relaunch_elevated(handle: AppHandle, app: State<App>) -> R<()> {
     crate::services::openrgb::relaunch_elevated(&handle, app.inner())
+}
+
+#[tauri::command]
+pub async fn openrgb_service_install(handle: AppHandle, app: State<'_, App>) -> R<()> {
+    let a = app.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || crate::services::openrgb::service::install(&handle, &a)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn openrgb_service_remove(handle: AppHandle, app: State<'_, App>) -> R<()> {
+    let a = app.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || crate::services::openrgb::service::remove(&handle, &a)).await.map_err(|e| e.to_string())?
 }
