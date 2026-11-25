@@ -1,12 +1,11 @@
 {
-  "version": "0.1.9",
-  "date": "2026-11-24",
+  "version": "0.1.10",
+  "date": "2026-11-25",
   "notes": [
-    "Explains missing RAM lighting and offers Restart as administrator",
-    "Warns when a second OpenRGB is running"
+    "OpenRGB can run as a Windows service: starts with Windows and reaches RAM lighting with no admin prompt"
   ],
   "windows": {
-    "url": "https://github.com/MakzCL/makz.space/releases/download/quasar-v0.1.9/QUASAR_0.1.9_x64-setup.exe",
-    "sha256": "f9a3748fb49653738a592075e03fab9360392dc72e459e820a950a2392a5f784"
+    "url": "https://github.com/MakzCL/makz.space/releases/download/quasar-v0.1.10/QUASAR_0.1.10_x64-setup.exe",
+    "sha256": "d1c481e3258b972969a0927b2818e953cf4e8c966c32f0deb54c936086c230b0"
   }
 }
