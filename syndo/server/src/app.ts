@@ -91,7 +91,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     const samples: number[] = [];
     for (let i = 0; i < 5; i++) { const s = performance.now(); await pool.query("select 1"); samples.push(Math.round((performance.now() - s) * 10) / 10); }
     const { turnStatus } = await import("./sfu.ts");
-    return { colo: await colo, turn: turnStatus, db_roundtrip_ms: samples, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } };
+    const { budget } = await import("./budget.ts");
+    return { colo: await colo, turn: turnStatus, media_budget: { level: budget.level, configured: budget.configured, checked_at: budget.checked_at }, db_roundtrip_ms: samples, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } };
   });
   /** Instance metadata — identical limits for every account, published openly. */
   app.get("/api/instance", async () => ({ name: BRAND.name, tagline: BRAND.tagline, limits: config.limits, registration: true }));

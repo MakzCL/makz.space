@@ -516,6 +516,8 @@ export function deviceError(e: unknown): string {
 import("../store.ts").then(({ onEvent }) => {
   onEvent("VOICE_DISCONNECTED", () => { if (get().channelId) { leaveVoice(); toast("You were removed from the voice channel.", "info"); } });
   onEvent("VOICE_MOVE", (d) => joinVoice(d.channel_id));
+  // The server moved this call to a direct connection (its monthly spending cap): reconnect to the same channel.
+  onEvent("VOICE_REJOIN", async (d) => { if (get().channelId !== d.channel_id) return; await leaveVoice({ switching: true }); await joinVoice(d.channel_id); });
   onEvent("VOICE_MEDIA_UPDATE", (d) => { if (cf && get().channelId === d.channel_id) cf.pollNow(); });
 });
 // Device hot-plug: fall back to the default device if the selected one disappears.

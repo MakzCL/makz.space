@@ -1,4 +1,5 @@
 import { sfuConfigured, openSfu, iceServers } from "../sfu.ts";
+import { sfuAllowed } from "../budget.ts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ChannelType, MessageType, P, has, isDmType, isVoiceType } from "@send/shared";
@@ -74,7 +75,9 @@ export async function voiceRoutes(app: FastifyInstance) {
     // A voice channel set to the worldwide network uses Cloudflare's media servers (everyone connects to their
     // nearest Cloudflare location); everything else connects people directly.
     const global = channel.rtc_region === "global" && sfuConfigured();
-    if (config.voiceMode === "mesh" && !global) return { provider: "mesh", ice_servers: await iceServers(), grants: { speak, video, vad: has(perms, P.USE_VAD) } };
+    // Past the free allowance (budget.ts), new calls connect directly instead of through the paid call server.
+    const capped = sfuConfigured() && !sfuAllowed();
+    if ((config.voiceMode === "mesh" && !global) || capped) return { provider: "mesh", ice_servers: await iceServers(), grants: { speak, video, vad: has(perms, P.USE_VAD) } };
     if (sfuConfigured()) { const [p, ice] = await Promise.all([openSfu(me, req.session!.id, channel.id, u.display_name || u.username), iceServers()]); return { provider: "cloudflare", session: p.id, ice_servers: ice, grants: { speak, video, vad: has(perms, P.USE_VAD) } }; }
     const token = await mintToken({ userId: me, name: u.display_name || u.username, channelId: channel.id, speak, video });
     return {

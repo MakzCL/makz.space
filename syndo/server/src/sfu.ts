@@ -1,6 +1,7 @@
 import { config } from "./config.ts";
 import { ApiError } from "./errors.ts";
 import { toUsers } from "./gateway.ts";
+import { onBudgetChange, relayAllowed } from "./budget.ts";
 export type Publication = { name:string; mid:string; kind:"mic"|"camera"|"screen"|"screen-audio" };
 export type SfuPeer = { id:string; consumer:string; user:string; name:string; auth:string; channel:string; publications:Publication[]; consumerMids:Set<string>; touched:number; tail:Promise<unknown> };
 export const sfuPeers=new Map<string,SfuPeer>();
@@ -41,10 +42,12 @@ const sweep=setInterval(()=>{for(const p of sfuPeers.values())if(Date.now()-p.to
  */
 const STUN = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
 export const turnStatus = { configured: false, last: "never requested" };
-// Credentials are minted for 24 h; reuse them for 12 h so joining doesn't wait on a TURN round trip every time.
+// Credentials are minted for 3 h and reused for 1 h, so joining rarely waits on a TURN round trip, and once the
+// spending cap is reached (budget.ts) relay access already handed out runs out within a few hours.
 let iceCache: { at: number; list: RTCIceServerLike[] } | null = null;
-const ICE_REUSE_MS = 12 * 3600_000;
+const ICE_REUSE_MS = 3600_000;
 export async function iceServers(): Promise<RTCIceServerLike[]> {
+ if (!relayAllowed()) { turnStatus.last = "paused: monthly spending cap reached"; return STUN; }
  if (iceCache && Date.now() - iceCache.at < ICE_REUSE_MS) return iceCache.list;
  const list = await mintIceServers();
  if (list !== STUN) iceCache = { at: Date.now(), list };
@@ -54,7 +57,7 @@ async function mintIceServers(): Promise<RTCIceServerLike[]> {
  turnStatus.configured = !!(config.sfu.turnKeyId && config.sfu.turnKeyToken);
  if (!config.sfu.turnKeyId || !config.sfu.turnKeyToken) { turnStatus.last = "not configured"; return STUN; }
  try {
-  const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${config.sfu.turnKeyId}/credentials/generate-ice-servers`, { method: "POST", headers: { authorization: `Bearer ${config.sfu.turnKeyToken}`, "content-type": "application/json" }, body: JSON.stringify({ ttl: 86400 }), signal: AbortSignal.timeout(4000) });
+  const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${config.sfu.turnKeyId}/credentials/generate-ice-servers`, { method: "POST", headers: { authorization: `Bearer ${config.sfu.turnKeyToken}`, "content-type": "application/json" }, body: JSON.stringify({ ttl: 3 * 3600 }), signal: AbortSignal.timeout(4000) });
   if (!r.ok) throw new Error(`TURN credentials ${r.status}: ${(await r.text()).slice(0, 120)}`);
   const data: any = await r.json();
   const list = (Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers]).filter(Boolean)
@@ -68,3 +71,16 @@ type RTCIceServerLike = { urls: string[] | string; username?: string; credential
 
 /** Tell everyone else in the call that publications changed, so they subscribe now instead of on their next poll. */
 export function announceMedia(channel:string,except:string){const users=new Set([...sfuPeers.values()].filter(p=>p.channel===channel&&p.user!==except).map(p=>p.user));if(users.size)toUsers(users,"VOICE_MEDIA_UPDATE",{channel_id:channel});}
+
+/**
+ * Spending cap reached (budget.ts): move everyone off the call server. Their apps rejoin the same channel and,
+ * with the call server closed to new calls, connect directly instead.
+ */
+onBudgetChange((level) => {
+ if (level !== "hard") return;
+ iceCache = null;
+ const byChannel = new Map<string, Set<string>>();
+ for (const p of sfuPeers.values()) { if (!byChannel.has(p.channel)) byChannel.set(p.channel, new Set()); byChannel.get(p.channel)!.add(p.user); }
+ void closeMatching(() => true).catch(() => {});
+ for (const [channel, users] of byChannel) toUsers(users, "VOICE_REJOIN", { channel_id: channel, reason: "budget" });
+});
