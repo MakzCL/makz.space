@@ -751,3 +751,11 @@ Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100% (voice 
 - Deployed: web Pages 17a9ec4a from commit 0e0e1e4 (screen share in its own sync group in direct calls, screen degradation preference).
 - Before: Pages 24c453d6 at 0285f35. Branch backup: backup/pre-stream-lag-20261126.
 - Roll back: Cloudflare Pages, syndo-app, deployment 24c453d6, "Rollback to this deployment".
+
+## 2026-11-26: monthly spending cap for calls (backend + web)
+
+- Backend (Worker `send-beta-api`): version `dab33235-62c9-4faf-8940-851aa552438b`, `SOURCE_COMMIT` `b6283466f749ce924e7e5627876e39816800157c`. New bindings: `SEND_CF_ACCOUNT_ID`, `SEND_MEDIA_BUDGET_USD=5`, secret `SEND_CF_ANALYTICS_TOKEN` (account API token `da257cf1...`, "SEND media budget (analytics read)", Account Analytics Read only). The bundled `OPTIONAL_ENV` list gained those three names.
+- Web: Pages `d3bbf65f` from `b628346` (rejoins a call when the server moves it off the call server).
+- Before: Worker version `e8172900-779a-476a-909b-022c56e6d00a` (`SOURCE_COMMIT` `a60d611`), Pages `17a9ec4a`. Branch backup: `backup/pre-media-budget-20261126`.
+- Roll back: Workers, send-beta-api, Deployments, deploy version `e8172900`; Pages, syndo-app, rollback to `17a9ec4a`. Delete the analytics token if the cap is dropped for good.
+- Check: `GET /api/health/latency` shows `media_budget.level` (ok / soft / hard). Change the budget with the `SEND_MEDIA_BUDGET_USD` variable.
