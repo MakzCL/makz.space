@@ -745,3 +745,9 @@ Roll back: deploy version `728a39d9-1bf8-4007-9e4b-8ae49a08a249` at 100% (voice 
 - Deployed: web Pages 24c453d6 from commit 0285f35 (phone call grid, names on video tiles). It also takes the 0.8.6 web changes live (watch-only streaming, H.264, sound line).
 - Before: Pages aee82b83 at 6dd7526. Branch backup: backup/pre-call-grid-20261121.
 - Roll back: Cloudflare Pages, syndo-app, deployment aee82b83, "Rollback to this deployment".
+
+## 2026-11-26: stream lag fix (web)
+
+- Deployed: web Pages 17a9ec4a from commit 0e0e1e4 (screen share in its own sync group in direct calls, screen degradation preference).
+- Before: Pages 24c453d6 at 0285f35. Branch backup: backup/pre-stream-lag-20261126.
+- Roll back: Cloudflare Pages, syndo-app, deployment 24c453d6, "Rollback to this deployment".
