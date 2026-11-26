@@ -11,3 +11,11 @@ npm-debug.log*
 .vercel
 next-env.d.ts
 *.tsbuildinfo
+syndo/data/
+syndo/web/dist/
+!syndo/desktop/build/
+syndo/desktop/dist/
+syndo/desktop/release/
+.wrangler/
+
+.dev.vars*
