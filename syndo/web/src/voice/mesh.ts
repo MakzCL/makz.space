@@ -43,6 +43,13 @@ export class MeshCall {
   speakTimer: ReturnType<typeof setInterval> | null = null;
   off: (() => void)[] = [];
   me: string;
+  /**
+   * Stream labels for the receiver's sync groups: mic + camera in one, screen sound + screen video in the other.
+   * One shared label for all four made the receiver hold the screen back to line it up with the camera and mic,
+   * a delay that kept growing the longer someone streamed with cameras on. Receivers route by slot, not label.
+   */
+  avLabel = new MediaStream();
+  shareLabel = new MediaStream();
 
   constructor(public channelId: string, public ice: IceServer[]) {
     this.me = useStore.getState().me!.id;
@@ -134,13 +141,13 @@ export class MeshCall {
     this.pendingIce.delete(uid);
     this.peers.set(uid, p);
     if (offerer) {
-      const streams = this.local ? [this.local] : [];
-      pc.addTransceiver(this.mic ?? "audio", { direction: "sendrecv", streams });
+      const av = [this.avLabel], share = [this.shareLabel];
+      pc.addTransceiver(this.mic ?? "audio", { direction: "sendrecv", streams: av });
       // Until their state says otherwise, assume the one-video-slot layout of older versions.
-      const v = pc.addTransceiver(this.outgoingVideo() ?? "video", { direction: "sendrecv", streams });
+      const v = pc.addTransceiver(this.outgoingVideo() ?? "video", { direction: "sendrecv", streams: av });
       this.tuneVideo(v.sender);
-      pc.addTransceiver(this.screenSound ?? "audio", { direction: "sendrecv", streams });
-      pc.addTransceiver("video", { direction: "sendrecv", streams });
+      pc.addTransceiver(this.screenSound ?? "audio", { direction: "sendrecv", streams: share });
+      pc.addTransceiver("video", { direction: "sendrecv", streams: share });
       for (const tr of this.slots(pc, "video")) preferVideoCodec(tr, useVoice.getState().settings.stream.codec);
     }
     pc.onicecandidate = (e) => { if (e.candidate) this.signal(uid, "ice", e.candidate.toJSON()); };
@@ -200,7 +207,8 @@ export class MeshCall {
         if (!p) p = this.makePeer(from, false);
         await p.pc.setRemoteDescription(data);
         // Attach my mic, camera and screen to the slots the offer created.
-        for (const tr of p.pc.getTransceivers()) { tr.direction = "sendrecv"; if (this.local) tr.sender.setStreams?.(this.local); }
+        // Slots come in offer order: mic, camera, screen sound, screen video (see makePeer).
+        for (const [i, tr] of p.pc.getTransceivers().entries()) { tr.direction = "sendrecv"; tr.sender.setStreams?.(i < 2 ? this.avLabel : this.shareLabel); }
         const mic = this.slots(p.pc, "audio")[0];
         if (mic && mic.sender.track !== this.mic) await mic.sender.replaceTrack(this.mic).catch(() => {});
         await this.attach(p);
@@ -335,7 +343,14 @@ export class MeshCall {
       const screen = !!this.screenTrack && sender.track === this.screenTrack, st = useVoice.getState().settings.stream;
       p.encodings[0]!.maxBitrate = screen ? streamBitrate(st, this.screenTrack?.getSettings().height ?? 1080) : CAM.maxBitrate;
       p.encodings[0]!.maxFramerate = screen ? st.fps : CAM.maxFramerate;
-      sender.setParameters(p).catch(() => {});
+      const pref = st.contentHint === "detail" ? "maintain-resolution" : "maintain-framerate";
+      sender.setParameters(p).then(() => {
+        // Under a tight connection: text stays sharp and drops frames; games and video keep their frame rate.
+        // Its own call, so a browser that rejects it can't undo the bitrate cap above.
+        if (!screen) return;
+        const q = sender.getParameters() as any; q.degradationPreference = pref;
+        return sender.setParameters(q);
+      }).catch(() => {});
     } catch { /* not ready yet */ }
   }
   private async replaceVideo() {
